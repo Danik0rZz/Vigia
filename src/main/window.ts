@@ -1,6 +1,7 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, nativeTheme } from 'electron'
 import { APP_ENTRY_URL, APP_NAME } from '@shared/app'
 import { preloadPath } from './paths'
+import { titleBarColors } from './theme'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -21,6 +22,7 @@ export function focusMainWindow(): void {
  * la interfaz compilada por el protocolo `app://`.
  */
 export function createMainWindow(devServerUrl: string | undefined): BrowserWindow {
+  const colors = titleBarColors(nativeTheme.shouldUseDarkColors)
   const window = new BrowserWindow({
     title: APP_NAME,
     width: 1280,
@@ -29,7 +31,10 @@ export function createMainWindow(devServerUrl: string | undefined): BrowserWindo
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0f1115',
+    // Barra de título propia (la dibuja la interfaz) conservando los botones nativos.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: colors.overlay,
+    backgroundColor: colors.background,
     webPreferences: {
       preload: preloadPath(),
       contextIsolation: true,
@@ -39,8 +44,18 @@ export function createMainWindow(devServerUrl: string | undefined): BrowserWindo
     }
   })
 
+  // Los botones nativos siguen al tema: cambia al elegirlo en la app o, con
+  // "Sistema", al cambiar el de Windows.
+  const applyTheme = (): void => {
+    const next = titleBarColors(nativeTheme.shouldUseDarkColors)
+    window.setTitleBarOverlay(next.overlay)
+    window.setBackgroundColor(next.background)
+  }
+  nativeTheme.on('updated', applyTheme)
+
   window.once('ready-to-show', () => window.show())
   window.on('closed', () => {
+    nativeTheme.off('updated', applyTheme)
     if (mainWindow === window) mainWindow = null
   })
 

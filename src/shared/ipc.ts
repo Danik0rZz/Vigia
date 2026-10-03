@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+/** Preferencia de tema: "system" sigue al tema de Windows. */
+export const themePreferences = ['light', 'dark', 'system'] as const
+export type ThemePreference = (typeof themePreferences)[number]
+
 /**
  * Contrato IPC: la única vía por la que la interfaz habla con el proceso main.
  *
@@ -33,6 +37,14 @@ export const ipcContract = {
       reply: z.string(),
       receivedAt: z.iso.datetime()
     })
+  },
+  /**
+   * Aplica la preferencia de tema a `nativeTheme`, para que los controles nativos
+   * y la barra de título coincidan con la interfaz. El CSS lo resuelve el renderer.
+   */
+  'ui:setTheme': {
+    input: z.object({ theme: z.enum(themePreferences) }),
+    output: z.object({ dark: z.boolean() })
   }
 } as const
 

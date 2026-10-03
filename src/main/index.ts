@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import { APP_NAME, APP_ORIGIN, APP_USER_MODEL_ID } from '@shared/app'
 import { createAppHandlers } from './ipc/handlers/app'
+import { createUiHandlers } from './ipc/handlers/ui'
 import { registerIpcHandlers } from './ipc/register'
 import { initLogging, log } from './logging'
 import { configureAppPaths, rendererRoot } from './paths'
@@ -71,6 +72,12 @@ function bootstrap(): void {
               node: process.versions.node
             }
           })
+        }),
+        ...createUiHandlers({
+          setThemeSource: (theme) => {
+            nativeTheme.themeSource = theme
+            return nativeTheme.shouldUseDarkColors
+          }
         })
       },
       {
