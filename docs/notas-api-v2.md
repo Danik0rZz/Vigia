@@ -92,11 +92,55 @@ Cada endpoint se documenta con los mismos apartados:
 
 ## a) Problems
 
-_OpenAPI._ Pendiente de la prueba en vivo.
+_Observado (2026-10-04)._ Prueba: `src/main/modules/problems-explore.live.test.ts` (15 lecturas).
+Las proporciones están redondeadas al 5 % y salen de una muestra de 7 días: describen este tenant,
+no la API en general.
 
 ### `GET /problems`
 
+- **Parámetros por defecto:** sin `from`, la API usa `now-2h`, y sin `pageSize`, 50 (OpenAPI).
+  Vigía siempre envía el rango de la vista y `pageSize` 100 (hasta 5 páginas).
+- **Respuesta:** `problems`, `totalCount` (número, también en la página 2), `pageSize`,
+  `nextPageKey` y **`warnings`**, que la OpenAPI declara y Vigía todavía no muestra.
+- **Paginación:**
+  - Con `pageSize` 2 llegan exactamente 2 elementos.
+  - Página 2 con `nextPageKey` y el mismo `fields` → trae las partes pedidas (`evidenceDetails`).
+  - Página 2 solo con `nextPageKey` → **no** las trae: hay que repetir `fields`.
+  - Página 2 con `nextPageKey` **y otro parámetro** (`from`) → **400**. Confirma la regla de
+    `DT_ENDPOINTS` (solo se repite `fields`).
+- **Campos vacíos o ausentes** (en la lista, sin `fields`):
+  - Siempre presentes: `problemId`, `displayId`, `title`, `status`, `severityLevel`,
+    `impactLevel`, `startTime`, `endTime`, `affectedEntities` e `impactedEntities`.
+  - `endTime` es `-1` en todos los abiertos.
+  - A menudo vacíos: `managementZones` (casi siempre), `rootCauseEntity` y
+    `k8s.namespace.name` (en la mayoría), `entityTags` y `problemFilters` (en una parte).
+  - Nunca vienen sin `fields`: `evidenceDetails`, `impactAnalysis` y `recentComments`. Tampoco
+    `linkedProblemInfo`.
+- **Diferencias con la OpenAPI:**
+  - Llegan campos que no declara: `k8s.cluster.name` y `k8s.cluster.uid`. Los esquemas son
+    tolerantes (`looseObject`), así que no rompen nada.
+  - Valores observados de `severityLevel`: `AVAILABILITY`, `CUSTOM_ALERT`, `ERROR`,
+    `PERFORMANCE` y `RESOURCE_CONTENTION`, todos de la OpenAPI. Los de `impactLevel` son los
+    cuatro de la OpenAPI.
+  - Tipos de entidad afectada: `APPLICATION`, `CLOUD_APPLICATION`, `ENVIRONMENT`, `HOST`,
+    `HTTP_CHECK`, `PROCESS_GROUP_INSTANCE`, `SERVICE` y `SYNTHETIC_TEST`.
+  - Ningún elemento de la muestra falla con `problemSchema`.
+- **Selectores:**
+  - Funcionan `status("open")`, `severityLevel("ERROR","AVAILABILITY")`, `text("a")` y
+    `entitySelector=type("SERVICE")`.
+  - Un `problemSelector` mal formado da **400**, que hoy Vigía muestra como
+    `INVALID_RESPONSE` (ver Propuestas).
+- **Límites:** `now-30d`, `now-90d` y `now-1y` responden sin error con `pageSize` 1.
+- **Tiempos:** mediana de unos 350 ms y máximo por debajo de 600 ms en las 15 peticiones.
+
 ### `GET /problems/{problemId}`
+
+- Con `fields=evidenceDetails,impactAnalysis,recentComments` llegan las tres partes.
+  `linkedProblemInfo` no aparece si no hay problema vinculado (es opcional en el esquema).
+- En la muestra, la evidencia era de tipo `EVENT`, `impactAnalysis.impacts` venía vacío y no había
+  comentarios: el detalle tiene que mostrar bien las partes vacías ("Ninguno").
+- La respuesta valida con `problemDetailSchema`.
+- Un id inexistente da **404** (`NOT_FOUND`).
 
 ## b) Entities y entityTypes
 
@@ -136,3 +180,11 @@ _OpenAPI._ Solo si sobra tiempo.
 
 Funciones que la exploración hace posibles y que decide Dani. No se implementa ninguna interfaz
 nueva sin su visto bueno.
+
+- **Problems: mostrar `warnings`.** La lista trae `warnings` y hoy se descartan. Mejora del módulo
+  que ya existe (como los de Métricas): un aviso bajo la tabla.
+- **Error 400 propio.** Hoy un 400 (selector mal formado o parámetros de más) llega como
+  `INVALID_RESPONSE` ("respuesta inesperada"). Un código `BAD_REQUEST` con el mensaje de la API
+  diría qué parámetro falla.
+- **Problems por clúster de Kubernetes.** La lista trae `k8s.cluster.name`, que no declara la
+  OpenAPI: se podría filtrar o agrupar por clúster, igual que por namespace.
