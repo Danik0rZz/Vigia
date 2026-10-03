@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   _electron as electron,
   expect,
@@ -13,18 +16,24 @@ import {
  */
 let app: ElectronApplication
 let page: Page
+let userDataDir: string
 
 test.beforeAll(async () => {
+  // Carpeta de datos propia: el bloqueo de instancia única va por carpeta, así
+  // que un `npm run dev` abierto (que usa vigia-dev) no impide arrancar la prueba.
+  userDataDir = mkdtempSync(join(tmpdir(), 'vigia-e2e-smoke-'))
   app = await electron.launch({
     // VIGIA_E2E_NO_SANDBOX solo hace falta en contenedores Linux que ejecutan como root.
-    args: ['.', ...(process.env['VIGIA_E2E_NO_SANDBOX'] ? ['--no-sandbox'] : [])]
+    args: ['.', ...(process.env['VIGIA_E2E_NO_SANDBOX'] ? ['--no-sandbox'] : [])],
+    env: { ...process.env, VIGIA_USER_DATA_DIR: userDataDir }
   })
   page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
 })
 
 test.afterAll(async () => {
-  await app.close()
+  await app?.close()
+  rmSync(userDataDir, { recursive: true, force: true })
 })
 
 /** Llama a un canal IPC desde la interfaz, como lo haría la app. */
