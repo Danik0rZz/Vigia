@@ -15,7 +15,8 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 Última actualización: 2026-10-03.
 
 - **Fase 1 (base del proyecto): aceptada, versión 0.1.0.** Criterios automáticos y manuales cumplidos; los manuales los comprobó Dani en Windows.
-- **Siguiente: Fase 2 (esqueleto de la interfaz).**
+- **Fase 2 (esqueleto de la interfaz): entregada, sin publicar.** Criterios automáticos cumplidos (check 44 tests, e2e 26 tests, en Windows); criterios manuales pendientes de Dani.
+- **Siguiente: Fase 3 (datos locales y secretos)**, cuando Dani acepte la Fase 2.
 - **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
 - El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
@@ -27,6 +28,13 @@ Aceptación manual de la Fase 1 (comprobada por Dani en Windows):
 - [x] `npm run dev` abre la ventana en Windows.
 - [x] El zip (`npm run dist:win`) arranca en un PC sin Node.
 - [x] El zip arranca en un PC corporativo (SmartScreen, AppLocker).
+
+Pendiente de Dani (aceptación manual de la Fase 2):
+
+- [ ] Se navega por todas las secciones (vacías) en ambos idiomas y temas.
+- [ ] La barra de título propia funciona: se arrastra la ventana y los botones nativos siguen al tema.
+- [ ] El tema cristal se lee bien en claro y en oscuro.
+- Sin probar: el material nativo de Windows 11 (`backgroundMaterial: 'mica'`), que es opcional.
 
 ## Primer paso al retomar
 
@@ -88,6 +96,6 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 
 ## Versiones fijadas
 
-Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5. Node 22 o superior.
+Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0. Node 22 o superior.
 
 Pendiente al subir electron-builder: `npm audit` marca 8 "high" (http-cache-semantics vía `@electron/get`), solo de empaquetado; `npm audit --omit=dev` = 0. No forzar overrides.
