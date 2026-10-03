@@ -17,7 +17,8 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 - **Fase 1 (base del proyecto): aceptada, versión 0.1.0.** Criterios automáticos y manuales cumplidos; los manuales los comprobó Dani en Windows.
 - **Fase 2 (esqueleto de la interfaz): cerrada, versión 0.2.0.** Criterios automáticos cumplidos (check 54 tests, e2e 29 tests, en Windows); la aceptación manual está en la lista de pendientes.
 - **Fase 3 (datos locales y secretos): cerrada, versión 0.3.0.** Criterios automáticos cumplidos en Windows (check y e2e, con relanzamiento de la app); la aceptación manual está en la lista de pendientes.
-- **Siguiente: Fase 4 (cliente de Dynatrace).** Después, la 6.
+- **Fase 4 (cliente de Dynatrace): cerrada, versión 0.4.0.** Criterios automáticos cumplidos en Windows (unitarios, integración con un HTTPS simulado y e2e de certificados); la prueba contra un tenant real está en la lista de pendientes.
+- **Siguiente: Fase 6 (primeras vistas core).** La 5 (Monaco) está aparcada.
 - **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
 - El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
@@ -46,6 +47,12 @@ Fase 3:
 - [ ] Crear un cliente y un entorno real, guardar un token y comprobar que tras reiniciar sigue "Configurado" y el entorno sigue activo.
 - [ ] Exportar la configuración, importarla en otro PC (o en una carpeta de datos vacía) y comprobar el resumen.
 - [ ] Con el tema "Oscuro" y Windows en claro, la barra de título ya no parpadea al arrancar.
+
+Fase 4:
+
+- [ ] "Probar conexión" funciona contra un tenant real con token clásico (y, si se usa, OAuth y platform token), y avisa de los scopes que faltan.
+- [ ] Detrás del proxy corporativo y con su CA: con el nivel "sistema" conecta sin tocar nada.
+- [ ] La tarjeta del pie muestra el estado real y la caducidad del token OAuth.
 
 ## Primer paso al retomar
 
@@ -105,13 +112,16 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 - Tras cambiar `src/main/db/schema.ts`: `npm run db:generate` y commitear la migración nueva. Main aplica las migraciones al arrancar (en la app empaquetada, desde `resources/migrations`).
 - `lower()` de SQLite solo pasa a minúsculas ASCII: los nombres únicos se comprueban en JS con `toLocaleLowerCase('es')`.
 - Cada e2e usa su propia carpeta de datos (`VIGIA_USER_DATA_DIR`): el bloqueo de instancia única va por carpeta, así que no chocan con un `npm run dev` abierto.
-- `Set-Content -Encoding utf8` de PowerShell 5.1 escribe BOM. Para editar ficheros, usar las herramientas de edición o `sed`.
+- `Set-Content -Encoding utf8` de PowerShell 5.1 escribe BOM, y `Get-Content -Raw` sin `-Encoding utf8` lee los ficheros como ANSI y estropea las tildes al reescribirlos. Para editar ficheros, usar las herramientas de edición, `sed` o `node`.
+- Electron cachea el resultado de `setCertificateVerifyProc` y no hay forma de borrarlo: desde la PR #26517 (2020) volver a llamarlo ya no limpia la caché, y el issue #41448 (pedir esa API) sigue abierto. Por eso cada cambio de nivel o de huellas de un entorno crea una partición nueva en memoria `env-<id>-<generación>` (`src/main/dynatrace/network.ts`). Fuentes: https://www.electronjs.org/docs/latest/api/session, https://github.com/electron/electron/pull/26517 y https://github.com/electron/electron/issues/41448.
+- El verificador de certificados solo ve el nombre del host, sin puerto; las huellas se guardan con `URL.host` (con puerto) y se comparan por nombre.
+- Cambios hechos por IPC directo (`window.vigia.invoke`) no actualizan la interfaz: TanStack Query solo se entera de las mutaciones que hace el renderer. En los e2e, recargar tras preparar datos por IPC.
 - En producción no hay menú (`Menu.setApplicationMenu(null)`), así que tampoco hay atajos de recarga ni DevTools.
 - Las librerías solo del renderer van en devDependencies: Vite las empaqueta y electron-builder metería en el asar todo lo de dependencies.
 - Si `npm run dist:win` falla en Windows con un error de enlaces simbólicos, hace falta el Modo de desarrollador de Windows o una terminal de administrador.
 
 ## Versiones fijadas
 
-Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, react-hook-form 7.89.0. Node 22 o superior.
+Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests). Node 22 o superior.
 
 Pendiente al subir electron-builder: `npm audit` marca 8 "high" (http-cache-semantics vía `@electron/get`), solo de empaquetado; `npm audit --omit=dev` = 0. No forzar overrides.

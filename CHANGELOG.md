@@ -3,6 +3,30 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.4.0] - 2026-10-03
+
+Fase 4: cliente de Dynatrace.
+
+### Añadido
+
+- Cliente HTTP en main (`dtRequest` y `paginate`) para la API clásica y la de plataforma, con
+  token clásico, OAuth `client_credentials` y platform token. Reintenta un 401 con OAuth (token
+  nuevo) y los 429 (`Retry-After` o backoff con jitter, máximo 3 veces y 60 s), con timeout por
+  petición y errores tipados que la interfaz traduce.
+- Gestor de tokens OAuth en memoria por entorno: usa `expires_in`, renueva con menos de 60 s y
+  comparte una única renovación.
+- Enmascarado de tokens y cabeceras en errores y logs; nunca se registran cabeceras ni cuerpos.
+- Red por entorno con la sesión de Chromium y tres niveles de certificados: sistema, huella
+  fijada (por host, en la base) e ignorar errores, con aviso rojo permanente en la barra superior.
+  Una huella nueva solo sustituye a la anterior si el usuario la acepta viendo las dos.
+- "Probar conexión" por mecanismo, con los scopes que faltan para Problemas, Métricas y SLOs, y
+  la tarjeta del pie con el estado real y la caducidad del token OAuth.
+
+### Cambiado
+
+- La URL de la API clásica es la base del entorno, sin `/api/v2`; se rechaza si termina en `/api`.
+- El paquete ya no incluye `node-addon-api`.
+
 ## [0.3.0] - 2026-10-03
 
 Fase 3: datos locales y secretos.
