@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ipcContract, type IpcChannel } from '@shared/ipc'
 import { openDatabase, type AppDatabase } from '../../db/database'
 import { createSecretStore } from '../../secrets/store'
+import { MAX_CONFIG_FILE_BYTES } from '../../tenants/config-file'
 import { createTenantRepository } from '../../tenants/repository'
 import { createIpcHandler, type IpcHandlerDeps, type IpcImplementation } from '../handler'
 import { createTenantHandlers } from './tenants'
@@ -41,6 +42,9 @@ function loggedText(deps: IpcHandlerDeps): string {
 
 let db: AppDatabase
 let files: Map<string, string>
+/** Tamaño que devuelve statFile si se quiere simular otro distinto del contenido. */
+let fakeSizes: Map<string, number>
+let readCalls: string[]
 let saveTarget: string | null
 let openTarget: string | null
 let deps: IpcHandlerDeps
@@ -56,7 +60,13 @@ function buildHandlers(encryptionAvailable: boolean): ReturnType<typeof createTe
       chooseSaveFile: async () => saveTarget,
       chooseOpenFile: async () => openTarget
     },
+    statFile: async (path: string) => {
+      const content = files.get(path)
+      if (content === undefined) throw new Error(`no existe ${path}`)
+      return { size: fakeSizes.get(path) ?? Buffer.byteLength(content, 'utf8') }
+    },
     readFile: async (path: string) => {
+      readCalls.push(path)
       const content = files.get(path)
       if (content === undefined) throw new Error(`no existe ${path}`)
       return content
@@ -91,6 +101,8 @@ async function call(
 beforeEach(() => {
   db = openDatabase(':memory:', 'src/main/db/migrations')
   files = new Map()
+  fakeSizes = new Map()
+  readCalls = []
   saveTarget = 'C:/datos/vigia-config.json'
   openTarget = 'C:/datos/vigia-config.json'
   deps = {
@@ -119,6 +131,16 @@ const environmentFields = {
   captureUrlPatterns: [],
   tags: [],
   readOnly: false
+}
+
+/**
+ * Canales del contrato que este test no recorre, con el motivo. Añadir uno aquí
+ * es una decisión: el canal no puede tocar secretos ni datos de tenants.
+ */
+const EXEMPT_CHANNELS: Record<string, string> = {
+  'app:getInfo': 'Fase 1: nombre, versión y plataforma del runtime; sin datos de tenants',
+  'app:ping': 'Fase 1: canal de ejemplo que devuelve el texto recibido',
+  'ui:setTheme': 'Fase 2: aplica el tema a nativeTheme; solo recibe light/dark/system'
 }
 
 describe('aceptación de la Fase 3: ningún canal devuelve secretos', () => {
@@ -291,15 +313,68 @@ describe('aceptación de la Fase 3: ningún canal devuelve secretos', () => {
     }
     expect(loggedText(deps)).not.toContain(SECRET)
 
-    // Se han llamado TODOS los canales del contrato salvo los de app:* y ui:*, que
-    // no tocan datos de tenants. Un canal nuevo con otro prefijo hace fallar esto
-    // hasta que se añada aquí.
-    const expected = (Object.keys(ipcContract) as string[]).filter(
-      (channel) => !/^(app|ui):/.test(channel)
-    )
-    expect(expected.filter((channel) => !calledChannels.has(channel))).toEqual([])
-    // Y createTenantHandlers implementa exactamente esos canales.
-    expect(Object.keys(handlers).sort()).toEqual([...expected].sort())
+    // Cada canal del contrato está cubierto aquí (lo implementa createTenantHandlers y
+    // se ha llamado) o está exento con su motivo. Un canal nuevo sin decidir hace fallar esto.
+    const contract = Object.keys(ipcContract)
+    const covered = Object.keys(handlers)
+    const exempt = Object.keys(EXEMPT_CHANNELS)
+    expect(
+      contract.filter((channel) => !covered.includes(channel) && !exempt.includes(channel)),
+      'canales sin cubrir ni eximir'
+    ).toEqual([])
+    expect(
+      covered.filter((channel) => !contract.includes(channel)),
+      'handlers fuera del contrato'
+    ).toEqual([])
+    expect(
+      exempt.filter((channel) => !contract.includes(channel)),
+      'exentos que ya no existen'
+    ).toEqual([])
+    expect(
+      covered.filter((channel) => exempt.includes(channel)),
+      'cubiertos y exentos a la vez'
+    ).toEqual([])
+    expect(
+      covered.filter((channel) => !calledChannels.has(channel)),
+      'cubiertos sin llamar'
+    ).toEqual([])
+  })
+})
+
+describe('config:import: límite de tamaño', () => {
+  const PATH = 'C:/datos/grande.json'
+
+  async function exportedConfig(): Promise<string> {
+    const handlers = buildHandlers(true)
+    await call(handlers, 'clients:create', { name: 'Cliente A', color: '#111111' })
+    saveTarget = PATH
+    await call(handlers, 'config:export')
+    return files.get(PATH) ?? ''
+  }
+
+  it(`rechaza un fichero de más de ${MAX_CONFIG_FILE_BYTES} bytes sin leerlo`, async () => {
+    expect(MAX_CONFIG_FILE_BYTES).toBe(1024 * 1024)
+    await exportedConfig()
+    fakeSizes.set(PATH, MAX_CONFIG_FILE_BYTES + 1)
+    openTarget = PATH
+
+    const result = await call(buildHandlers(true), 'config:import')
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+    expect(readCalls).toEqual([])
+    // El mensaje no lleva la ruta del usuario.
+    expect(result.error?.message ?? '').not.toContain('C:/datos')
+  })
+
+  it('acepta un fichero de exactamente el límite', async () => {
+    await exportedConfig()
+    fakeSizes.set(PATH, MAX_CONFIG_FILE_BYTES)
+    openTarget = PATH
+
+    const result = await call(buildHandlers(true), 'config:import')
+
+    expect(result).toMatchObject({ ok: true, data: { status: 'done' } })
+    expect(readCalls).toEqual([PATH])
   })
 })
 

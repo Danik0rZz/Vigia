@@ -1,7 +1,12 @@
 import type { EnvironmentView } from '@shared/tenants'
 import { DomainError } from '../../errors'
 import type { SecretStore } from '../../secrets/store'
-import { applyConfigImport, buildConfigExport, parseConfigFile } from '../../tenants/config-file'
+import {
+  applyConfigImport,
+  buildConfigExport,
+  MAX_CONFIG_FILE_BYTES,
+  parseConfigFile
+} from '../../tenants/config-file'
 import type { TenantRepository } from '../../tenants/repository'
 import type { IpcImplementation, IpcImplementations } from '../handler'
 
@@ -29,6 +34,7 @@ export interface TenantHandlerDeps {
     chooseSaveFile(defaultName: string): Promise<string | null>
     chooseOpenFile(): Promise<string | null>
   }
+  statFile(path: string): Promise<{ size: number }>
   readFile(path: string): Promise<string>
   writeFile(path: string, content: string): Promise<void>
   now?: () => Date
@@ -59,6 +65,13 @@ export function createTenantHandlers(
   const importConfig: IpcImplementation<'config:import'> = async () => {
     const path = await deps.dialogs.chooseOpenFile()
     if (path === null) return { status: 'cancelled' }
+    // Antes de leer: un fichero enorme elegido por error bloquearía main.
+    if ((await deps.statFile(path)).size > MAX_CONFIG_FILE_BYTES) {
+      throw new DomainError(
+        'INVALID_INPUT',
+        'El fichero es demasiado grande para ser una configuración.'
+      )
+    }
     let raw: unknown
     try {
       raw = JSON.parse(await deps.readFile(path))

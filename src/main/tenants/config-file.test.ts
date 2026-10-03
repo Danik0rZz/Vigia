@@ -272,8 +272,9 @@ describe('applyConfigImport', () => {
       )
     )
 
+    // Ha recibido un entorno nuevo: no cuenta como saltado.
     expect(summary.created).toEqual({ clients: 0, environments: 1 })
-    expect(summary.skipped).toEqual([{ kind: 'client', name: 'CLIENTE A' }])
+    expect(summary.skipped).toEqual([])
     expect(await repo.listClients()).toEqual([existing])
     expect(await repo.listEnvironments()).toEqual([
       expect.objectContaining({ clientId: existing.id, name: 'Producción' })
@@ -304,17 +305,40 @@ describe('applyConfigImport', () => {
       )
     )
 
+    // El cliente recibe Desarrollo, así que solo se salta el entorno repetido.
     expect(summary.created).toEqual({ clients: 0, environments: 1 })
-    expect(summary.skipped).toEqual(
-      expect.arrayContaining([
-        { kind: 'client', name: 'Cliente A' },
-        { kind: 'environment', name: 'PRODUCCIÓN' }
-      ])
-    )
-    expect(summary.skipped).toHaveLength(2)
+    expect(summary.skipped).toEqual([{ kind: 'environment', name: 'PRODUCCIÓN' }])
     // El existente no se modifica.
     expect((await repo.listEnvironments()).find((e) => e.id === env.id)).toEqual(env)
   })
+
+  it.each([
+    ['todos sus entornos ya existen', [fileEnvironment({ name: 'producción' })]],
+    [
+      'todos sus entornos dan error',
+      [fileEnvironment({ name: 'Mal', classicApiUrl: 'http://abc12345.live.dynatrace.com' })]
+    ],
+    ['no trae entornos', []]
+  ])(
+    'un cliente que ya existe va a skipped si no recibe ningún entorno nuevo: %s',
+    async (_case, environments) => {
+      const { repo } = freshRepo()
+      const client = await repo.createClient({ name: 'Cliente A', color: '#111111' })
+      await repo.createEnvironment({
+        clientId: client.id,
+        ...fileEnvironment()
+      } as EnvironmentInput)
+
+      const summary = await applyConfigImport(
+        repo,
+        parseConfigFile(configFile([{ name: 'cliente a', color: '#222222', environments }]))
+      )
+
+      expect(summary.created).toEqual({ clients: 0, environments: 0 })
+      expect(summary.skipped).toContainEqual({ kind: 'client', name: 'cliente a' })
+      expect(await repo.listClients()).toEqual([client])
+    }
+  )
 
   it('un entorno inválido va a errors y el resto se importa', async () => {
     const { repo } = freshRepo()

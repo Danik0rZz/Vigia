@@ -10,6 +10,9 @@ import {
 import { DomainError } from '../errors'
 import type { TenantRepository } from './repository'
 
+/** Tamaño máximo del fichero a importar; una configuración real ocupa unos pocos KB. */
+export const MAX_CONFIG_FILE_BYTES = 1024 * 1024
+
 /** Los ids son de esta base: en otro PC no significan nada. */
 function withoutIds(environment: Environment): Omit<Environment, 'id' | 'clientId'> {
   const fields: Partial<Environment> = { ...environment }
@@ -61,8 +64,9 @@ function describeError(error: DomainError | ZodError): string {
 
 /**
  * Importa un fichero ya validado. Criterio: lo que ya existe por nombre (sin
- * distinguir mayúsculas) no se toca y se informa como saltado; los entornos de
- * un cliente existente se añaden a él. Un entorno inválido va a `errors` y se
+ * distinguir mayúsculas) no se toca; los entornos nuevos de un cliente
+ * existente se añaden a él, y el cliente solo se informa como saltado si no
+ * recibe ninguno. Un entorno inválido va a `errors` y se
  * sigue; un error inesperado deshace toda la importación.
  */
 export function applyConfigImport(repo: TenantRepository, file: ConfigFile): ImportSummary {
@@ -74,13 +78,12 @@ export function applyConfigImport(repo: TenantRepository, file: ConfigFile): Imp
     }
 
     for (const entry of file.clients) {
-      let client = repo.listClients().find((existing) => sameName(existing.name, entry.name))
-      if (client === undefined) {
-        client = repo.createClient({ name: entry.name, color: entry.color })
-        summary.created.clients += 1
-      } else {
-        summary.skipped.push({ kind: 'client', name: entry.name })
-      }
+      const existing = repo.listClients().find((client) => sameName(client.name, entry.name))
+      const client = existing ?? repo.createClient({ name: entry.name, color: entry.color })
+      if (existing === undefined) summary.created.clients += 1
+      // Un cliente existente solo cuenta como saltado si no recibe ningún entorno nuevo.
+      const skippedAt = summary.skipped.length
+      const createdBefore = summary.created.environments
 
       const clientId = client.id
       for (const rawEnvironment of entry.environments) {
@@ -99,6 +102,10 @@ export function applyConfigImport(repo: TenantRepository, file: ConfigFile): Imp
           if (!(error instanceof DomainError) && !(error instanceof ZodError)) throw error
           summary.errors.push({ name: rawEnvironment.name, message: describeError(error) })
         }
+      }
+
+      if (existing !== undefined && summary.created.environments === createdBefore) {
+        summary.skipped.splice(skippedAt, 0, { kind: 'client', name: entry.name })
       }
     }
 
