@@ -12,7 +12,7 @@ export const LIVE_ENV_ID = '00000000-0000-4000-8000-00000000c0de'
 /** 3 peticiones por segundo como mucho. */
 const DEFAULT_MIN_INTERVAL_MS = 334
 
-/** Única escritura permitida: comprobar el token (no cambia nada en el tenant). */
+/** Única petición no GET permitida: comprobar el token (no cambia nada en el tenant). */
 const LOOKUP_PATH = '/api/v2/apiTokens/lookup'
 
 export interface LiveClientOptions {
@@ -36,43 +36,84 @@ function readOnlyError(): Error {
   return Object.assign(new Error('LIVE_READ_ONLY'), { code: 'LIVE_READ_ONLY' })
 }
 
+export interface ReadOnlyFetchOptions {
+  /** URL base del entorno (la de la API clásica, sin /api/v2). */
+  origin: string
+  minIntervalMs?: number
+  /** Por defecto, espera real. */
+  sleep?: (ms: number) => Promise<void>
+  /** Milisegundos desde epoch; por defecto, Date.now. */
+  now?: () => number
+}
+
+const realSleep = (ms: number): Promise<void> => sleepFor(ms).then(() => undefined)
+
 /**
- * Fetch de las pruebas en vivo: SOLO LECTURA (GET y el POST de apiTokens/lookup;
- * lo demás se rechaza antes de llegar a la red) y en serie, con un intervalo
- * mínimo entre peticiones y respetando el Retry-After de los 429.
+ * ¿Se puede enviar? Solo al tenant (mismo https, host y puerto, sin
+ * credenciales en la URL, dentro de su ruta base) y solo GET, salvo el POST a
+ * la URL EXACTA de apiTokens/lookup (comparada como texto: sin query,
+ * fragmento, mayúsculas, "..", %2F ni barra final).
  */
-function guardedFetch(
+function isAllowed(rawUrl: string, method: string, base: URL): boolean {
+  let url: URL
+  try {
+    url = new URL(rawUrl)
+  } catch {
+    return false
+  }
+  const basePath = base.pathname.replace(/\/+$/, '')
+  if (
+    url.protocol !== 'https:' ||
+    url.origin !== base.origin ||
+    url.username !== '' ||
+    url.password !== '' ||
+    !url.pathname.startsWith(`${basePath}/`)
+  ) {
+    return false
+  }
+  if (method === 'GET') return true
+  return method === 'POST' && rawUrl === `${base.origin}${basePath}${LOOKUP_PATH}`
+}
+
+/**
+ * Fetch de las pruebas en vivo: SOLO LECTURA (GET al tenant y el POST de
+ * apiTokens/lookup; lo demás se rechaza antes de llegar a la red y sin contar
+ * como petición) y en serie, con un intervalo mínimo entre peticiones y
+ * respetando el Retry-After de los 429. El token tiene permisos de escritura:
+ * esta guarda es la única barrera.
+ */
+export function createReadOnlyFetch(
   base: typeof fetch,
-  options: { minIntervalMs: number; sleep: (ms: number) => Promise<void>; now: () => number },
-  stats: LiveClient['stats']
-): typeof fetch {
+  options: ReadOnlyFetchOptions
+): { fetch: typeof fetch; stats: LiveClient['stats'] } {
+  const stats = { requests: 0, maxInFlight: 0 }
+  const tenant = new URL(options.origin)
+  const minIntervalMs = options.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS
+  const sleep = options.sleep ?? realSleep
+  const now = options.now ?? Date.now
   let queue: Promise<unknown> = Promise.resolve()
   let nextStart = Number.NEGATIVE_INFINITY
   let inFlight = 0
 
-  return (input, init) => {
+  const guarded: typeof fetch = (input, init) => {
     const request = input instanceof Request ? input : null
     const method = (init?.method ?? request?.method ?? 'GET').toUpperCase()
-    const url = new URL(request?.url ?? String(input))
-    const allowed = method === 'GET' || (method === 'POST' && url.pathname === LOOKUP_PATH)
+    const rawUrl = request?.url ?? (input instanceof URL ? input.href : String(input))
     // Rechazada: no entra en la cola ni cuenta como petición.
-    if (!allowed) return Promise.reject(readOnlyError())
+    if (!isAllowed(rawUrl, method, tenant)) return Promise.reject(readOnlyError())
 
     const run = queue.then(async () => {
-      const wait = nextStart - options.now()
-      if (wait > 0) await options.sleep(wait)
-      nextStart = options.now() + options.minIntervalMs
+      const wait = nextStart - now()
+      if (wait > 0) await sleep(wait)
+      nextStart = now() + minIntervalMs
       stats.requests += 1
       inFlight += 1
       stats.maxInFlight = Math.max(stats.maxInFlight, inFlight)
       try {
         const response = await base(input, init)
         if (response.status === 429) {
-          const retryAfter = parseRetryAfter(
-            response.headers.get('retry-after'),
-            new Date(options.now())
-          )
-          if (retryAfter !== null) nextStart = Math.max(nextStart, options.now() + retryAfter)
+          const retryAfter = parseRetryAfter(response.headers.get('retry-after'), new Date(now()))
+          if (retryAfter !== null) nextStart = Math.max(nextStart, now() + retryAfter)
         }
         return response
       } finally {
@@ -82,6 +123,7 @@ function guardedFetch(
     queue = run.catch(() => undefined)
     return run
   }
+  return { fetch: guarded, stats }
 }
 
 /**
@@ -90,14 +132,15 @@ function guardedFetch(
  * clásico. En los tests unitarios se inyectan fetch, sleep y now.
  */
 export function createLiveClient(env: LiveEnv, options: LiveClientOptions = {}): LiveClient {
-  const sleep = options.sleep ?? ((ms: number) => sleepFor(ms).then(() => undefined))
-  const now = options.now ?? (() => Date.now())
-  const stats = { requests: 0, maxInFlight: 0 }
-  const fetchLive = guardedFetch(
-    options.fetch ?? fetch,
-    { minIntervalMs: options.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS, sleep, now },
-    stats
-  )
+  const sleep = options.sleep ?? realSleep
+  const now = options.now ?? Date.now
+  const classicApiUrl = classicApiUrlSchema.parse(env.url)
+  const { fetch: fetchLive, stats } = createReadOnlyFetch(options.fetch ?? fetch, {
+    origin: classicApiUrl,
+    sleep,
+    now,
+    ...(options.minIntervalMs === undefined ? {} : { minIntervalMs: options.minIntervalMs })
+  })
   const logged: string[] = []
   const log = (...args: unknown[]): void => {
     logged.push(maskSecrets(args.map(String).join(' ')))
@@ -108,7 +151,7 @@ export function createLiveClient(env: LiveEnv, options: LiveClientOptions = {}):
     name: 'live',
     type: 'other',
     deployment: 'saas',
-    classicApiUrl: classicApiUrlSchema.parse(env.url),
+    classicApiUrl,
     platformUrl: null,
     ssoUrl: null,
     oauthClientId: null,
