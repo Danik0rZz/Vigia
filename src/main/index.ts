@@ -73,7 +73,7 @@ function bootstrap(): void {
 
     // El tema guardado se aplica antes de crear la ventana: así la barra de
     // título no parpadea con el tema de Windows.
-    nativeTheme.themeSource = storedTheme(data.repo)
+    nativeTheme.themeSource = storedTheme(data.settings)
 
     registerIpcHandlers(
       {
@@ -93,7 +93,7 @@ function bootstrap(): void {
         ...createUiHandlers({
           setThemeSource: (theme) => {
             nativeTheme.themeSource = theme
-            storeTheme(data.repo, theme)
+            storeTheme(data.settings, theme)
             return nativeTheme.shouldUseDarkColors
           }
         }),

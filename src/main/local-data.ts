@@ -1,24 +1,26 @@
 import { app, BrowserWindow, dialog, safeStorage } from 'electron'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { themePreferences, type ThemePreference } from '@shared/ipc'
 import { openDatabase, type AppDatabase } from './db/database'
 import type { TenantHandlerDeps } from './ipc/handlers/tenants'
 import { databasePath, migrationsDir } from './paths'
 import { createSecretStore } from './secrets/store'
-import { createTenantRepository, type TenantRepository } from './tenants/repository'
+import { createSettingsStore, type SettingsStore } from './settings/store'
+import { createTenantRepository } from './tenants/repository'
 
 const THEME_SETTING = 'theme'
 
 export interface LocalData {
   db: AppDatabase
-  repo: TenantRepository
+  settings: SettingsStore
   tenantDeps: TenantHandlerDeps
 }
 
-/** Abre la base local (aplicando migraciones) y prepara repositorio, secretos y diálogos. */
+/** Abre la base local (aplicando migraciones) y prepara ajustes, tenants, secretos y diálogos. */
 export function openLocalData(): LocalData {
   const db = openDatabase(databasePath(), migrationsDir())
+  const settings = createSettingsStore(db)
   const repo = createTenantRepository(db)
 
   // safeStorage se consulta en cada llamada: no se cachea si hay cifrado.
@@ -54,19 +56,20 @@ export function openLocalData(): LocalData {
         return result.canceled ? null : (result.filePaths[0] ?? null)
       }
     },
+    statFile: (path) => stat(path),
     readFile: (path) => readFile(path, 'utf8'),
     writeFile: (path, content) => writeFile(path, content, 'utf8')
   }
 
-  return { db, repo, tenantDeps }
+  return { db, settings, tenantDeps }
 }
 
 /** Última preferencia de tema recibida, para aplicarla antes de crear la ventana. */
-export function storedTheme(repo: TenantRepository): ThemePreference {
-  const value = repo.getSetting(THEME_SETTING)
+export function storedTheme(settings: SettingsStore): ThemePreference {
+  const value = settings.get(THEME_SETTING)
   return themePreferences.find((theme) => theme === value) ?? 'system'
 }
 
-export function storeTheme(repo: TenantRepository, theme: ThemePreference): void {
-  repo.setSetting(THEME_SETTING, theme)
+export function storeTheme(settings: SettingsStore, theme: ThemePreference): void {
+  settings.set(THEME_SETTING, theme)
 }

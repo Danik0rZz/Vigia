@@ -248,16 +248,6 @@ describe('entorno activo', () => {
   })
 })
 
-describe('ajustes', () => {
-  it('devuelve null si no existe y guarda el valor', async () => {
-    expect(await repo.getSetting('theme')).toBeNull()
-    await repo.setSetting('theme', 'dark')
-    expect(await repo.getSetting('theme')).toBe('dark')
-    await repo.setSetting('theme', 'light')
-    expect(await repo.getSetting('theme')).toBe('light')
-  })
-})
-
 describe('transaction', () => {
   it('deshace todo si la función lanza', async () => {
     expect(() =>

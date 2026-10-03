@@ -9,8 +9,9 @@ import {
   type EnvironmentInput
 } from '@shared/tenants'
 import type { AppDatabase } from '../db/database'
-import { clients, environments, settings } from '../db/schema'
+import { clients, environments } from '../db/schema'
 import { DomainError } from '../errors'
+import { createSettingsStore } from '../settings/store'
 
 const ACTIVE_ENVIRONMENT = 'activeEnvironmentId'
 
@@ -41,28 +42,16 @@ export interface TenantRepository {
   updateEnvironment(id: string, input: EnvironmentInput): Environment
   deleteEnvironment(id: string): void
   getEnvironment(id: string): Environment
+  /** Entorno activo (se guarda en los ajustes); vuelve a `null` si se borra. */
   getActiveEnvironmentId(): string | null
   setActiveEnvironmentId(id: string | null): void
-  getSetting(key: string): string | null
-  setSetting(key: string, value: string): void
 }
 
-/** Clientes, entornos, entorno activo y ajustes de la app, sobre SQLite. */
+/** Clientes, entornos y entorno activo, sobre SQLite. */
 export function createTenantRepository(db: AppDatabase): TenantRepository {
-  function getSetting(key: string): string | null {
-    return db.select().from(settings).where(eq(settings.key, key)).get()?.value ?? null
-  }
-
-  function setSetting(key: string, value: string | null): void {
-    if (value === null) {
-      db.delete(settings).where(eq(settings.key, key)).run()
-      return
-    }
-    db.insert(settings)
-      .values({ key, value })
-      .onConflictDoUpdate({ target: settings.key, set: { value } })
-      .run()
-  }
+  const settingsStore = createSettingsStore(db)
+  const getSetting = settingsStore.get
+  const setSetting = settingsStore.set
 
   function listClients(): Client[] {
     return db
@@ -180,11 +169,6 @@ export function createTenantRepository(db: AppDatabase): TenantRepository {
     setActiveEnvironmentId(id: string | null): void {
       if (id !== null) requireEnvironment(id)
       setSetting(ACTIVE_ENVIRONMENT, id)
-    },
-
-    getSetting,
-    setSetting(key: string, value: string): void {
-      setSetting(key, value)
     }
   }
 }
