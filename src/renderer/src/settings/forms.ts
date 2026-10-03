@@ -4,6 +4,7 @@ import {
   classicApiUrlSchema,
   deployments,
   environmentTypes,
+  hasQuery,
   httpsUrlSchema,
   type EnvironmentInput,
   type EnvironmentView
@@ -13,12 +14,11 @@ import {
 
 const name = z.string().trim().min(1, 'errors.required').max(80, 'errors.tooLong')
 
-const optionalUrl = z
-  .string()
-  .refine(
-    (value) => value.trim() === '' || httpsUrlSchema.safeParse(value).success,
-    'errors.httpsUrl'
-  )
+const optionalUrl = z.string().superRefine((value, ctx) => {
+  if (value.trim() === '' || httpsUrlSchema.safeParse(value).success) return
+  // La query tiene su propio mensaje: el resto de la URL puede estar bien.
+  ctx.addIssue({ code: 'custom', message: hasQuery(value) ? 'errors.urlQuery' : 'errors.httpsUrl' })
+})
 
 /**
  * URL de la API clásica como se guardará: sin /api/v2 final (lo añade el

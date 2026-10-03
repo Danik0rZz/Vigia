@@ -162,6 +162,7 @@
     "required": "Obligatorio.",
     "tooLong": "Demasiado largo.",
     "httpsUrl": "Debe ser una URL https:// válida, sin credenciales ni #.",
+    "urlQuery": "La URL no puede llevar parámetros (lo que va tras «?»): quítalos. Si incluía un token, guárdalo en su campo.",
     "color": "Usa un color #rrggbb.",
     "nameTaken": "Ya existe uno con ese nombre.",
     "invalidFile": "El fichero no es una configuración de Vigía válida.",

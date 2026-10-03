@@ -43,8 +43,20 @@ export const httpsUrlSchema = z
       ctx.addIssue({ code: 'custom', message: 'La URL no puede llevar credenciales ni #' })
       return z.NEVER
     }
+    // Una query rompería las rutas (se concatenan detrás) y podría llevar un token en claro.
+    if (hasQuery(value)) {
+      ctx.addIssue({ code: 'custom', message: URL_QUERY_MESSAGE })
+      return z.NEVER
+    }
     return url.toString().replace(/\/+$/, '')
   })
+
+const URL_QUERY_MESSAGE = 'La URL no puede llevar parámetros (?…)'
+
+/** La URL lleva query string (también un "?" vacío, que URL.search no muestra). */
+export function hasQuery(value: string): boolean {
+  return value.includes('?')
+}
 
 /**
  * URL base del entorno para la API clásica, sin /api/v2: el cliente lo añade.

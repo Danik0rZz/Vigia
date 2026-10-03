@@ -7,6 +7,7 @@ import {
   deployments,
   environmentInputSchema,
   environmentTypes,
+  hasQuery,
   httpsUrlSchema,
   secretKinds
 } from './tenants'
@@ -74,6 +75,44 @@ describe('httpsUrlSchema', () => {
     ['con hash', 'https://abc12345.live.dynatrace.com/#/ui']
   ])('rechaza una URL %s', (_case, url) => {
     expect(httpsUrlSchema.safeParse(url).success).toBe(false)
+  })
+})
+
+describe('URLs con parámetros (AUD-06)', () => {
+  const MESSAGE = 'La URL no puede llevar parámetros (?…)'
+  const withQuery = [
+    'https://abc12345.live.dynatrace.com?x=1',
+    'https://abc12345.live.dynatrace.com/?',
+    'https://abc12345.live.dynatrace.com?',
+    `https://abc12345.live.dynatrace.com/api/v2?Api-Token=dt0c01.FALSO.${'Q'.repeat(20)}`,
+    'https://abc12345.live.dynatrace.com/api/v2?x=1',
+    'https://dt.ejemplo.local/e/abc-123?x=1'
+  ]
+
+  it.each(withQuery)('httpsUrlSchema rechaza %s con el mensaje de parámetros', (url) => {
+    const result = httpsUrlSchema.safeParse(url)
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((issue) => issue.message)).toContain(MESSAGE)
+  })
+
+  it.each(withQuery)('classicApiUrlSchema también rechaza %s (antes de quitar /api/v2)', (url) => {
+    const result = classicApiUrlSchema.safeParse(url)
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((issue) => issue.message)).toContain(MESSAGE)
+  })
+
+  it('hasQuery', () => {
+    expect(hasQuery('https://x/?a=1')).toBe(true)
+    expect(hasQuery('https://x/?')).toBe(true)
+    expect(hasQuery('https://x/api/v2')).toBe(false)
+    expect(hasQuery('')).toBe(false)
+  })
+
+  it('una URL sin "?" sigue validando igual', () => {
+    expect(httpsUrlSchema.safeParse('https://abc12345.live.dynatrace.com/').success).toBe(true)
+    expect(classicApiUrlSchema.parse('https://abc12345.live.dynatrace.com/api/v2/')).toBe(
+      'https://abc12345.live.dynatrace.com'
+    )
   })
 })
 

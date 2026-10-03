@@ -162,6 +162,7 @@
     "required": "Required.",
     "tooLong": "Too long.",
     "httpsUrl": "Must be a valid https:// URL, without credentials or #.",
+    "urlQuery": "The URL cannot have parameters (anything after “?”): remove them. If it included a token, save it in its own field.",
     "color": "Use a #rrggbb colour.",
     "nameTaken": "One with that name already exists.",
     "invalidFile": "The file is not a valid Vigía configuration.",
