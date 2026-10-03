@@ -68,6 +68,17 @@ export const certificatePins = sqliteTable(
   (table) => [primaryKey({ columns: [table.environmentId, table.host] })]
 )
 
+/** Consultas de métricas guardadas por entorno. */
+export const savedMetricQueries = sqliteTable('saved_metric_queries', {
+  id: text('id').primaryKey(),
+  environmentId: text('environment_id')
+    .notNull()
+    .references(() => environments.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  metricSelector: text('metric_selector').notNull(),
+  resolution: text('resolution')
+})
+
 /** Ajustes de la app (clave y valor): entorno activo, tema… */
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
