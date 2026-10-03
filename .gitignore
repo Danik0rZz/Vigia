@@ -11,3 +11,4 @@ logs/
 backups/
 .env*
 .vscode/
+docs/especificacion.md

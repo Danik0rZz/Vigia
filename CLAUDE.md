@@ -1,10 +1,11 @@
 # Vigía — instrucciones para Claude
 
-App de escritorio para Windows (Electron + React + TypeScript) para trabajar con Dynatrace: core de Dynatrace con mejor presentación, más backups y migración de configuración con Monaco. El dueño del proyecto es Dani; se le responde en español.
+App de escritorio para Windows (Electron + React + TypeScript) para trabajar con Dynatrace: core de Dynatrace con mejor presentación y funciones propias (backups y migración con Monaco, aparcados por ahora). El dueño del proyecto es Dani; se le responde en español.
 
 ## Documentos
 
-- `docs/especificacion.md`: la especificación completa (stack, seguridad, autenticación, Monaco, interfaz, plan de once fases y decisiones pendientes). **Leer la sección de la fase en curso antes de escribir código.** Es la copia de trabajo: al cerrar una decisión pendiente, se marca ahí.
+- `docs/especificacion.md`: la especificación completa (stack, seguridad, autenticación, Monaco, interfaz, plan de once fases, con la 5 y la 7 (Monaco) aparcadas, y decisiones pendientes). **Leer la sección de la fase en curso antes de escribir código.** Es la copia de trabajo: al cerrar una decisión pendiente, se marca ahí. Documento local, no versionado (en `.gitignore`); no buscarla ni recrearla si falta en un clon.
+- `docs/glosario.md`: términos de Dynatrace que se escriben igual en español y en inglés.
 - `README.md`: comandos, estructura y cómo añadir un canal IPC.
 - `CHANGELOG.md`: se actualiza en cada fase.
 - `..\API\`: especificaciones OpenAPI de Dynatrace (Configuration API, Environment API v1 y v2, y APIs de plataforma). Son la fuente de verdad de endpoints, parámetros y scopes. Son ficheros grandes: buscar en ellos, no leerlos enteros.
@@ -13,30 +14,30 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 
 Última actualización: 2026-10-03.
 
-- **Fase 1 (base del proyecto): entregada, versión 0.1.0.** Criterios automáticos cumplidos; criterios manuales pendientes de Dani.
-- **Siguiente: Fase 2 (esqueleto de la interfaz).** No empezar hasta que Dani confirme la Fase 1.
-- El proyecto todavía no es un repositorio git.
-- El código se escribió y se probó en Linux. **Nunca se ha ejecutado en Windows.**
+- **Fase 1 (base del proyecto): aceptada, versión 0.1.0.** Criterios automáticos y manuales cumplidos; los manuales los comprobó Dani en Windows.
+- **Siguiente: Fase 2 (esqueleto de la interfaz).**
+- **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
+- Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
+- El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
 
 Lo que se comprobó de la Fase 1 (en Linux): lint, tipos, 21 tests unitarios, 9 tests de extremo a extremo sobre la app compilada, `npm run dev` sin errores en consola, generación del zip de Windows y arranque de la app empaquetada (build de Linux).
 
-Pendiente de Dani (aceptación manual de la Fase 1):
+Aceptación manual de la Fase 1 (comprobada por Dani en Windows):
 
-- [ ] `npm run dev` abre la ventana en Windows.
-- [ ] El zip (`npm run dist:win`) arranca en un PC sin Node.
-- [ ] El zip arranca en un PC corporativo (SmartScreen, AppLocker).
+- [x] `npm run dev` abre la ventana en Windows.
+- [x] El zip (`npm run dist:win`) arranca en un PC sin Node.
+- [x] El zip arranca en un PC corporativo (SmartScreen, AppLocker).
 
 ## Primer paso al retomar
 
-1. `npm install`, y después `npm run check` y `npm run test:e2e`. Es la primera ejecución en Windows: si algo falla, arreglarlo antes de seguir.
-2. `git init` y un commit inicial con el estado de la Fase 1, si Dani está de acuerdo.
-3. Preguntar a Dani el resultado de la aceptación manual de la Fase 1.
-4. Antes de la Fase 2, preguntar las decisiones pendientes que le afectan: **Terminología** (conceptos de Dynatrace en inglés en ambos idiomas) y **Perfiles** (vistas adaptadas, no permisos).
+1. `npm install`, y después `npm run check` y `npm run test:e2e`. Si algo falla, arreglarlo antes de seguir.
 
 ## Reglas de trabajo
 
 - Una fase cada vez. Al terminarla, parar para que Dani la pruebe en su PC.
 - Las decisiones pendientes de la especificación las toma Dani: preguntar cuando una fase las necesite, no suponerlas.
+- Cuando un módulo necesite elegir API (v1, v2 o plataforma), preguntar a Dani.
+- El repositorio es público: antes de cada push, revisar que no se sube nada sensible (secretos, URLs o IDs de tenants reales, logs, datos de clientes).
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
 - No inventar endpoints ni parámetros de Dynatrace o de Monaco: consultar `..\API\` y la documentación oficial.
 - Nunca escribir secretos, cabeceras `Authorization` ni cookies en logs, ficheros de configuración, mensajes de error ni en el repositorio.
