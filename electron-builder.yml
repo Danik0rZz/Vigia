@@ -6,7 +6,18 @@ directories:
 files:
   - out/**/*
   - package.json
+  # De better-sqlite3 solo hace falta el binario de Windows x64.
+  - '!node_modules/better-sqlite3/{src,deps,docs,benchmark}/**'
+  - '!node_modules/better-sqlite3/prebuilds/{darwin,linux,linuxmusl}-*.node'
+  - '!node_modules/better-sqlite3/prebuilds/win32-arm64.node'
 asar: true
+# Los módulos nativos no se pueden cargar desde dentro del asar.
+asarUnpack:
+  - '**/*.node'
+# Migraciones de la base local; main las aplica al arrancar.
+extraResources:
+  - from: src/main/db/migrations
+    to: migrations
 # Solo se incluyen los idiomas de Chromium que usa la app.
 electronLanguages:
   - es
