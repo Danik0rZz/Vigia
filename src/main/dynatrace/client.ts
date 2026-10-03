@@ -42,7 +42,13 @@ export interface DtPaginateOptions<T> extends Omit<DtRequestOptions<T>, 'schema'
 
 export interface DtClient {
   dtRequest<T>(options: DtRequestOptions<T>): Promise<T>
-  paginate<T>(options: DtPaginateOptions<T>): Promise<T[]>
+  /** `truncated`: se llegó a maxPages y quedaban páginas; la interfaz debe avisar. */
+  paginate<T>(options: DtPaginateOptions<T>): Promise<DtPage<T>>
+}
+
+export interface DtPage<T> {
+  items: T[]
+  truncated: boolean
 }
 
 type MaybePromise<T> = T | Promise<T>
@@ -299,7 +305,7 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     }
   }
 
-  async function paginate<T>(options: DtPaginateOptions<T>): Promise<T[]> {
+  async function paginate<T>(options: DtPaginateOptions<T>): Promise<DtPage<T>> {
     const { itemsKey, schema, maxPages = 20, keepParams = [], ...request } = options
     const pageSchema = z.object({
       nextPageKey: z.string().nullable().optional(),
@@ -314,7 +320,7 @@ export function createDtClient(deps: DtClientDeps): DtClient {
       > & { nextPageKey?: string | null }
       items.push(...(result[itemsKey] as T[]))
       const next = result.nextPageKey
-      if (next === null || next === undefined || next === '') break
+      if (next === null || next === undefined || next === '') return { items, truncated: false }
       const kept = Object.fromEntries(
         keepParams.flatMap((key) =>
           request.query?.[key] === undefined ? [] : [[key, request.query[key]]]
@@ -322,7 +328,9 @@ export function createDtClient(deps: DtClientDeps): DtClient {
       )
       query = { ...kept, nextPageKey: next }
     }
-    return items
+    // Se ha llegado al tope con páginas pendientes: no se corta en silencio.
+    deps.logger.warn(`Dynatrace: ${request.path} truncado a ${maxPages} páginas`)
+    return { items, truncated: true }
   }
 
   return { dtRequest, paginate }

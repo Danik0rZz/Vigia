@@ -546,7 +546,7 @@ describe('paginate', () => {
       json(200, { problems: [{ id: 'd' }], nextPageKey: null })
     )
 
-    const items = await client().paginate({
+    const page = await client().paginate({
       envId: ENV,
       api: 'classic',
       path: '/problems',
@@ -556,8 +556,12 @@ describe('paginate', () => {
       schema: item
     })
 
-    expect(items).toEqual([{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }])
+    expect(page).toEqual({
+      items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }],
+      truncated: false
+    })
     expect(fetchSpy).toHaveBeenCalledTimes(3)
+    expect(logger.warn).not.toHaveBeenCalled()
     expect(Object.fromEntries(sent(0).url.searchParams)).toEqual({
       fields: '+evidenceDetails',
       from: 'now-2h',
@@ -575,24 +579,52 @@ describe('paginate', () => {
 
   it('para cuando no viene nextPageKey', async () => {
     responses.push(json(200, { items: [{ id: 'a' }] }))
-    const items = await client().paginate({
+    const page = await client().paginate({
       envId: ENV,
       api: 'classic',
       path: '/x',
       itemsKey: 'items',
       schema: item
     })
-    expect(items).toEqual([{ id: 'a' }])
+    expect(page).toEqual({ items: [{ id: 'a' }], truncated: false })
     expect(fetchSpy).toHaveBeenCalledOnce()
+    expect(logger.warn).not.toHaveBeenCalled()
   })
 
-  it('para al llegar a maxPages y devuelve lo que lleve, sin error', async () => {
+  it('al llegar a maxPages con más páginas pendientes devuelve truncated y lo avisa en el log', async () => {
     responses.push(
       json(200, { items: [{ id: 'a' }], nextPageKey: 'k1' }),
       json(200, { items: [{ id: 'b' }], nextPageKey: 'k2' }),
       json(200, { items: [{ id: 'c' }], nextPageKey: 'k3' })
     )
-    const items = await client().paginate({
+    const page = await client().paginate({
+      envId: ENV,
+      api: 'classic',
+      path: '/x',
+      query: { entitySelector: 'type(HOST)' },
+      itemsKey: 'items',
+      maxPages: 2,
+      schema: item
+    })
+    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: true })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+
+    expect(logger.warn).toHaveBeenCalledOnce()
+    const logged = JSON.stringify(logger.warn.mock.calls[0])
+    expect(logged).toContain('/x')
+    expect(logged).toContain('2')
+    // Sin query, sin nextPageKey y sin credenciales.
+    for (const forbidden of ['type(HOST)', 'k2', 'SECRETOCLASICO']) {
+      expect(logged).not.toContain(forbidden)
+    }
+  })
+
+  it('justo en maxPages pero sin más páginas no está truncado', async () => {
+    responses.push(
+      json(200, { items: [{ id: 'a' }], nextPageKey: 'k1' }),
+      json(200, { items: [{ id: 'b' }], nextPageKey: null })
+    )
+    const page = await client().paginate({
       envId: ENV,
       api: 'classic',
       path: '/x',
@@ -600,8 +632,8 @@ describe('paginate', () => {
       maxPages: 2,
       schema: item
     })
-    expect(items).toEqual([{ id: 'a' }, { id: 'b' }])
-    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: false })
+    expect(logger.warn).not.toHaveBeenCalled()
   })
 
   it('un item que no cumple el esquema da INVALID_RESPONSE', async () => {
