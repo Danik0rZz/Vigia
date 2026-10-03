@@ -15,8 +15,8 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 Última actualización: 2026-10-03.
 
 - **Fase 1 (base del proyecto): aceptada, versión 0.1.0.** Criterios automáticos y manuales cumplidos; los manuales los comprobó Dani en Windows.
-- **Fase 2 (esqueleto de la interfaz): entregada, sin publicar.** Criterios automáticos cumplidos (check 54 tests, e2e 29 tests, en Windows); criterios manuales pendientes de Dani.
-- **Siguiente: Fase 3 (datos locales y secretos)**, cuando Dani acepte la Fase 2.
+- **Fase 2 (esqueleto de la interfaz): cerrada, versión 0.2.0.** Criterios automáticos cumplidos (check 54 tests, e2e 29 tests, en Windows); la aceptación manual está en la lista de pendientes.
+- **En curso: Fase 3 (datos locales y secretos).** Después, la 4 y la 6.
 - **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
 - El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
@@ -29,7 +29,11 @@ Aceptación manual de la Fase 1 (comprobada por Dani en Windows):
 - [x] El zip (`npm run dist:win`) arranca en un PC sin Node.
 - [x] El zip arranca en un PC corporativo (SmartScreen, AppLocker).
 
-Pendiente de Dani (aceptación manual de la Fase 2):
+### Pendiente de Dani (aceptación manual)
+
+No bloquea: se sigue con la fase siguiente y Dani lo prueba cuando pueda.
+
+Fase 2:
 
 - [ ] Se navega por todas las secciones (vacías) en ambos idiomas y temas.
 - [ ] La barra de título propia funciona: se arrastra la ventana y los botones nativos siguen al tema.
@@ -42,8 +46,8 @@ Pendiente de Dani (aceptación manual de la Fase 2):
 
 ## Reglas de trabajo
 
-- Una fase cada vez. Al terminarla, parar para que Dani la pruebe en su PC.
-- Las dudas de diseño, alcance dentro de una fase, orden o interpretación de la spec las deciden los agentes, y se anotan en la spec o en el CHANGELOG. Solo se escala a Dani lo destructivo o irreversible (lo aprueba él en la sesión que lo ejecuta), publicar algo nuevo hacia fuera, licencia, marca y temas legales, qué hacen las funciones sin definir, la API cuando no se puede deducir y retomar Monaco. Al cerrar cada fase, una sola parada para Dani: lo hecho, las decisiones tomadas y lo que tiene que probar a mano.
+- Una fase cada vez; al terminarla, se continúa con la siguiente y la aceptación manual queda en la lista de pendientes de Dani.
+- Las dudas de diseño, alcance dentro de una fase, orden o interpretación de la spec las deciden los agentes, y se anotan en la spec o en el CHANGELOG. Solo se escala a Dani lo destructivo o irreversible (lo aprueba él en la sesión que lo ejecuta), publicar algo nuevo hacia fuera, licencia, marca y temas legales, qué hacen las funciones sin definir, la API cuando no se puede deducir y retomar Monaco. Al cerrar cada fase, un solo resumen para Dani, sin esperar su respuesta: lo hecho, las decisiones tomadas y lo que tiene que probar a mano.
 - La API de cada módulo (v1, v2 o plataforma) se deduce de `..\API\` y de la documentación oficial; solo si no se puede deducir, se pregunta a Dani. La elección se anota.
 - El repositorio es público: antes de cada push, revisar que no se sube nada sensible (secretos, URLs o IDs de tenants reales, logs, datos de clientes).
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
@@ -53,7 +57,7 @@ Pendiente de Dani (aceptación manual de la Fase 2):
 - Commits pequeños por funcionalidad, con tests para la lógica de main.
 - Dependencias con versión exacta: `npm install --save-exact <paquete>`.
 - Comentarios, textos de interfaz y documentación en español; identificadores en inglés.
-- Al cerrar una fase: actualizar "Estado actual" de este fichero, `CHANGELOG.md` y, si cambia algo de lo acordado, `docs/especificacion.md`.
+- Al cerrar una fase: subir la versión menor en `package.json` y `CHANGELOG.md` (Fase N → 0.N.0), y actualizar "Estado actual" de este fichero y, si cambia algo de lo acordado, `docs/especificacion.md`. Tags, releases y subir el zip a GitHub se escalan a Dani.
 
 ## Comandos
 

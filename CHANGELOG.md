@@ -3,7 +3,7 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [0.2.0] - 2026-10-03
 
 Fase 2: esqueleto de la interfaz.
 
