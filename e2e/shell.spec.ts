@@ -14,7 +14,8 @@ import es from '../src/renderer/src/locales/es/common.json'
 /**
  * Fase 2, esqueleto de la interfaz, sobre la app compilada (`out/`): barra
  * lateral y rutas hash, páginas vacías con su título, pie de estado, Ajustes
- * (tema e idioma), paleta Ctrl+K, lo que NO debe aparecer y la CSP.
+ * (tema e idioma), paleta Ctrl+K, rango temporal global, lo que NO debe
+ * aparecer y la CSP.
  *
  * Las pruebas comparten una ventana y van en orden: cada una parte del estado
  * en que la dejó la anterior.
@@ -156,6 +157,17 @@ async function expectPalette(locale: Locale, query: string): Promise<void> {
   await expectPage(locale, SECTIONS[3])
 }
 
+const TIME_RANGES = ['2h', '24h', '7d'] as const
+
+/** Comprueba que solo está marcada la opción `selected` del rango temporal. */
+async function expectTimeRange(selected: (typeof TIME_RANGES)[number]): Promise<void> {
+  for (const id of TIME_RANGES) {
+    const option = page.getByTestId(`time-range-${id}`)
+    if (id === selected) await expect(option).toBeChecked()
+    else await expect(option).not.toBeChecked()
+  }
+}
+
 test('usa una carpeta de datos aislada', async () => {
   const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
   expect(userData).toBe(userDataDir)
@@ -166,6 +178,19 @@ test('arranca en Inicio (#/) en español', async () => {
   await expect(page.locator('html')).toHaveAttribute('lang', 'es')
   await expect(page.getByTestId('app-name')).toHaveText('Vigía')
   await expectPage('es', SECTIONS[0])
+})
+
+test('el rango temporal de la barra superior empieza en 2 h', async () => {
+  const group = page.getByTestId('time-range')
+  await expect(group).toBeVisible()
+  await expect(group).toHaveAttribute('aria-label', t('es', 'timeRange.label'))
+  await expect(group.getByRole('radio')).toHaveCount(TIME_RANGES.length)
+  for (const id of TIME_RANGES) {
+    await expect(group.getByTestId(`time-range-${id}`)).toHaveText(
+      t('es', `timeRange.options.${id}`)
+    )
+  }
+  await expectTimeRange('2h')
 })
 
 test('la barra lateral tiene los grupos y las secciones de la lista única', async () => {
@@ -313,6 +338,39 @@ test('las preferencias se conservan al recargar', async () => {
   await expect(page.getByTestId('theme-dark')).toBeChecked()
   await expect(page.getByTestId('language-en')).toBeChecked()
   await expectPage('en', SECTIONS[10])
+})
+
+test('el rango temporal cambia y no se puede dejar sin selección', async () => {
+  // El idioma sigue en inglés desde las pruebas anteriores.
+  await expect(page.getByTestId('time-range')).toHaveAttribute(
+    'aria-label',
+    t('en', 'timeRange.label')
+  )
+
+  await page.getByTestId('time-range-24h').click()
+  await expectTimeRange('24h')
+  await page.getByTestId('time-range-7d').click()
+  await expectTimeRange('7d')
+
+  // Pulsar la opción ya marcada no la desmarca.
+  await page.getByTestId('time-range-7d').click()
+  await expectTimeRange('7d')
+
+  // El rango es global: se mantiene al cambiar de sección.
+  await goTo('problems')
+  await expectTimeRange('7d')
+  await expectNothingForbidden()
+})
+
+test('el rango temporal no se guarda: al recargar vuelve a 2 h', async () => {
+  // Fija un valor distinto del de por defecto, para no depender de las pruebas anteriores.
+  await page.getByTestId('time-range-24h').click()
+  await expectTimeRange('24h')
+
+  await page.reload()
+  await page.waitForLoadState('domcontentloaded')
+
+  await expectTimeRange('2h')
 })
 
 test('la CSP llega como cabecera, sin unsafe-eval ni orígenes remotos', async () => {

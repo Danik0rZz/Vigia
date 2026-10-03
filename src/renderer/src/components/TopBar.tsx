@@ -5,11 +5,15 @@ import { Languages, Moon, Search, Sun } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
 import { usePreferences } from '../app/preferences'
 import { useResolvedTheme } from '../app/theme'
+import { TimeRangeSelector } from './TimeRangeSelector'
 
 const iconButton =
   'app-no-drag flex h-7 items-center gap-1.5 rounded-md px-2 text-muted-foreground hover:bg-hover hover:text-foreground'
 
-/** Barra superior: ruta de la sección, búsqueda (Ctrl+K) y cambio rápido de tema e idioma. */
+/**
+ * Barra superior: ruta de la sección, rango temporal, búsqueda (Ctrl+K) y cambio
+ * rápido de tema e idioma. Cliente y Entorno se añaden a la ruta en la Fase 3.
+ */
 export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.Element {
   const { t } = useTranslation()
   const { pathname } = useLocation()
@@ -30,6 +34,8 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
           </span>
         )}
       </nav>
+
+      <TimeRangeSelector />
 
       <button type="button" onClick={onOpenPalette} className={iconButton}>
         <Search aria-hidden="true" className="size-4" />

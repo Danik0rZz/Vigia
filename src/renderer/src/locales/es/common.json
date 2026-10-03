@@ -31,6 +31,14 @@
     "language": "Cambiar a inglés",
     "languageShort": "ES"
   },
+  "timeRange": {
+    "label": "Rango temporal",
+    "options": {
+      "2h": "2 h",
+      "24h": "24 h",
+      "7d": "7 d"
+    }
+  },
   "palette": {
     "title": "Ir a una sección",
     "placeholder": "Buscar una sección…",

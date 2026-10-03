@@ -31,6 +31,14 @@
     "language": "Switch to Spanish",
     "languageShort": "EN"
   },
+  "timeRange": {
+    "label": "Time range",
+    "options": {
+      "2h": "2 h",
+      "24h": "24 h",
+      "7d": "7 d"
+    }
+  },
   "palette": {
     "title": "Go to a section",
     "placeholder": "Search for a section…",
