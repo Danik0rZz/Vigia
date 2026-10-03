@@ -127,6 +127,34 @@ export function useSecretsAvailable(): boolean {
   return data?.available ?? true
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Las claves de datos de un entorno empiezan por su id (ver moduleKey). */
+function isEnvironmentKey(first: unknown): boolean {
+  return typeof first === 'string' && UUID.test(first)
+}
+
+/**
+ * Entorno cuyos datos de módulo dejan de valer tras la mutación: su id, 'all'
+ * si pueden ser varios (borrar un cliente, importar) o null si ninguno.
+ */
+export function changedEnvironment(channel: IpcChannel, input: unknown): string | 'all' | null {
+  const value = (input ?? {}) as { id?: unknown; environmentId?: unknown }
+  switch (channel) {
+    case 'environments:update':
+    case 'environments:delete':
+      return typeof value.id === 'string' ? value.id : null
+    case 'secrets:set':
+    case 'secrets:delete':
+      return typeof value.environmentId === 'string' ? value.environmentId : null
+    case 'clients:delete':
+    case 'config:import':
+      return 'all'
+    default:
+      return null
+  }
+}
+
 /**
  * Mutación sobre un canal que cambia clientes, entornos o secretos: al terminar
  * se recargan la lista y el entorno activo.
@@ -137,6 +165,17 @@ export function useTenantMutation<C extends IpcChannel>(
   const client = useQueryClient()
   return useMutation<IpcOutput<C>, Error, IpcArgs<C>>({
     mutationFn: (args) => invoke(channel, ...args),
+    onSuccess: (_data, args) => {
+      // Datos de módulo en caché de un entorno que ha cambiado (otra URL u otro
+      // token pueden apuntar a otro tenant): se quitan para no mostrarlos ni
+      // exportarlos. Las consultas de módulo empiezan por el envId.
+      const target = changedEnvironment(channel, args[0])
+      if (target === 'all') {
+        client.removeQueries({ predicate: (query) => isEnvironmentKey(query.queryKey[0]) })
+      } else if (target !== null) {
+        client.removeQueries({ queryKey: [target] })
+      }
+    },
     onSettled: async () => {
       // Cambiar un entorno, sus secretos o sus certificados deja sin valor su estado de conexión.
       await Promise.all(

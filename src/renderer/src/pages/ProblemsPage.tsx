@@ -48,23 +48,34 @@ export function ProblemsPage(): JSX.Element {
   const access = useModuleAccess('problems')
   const envId = access.available ? access.envId : null
   const timeRange = useTimeRangeValue()
-  // Los filtros viven en un store: sobreviven al cambio de sección.
-  const status = useProblemFilters((state) => state.status)
-  const setStatus = useProblemFilters((state) => state.setStatus)
-  const textInput = useProblemFilters((state) => state.text)
-  const setTextInput = useProblemFilters((state) => state.setText)
-  const clusterSelection = useProblemFilters((state) => state.clusters)
-  const setClusterSelection = useProblemFilters((state) => state.setClusters)
-  // Al volver a la sección, el texto guardado se aplica sin esperar.
-  const [text, setText] = useState(() => textInput.trim())
-  const [selected, setSelected] = useState<string | null>(null)
+  // Los filtros viven en un store, por entorno: sobreviven al cambio de sección
+  // y cada entorno recupera los suyos.
+  const {
+    status,
+    setStatus,
+    text: textInput,
+    setText: setTextInput,
+    clusters: clusterSelection,
+    setClusters: setClusterSelection
+  } = useProblemFilters(envId)
+  // Texto con retardo, ligado a su entorno: al cambiar de entorno (o al volver
+  // a la sección) se aplica el texto guardado sin esperar.
+  const [debounced, setDebounced] = useState({ envId, text: textInput.trim() })
+  const text = debounced.envId === envId ? debounced.text : textInput.trim()
+  // El problema seleccionado es de un entorno: en otro no existe.
+  const [selection, setSelection] = useState<{ envId: string | null; id: string } | null>(null)
+  const selected = selection !== null && selection.envId === envId ? selection.id : null
+  const setSelected = (id: string): void => setSelection({ envId, id })
   const chart = useRef<ChartHandle>(null)
   const tableRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => setText(textInput.trim()), TEXT_DEBOUNCE_MS)
+    const timer = setTimeout(
+      () => setDebounced({ envId, text: textInput.trim() }),
+      TEXT_DEBOUNCE_MS
+    )
     return () => clearTimeout(timer)
-  }, [textInput])
+  }, [envId, textInput])
 
   const filters: ProblemFilterValues = {
     ...(status === 'all' ? {} : { status }),

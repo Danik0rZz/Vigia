@@ -180,6 +180,8 @@ const sim = {
   invalidOne: false,
   warnings: [] as string[],
   badRequest: false,
+  /** Si no es null, /problems no responde hasta que se cumpla (para ver qué hay mientras carga). */
+  problemsGate: null as Promise<void> | null,
   lastDetailQuery: new URLSearchParams(),
   lastProblemsQuery: new URLSearchParams(),
   lastMetricsQuery: new URLSearchParams()
@@ -257,6 +259,13 @@ async function startServer(): Promise<void> {
       if (req.method === 'GET' && url.pathname === '/api/v2/problems') {
         sim.problemsRequests += 1
         sim.lastProblemsQuery = url.searchParams
+        if (sim.problemsGate !== null) {
+          void sim.problemsGate.then(() => respondProblems())
+          return
+        }
+        return respondProblems()
+      }
+      function respondProblems(): void {
         if (token === TOKEN_FORBIDDEN) {
           return send(403, {
             error: {
@@ -759,6 +768,88 @@ test('Problemas: filtros de estado y de texto', async () => {
 
   await page.getByTestId('problems-filter-text').fill('')
   await page.getByTestId('problems-filter-status').selectOption('all')
+  await expect(rows).toHaveCount(3)
+})
+
+test('AUD-21: los filtros de Problemas se conservan al cambiar de sección', async () => {
+  const rows = page.getByTestId('problem-row')
+  await page.getByTestId('problems-filter-status').selectOption('open')
+  await page.getByTestId('problems-filter-text').fill('pagos')
+  await expect(rows).toHaveCount(1)
+
+  await goTo('metrics')
+  await expect(page).toHaveURL(/#\/metrics/)
+  await goTo('problems')
+  await expect(page.getByTestId('problems-filter-status')).toHaveValue('open')
+  await expect(page.getByTestId('problems-filter-text')).toHaveValue('pagos')
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText('P-101')
+
+  await page.getByTestId('problems-filter-text').fill('')
+  await page.getByTestId('problems-filter-status').selectOption('all')
+  await expect(rows).toHaveCount(3)
+})
+
+test('AUD-21: los filtros de Problemas van por entorno', async () => {
+  const status = page.getByTestId('problems-filter-status')
+  const table = page.getByTestId('problems-table')
+  const switchTo = async (name: string): Promise<void> => {
+    await page.getByTestId('env-selector').click()
+    await page.getByRole('option', { name: `Cliente A › ${name}` }).click()
+  }
+
+  await status.selectOption('open')
+  await expect(page.getByTestId('problem-row')).toHaveCount(2)
+
+  // Desarrollo no hereda el «open» de Producción.
+  await switchTo('Desarrollo')
+  await expect(table).toContainText('P-900')
+  await expect(status).toHaveValue('all')
+  await expect(page.getByTestId('problems-filter-text')).toHaveValue('')
+
+  // Al volver, Producción recupera el suyo.
+  await switchTo('Producción')
+  await expect(status).toHaveValue('open')
+  await expect(page.getByTestId('problem-row')).toHaveCount(2)
+  await expect(table).not.toContainText('P-900')
+
+  await status.selectOption('all')
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+})
+
+test('AUD-10: guardar un secreto del entorno descarta sus datos y Problemas los vuelve a pedir', async () => {
+  const rows = page.getByTestId('problem-row')
+  await expect(rows).toHaveCount(3)
+  const before = sim.problemsRequests
+
+  // secrets:set desde Ajustes (la mutación del renderer, no IPC directo).
+  await goTo('settings')
+  await page
+    .getByTestId('environment-row')
+    .filter({ hasText: 'Producción' })
+    .getByTestId('environment-edit')
+    .click()
+  const form = page.getByTestId('environment-form')
+  await form.getByTestId('secret-input-classicToken').fill(TOKEN_A)
+  await form.getByTestId('secret-save-classicToken').click()
+  await expect(form.getByTestId('secret-status-classicToken')).toHaveText('Configurado')
+  await form.getByTestId('form-cancel').click()
+  await expect(form).toBeHidden()
+
+  // Se retiene la respuesta: mientras llega, no se ven los problemas de antes.
+  let release = (): void => undefined
+  sim.problemsGate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  try {
+    await goTo('problems')
+    await expect.poll(() => sim.problemsRequests).toBeGreaterThan(before)
+    await expect(rows).toHaveCount(0)
+    await expect(page.getByTestId('problems-table')).not.toContainText('P-101')
+  } finally {
+    release()
+    sim.problemsGate = null
+  }
   await expect(rows).toHaveCount(3)
 })
 
