@@ -165,6 +165,37 @@ describe('CLI', () => {
     expect(output).toContain('coincidencias: 0')
   })
 
+  it.each([
+    ['vacío', ''],
+    [
+      'solo con claves vacías y comentarios',
+      '# comentario\nVIGIA_LIVE_URL=\nVIGIA_LIVE_TOKEN=""\nCORTO=abc\n'
+    ]
+  ])(
+    'con el .env %s avisa por stderr de que la revisión NO está activa y termina en 0',
+    (_case, content) => {
+      writeFileSync(join(repo, '.env.live.local'), content)
+      commit('a.txt', 'x\n', 'Algo')
+      const result = spawnSync(process.execPath, [SCRIPT, 'HEAD~1..HEAD'], {
+        cwd: repo,
+        encoding: 'utf8'
+      })
+      expect(result.status).toBe(0)
+      expect(result.stderr).toContain('AVISO')
+      expect(result.stderr).toContain('NO está activa')
+    }
+  )
+
+  it('con valores en el .env no avisa de que esté vacío', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commit('limpio.ts', 'const x = 1\n', 'Limpio')
+    const result = spawnSync(process.execPath, [SCRIPT, 'HEAD~1..HEAD'], {
+      cwd: repo,
+      encoding: 'utf8'
+    })
+    expect(result.stderr).not.toContain('NO está activa')
+  })
+
   it('sin rango usa origin/main..HEAD', () => {
     writeFileSync(join(repo, '.env.live.local'), ENV)
     git('update-ref', 'refs/remotes/origin/main', 'HEAD')
