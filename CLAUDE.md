@@ -15,7 +15,7 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 Última actualización: 2026-10-03.
 
 - **Fase 1 (base del proyecto): aceptada, versión 0.1.0.** Criterios automáticos y manuales cumplidos; los manuales los comprobó Dani en Windows.
-- **Fase 2 (esqueleto de la interfaz): entregada, sin publicar.** Criterios automáticos cumplidos (check 44 tests, e2e 26 tests, en Windows); criterios manuales pendientes de Dani.
+- **Fase 2 (esqueleto de la interfaz): entregada, sin publicar.** Criterios automáticos cumplidos (check 54 tests, e2e 29 tests, en Windows); criterios manuales pendientes de Dani.
 - **Siguiente: Fase 3 (datos locales y secretos)**, cuando Dani acepte la Fase 2.
 - **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
@@ -43,8 +43,8 @@ Pendiente de Dani (aceptación manual de la Fase 2):
 ## Reglas de trabajo
 
 - Una fase cada vez. Al terminarla, parar para que Dani la pruebe en su PC.
-- Las decisiones pendientes de la especificación las toma Dani: preguntar cuando una fase las necesite, no suponerlas.
-- Cuando un módulo necesite elegir API (v1, v2 o plataforma), preguntar a Dani.
+- Las dudas de diseño, alcance dentro de una fase, orden o interpretación de la spec las deciden los agentes, y se anotan en la spec o en el CHANGELOG. Solo se escala a Dani lo destructivo o irreversible (lo aprueba él en la sesión que lo ejecuta), publicar algo nuevo hacia fuera, licencia, marca y temas legales, qué hacen las funciones sin definir, la API cuando no se puede deducir y retomar Monaco. Al cerrar cada fase, una sola parada para Dani: lo hecho, las decisiones tomadas y lo que tiene que probar a mano.
+- La API de cada módulo (v1, v2 o plataforma) se deduce de `..\API\` y de la documentación oficial; solo si no se puede deducir, se pregunta a Dani. La elección se anota.
 - El repositorio es público: antes de cada push, revisar que no se sube nada sensible (secretos, URLs o IDs de tenants reales, logs, datos de clientes).
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
 - No inventar endpoints ni parámetros de Dynatrace o de Monaco: consultar `..\API\` y la documentación oficial.
@@ -92,6 +92,8 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 - electron-vite 5 no admite Vite 8. No subir Vite, TypeScript (7) ni ESLint (10) sin comprobar la compatibilidad de electron-vite y de typescript-eslint.
 - better-sqlite3 13 trae binarios precompilados N-API dentro del paquete: en la Fase 3 no hace falta recompilar ni `electron-builder install-app-deps`.
 - En producción no hay menú (`Menu.setApplicationMenu(null)`), así que tampoco hay atajos de recarga ni DevTools.
+- Las librerías solo del renderer van en devDependencies: Vite las empaqueta y electron-builder metería en el asar todo lo de dependencies.
+- Al arrancar, main crea la ventana con el tema de Windows hasta que el renderer envía `ui:setTheme`: con la preferencia "Oscuro" y Windows en claro, la barra de título puede parpadear. Se resuelve en la Fase 3, cuando main tenga las preferencias en SQLite.
 - Si `npm run dist:win` falla en Windows con un error de enlaces simbólicos, hace falta el Modo de desarrollador de Windows o una terminal de administrador.
 
 ## Versiones fijadas

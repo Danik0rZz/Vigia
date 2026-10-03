@@ -15,9 +15,12 @@ Fase 2: esqueleto de la interfaz.
 - Lista única de secciones (`src/renderer/src/app/navigation.ts`), de la que salen el menú, las
   rutas hash y la paleta de comandos `Ctrl+K`.
 - Secciones vacías con su cabecera y pantalla de Ajustes con tema e idioma.
+- Rango temporal global en la barra superior (2 h, 24 h, 7 d), como estado de trabajo sin
+  guardar. "Personalizado" llega en la Fase 6.
 - Tema cristal con tokens CSS (Tailwind CSS v4): Claro, Oscuro y Sistema, que sigue en caliente a
   `prefers-color-scheme`; main ajusta `nativeTheme` para la barra de título.
-- Idiomas español e inglés con i18next; la regla `i18next/no-literal-string` impide textos sin
+- Idiomas español e inglés con i18next, con un fichero por namespace en
+  `locales/<idioma>/<namespace>.json` (por ahora solo `common`); la regla `i18next/no-literal-string` impide textos sin
   traducir en la interfaz.
 - Transiciones de página con Motion y de la barra lateral con CSS, que respetan
   `prefers-reduced-motion`.
@@ -29,6 +32,8 @@ Fase 2: esqueleto de la interfaz.
 ### Cambiado
 
 - `docs/glosario.md`: se quita "Dynatrace Hub", que la app no usa.
+- Las librerías que solo usa el renderer pasan a devDependencies: Vite ya las empaqueta, y así
+  no entran en el asar (de 49 MB a 7,7 MB; el zip baja de 148,0 MB a 142,4 MB).
 
 ## [0.1.0] - 2026-10-03
 
