@@ -229,6 +229,7 @@
     "refresh": "Refresh",
     "loading": "Loading…",
     "truncated": "Showing the first {{count}}.",
+    "truncatedOf": "Showing {{shown}} of {{total}}.",
     "empty": "No data in this range.",
     "noEnvironment": "No active environment: choose one in the top bar.",
     "classicToken": "This module uses the classic token: add it in Settings.",

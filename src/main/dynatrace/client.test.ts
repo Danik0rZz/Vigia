@@ -406,6 +406,129 @@ describe('429', () => {
   })
 })
 
+describe('AUD-02: el plazo cubre también la lectura del cuerpo', () => {
+  /** Respuesta cuyo cuerpo no termina nunca. */
+  const hangingBody =
+    (status: number, headers: Record<string, string> = {}) =>
+    (): Promise<Response> =>
+      Promise.resolve(
+        new Response(new ReadableStream({ start: () => undefined }), {
+          status,
+          headers: { 'content-type': 'application/json', ...headers }
+        })
+      )
+
+  async function timed(promise: Promise<unknown>): Promise<{ error: unknown; ms: number }> {
+    const started = Date.now()
+    try {
+      await promise
+      return { error: undefined, ms: Date.now() - started }
+    } catch (error) {
+      return { error, ms: Date.now() - started }
+    }
+  }
+
+  it.each([
+    ['un 200', 200],
+    ['un 500 (no SERVER_ERROR)', 500],
+    ['un 401 de token clásico (no UNAUTHORIZED)', 401]
+  ])('%s con el cuerpo colgado da TIMEOUT en poco tiempo', async (_case, status) => {
+    responses.push(hangingBody(status))
+    const { error, ms } = await timed(
+      client({ timeoutMs: 50 }).dtRequest({
+        envId: ENV,
+        api: 'classic',
+        path: '/problems',
+        schema: anyObject
+      })
+    )
+    expect(error).toBeInstanceOf(DtError)
+    expect((error as DtError).code).toBe('TIMEOUT')
+    expect(ms).toBeLessThan(1000)
+  })
+
+  it('el timeoutMs de la petición también cubre el cuerpo', async () => {
+    responses.push(hangingBody(200))
+    await expectDtError(
+      client().dtRequest({
+        envId: ENV,
+        api: 'classic',
+        path: '/problems',
+        schema: anyObject,
+        timeoutMs: 50
+      }),
+      'TIMEOUT'
+    )
+  })
+
+  it('un cuerpo que llega a tiempo no da TIMEOUT y no deja temporizadores pendientes', async () => {
+    vi.useFakeTimers()
+    try {
+      responses.push(json(200, { ok: true }))
+      const result = await client({ timeoutMs: 30_000 }).dtRequest({
+        envId: ENV,
+        api: 'classic',
+        path: '/problems',
+        schema: z.object({ ok: z.boolean() })
+      })
+      expect(result).toEqual({ ok: true })
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('un error que llega a tiempo tampoco deja temporizadores pendientes', async () => {
+    vi.useFakeTimers()
+    try {
+      responses.push(dtError(404, 'No existe'))
+      await expectDtError(
+        client({ timeoutMs: 30_000 }).dtRequest({
+          envId: ENV,
+          api: 'classic',
+          path: '/x',
+          schema: anyObject
+        }),
+        'NOT_FOUND'
+      )
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('la espera de un 429 no cuenta en el plazo: Retry-After > timeoutMs no da TIMEOUT', async () => {
+    // El sleep espera de verdad más que el plazo del intento.
+    const realSleep = vi.fn(
+      (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, Math.min(ms, 150)))
+    )
+    responses.push(json(429, {}, { 'retry-after': '1' }), json(200, { ok: true }))
+    const result = await client({ timeoutMs: 50, sleep: realSleep }).dtRequest({
+      envId: ENV,
+      api: 'classic',
+      path: '/problems',
+      schema: z.object({ ok: z.boolean() })
+    })
+    expect(result).toEqual({ ok: true })
+    expect(realSleep).toHaveBeenCalledWith(1000)
+  })
+
+  it('el reintento tras un 401 de OAuth tiene su propio plazo', async () => {
+    secrets = { oauthClientSecret: 'dt0s02.X.Y' }
+    // 1.er intento: 401 que tarda 40 ms; 2.º: respuesta que tarda 40 ms. Juntos pasan de 50, cada uno no.
+    const slow = (response: Response) => (): Promise<Response> =>
+      new Promise((resolve) => setTimeout(() => resolve(response), 40))
+    responses.push(slow(dtError(401, 'Caducado')), slow(json(200, { ok: true })))
+    const result = await client({ timeoutMs: 50 }).dtRequest({
+      envId: ENV,
+      api: 'platform',
+      path: '/platform/management/v1/environment',
+      schema: z.object({ ok: z.boolean() })
+    })
+    expect(result).toEqual({ ok: true })
+  })
+})
+
 describe('timeout y red', () => {
   /** fetch que solo termina cuando se aborta su señal. */
   const hanging = (init: RequestInit | undefined): Promise<Response> =>
@@ -565,7 +688,8 @@ describe('paginate', () => {
 
     expect(page).toEqual({
       items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }],
-      truncated: false
+      truncated: false,
+      totalCount: null
     })
     expect(fetchSpy).toHaveBeenCalledTimes(3)
     expect(logger.warn).not.toHaveBeenCalled()
@@ -676,7 +800,7 @@ describe('paginate', () => {
       endpoint: X,
       schema: item
     })
-    expect(page).toEqual({ items: [{ id: 'a' }], truncated: false })
+    expect(page).toEqual({ items: [{ id: 'a' }], truncated: false, totalCount: null })
     expect(fetchSpy).toHaveBeenCalledOnce()
     expect(logger.warn).not.toHaveBeenCalled()
   })
@@ -695,7 +819,7 @@ describe('paginate', () => {
       maxPages: 2,
       schema: item
     })
-    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: true })
+    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: true, totalCount: null })
     expect(fetchSpy).toHaveBeenCalledTimes(2)
 
     expect(logger.warn).toHaveBeenCalledOnce()
@@ -720,8 +844,36 @@ describe('paginate', () => {
       maxPages: 2,
       schema: item
     })
-    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: false })
+    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: false, totalCount: null })
     expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  it('AUD-07: totalCount sale de la primera página y no cambia con las siguientes', async () => {
+    responses.push(
+      json(200, { items: [{ id: 'a' }], nextPageKey: 'k1', totalCount: 7 }),
+      json(200, { items: [{ id: 'b' }], nextPageKey: null, totalCount: 99 })
+    )
+    const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
+    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: false, totalCount: 7 })
+  })
+
+  it.each([
+    ['sin totalCount', {}],
+    ['con totalCount que no es número', { totalCount: '7' }],
+    ['con totalCount null', { totalCount: null }]
+  ])('AUD-07: %s en la primera página → totalCount null', async (_case, extra) => {
+    responses.push(json(200, { items: [{ id: 'a' }], ...extra }))
+    const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
+    expect(page.totalCount).toBeNull()
+  })
+
+  it('AUD-07: si la primera no trae totalCount, el de la segunda no lo rellena', async () => {
+    responses.push(
+      json(200, { items: [{ id: 'a' }], nextPageKey: 'k1' }),
+      json(200, { items: [{ id: 'b' }], totalCount: 99 })
+    )
+    const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
+    expect(page.totalCount).toBeNull()
   })
 
   it('un item que no cumple el esquema da INVALID_RESPONSE', async () => {

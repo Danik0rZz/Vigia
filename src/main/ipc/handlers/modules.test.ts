@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IpcChannel } from '@shared/ipc'
-import { openDatabase, type AppDatabase } from '../../db/database'
+import type { AppDatabase } from '../../db/database'
 import { createDtClient } from '../../dynatrace/client'
 import { createSavedQueryStore } from '../../modules/saved-queries'
 import { createSecretStore } from '../../secrets/store'
 import { createTenantRepository } from '../../tenants/repository'
 import { createIpcHandler, type IpcHandlerDeps, type IpcImplementation } from '../handler'
 import { createModuleHandlers } from './modules'
+import { createTestDb, fakeCrypto } from '../../../test/fixtures'
 
 /**
  * Canales de Problemas, Métricas, SLOs y consultas guardadas, con el cliente
@@ -18,12 +19,6 @@ const TRUSTED = { url: 'app://vigia/index.html', isMainFrame: true }
 const TOKEN = `dt0c01.PUBLICAPRUEBA0000000000A.${'SECRETOMODULOS'.padEnd(64, 'X')}`
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000'
 const BASE = 'https://abc12345.live.dynatrace.com'
-
-const fakeCrypto = {
-  isEncryptionAvailable: () => true,
-  encryptString: (value: string) => Buffer.from(`enc:${[...value].reverse().join('')}`, 'utf8'),
-  decryptString: (buffer: Buffer) => [...buffer.toString('utf8').slice(4)].reverse().join('')
-}
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -123,9 +118,9 @@ beforeEach(() => {
       })
   }
 
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   const repo = createTenantRepository(db)
-  const secrets = createSecretStore(db, fakeCrypto)
+  const secrets = createSecretStore(db, fakeCrypto())
   const client = repo.createClient({ name: 'Cliente A', color: '#111111' })
   envId = repo.createEnvironment({
     clientId: client.id,
@@ -221,6 +216,23 @@ describe('problems:list', () => {
     })
     expect(requests[0]?.searchParams.get('from')).toBe('2026-10-01T08:00:00.000Z')
     expect(requests[0]?.searchParams.get('to')).toBe('2026-10-01T10:00:00.000Z')
+  })
+
+  it('AUD-07: devuelve el totalCount de la API, no el número de elementos', async () => {
+    routes['/problems'] = () =>
+      json(200, {
+        totalCount: 57,
+        problems: [problem('1'), problem('2', 'CLOSED')],
+        nextPageKey: null
+      })
+    const result = await call('problems:list', { environmentId: envId, timeRange: '2h' })
+    expect(result).toMatchObject({ ok: true, data: { totalCount: 57, truncated: false } })
+  })
+
+  it('AUD-07: sin totalCount en la respuesta, totalCount null', async () => {
+    routes['/problems'] = () => json(200, { problems: [problem('1')], nextPageKey: null })
+    const result = await call('problems:list', { environmentId: envId, timeRange: '2h' })
+    expect(result).toMatchObject({ ok: true, data: { totalCount: null } })
   })
 
   it('con más páginas de las permitidas para en 5, marca truncated y no repite parámetros', async () => {
@@ -349,11 +361,14 @@ describe('metrics:query y metrics:search', () => {
     expect(requests[0]?.searchParams.get('text')).toBe('cpu')
     expect(requests[0]?.searchParams.get('pageSize')).toBe('50')
 
+    expect(result).toMatchObject({ data: { totalCount: 1 } })
+
     routes['/metrics'] = () => json(200, { totalCount: 500, nextPageKey: 'k', metrics: [] })
     expect(await call('metrics:search', { environmentId: envId, text: 'cpu' })).toMatchObject({
       ok: true,
-      data: { truncated: true }
+      data: { truncated: true, totalCount: 500 }
     })
+    // Sigue siendo una sola página.
     expect(requests).toHaveLength(2)
   })
 
@@ -366,7 +381,7 @@ describe('metrics:query y metrics:search', () => {
 })
 
 describe('slos:list', () => {
-  it('pide los SLOs evaluados, 25 por página y una sola página', async () => {
+  it('pide los SLOs evaluados, 25 por página', async () => {
     const result = await call('slos:list', { environmentId: envId })
     expect(result).toMatchObject({
       ok: true,
@@ -378,13 +393,48 @@ describe('slos:list', () => {
     expect(requests[0]?.pathname).toBe('/api/v2/slo')
     expect(requests[0]?.searchParams.get('evaluate')).toBe('true')
     expect(requests[0]?.searchParams.get('pageSize')).toBe('25')
+    expect(result).toMatchObject({ data: { totalCount: 1 } })
+  })
 
-    routes['/slo'] = () => json(200, { totalCount: 50, nextPageKey: 'k', slo: [] })
+  it('AUD-07: pagina con nextPageKey (solo nextPageKey en la página 2) y devuelve el totalCount de la API', async () => {
+    let n = 0
+    routes['/slo'] = () => {
+      n += 1
+      return json(200, {
+        totalCount: 30,
+        nextPageKey: n === 1 ? 'k1' : null,
+        slo: [
+          {
+            id: `slo-${n}`,
+            name: `SLO ${n}`,
+            enabled: true,
+            status: 'SUCCESS',
+            target: 99,
+            warning: 99.5,
+            evaluatedPercentage: 99.9,
+            errorBudget: 10,
+            error: 'NONE'
+          }
+        ]
+      })
+    }
+    const result = await call('slos:list', { environmentId: envId })
+    expect(result).toMatchObject({ ok: true, data: { truncated: false, totalCount: 30 } })
+    expect((result.data as { slos: { id: string }[] }).slos.map((s) => s.id)).toEqual([
+      'slo-1',
+      'slo-2'
+    ])
+    expect(requests).toHaveLength(2)
+    expect([...(requests[1]?.searchParams.entries() ?? [])]).toEqual([['nextPageKey', 'k1']])
+  })
+
+  it('AUD-07: con más de 4 páginas para en 4 y marca truncated', async () => {
+    routes['/slo'] = () => json(200, { totalCount: 500, nextPageKey: 'k', slo: [] })
     expect(await call('slos:list', { environmentId: envId })).toMatchObject({
       ok: true,
-      data: { truncated: true }
+      data: { truncated: true, totalCount: 500 }
     })
-    expect(requests).toHaveLength(2)
+    expect(requests).toHaveLength(4)
   })
 })
 

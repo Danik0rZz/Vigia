@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { serviceHealth } from '@shared/service-health'
 import { ExportMenu } from '../components/ExportMenu'
-import { ModuleError, ModuleUnavailable, RefreshButton } from '../components/ModuleState'
+import {
+  ModuleError,
+  ModuleUnavailable,
+  RefreshButton,
+  TruncatedNotice
+} from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
 
@@ -85,9 +90,13 @@ export function HomePage(): JSX.Element {
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card index={0} title={t('home.openProblems')} testId="kpi-open-problems">
+            {/* El total real de la API: la lista puede venir truncada. */}
             <p className="text-3xl font-semibold tabular-nums">
-              {open.data?.problems.length ?? '—'}
+              {open.data === undefined ? '—' : (open.data.totalCount ?? open.data.problems.length)}
             </p>
+            {open.data?.truncated === true && (
+              <TruncatedNotice shown={open.data.problems.length} total={open.data.totalCount} />
+            )}
           </Card>
 
           <Card
@@ -121,6 +130,9 @@ export function HomePage(): JSX.Element {
             <div ref={sloRef}>
               {sloList.length === 0 && slos.isSuccess && (
                 <p className="text-sm text-muted-foreground">{t('home.noSlos')}</p>
+              )}
+              {slos.data?.truncated === true && (
+                <TruncatedNotice shown={sloList.length} total={slos.data.totalCount} />
               )}
               <ul className="grid gap-1.5 text-sm">
                 {sloList.map((slo) => (

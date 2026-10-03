@@ -50,6 +50,8 @@ export interface DtClient {
 export interface DtPage<T> {
   items: T[]
   truncated: boolean
+  /** `totalCount` de la PRIMERA página (el total real); null si la API no lo da. */
+  totalCount: number | null
 }
 
 type MaybePromise<T> = T | Promise<T>
@@ -168,21 +170,48 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     }
   }
 
+  const timeoutError = (timeoutMs: number): DtError =>
+    new DtError('TIMEOUT', `Sin respuesta en ${Math.round(timeoutMs / 1000)} s.`)
+
+  /**
+   * Espera `promise` (la lectura del cuerpo) mientras no venza el plazo del
+   * intento. Si vence, TIMEOUT y se cancela el cuerpo: un proxy que deja la
+   * respuesta a medias no puede dejar la vista cargando para siempre.
+   */
+  function withinDeadline<R>(
+    signal: AbortSignal,
+    response: Response,
+    promise: Promise<R>,
+    timeoutMs: number
+  ): Promise<R> {
+    return new Promise<R>((resolve, reject) => {
+      const onAbort = (): void => {
+        reject(timeoutError(timeoutMs))
+        void response.body?.cancel().catch(() => undefined)
+      }
+      if (signal.aborted) {
+        onAbort()
+        return
+      }
+      signal.addEventListener('abort', onAbort, { once: true })
+      promise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort))
+    })
+  }
+
   async function send(
     envId: string,
     url: string,
     init: RequestInit,
+    signal: AbortSignal,
     timeoutMs: number
   ): Promise<Response> {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      return await deps.fetchFor(envId)(url, { ...init, signal: controller.signal })
+      return await deps.fetchFor(envId)(url, { ...init, signal })
     } catch (error) {
       const text = errorText(error)
       const name = error instanceof Error ? error.name : ''
-      if (controller.signal.aborted || name === 'AbortError' || name === 'TimeoutError') {
-        throw new DtError('TIMEOUT', `Sin respuesta en ${Math.round(timeoutMs / 1000)} s.`)
+      if (signal.aborted || name === 'AbortError' || name === 'TimeoutError') {
+        throw timeoutError(timeoutMs)
       }
       // Un rechazo del verificador propio llega como net::ERR_FAILED, no como
       // ERR_CERT: solo cuenta como fallo de certificado si el verificador lo anotó.
@@ -200,8 +229,6 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         )
       }
       throw new DtError('NETWORK', `Error de red: ${text}`)
-    } finally {
-      clearTimeout(timer)
     }
   }
 
@@ -235,16 +262,37 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         init.body = JSON.stringify(options.body)
       }
 
-      const response = await send(envId, url, init, timeoutMs)
+      // Un plazo por intento, que cubre las cabeceras Y la lectura del cuerpo.
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), timeoutMs)
+      let outcome: Outcome
+      try {
+        const response = await send(envId, url, init, controller.signal, timeoutMs)
+        const readBody = <R>(promise: Promise<R>): Promise<R> =>
+          withinDeadline(controller.signal, response, promise, timeoutMs)
+        outcome = await handleResponse(response, readBody)
+      } finally {
+        clearTimeout(timer)
+      }
+      if (!outcome.retry) return outcome.value
+      if (outcome.wait > 0) await deps.sleep(outcome.wait)
+    }
 
+    type Outcome = { retry: true; wait: number } | { retry: false; value: T }
+
+    /** Qué hacer con una respuesta: reintentar (401 de OAuth, 429) o devolver el dato. */
+    async function handleResponse(
+      response: Response,
+      readBody: <R>(promise: Promise<R>) => Promise<R>
+    ): Promise<Outcome> {
       if (response.status === 401) {
         if (auth.oauth && !renewedOAuth) {
           renewedOAuth = true
           deps.oauth.invalidate(envId)
           auth = await authorization(envId, api, 'oauth')
-          continue
+          return { retry: true, wait: 0 }
         }
-        throw new DtError('UNAUTHORIZED', await readErrorMessage(response), 401)
+        throw new DtError('UNAUTHORIZED', await readBody(readErrorMessage(response)), 401)
       }
 
       if (response.status === 429) {
@@ -269,12 +317,13 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         deps.logger.warn(
           `Dynatrace 429 en ${method} ${path}; reintento ${rateLimitRetries} en ${Math.round(wait)} ms`
         )
-        await deps.sleep(wait)
-        continue
+        // La espera va fuera del plazo del intento: no es tiempo de respuesta.
+        void response.body?.cancel().catch(() => undefined)
+        return { retry: true, wait }
       }
 
       if (!response.ok) {
-        const message = await readErrorMessage(response)
+        const message = await readBody(readErrorMessage(response))
         const code =
           response.status === 403
             ? 'FORBIDDEN'
@@ -290,8 +339,9 @@ export function createDtClient(deps: DtClientDeps): DtClient {
 
       let json: unknown
       try {
-        json = await response.json()
-      } catch {
+        json = await readBody(response.json())
+      } catch (error) {
+        if (error instanceof DtError) throw error
         throw new DtError('INVALID_RESPONSE', 'La respuesta no es JSON.', response.status)
       }
       const parsed = schema.safeParse(json)
@@ -302,7 +352,7 @@ export function createDtClient(deps: DtClientDeps): DtClient {
           response.status
         )
       }
-      return parsed.data
+      return { retry: false, value: parsed.data }
     }
   }
 
@@ -312,9 +362,12 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     const request = { ...rest, path: endpoint.path }
     const pageSchema = z.object({
       nextPageKey: z.string().nullable().optional(),
+      // Se lee sin validar: si no es un número, el total queda en null.
+      totalCount: z.unknown().optional(),
       [itemsKey]: z.array(schema)
     })
     const items: T[] = []
+    let totalCount: number | null = null
     let query = request.query
     for (let page = 0; page < maxPages; page += 1) {
       const result = (await dtRequest({ ...request, query, schema: pageSchema })) as Record<
@@ -322,14 +375,21 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         unknown
       > & { nextPageKey?: string | null }
       items.push(...(result[itemsKey] as T[]))
+      // El total real es el de la primera página: las siguientes no lo cambian.
+      if (page === 0) {
+        const total = result['totalCount']
+        totalCount = typeof total === 'number' && Number.isFinite(total) ? total : null
+      }
       const next = result.nextPageKey
-      if (next === null || next === undefined || next === '') return { items, truncated: false }
+      if (next === null || next === undefined || next === '') {
+        return { items, truncated: false, totalCount }
+      }
       // Con nextPageKey solo viaja lo que el endpoint permite repetir.
       query = nextPageQuery(endpoint, request.query, next)
     }
     // Se ha llegado al tope con páginas pendientes: no se corta en silencio.
     deps.logger.warn(`Dynatrace: ${request.path} truncado a ${maxPages} páginas`)
-    return { items, truncated: true }
+    return { items, truncated: true, totalCount }
   }
 
   return { dtRequest, paginate }

@@ -229,6 +229,7 @@
     "refresh": "Actualizar",
     "loading": "Cargando…",
     "truncated": "Mostrando los primeros {{count}}.",
+    "truncatedOf": "Mostrando {{shown}} de {{total}}.",
     "empty": "Sin datos en este rango.",
     "noEnvironment": "Sin entorno activo: elige uno en la barra superior.",
     "classicToken": "Este módulo usa el token clásico: añádelo en Ajustes.",

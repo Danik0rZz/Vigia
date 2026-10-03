@@ -9,7 +9,12 @@ import { useTimeRangeValue } from '../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../components/Chart'
 import { ConfirmDialog, FormDialog } from '../components/dialogs'
 import { ExportMenu } from '../components/ExportMenu'
-import { ModuleError, ModuleUnavailable, RefreshButton } from '../components/ModuleState'
+import {
+  ModuleError,
+  ModuleUnavailable,
+  RefreshButton,
+  TruncatedNotice
+} from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { BUTTON_ICON, BUTTON_PRIMARY, BUTTON_SECONDARY, INPUT } from '../components/styles'
 import {
@@ -209,6 +214,12 @@ export function MetricsPage(): JSX.Element {
                   </li>
                 ))}
               </ul>
+            )}
+            {search !== '' && results.data?.truncated === true && (
+              <TruncatedNotice
+                shown={results.data.metrics.length}
+                total={results.data.totalCount}
+              />
             )}
             <div className="flex flex-wrap items-end gap-3">
               <label className="grid flex-1 gap-1 text-xs text-muted-foreground">

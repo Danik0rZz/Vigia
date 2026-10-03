@@ -181,7 +181,8 @@ export const ipcContract = {
     }),
     output: z.object({
       problems: z.array(problemSummarySchema),
-      totalCount: z.number(),
+      /** Total real según la API (puede ser mayor que lo traído); null si no lo da. */
+      totalCount: z.number().nullable(),
       truncated: z.boolean()
     })
   },
@@ -201,11 +202,19 @@ export const ipcContract = {
   },
   'metrics:search': {
     input: z.object({ environmentId: z.uuid(), text: z.string().trim().min(1).max(100) }),
-    output: z.object({ metrics: z.array(metricInfoSchema), truncated: z.boolean() })
+    output: z.object({
+      metrics: z.array(metricInfoSchema),
+      truncated: z.boolean(),
+      totalCount: z.number().nullable()
+    })
   },
   'slos:list': {
     input: z.object({ environmentId: z.uuid() }),
-    output: z.object({ slos: z.array(sloSummarySchema), truncated: z.boolean() })
+    output: z.object({
+      slos: z.array(sloSummarySchema),
+      truncated: z.boolean(),
+      totalCount: z.number().nullable()
+    })
   },
   'savedQueries:list': {
     input: z.object({ environmentId: z.uuid() }),

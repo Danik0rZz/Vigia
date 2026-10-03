@@ -186,7 +186,9 @@ export function ProblemsPage(): JSX.Element {
               }}
             />
           </div>
-          {query.data?.truncated === true && <TruncatedNotice count={problems.length} />}
+          {query.data?.truncated === true && (
+            <TruncatedNotice shown={problems.length} total={query.data.totalCount} />
+          )}
           <ProblemsTable
             rows={rows}
             selected={selected}

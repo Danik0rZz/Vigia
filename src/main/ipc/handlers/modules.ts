@@ -15,7 +15,7 @@ import {
   toProblemSummary
 } from '../../modules/problems'
 import type { SavedQueryStore } from '../../modules/saved-queries'
-import { slosPageSchema, toSloSummary } from '../../modules/slos'
+import { sloSchema, toSloSummary } from '../../modules/slos'
 import type { TenantRepository } from '../../tenants/repository'
 import type { IpcImplementations } from '../handler'
 
@@ -35,8 +35,9 @@ const PROBLEMS_MAX_PAGES = 5
 /** Partes del detalle que no vienen por defecto en GET /problems/{id}. */
 const PROBLEM_DETAIL_FIELDS = 'evidenceDetails,impactAnalysis,recentComments'
 const METRIC_SEARCH_PAGE_SIZE = 50
-/** Máximo de /api/v2/slo con evaluate=true. */
+/** Máximo de /api/v2/slo con evaluate=true (es caro): hasta 4 páginas, 100 SLO. */
 const SLO_PAGE_SIZE = 25
+const SLO_MAX_PAGES = 4
 
 export interface ModuleHandlerDeps {
   client: DtClient
@@ -70,7 +71,8 @@ export function createModuleHandlers(
       })
       return {
         problems: page.items.map(toProblemSummary),
-        totalCount: page.items.length,
+        // El total real de la API (puede ser mayor que lo traído), no items.length.
+        totalCount: page.totalCount,
         truncated: page.truncated
       }
     },
@@ -110,22 +112,25 @@ export function createModuleHandlers(
       })
       return {
         metrics: page.metrics.map(toMetricInfo),
-        truncated: page.nextPageKey !== null && page.nextPageKey !== undefined
+        truncated: page.nextPageKey !== null && page.nextPageKey !== undefined,
+        totalCount: page.totalCount
       }
     },
 
     'slos:list': async ({ environmentId }) => {
       repo.getEnvironment(environmentId)
-      const page = await client.dtRequest({
+      const page = await client.paginate({
         envId: environmentId,
         api: 'classic',
-        path: '/slo',
+        endpoint: DT_ENDPOINTS.slo,
         query: { evaluate: 'true', pageSize: SLO_PAGE_SIZE },
-        schema: slosPageSchema
+        schema: sloSchema,
+        maxPages: SLO_MAX_PAGES
       })
       return {
-        slos: page.slo.map(toSloSummary),
-        truncated: page.nextPageKey !== null && page.nextPageKey !== undefined
+        slos: page.items.map(toSloSummary),
+        truncated: page.truncated,
+        totalCount: page.totalCount
       }
     },
 

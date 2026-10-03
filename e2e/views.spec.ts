@@ -263,7 +263,8 @@ async function startServer(): Promise<void> {
         const source = sim.many && token === TOKEN_A ? manyProblems : problemsFor(token)
         const problems = applySelector(source, url.searchParams.get('problemSelector'))
         return send(200, {
-          totalCount: problems.length,
+          // Al truncar, el total de la API es mayor que lo que llega (AUD-07).
+          totalCount: sim.truncate ? 999 : problems.length,
           problems,
           nextPageKey: sim.truncate ? `pagina-${sim.problemsRequests}` : null
         })
@@ -693,15 +694,31 @@ test('sin auto-refresco: ni volver a la vista, ni el foco, ni la reconexión pid
   await expect.poll(() => sim.problemsRequests).toBeGreaterThan(before)
 })
 
-test('una lista truncada lo indica', async () => {
+test('una lista truncada lo indica, con el total real de la API', async () => {
   await expect(page.getByTestId('list-truncated')).toHaveCount(0)
   sim.truncate = true
   await page.getByTestId('module-refresh').click()
-  await expect(page.getByTestId('list-truncated')).toBeVisible()
+  const notice = page.getByTestId('list-truncated')
+  await expect(notice).toBeVisible()
+  await expect(notice).toContainText('de 999')
+
+  // Inicio: el KPI de problemas abiertos muestra el total de la API, no los que han llegado.
+  await goTo('home')
+  await page.getByTestId('module-refresh').click()
+  await expect(page.getByTestId('kpi-open-problems')).toContainText('999')
+  await goTo('problems')
 
   sim.truncate = false
   await page.getByTestId('module-refresh').click()
   await expect(page.getByTestId('list-truncated')).toHaveCount(0)
+
+  // Inicio también tiene la consulta truncada en caché (sin auto-refresco): se refresca para
+  // que las pruebas siguientes partan del estado normal.
+  await goTo('home')
+  await page.getByTestId('module-refresh').click()
+  await expect(page.getByTestId('kpi-open-problems')).not.toContainText('999')
+  await expect(page.getByTestId('list-truncated')).toHaveCount(0)
+  await goTo('problems')
 })
 
 test('exporta problemas a CSV: BOM, ";", una fila por problema y fórmulas neutralizadas', async () => {

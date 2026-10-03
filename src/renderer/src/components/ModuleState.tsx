@@ -64,12 +64,24 @@ export function RefreshButton({
   )
 }
 
-/** Aviso de lista truncada: hay más datos de los que se muestran. */
-export function TruncatedNotice({ count }: { count: number }): JSX.Element {
-  const { t } = useTranslation()
+/**
+ * Aviso de lista truncada: hay más datos de los que se muestran. Con el total
+ * de la API, "Mostrando N de M"; sin él, "Mostrando los primeros N".
+ */
+export function TruncatedNotice({
+  shown,
+  total
+}: {
+  shown: number
+  total: number | null
+}): JSX.Element {
+  const { t, i18n } = useTranslation()
+  const format = (value: number): string => new Intl.NumberFormat(i18n.language).format(value)
   return (
     <p data-testid="list-truncated" className="text-xs text-muted-foreground">
-      {t('module.truncated', { count })}
+      {total !== null && total > shown
+        ? t('module.truncatedOf', { shown: format(shown), total: format(total) })
+        : t('module.truncated', { count: shown })}
     </p>
   )
 }
