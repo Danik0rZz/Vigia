@@ -19,8 +19,10 @@ export interface ExportTable {
   timeRange?: TimeRangeValue | undefined
   /** Nota para la hoja Info del XLSX, ya traducida. */
   note?: string | undefined
-  /** Avisos de los datos para la hoja Info, ya traducidos (ver dataWarnings). */
+  /** Avisos de Dynatrace para la hoja Info, una fila por aviso. */
   warnings?: readonly string[] | undefined
+  /** Elementos descartados al leer la lista: fila propia en la hoja Info. */
+  invalidCount?: number | undefined
 }
 
 /** Etiquetas del XLSX (hojas e Info) en el idioma de la interfaz. */
@@ -38,7 +40,8 @@ function xlsxLabels(t: TFunction): XlsxLabels {
     'from',
     'to',
     'note',
-    'warning'
+    'warning',
+    'invalidItems'
   ] as const
   return Object.fromEntries(keys.map((key) => [key, t(`export.xlsxLabels.${key}`)])) as XlsxLabels
 }
@@ -154,6 +157,9 @@ export function ExportMenu({
         ...(table.warnings === undefined || table.warnings.length === 0
           ? {}
           : { warnings: [...table.warnings] }),
+        ...(table.invalidCount === undefined || table.invalidCount === 0
+          ? {}
+          : { invalidCount: table.invalidCount }),
         // Las etiquetas del XLSX las traduce la interfaz, como las cabeceras.
         ...(action === 'xlsx' ? { xlsxLabels: xlsxLabels(t) } : {})
       })

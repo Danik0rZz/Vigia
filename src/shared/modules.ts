@@ -181,7 +181,9 @@ export const xlsxLabelsSchema = z.object({
   /** Opcional: solo hace falta si la exportación lleva nota. */
   note: z.string().min(1).max(60).optional(),
   /** Opcional: etiqueta de cada aviso de los datos. */
-  warning: z.string().min(1).max(60).optional()
+  warning: z.string().min(1).max(60).optional(),
+  /** Opcional: etiqueta de la fila con los elementos descartados. */
+  invalidItems: z.string().min(1).max(60).optional()
 })
 export type XlsxLabels = z.output<typeof xlsxLabelsSchema>
 

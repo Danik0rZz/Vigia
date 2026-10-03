@@ -374,7 +374,8 @@
       "from": "Desde",
       "to": "Hasta",
       "note": "Nota",
-      "warning": "Aviso"
+      "warning": "Aviso",
+      "invalidItems": "Elementos descartados"
     }
   },
   "exportSettings": {

@@ -374,7 +374,8 @@
       "from": "From",
       "to": "To",
       "note": "Note",
-      "warning": "Warning"
+      "warning": "Warning",
+      "invalidItems": "Discarded items"
     }
   },
   "exportSettings": {

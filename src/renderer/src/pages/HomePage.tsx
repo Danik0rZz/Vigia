@@ -10,7 +10,6 @@ import {
   RefreshButton,
   TruncatedNotice
 } from '../components/ModuleState'
-import { dataWarnings } from '../lib/data-warnings'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
 
@@ -126,7 +125,7 @@ export function HomePage(): JSX.Element {
                     target: slo.target,
                     errorBudget: slo.errorBudget
                   })),
-                  warnings: dataWarnings(t, slos.data?.invalid ?? 0)
+                  invalidCount: slos.data?.invalid
                 }}
               />
             }

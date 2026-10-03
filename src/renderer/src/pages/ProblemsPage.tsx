@@ -14,7 +14,6 @@ import {
   RefreshButton,
   TruncatedNotice
 } from '../components/ModuleState'
-import { dataWarnings } from '../lib/data-warnings'
 import { PageHeader } from '../components/PageHeader'
 import { ProblemDetail } from '../components/ProblemDetail'
 import { ProblemsTable } from '../components/ProblemsTable'
@@ -185,7 +184,8 @@ export function ProblemsPage(): JSX.Element {
                 query: text === '' ? undefined : text,
                 timeRange,
                 note: t('problems.exportNote'),
-                warnings: dataWarnings(t, query.data?.invalid ?? 0, query.data?.warnings)
+                warnings: query.data?.warnings,
+                invalidCount: query.data?.invalid
               }}
             />
           </div>

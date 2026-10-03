@@ -254,8 +254,10 @@ export const ipcContract = {
       timeRange: timeRangeSchema.optional(),
       /** Nota para la hoja Info del XLSX, en el idioma de la interfaz. */
       note: z.string().max(500).optional(),
-      /** Avisos de los datos (elementos descartados, warnings de la API) para la hoja Info. */
+      /** Avisos de Dynatrace (`warnings`) para la hoja Info, una fila por aviso. */
       warnings: z.array(z.string().max(500)).max(20).optional(),
+      /** Elementos descartados por no cumplir el esquema: fila propia en la hoja Info. */
+      invalidCount: z.number().int().min(0).optional(),
       /** Etiquetas del XLSX en el idioma de la interfaz (solo con format xlsx). */
       xlsxLabels: xlsxLabelsSchema.optional()
     }),

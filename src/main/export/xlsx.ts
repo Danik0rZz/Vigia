@@ -16,7 +16,8 @@ export const DEFAULT_XLSX_LABELS: XlsxLabels = {
   from: 'Desde',
   to: 'Hasta',
   note: 'Nota',
-  warning: 'Aviso'
+  warning: 'Aviso',
+  invalidItems: 'Elementos descartados'
 }
 
 /** Filas de datos por hoja que admite Excel (1.048.576 menos la cabecera). */
@@ -35,8 +36,10 @@ export interface XlsxInfo {
   to?: Date | undefined
   /** Aclaración del módulo sobre los datos (por ejemplo, qué significa un fin vacío). */
   note?: string | undefined
-  /** Avisos sobre los datos exportados: una fila por aviso. */
+  /** Avisos de Dynatrace sobre los datos exportados: una fila por aviso. */
   warnings?: readonly string[] | undefined
+  /** Elementos descartados al leer la lista: fila propia si hay alguno. */
+  invalidCount?: number | undefined
 }
 
 const MIN_WIDTH = 8
@@ -125,6 +128,9 @@ export async function buildXlsx(
   if (info.to !== undefined) entries.push([labels.to, info.to])
   if (info.note !== undefined) {
     entries.push([labels.note ?? DEFAULT_XLSX_LABELS.note ?? '', info.note])
+  }
+  if (info.invalidCount !== undefined && info.invalidCount > 0) {
+    entries.push([labels.invalidItems ?? DEFAULT_XLSX_LABELS.invalidItems ?? '', info.invalidCount])
   }
   for (const warning of info.warnings ?? []) {
     entries.push([labels.warning ?? DEFAULT_XLSX_LABELS.warning ?? '', warning])
