@@ -537,6 +537,32 @@ test('sin cifrado disponible: aviso y campos de credenciales deshabilitados', as
   }
 })
 
+test('AUD-21: Ctrl+K con un diálogo abierto saca la paleta por encima y con el foco', async () => {
+  await clientRow('Cliente A').getByTestId('environment-add').click()
+  const form = page.getByTestId('environment-form')
+  await expect(form).toBeVisible()
+
+  await page.keyboard.press('Control+K')
+  const palette = page.getByTestId('command-palette')
+  await expect(palette).toBeVisible()
+  // Lo que hay en el centro de la paleta es la paleta, no el diálogo ni su fondo.
+  const onTop = await palette.evaluate((el) => {
+    const box = el.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+    return hit !== null && el.contains(hit)
+  })
+  expect(onTop).toBe(true)
+  // El foco está en la paleta: lo que se escribe va a su buscador.
+  expect(await palette.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+  await page.keyboard.type('Ajustes')
+  await expect(palette.getByRole('option', { name: /Ajustes/ }).first()).toBeVisible()
+
+  await page.keyboard.press('Escape')
+  await expect(palette).toBeHidden()
+  if (await form.isVisible()) await form.getByTestId('form-cancel').click()
+  await expect(form).toBeHidden()
+})
+
 test('borrar un entorno pide confirmación', async () => {
   const row = environmentRow('Cliente A', 'Desarrollo')
   const confirm = page.getByTestId('confirm-dialog')

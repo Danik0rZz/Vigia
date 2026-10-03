@@ -48,6 +48,22 @@ describe('cálculo de contraste', () => {
   })
 })
 
+describe('AUD-21: botón de peligro', () => {
+  it('usa bg-danger con text-danger-foreground (no texto fijo)', () => {
+    const styles = readFileSync(resolve('src/renderer/src/components/styles.ts'), 'utf8')
+    const classes = styles.split(/['`"]/).filter((part) => /\bbg-danger\b/.test(part))
+    expect(classes.length).toBeGreaterThan(0)
+    for (const cls of classes) {
+      expect(cls).toMatch(/\btext-danger-foreground\b/)
+      expect(cls).not.toMatch(/\btext-(white|black)\b/)
+    }
+  })
+
+  it('--color-danger-foreground expone el token a Tailwind', () => {
+    expect(css).toMatch(/--color-danger-foreground:\s*var\(--danger-foreground\);/)
+  })
+})
+
 describe.each(THEMES)('tema %s', (_name, selector) => {
   const background = cssToken(selector, '--background') ?? ''
 
@@ -68,6 +84,14 @@ describe.each(THEMES)('tema %s', (_name, selector) => {
     const production = cssToken(selector, '--production')
     if (selector === ':root') expect(production).toBe('var(--env-production)')
     else expect([undefined, 'var(--env-production)']).toContain(production)
+  })
+
+  it('AUD-21: --danger-foreground sobre --danger contrasta ≥ 4.5 (botón de peligro)', () => {
+    const danger = cssToken(selector, '--danger')
+    const foreground = cssToken(selector, '--danger-foreground')
+    expect(danger, `--danger en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(foreground, `--danger-foreground en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(contrast(foreground ?? '#000000', danger ?? '#000000')).toBeGreaterThanOrEqual(4.5)
   })
 
   it('cada tipo tiene un color distinto', () => {

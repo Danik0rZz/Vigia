@@ -35,11 +35,12 @@ export function CommandPalette({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-overlay" />
+        {/* Por encima de los diálogos (z-40 y z-50): Ctrl+K funciona con uno abierto. */}
+        <Dialog.Overlay className="fixed inset-0 z-[60] bg-overlay" />
         <Dialog.Content
           data-testid="command-palette"
           aria-describedby={undefined}
-          className="glass fixed top-24 left-1/2 w-[min(560px,90vw)] -translate-x-1/2 overflow-hidden rounded-xl"
+          className="glass fixed top-24 left-1/2 z-[60] w-[min(560px,90vw)] -translate-x-1/2 overflow-hidden rounded-xl"
         >
           <Dialog.Title className="sr-only">{t('palette.title')}</Dialog.Title>
           <Command label={t('palette.title')}>

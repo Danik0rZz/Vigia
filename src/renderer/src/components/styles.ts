@@ -5,7 +5,7 @@ export const BUTTON_PRIMARY =
 export const BUTTON_SECONDARY =
   'inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-sm hover:bg-hover disabled:opacity-50'
 export const BUTTON_DANGER =
-  'inline-flex h-8 items-center gap-1.5 rounded-md bg-danger px-3 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50'
+  'inline-flex h-8 items-center gap-1.5 rounded-md bg-danger px-3 text-sm font-medium text-danger-foreground hover:opacity-90 disabled:opacity-50'
 export const BUTTON_ICON =
   'inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground'
 
