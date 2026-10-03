@@ -152,11 +152,42 @@ no la API en general.
 
 ## b) Entities y entityTypes
 
-_OpenAPI._ Pendiente de la prueba en vivo.
+_Observado (2026-10-04)._ Prueba: `src/main/modules/entities-explore.live.test.ts` (11 lecturas).
+Tipos explorados: `SERVICE`, `HOST`, `PROCESS_GROUP`, `APPLICATION` y `KUBERNETES_CLUSTER`.
 
 ### `GET /entityTypes`
 
+- **Respuesta:** `types`, `totalCount` y `pageSize`. Con `pageSize` 500 llega todo en una página.
+  Cada tipo trae `type`, `displayName`, `dimensionKey`, `entityLimitExceeded`, `properties`,
+  `tags`, `managementZones`, `fromRelationships` y `toRelationships` (la definición del tipo, no
+  sus entidades).
+- **Tipos personalizados o de extensión:** son la mayoría de la lista en este tenant (tipos
+  personalizados, sin nombrarlos aquí). Una interfaz de entidades tendría que separarlos de los
+  estándar.
+- **Paginación:** la página 2 se pide solo con `nextPageKey` (`DT_ENDPOINTS.entityTypes`).
+
 ### `GET /entities`
+
+- **`entitySelector` obligatorio:** sin él, **400** (`BAD_REQUEST`); mal formado, también 400.
+- **Parámetros por defecto:** `from` = `now-3d` y `pageSize` = 50. La prueba los manda siempre.
+- **`fields`:** `+properties,+tags,+managementZones,+fromRelationships,+toRelationships` añade
+  esas partes a cada entidad, que siempre trae `entityId`, `displayName` y `type`.
+- **Paginación (confirmada en vivo):**
+  - Página 2 solo con `nextPageKey` → OK.
+  - Página 2 con `nextPageKey` **y `fields`** → **400**. A diferencia de `/problems`, aquí no se
+    repite nada (`DT_ENDPOINTS.entities.keepOnNextPage = []`).
+  - Por tanto, las partes pedidas con `fields` se aplican a todas las páginas, aunque solo se
+    envíen en la primera.
+  - `nextPageKey` solo aparece cuando hay más páginas.
+- **Campos vacíos (con `fields`):** `displayName` y `properties` siempre llegan. `managementZones`
+  está vacío casi siempre. `tags` varía mucho según el tipo. Las relaciones suelen venir, salvo en
+  una parte de los servicios y las aplicaciones.
+- **`properties`:** un objeto con claves propias de cada tipo (la definición está en
+  `GET /entityTypes/{type}`). Las claves que aparecen dependen de la tecnología y la nube de cada
+  entorno, así que aquí no se listan.
+- **Relaciones:** objetos cuyas claves son el nombre de la relación (`runsOn`, `calls`,
+  `isInstanceOf`, `isClusterOfService`…) y cuyos valores son listas de `{ id, type }`.
+- **Tiempos:** mediana de unos 380 ms y máximo por debajo de 650 ms.
 
 ## c) Metrics
 
@@ -193,3 +224,7 @@ nueva sin su visto bueno.
   ya hechas (las decidió senior).
 - **Problems por clúster de Kubernetes:** decidido por peticiones. Columna "Clúster" y filtro local
   (sin agrupar).
+- **Vista de Entidades (bloque b).** Un explorador por tipo (lista de tipos estándar y, aparte, los
+  personalizados), con la tabla de entidades del tipo elegido, su `properties` y sus relaciones
+  navegables (de un servicio a su host o a su process group). Necesita `entities.read`. No se
+  implementa sin el visto bueno de Dani.
