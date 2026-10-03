@@ -191,11 +191,40 @@ Tipos explorados: `SERVICE`, `HOST`, `PROCESS_GROUP`, `APPLICATION` y `KUBERNETE
 
 ## c) Metrics
 
-_OpenAPI._ Pendiente de la prueba en vivo.
+_Observado (2026-10-04)._ Prueba: `src/main/modules/metrics-explore.live.test.ts` (12 lecturas).
+Las consultas usan una métrica estándar (`builtin:host.cpu.usage`).
 
 ### `GET /metrics`
 
+- **Respuesta:** `metrics`, `totalCount` y `nextPageKey`. Cada métrica trae `metricId`,
+  `displayName`, `description` y `unit`. La OpenAPI declara también `warnings`, que no llegó.
+- **Orden:** la primera página son todas `builtin:`. Las métricas personalizadas aparecen después
+  (no se nombran aquí).
+- **Paginación (confirmada en vivo):** página 2 solo con `nextPageKey` → OK; con `nextPageKey` y
+  `pageSize` → **400** (`DT_ENDPOINTS.metrics.keepOnNextPage = []`).
+- **Búsqueda:** `text=cpu` funciona.
+- **`GET /metrics/{metricId}`:** descriptor completo: `aggregationTypes`, `defaultAggregation`,
+  `dimensionDefinitions`, `entityType`, `resolutionInfSupported`, `transformations`, `unit`,
+  `billable`, `dduBillable`, `created`, `lastWritten`, `tags`…
+
 ### `GET /metrics/query`
+
+- **Respuesta:** `resolution` (la que se aplicó), `result`, `totalCount` y `nextPageKey`. Cada
+  resultado trae `metricId`, `data`, **`dataPointCountRatio`** y **`dimensionCountRatio`**. Cada
+  serie trae `dimensions`, `dimensionMap`, `timestamps` y `values`. En la muestra no llegó
+  `warnings`.
+- **Resolución:**
+  - Sin `resolution` en 2 h → aplica `1m`, con unos 120 puntos por serie (la OpenAPI habla de
+    "120 puntos").
+  - **`1m` en 7 días → 10 081 puntos por serie, sin rebajar la resolución ni avisar.** La API
+    admite consultas de este tamaño: es la interfaz la que tiene que limitar o avisar (ver
+    Propuestas).
+  - `1h` en 7 días → unos 170 puntos. `Inf` en 30 días → 1 punto.
+- **Errores:** una `resolution` no válida o un `metricSelector` mal formado dan **400**
+  (`BAD_REQUEST`, con el mensaje de Dynatrace). Una métrica inexistente da **404**.
+- **Valores nulos:** ninguno en la muestra (las series de la métrica estándar estaban completas).
+- **Tiempos:** mediana de unos 340 ms y máximo por debajo de 1 s (la consulta de 10 081 puntos es
+  la más lenta).
 
 ## d) SLOs
 
@@ -224,6 +253,10 @@ nueva sin su visto bueno.
   ya hechas (las decidió senior).
 - **Problems por clúster de Kubernetes:** decidido por peticiones. Columna "Clúster" y filtro local
   (sin agrupar).
+- **Métricas: resolución y avisos (mejora del módulo existente, AUD-13).** Mostrar la `resolution`
+  aplicada, los `warnings` (con ApiWarnings) y los `dataPointCountRatio` y `dimensionCountRatio`
+  cuando son menores que 1 (resultado recortado). Y, como la API no rebaja la resolución, avisar o
+  proponer una más gruesa cuando una consulta pase de unos miles de puntos por serie.
 - **Vista de Entidades (bloque b).** Un explorador por tipo (lista de tipos estándar y, aparte, los
   personalizados), con la tabla de entidades del tipo elegido, su `properties` y sus relaciones
   navegables (de un servicio a su host o a su process group). Necesita `entities.read`. No se
