@@ -1,0 +1,108 @@
+import type { EnvironmentView } from '@shared/tenants'
+import { DomainError } from '../../errors'
+import type { SecretStore } from '../../secrets/store'
+import { applyConfigImport, buildConfigExport, parseConfigFile } from '../../tenants/config-file'
+import type { TenantRepository } from '../../tenants/repository'
+import type { IpcImplementation, IpcImplementations } from '../handler'
+
+type TenantChannels =
+  | 'tenants:list'
+  | 'clients:create'
+  | 'clients:update'
+  | 'clients:delete'
+  | 'environments:create'
+  | 'environments:update'
+  | 'environments:delete'
+  | 'environments:getActive'
+  | 'environments:setActive'
+  | 'secrets:set'
+  | 'secrets:delete'
+  | 'secrets:availability'
+  | 'config:export'
+  | 'config:import'
+
+export interface TenantHandlerDeps {
+  repo: TenantRepository
+  secrets: SecretStore
+  /** Diálogos de fichero de main; `null` si el usuario cancela. */
+  dialogs: {
+    chooseSaveFile(defaultName: string): Promise<string | null>
+    chooseOpenFile(): Promise<string | null>
+  }
+  readFile(path: string): Promise<string>
+  writeFile(path: string, content: string): Promise<void>
+  now?: () => Date
+}
+
+/** Canales de clientes, entornos, secretos y configuración. El renderer no toca el disco. */
+export function createTenantHandlers(
+  deps: TenantHandlerDeps
+): Pick<IpcImplementations, TenantChannels> {
+  const { repo, secrets } = deps
+  const now = deps.now ?? (() => new Date())
+
+  const view = (id: string): EnvironmentView => ({
+    ...repo.getEnvironment(id),
+    secrets: secrets.status(id)
+  })
+
+  const exportConfig: IpcImplementation<'config:export'> = async () => {
+    const date = now()
+    const stamp = date.toISOString().slice(0, 10).replaceAll('-', '')
+    const path = await deps.dialogs.chooseSaveFile(`vigia-config-${stamp}.json`)
+    if (path === null) return { status: 'cancelled' }
+    const file = buildConfigExport(repo.listClients(), repo.listEnvironments(), date)
+    await deps.writeFile(path, `${JSON.stringify(file, null, 2)}\n`)
+    return { status: 'saved' }
+  }
+
+  const importConfig: IpcImplementation<'config:import'> = async () => {
+    const path = await deps.dialogs.chooseOpenFile()
+    if (path === null) return { status: 'cancelled' }
+    let raw: unknown
+    try {
+      raw = JSON.parse(await deps.readFile(path))
+    } catch {
+      throw new DomainError('INVALID_INPUT', 'No se pudo leer el fichero como JSON.')
+    }
+    return { status: 'done', summary: applyConfigImport(repo, parseConfigFile(raw)) }
+  }
+
+  return {
+    'tenants:list': () => ({
+      clients: repo.listClients(),
+      environments: repo.listEnvironments().map((env) => ({
+        ...env,
+        secrets: secrets.status(env.id)
+      }))
+    }),
+    'clients:create': (input) => repo.createClient(input),
+    'clients:update': ({ id, ...input }) => repo.updateClient(id, input),
+    'clients:delete': ({ id }) => {
+      repo.deleteClient(id)
+      return { ok: true }
+    },
+    'environments:create': (input) => view(repo.createEnvironment(input).id),
+    'environments:update': ({ id, ...input }) => view(repo.updateEnvironment(id, input).id),
+    'environments:delete': ({ id }) => {
+      repo.deleteEnvironment(id)
+      return { ok: true }
+    },
+    'environments:getActive': () => ({ environmentId: repo.getActiveEnvironmentId() }),
+    'environments:setActive': ({ environmentId }) => {
+      repo.setActiveEnvironmentId(environmentId)
+      return { environmentId }
+    },
+    'secrets:set': ({ environmentId, kind, value }) => {
+      secrets.set(environmentId, kind, value)
+      return { configured: true }
+    },
+    'secrets:delete': ({ environmentId, kind }) => {
+      secrets.delete(environmentId, kind)
+      return { configured: false }
+    },
+    'secrets:availability': () => ({ available: secrets.isAvailable() }),
+    'config:export': exportConfig,
+    'config:import': importConfig
+  }
+}

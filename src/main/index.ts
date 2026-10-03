@@ -1,7 +1,9 @@
-import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, Menu, nativeTheme } from 'electron'
 import { APP_NAME, APP_ORIGIN, APP_USER_MODEL_ID } from '@shared/app'
 import { createAppHandlers } from './ipc/handlers/app'
+import { createTenantHandlers } from './ipc/handlers/tenants'
 import { createUiHandlers } from './ipc/handlers/ui'
+import { openLocalData, storedTheme, storeTheme, type LocalData } from './local-data'
 import { registerIpcHandlers } from './ipc/register'
 import { initLogging, log } from './logging'
 import { configureAppPaths, rendererRoot } from './paths'
@@ -58,6 +60,21 @@ function bootstrap(): void {
     hardenDefaultSession(devServerOrigin)
     registerAppProtocol(rendererRoot())
 
+    let data: LocalData
+    try {
+      data = openLocalData()
+    } catch (error) {
+      log.error('No se pudo abrir la base de datos local', error)
+      dialog.showErrorBox(APP_NAME, 'No se pudo abrir la base de datos local. Revisa los logs.')
+      app.quit()
+      return
+    }
+    app.on('will-quit', () => data.db.$client.close())
+
+    // El tema guardado se aplica antes de crear la ventana: así la barra de
+    // título no parpadea con el tema de Windows.
+    nativeTheme.themeSource = storedTheme(data.repo)
+
     registerIpcHandlers(
       {
         ...createAppHandlers({
@@ -76,9 +93,11 @@ function bootstrap(): void {
         ...createUiHandlers({
           setThemeSource: (theme) => {
             nativeTheme.themeSource = theme
+            storeTheme(data.repo, theme)
             return nativeTheme.shouldUseDarkColors
           }
-        })
+        }),
+        ...createTenantHandlers(data.tenantDeps)
       },
       {
         isTrustedSender: (sender) =>

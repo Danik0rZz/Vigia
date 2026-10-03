@@ -7,6 +7,7 @@ import {
   type IpcParsedInput,
   type IpcResult
 } from '@shared/ipc'
+import { DomainError } from '../errors'
 
 /** Lo que main necesita saber de quien envía un mensaje para decidir si se fía. */
 export interface IpcSender {
@@ -62,6 +63,8 @@ export function createIpcHandler<C extends IpcChannel>(
     try {
       result = await implementation(input.data)
     } catch (error) {
+      // Errores esperados: llegan con su código y su mensaje, que no lleva secretos.
+      if (error instanceof DomainError) return ipcFailure(error.code, error.message)
       // El detalle va solo al log de main; al renderer llega un mensaje genérico.
       deps.logger.error(`IPC ${channel}: error en la implementación`, error)
       return ipcFailure('INTERNAL', 'Error interno al procesar la petición.')

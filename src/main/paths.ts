@@ -19,6 +19,20 @@ export function configureAppPaths(): void {
   )
 }
 
+export function databasePath(): string {
+  return join(app.getPath('userData'), 'vigia.db')
+}
+
+/**
+ * Migraciones de la base: en la app empaquetada van en `resources/migrations`
+ * (`extraResources`); sin empaquetar se leen del código fuente.
+ */
+export function migrationsDir(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'migrations')
+    : join(app.getAppPath(), 'src/main/db/migrations')
+}
+
 export function logsDir(): string {
   return join(app.getPath('userData'), 'logs')
 }

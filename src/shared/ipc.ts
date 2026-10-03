@@ -1,4 +1,12 @@
 import { z } from 'zod'
+import {
+  clientInputSchema,
+  clientSchema,
+  environmentInputSchema,
+  environmentViewSchema,
+  importSummarySchema,
+  secretKinds
+} from './tenants'
 
 /** Preferencia de tema: "system" sigue al tema de Windows. */
 export const themePreferences = ['light', 'dark', 'system'] as const
@@ -45,6 +53,71 @@ export const ipcContract = {
   'ui:setTheme': {
     input: z.object({ theme: z.enum(themePreferences) }),
     output: z.object({ dark: z.boolean() })
+  },
+
+  /** Clientes y entornos (con qué secretos tiene cada uno, nunca su valor). */
+  'tenants:list': {
+    input: z.void(),
+    output: z.object({
+      clients: z.array(clientSchema),
+      environments: z.array(environmentViewSchema)
+    })
+  },
+  'clients:create': { input: clientInputSchema, output: clientSchema },
+  'clients:update': { input: clientInputSchema.extend({ id: z.uuid() }), output: clientSchema },
+  /** Borra el cliente con sus entornos y los secretos de estos. */
+  'clients:delete': {
+    input: z.object({ id: z.uuid() }),
+    output: z.object({ ok: z.literal(true) })
+  },
+  'environments:create': { input: environmentInputSchema, output: environmentViewSchema },
+  'environments:update': {
+    input: z.intersection(z.object({ id: z.uuid() }), environmentInputSchema),
+    output: environmentViewSchema
+  },
+  /** Borra el entorno y sus secretos. */
+  'environments:delete': {
+    input: z.object({ id: z.uuid() }),
+    output: z.object({ ok: z.literal(true) })
+  },
+  'environments:getActive': {
+    input: z.void(),
+    output: z.object({ environmentId: z.uuid().nullable() })
+  },
+  'environments:setActive': {
+    input: z.object({ environmentId: z.uuid().nullable() }),
+    output: z.object({ environmentId: z.uuid().nullable() })
+  },
+
+  /**
+   * Secretos: el renderer solo puede guardarlos, borrarlos y saber si hay
+   * cifrado disponible. No existe ningún canal para leerlos.
+   */
+  'secrets:set': {
+    input: z.object({
+      environmentId: z.uuid(),
+      kind: z.enum(secretKinds),
+      value: z.string().trim().min(1).max(4096)
+    }),
+    output: z.object({ configured: z.literal(true) })
+  },
+  'secrets:delete': {
+    input: z.object({ environmentId: z.uuid(), kind: z.enum(secretKinds) }),
+    output: z.object({ configured: z.literal(false) })
+  },
+  'secrets:availability': { input: z.void(), output: z.object({ available: z.boolean() }) },
+
+  /** Exportar e importar clientes y entornos (sin secretos); main abre los diálogos. */
+  'config:export': {
+    input: z.void(),
+    output: z.object({ status: z.enum(['saved', 'cancelled']) })
+  },
+  'config:import': {
+    input: z.void(),
+    output: z.discriminatedUnion('status', [
+      z.object({ status: z.literal('cancelled') }),
+      z.object({ status: z.literal('done'), summary: importSummarySchema })
+    ])
   }
 } as const
 
@@ -65,7 +138,10 @@ export const ipcErrorCodes = [
   'UNTRUSTED_SENDER',
   'INVALID_INPUT',
   'INVALID_OUTPUT',
-  'INTERNAL'
+  'INTERNAL',
+  'CONFLICT',
+  'NOT_FOUND',
+  'ENCRYPTION_UNAVAILABLE'
 ] as const
 export type IpcErrorCode = (typeof ipcErrorCodes)[number]
 
