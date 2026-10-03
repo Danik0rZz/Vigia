@@ -20,7 +20,8 @@ import {
   resolutionSchema,
   savedQuerySchema,
   severityLevels,
-  sloSummarySchema
+  sloSummarySchema,
+  xlsxLabelsSchema
 } from './modules'
 import { timeRangeSchema } from './time-range'
 import {
@@ -234,7 +235,9 @@ export const ipcContract = {
         .array(z.record(z.string(), z.union([z.string(), z.number(), z.null()])))
         .max(MAX_EXPORT_ROWS),
       query: z.string().max(2000).optional(),
-      timeRange: timeRangeSchema.optional()
+      timeRange: timeRangeSchema.optional(),
+      /** Etiquetas del XLSX en el idioma de la interfaz (solo con format xlsx). */
+      xlsxLabels: xlsxLabelsSchema.optional()
     }),
     output: z.object({
       status: z.enum(['saved', 'cancelled']),

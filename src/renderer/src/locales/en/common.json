@@ -304,7 +304,20 @@
     "savePng": "Save PNG image",
     "saved": "Saved: {{file}}",
     "copied": "Image copied.",
-    "failed": "The export failed."
+    "failed": "The export failed.",
+    "xlsxLabels": {
+      "dataSheet": "Data",
+      "infoSheet": "Info",
+      "client": "Client",
+      "environment": "Environment",
+      "module": "Module",
+      "query": "Query",
+      "exported": "Exported",
+      "timeZone": "Time zone",
+      "range": "Range",
+      "from": "From",
+      "to": "To"
+    }
   },
   "exportSettings": {
     "title": "Export",

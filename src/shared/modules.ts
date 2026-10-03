@@ -108,6 +108,22 @@ export const MAX_EXPORT_JSON_BYTES = 20 * 1024 * 1024
 export const MAX_CAPTURE_BYTES = 15 * 1024 * 1024
 export const MAX_CAPTURE_DATA_URL = Math.ceil((MAX_CAPTURE_BYTES * 4) / 3) + 100
 
+/** Etiquetas del XLSX (hojas y filas de Info), en el idioma de la interfaz. */
+export const xlsxLabelsSchema = z.object({
+  dataSheet: z.string().min(1).max(60),
+  infoSheet: z.string().min(1).max(60),
+  client: z.string().min(1).max(60),
+  environment: z.string().min(1).max(60),
+  module: z.string().min(1).max(60),
+  query: z.string().min(1).max(60),
+  exported: z.string().min(1).max(60),
+  timeZone: z.string().min(1).max(60),
+  range: z.string().min(1).max(60),
+  from: z.string().min(1).max(60),
+  to: z.string().min(1).max(60)
+})
+export type XlsxLabels = z.output<typeof xlsxLabelsSchema>
+
 export const exportSettingsSchema = z.object({
   csvSeparator: z.enum([';', ',']),
   /** Pie con cliente, entorno y fecha en las capturas de gráficos. */

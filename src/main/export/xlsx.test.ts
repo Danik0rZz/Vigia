@@ -151,6 +151,50 @@ describe('buildXlsx', () => {
     expect((infoValue(sheet, 'Hasta') as Date).getTime()).toBe(EXPORTED.getTime())
   })
 
+  it('con etiquetas en inglés, las hojas y la Info van en inglés', async () => {
+    const labels = {
+      dataSheet: 'Data',
+      infoSheet: 'Info',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To'
+    }
+    const rows = Array.from({ length: 4 }, (_, i) => ({ name: `r${i}`, value: i, when: T }))
+    const workbook = await load(
+      await buildXlsx(
+        columns,
+        rows,
+        { ...info, range: 'now-2h', from: new Date(T), to: EXPORTED },
+        { maxRowsPerSheet: 3, labels }
+      )
+    )
+
+    expect(workbook.worksheets.map((sheet) => sheet.name).sort()).toEqual([
+      'Data',
+      'Data 2',
+      'Info'
+    ])
+    const sheet = workbook.getWorksheet('Info')
+    if (sheet === undefined) throw new Error('falta la hoja Info')
+    expect(infoValue(sheet, 'Client')).toBe('Cliente A')
+    expect(infoValue(sheet, 'Environment')).toBe('Producción')
+    expect(infoValue(sheet, 'Module')).toBe('problems')
+    expect(infoValue(sheet, 'Query')).toBe('status("open")')
+    expect(infoValue(sheet, 'Exported')).toBeInstanceOf(Date)
+    expect(infoValue(sheet, 'Time zone')).toBe('Europe/Madrid')
+    expect(infoValue(sheet, 'Range')).toBe('now-2h')
+    expect(infoValue(sheet, 'From')).toBeInstanceOf(Date)
+    expect(infoValue(sheet, 'To')).toBeInstanceOf(Date)
+    // Nada en español cuando se pasan etiquetas.
+    expect(infoValue(sheet, 'Cliente')).toBeUndefined()
+  })
+
   it('sin consulta, la fila Consulta queda vacía o no aparece, pero no falla', async () => {
     const { query: _query, ...withoutQuery } = info
     void _query

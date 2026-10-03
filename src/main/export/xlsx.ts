@@ -1,5 +1,21 @@
 import ExcelJS from 'exceljs'
+import type { XlsxLabels } from '@shared/modules'
 import { toDate, type ExportColumn, type ExportRow } from './format'
+
+/** Etiquetas si el renderer no manda las suyas (las traduce la interfaz; main no traduce). */
+export const DEFAULT_XLSX_LABELS: XlsxLabels = {
+  dataSheet: 'Datos',
+  infoSheet: 'Info',
+  client: 'Cliente',
+  environment: 'Entorno',
+  module: 'Módulo',
+  query: 'Consulta',
+  exported: 'Exportado',
+  timeZone: 'Zona horaria',
+  range: 'Rango',
+  from: 'Desde',
+  to: 'Hasta'
+}
 
 /** Filas de datos por hoja que admite Excel (1.048.576 menos la cabecera). */
 export const EXCEL_MAX_ROWS = 1_048_575
@@ -68,8 +84,9 @@ export async function buildXlsx(
   columns: ExportColumn[],
   rows: ExportRow[],
   info: XlsxInfo,
-  options: { maxRowsPerSheet?: number } = {}
+  options: { maxRowsPerSheet?: number; labels?: XlsxLabels | undefined } = {}
 ): Promise<Buffer> {
+  const labels = options.labels ?? DEFAULT_XLSX_LABELS
   const maxRows = options.maxRowsPerSheet ?? EXCEL_MAX_ROWS
   const workbook = new ExcelJS.Workbook()
   workbook.created = info.exportedAt
@@ -78,28 +95,28 @@ export async function buildXlsx(
   for (let index = 0; index < chunks; index += 1) {
     addDataSheet(
       workbook,
-      index === 0 ? 'Datos' : `Datos ${index + 1}`,
+      index === 0 ? labels.dataSheet : `${labels.dataSheet} ${index + 1}`,
       columns,
       rows.slice(index * maxRows, (index + 1) * maxRows)
     )
   }
 
-  const infoSheet = workbook.addWorksheet('Info')
+  const infoSheet = workbook.addWorksheet(labels.infoSheet)
   infoSheet.columns = [
     { key: 'label', width: 16 },
     { key: 'value', width: 50 }
   ]
   const entries: [string, ExcelJS.CellValue][] = [
-    ['Cliente', info.client],
-    ['Entorno', info.environment],
-    ['Módulo', info.module],
-    ['Consulta', info.query ?? ''],
-    ['Exportado', info.exportedAt],
-    ['Zona horaria', info.timeZone]
+    [labels.client, info.client],
+    [labels.environment, info.environment],
+    [labels.module, info.module],
+    [labels.query, info.query ?? ''],
+    [labels.exported, info.exportedAt],
+    [labels.timeZone, info.timeZone]
   ]
-  if (info.range !== undefined) entries.push(['Rango', info.range])
-  if (info.from !== undefined) entries.push(['Desde', info.from])
-  if (info.to !== undefined) entries.push(['Hasta', info.to])
+  if (info.range !== undefined) entries.push([labels.range, info.range])
+  if (info.from !== undefined) entries.push([labels.from, info.from])
+  if (info.to !== undefined) entries.push([labels.to, info.to])
   for (const [label, value] of entries) {
     const row = infoSheet.addRow({ label, value })
     row.getCell(1).font = { bold: true }

@@ -137,17 +137,23 @@ export function createExportHandlers(
         case 'xlsx': {
           const dates =
             input.timeRange === undefined ? undefined : timeRangeToDates(input.timeRange, now)
-          data = await buildXlsx(input.columns, input.rows, {
-            client,
-            environment,
-            module: input.module,
-            query: input.query,
-            exportedAt: now,
-            timeZone: deps.timeZone(),
-            range: input.timeRange === undefined ? undefined : timeRangeToDt(input.timeRange).from,
-            from: dates?.from,
-            to: dates?.to
-          })
+          data = await buildXlsx(
+            input.columns,
+            input.rows,
+            {
+              client,
+              environment,
+              module: input.module,
+              query: input.query,
+              exportedAt: now,
+              timeZone: deps.timeZone(),
+              range:
+                input.timeRange === undefined ? undefined : timeRangeToDt(input.timeRange).from,
+              from: dates?.from,
+              to: dates?.to
+            },
+            { labels: input.xlsxLabels }
+          )
           kind = 'xlsx'
           break
         }

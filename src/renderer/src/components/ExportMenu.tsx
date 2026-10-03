@@ -2,7 +2,8 @@ import { useState, type JSX, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as Popover from '@radix-ui/react-popover'
 import { Camera, Copy, Download } from 'lucide-react'
-import type { ExportColumn, ExportModule, ExportRow } from '@shared/modules'
+import type { TFunction } from 'i18next'
+import type { ExportColumn, ExportModule, ExportRow, XlsxLabels } from '@shared/modules'
 import type { TimeRangeValue } from '@shared/time-range'
 import { useActiveEnvironment, environmentLabel } from '../data/tenants'
 import { useExportSettings } from '../data/modules'
@@ -16,6 +17,24 @@ export interface ExportTable {
   rows: ExportRow[]
   query?: string | undefined
   timeRange?: TimeRangeValue | undefined
+}
+
+/** Etiquetas del XLSX (hojas e Info) en el idioma de la interfaz. */
+function xlsxLabels(t: TFunction): XlsxLabels {
+  const keys = [
+    'dataSheet',
+    'infoSheet',
+    'client',
+    'environment',
+    'module',
+    'query',
+    'exported',
+    'timeZone',
+    'range',
+    'from',
+    'to'
+  ] as const
+  return Object.fromEntries(keys.map((key) => [key, t(`export.xlsxLabels.${key}`)])) as XlsxLabels
 }
 
 /** Alto del pie de las capturas, en píxeles de la imagen (a doble resolución). */
@@ -124,7 +143,9 @@ export function ExportMenu({
         columns: table.columns,
         rows: table.rows,
         ...(table.query === undefined ? {} : { query: table.query }),
-        ...(table.timeRange === undefined ? {} : { timeRange: table.timeRange })
+        ...(table.timeRange === undefined ? {} : { timeRange: table.timeRange }),
+        // Las etiquetas del XLSX las traduce la interfaz, como las cabeceras.
+        ...(action === 'xlsx' ? { xlsxLabels: xlsxLabels(t) } : {})
       })
       if (result.status === 'saved') setNotice(t('export.saved', { file: result.fileName ?? '' }))
     } catch {

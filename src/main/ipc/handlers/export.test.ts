@@ -177,6 +177,55 @@ describe('export:table con VIGIA_EXPORT_DIR', () => {
     expect(workbook.getWorksheet('Datos')?.getRow(2).getCell(4).value).toBeInstanceOf(Date)
   })
 
+  it('XLSX con xlsxLabels: hojas e Info con las etiquetas recibidas', async () => {
+    const xlsxLabels = {
+      dataSheet: 'Data',
+      infoSheet: 'Details',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To'
+    }
+    await call(build(dir), 'export:table', table('xlsx', { timeRange: '24h', xlsxLabels }))
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load([...written.values()][0] as unknown as ArrayBuffer)
+    expect(workbook.worksheets.map((sheet) => sheet.name).sort()).toEqual(['Data', 'Details'])
+    const info: Record<string, unknown> = {}
+    workbook.getWorksheet('Details')?.eachRow((row) => {
+      info[String(row.getCell(1).value)] = row.getCell(2).value
+    })
+    expect(info).toMatchObject({ Client: 'Cliente A', Environment: 'Producción', Range: 'now-24h' })
+  })
+
+  it.each([
+    ['vacía', ''],
+    ['de más de 60 caracteres', 'x'.repeat(61)]
+  ])('rechaza una etiqueta %s', async (_case, value) => {
+    const xlsxLabels = {
+      dataSheet: value,
+      infoSheet: 'Info',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To'
+    }
+    expect(await call(build(dir), 'export:table', table('xlsx', { xlsxLabels }))).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' }
+    })
+    expect(written.size).toBe(0)
+  })
+
   it.each([
     ['txt', '.txt'],
     ['txt-tabs', '.txt']
@@ -368,7 +417,11 @@ describe('capture:region', () => {
     ['que se sale por la derecha', { x: 700, y: 0, width: 200, height: 100 }],
     ['que se sale por abajo', { x: 0, y: 500, width: 100, height: 200 }],
     ['con coordenadas negativas', { x: -1, y: 0, width: 10, height: 10 }],
-    ['con decimales', { x: 0.5, y: 0, width: 10, height: 10 }]
+    ['con decimales', { x: 0.5, y: 0, width: 10, height: 10 }],
+    ['con y negativa', { x: 0, y: -5, width: 10, height: 10 }],
+    ['de ancho 0', { x: 0, y: 0, width: 0, height: 10 }],
+    ['de alto 0', { x: 0, y: 0, width: 10, height: 0 }],
+    ['con un tamaño no entero', { x: 0, y: 0, width: 10, height: 10.5 }]
   ])('rechaza un rectángulo %s sin capturar', async (_case, rect) => {
     const result = await call(build(null), 'capture:region', {
       module: 'home',
