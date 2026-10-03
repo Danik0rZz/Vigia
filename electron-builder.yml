@@ -10,6 +10,8 @@ files:
   - '!node_modules/better-sqlite3/{src,deps,docs,benchmark}/**'
   - '!node_modules/better-sqlite3/prebuilds/{darwin,linux,linuxmusl}-*.node'
   - '!node_modules/better-sqlite3/prebuilds/win32-arm64.node'
+  # Solo hace falta para compilar better-sqlite3, que ya viene precompilado.
+  - '!node_modules/node-addon-api/**'
 asar: true
 # Los módulos nativos no se pueden cargar desde dentro del asar.
 asarUnpack:
