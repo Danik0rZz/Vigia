@@ -1,7 +1,9 @@
+/** Mecanismos de autenticación; los mismos ids que usará `dtRequest({ api })` en la Fase 4. */
+export type MechanismId = 'classic' | 'oauth' | 'platform' | 'session'
+
 /** Estado de un mecanismo de autenticación del entorno activo. */
 export interface MechanismStatus {
-  /** Nombre ya traducido del mecanismo (token clásico, OAuth…). */
-  name: string
+  id: MechanismId
   connected: boolean
 }
 

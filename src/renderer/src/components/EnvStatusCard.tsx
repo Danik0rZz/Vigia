@@ -39,9 +39,9 @@ export function EnvStatusCard({
         <div className={cn('grid gap-1', collapsed && 'sr-only')}>
           <ul className="grid gap-1">
             {status.mechanisms.map((mechanism) => (
-              <li key={mechanism.name} className="flex items-center gap-2">
+              <li key={mechanism.id} className="flex items-center gap-2">
                 <StatusDot className={mechanism.connected ? 'bg-accent' : 'bg-status-neutral'} />
-                <span className="text-foreground">{mechanism.name}</span>
+                <span className="text-foreground">{t(`envStatus.mechanisms.${mechanism.id}`)}</span>
                 <span>
                   {mechanism.connected ? t('envStatus.connected') : t('envStatus.disconnected')}
                 </span>
@@ -51,9 +51,11 @@ export function EnvStatusCard({
           {status.oauthExpiresAt !== null && (
             <p>
               {t('envStatus.oauthExpires', {
-                time: new Intl.DateTimeFormat(i18n.language, { timeStyle: 'short' }).format(
-                  status.oauthExpiresAt
-                )
+                // Con fecha: un token que caduca mañana no puede parecer que caduca hoy.
+                time: new Intl.DateTimeFormat(i18n.language, {
+                  dateStyle: 'short',
+                  timeStyle: 'short'
+                }).format(status.oauthExpiresAt)
               })}
             </p>
           )}
