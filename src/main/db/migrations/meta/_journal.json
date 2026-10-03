@@ -8,6 +8,13 @@
       "when": 1791058920815,
       "tag": "0000_inicial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791060966407,
+      "tag": "0001_huellas_certificados",
+      "breakpoints": true
     }
   ]
 }

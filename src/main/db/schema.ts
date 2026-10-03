@@ -55,6 +55,19 @@ export const secrets = sqliteTable(
   (table) => [primaryKey({ columns: [table.environmentId, table.kind] })]
 )
 
+/** Huella SHA-256 aceptada por host para el nivel de certificados "huella fijada". */
+export const certificatePins = sqliteTable(
+  'certificate_pins',
+  {
+    environmentId: text('environment_id')
+      .notNull()
+      .references(() => environments.id, { onDelete: 'cascade' }),
+    host: text('host').notNull(),
+    fingerprint: text('fingerprint').notNull()
+  },
+  (table) => [primaryKey({ columns: [table.environmentId, table.host] })]
+)
+
 /** Ajustes de la app (clave y valor): entorno activo, tema… */
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
