@@ -539,7 +539,7 @@ describe('nada secreto en el log', () => {
 describe('paginate', () => {
   const item = z.object({ id: z.string() })
 
-  it('junta las páginas siguiendo nextPageKey y en las siguientes solo manda nextPageKey y keepParams', async () => {
+  it('junta las páginas y en las siguientes manda SOLO nextPageKey y fields, sin pedir nada al módulo', async () => {
     responses.push(
       json(200, { problems: [{ id: 'a' }, { id: 'b' }], nextPageKey: 'k1' }),
       json(200, { problems: [{ id: 'c' }], nextPageKey: 'k2' }),
@@ -550,9 +550,14 @@ describe('paginate', () => {
       envId: ENV,
       api: 'classic',
       path: '/problems',
-      query: { fields: '+evidenceDetails', from: 'now-2h', pageSize: 2 },
+      query: {
+        fields: '+evidenceDetails',
+        problemSelector: 'status("open")',
+        entitySelector: 'type(SERVICE)',
+        from: 'now-2h',
+        pageSize: 2
+      },
       itemsKey: 'problems',
-      keepParams: ['fields'],
       schema: item
     })
 
@@ -564,6 +569,8 @@ describe('paginate', () => {
     expect(logger.warn).not.toHaveBeenCalled()
     expect(Object.fromEntries(sent(0).url.searchParams)).toEqual({
       fields: '+evidenceDetails',
+      problemSelector: 'status("open")',
+      entitySelector: 'type(SERVICE)',
       from: 'now-2h',
       pageSize: '2'
     })
@@ -575,6 +582,40 @@ describe('paginate', () => {
       nextPageKey: 'k2',
       fields: '+evidenceDetails'
     })
+  })
+
+  it('sin fields en la primera página, las siguientes llevan solo nextPageKey', async () => {
+    responses.push(
+      json(200, { items: [{ id: 'a' }], nextPageKey: 'k1' }),
+      json(200, { items: [{ id: 'b' }], nextPageKey: 'k2' }),
+      json(200, { items: [{ id: 'c' }] })
+    )
+    const page = await client().paginate({
+      envId: ENV,
+      api: 'classic',
+      path: '/x',
+      query: { from: 'now-7d', pageSize: 1, entitySelector: 'type(HOST)', extra: ['a', 'b'] },
+      itemsKey: 'items',
+      schema: item
+    })
+    expect(page.items.map((i) => i.id)).toEqual(['a', 'b', 'c'])
+    expect([...sent(1).url.searchParams.entries()]).toEqual([['nextPageKey', 'k1']])
+    expect([...sent(2).url.searchParams.entries()]).toEqual([['nextPageKey', 'k2']])
+  })
+
+  it('keepParams ya no existe en el tipo de paginate', () => {
+    // Si alguien vuelve a añadir keepParams al tipo, esta línea deja de ser un error y tsc falla.
+    const call = (): unknown =>
+      client().paginate({
+        envId: ENV,
+        api: 'classic',
+        path: '/x',
+        itemsKey: 'items',
+        // @ts-expect-error keepParams se eliminó: la regla de páginas siguientes es fija.
+        keepParams: ['fields'],
+        schema: item
+      })
+    expect(typeof call).toBe('function')
   })
 
   it('para cuando no viene nextPageKey', async () => {

@@ -36,8 +36,6 @@ export interface DtPaginateOptions<T> extends Omit<DtRequestOptions<T>, 'schema'
   /** Propiedad de la respuesta con la lista (`problems`, `slo`…). */
   itemsKey: string
   maxPages?: number
-  /** Parámetros que se repiten en las páginas siguientes (en /problems, `fields`). */
-  keepParams?: string[]
 }
 
 export interface DtClient {
@@ -306,7 +304,7 @@ export function createDtClient(deps: DtClientDeps): DtClient {
   }
 
   async function paginate<T>(options: DtPaginateOptions<T>): Promise<DtPage<T>> {
-    const { itemsKey, schema, maxPages = 20, keepParams = [], ...request } = options
+    const { itemsKey, schema, maxPages = 20, ...request } = options
     const pageSchema = z.object({
       nextPageKey: z.string().nullable().optional(),
       [itemsKey]: z.array(schema)
@@ -321,12 +319,10 @@ export function createDtClient(deps: DtClientDeps): DtClient {
       items.push(...(result[itemsKey] as T[]))
       const next = result.nextPageKey
       if (next === null || next === undefined || next === '') return { items, truncated: false }
-      const kept = Object.fromEntries(
-        keepParams.flatMap((key) =>
-          request.query?.[key] === undefined ? [] : [[key, request.query[key]]]
-        )
-      )
-      query = { ...kept, nextPageKey: next }
+      // Regla de la API v2: con nextPageKey se omite el resto de parámetros salvo
+      // `fields` (válido solo para la página que se pide).
+      const fields = request.query?.['fields']
+      query = fields === undefined ? { nextPageKey: next } : { fields, nextPageKey: next }
     }
     // Se ha llegado al tope con páginas pendientes: no se corta en silencio.
     deps.logger.warn(`Dynatrace: ${request.path} truncado a ${maxPages} páginas`)
