@@ -123,7 +123,7 @@ describe.skipIf(live === null)('exploración: Metrics (bloque c)', () => {
   it('/metrics/query: resolución por defecto, explícita, Inf y límites', async () => {
     const cases: Record<string, Record<string, string>> = {
       '2h sin resolution': { from: 'now-2h' },
-      '7d con 1m (más de lo que admite)': { from: 'now-7d', resolution: '1m' },
+      '7d con 1m': { from: 'now-7d', resolution: '1m' },
       '7d con 1h': { from: 'now-7d', resolution: '1h' },
       '30d con Inf': { from: 'now-30d', resolution: 'Inf' }
     }

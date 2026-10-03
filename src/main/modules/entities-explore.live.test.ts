@@ -168,9 +168,17 @@ describe.skipIf(live === null)('exploración: Entities y entityTypes (bloque b)'
       ctx.skip()
       return
     }
-    report['página 2 solo con nextPageKey'] = await codeOf(
-      get(DT_ENDPOINTS.entities.path, { nextPageKey: key })
-    )
+    try {
+      const second = (await get(DT_ENDPOINTS.entities.path, { nextPageKey: key })) as Raw
+      report['página 2 solo con nextPageKey'] = 'ok'
+      // ¿Se mantienen las partes de `fields` sin repetirlas? Solo un sí o un no.
+      const items = (Array.isArray(second['entities']) ? second['entities'] : []) as Raw[]
+      report['página 2 trae properties sin repetir fields'] =
+        items.length === 0 ? 'sin entidades' : items.every((e) => e['properties'] !== undefined)
+    } catch (error) {
+      report['página 2 solo con nextPageKey'] =
+        error instanceof DtError ? error.code : 'NO_DT_ERROR'
+    }
     report['página 2 con nextPageKey y fields'] = await codeOf(
       get(DT_ENDPOINTS.entities.path, { nextPageKey: key, fields: '+properties' })
     )

@@ -157,14 +157,14 @@ Tipos explorados: `SERVICE`, `HOST`, `PROCESS_GROUP`, `APPLICATION` y `KUBERNETE
 
 ### `GET /entityTypes`
 
-- **Respuesta:** `types`, `totalCount` y `pageSize`. Con `pageSize` 500 llega todo en una página.
-  Cada tipo trae `type`, `displayName`, `dimensionKey`, `entityLimitExceeded`, `properties`,
+- **Respuesta:** `types`, `totalCount` y `pageSize`. Cada tipo trae `type`, `displayName`, `dimensionKey`, `entityLimitExceeded`, `properties`,
   `tags`, `managementZones`, `fromRelationships` y `toRelationships` (la definición del tipo, no
   sus entidades).
 - **Tipos personalizados o de extensión:** son la mayoría de la lista en este tenant (tipos
   personalizados, sin nombrarlos aquí). Una interfaz de entidades tendría que separarlos de los
   estándar.
-- **Paginación:** la página 2 se pide solo con `nextPageKey` (`DT_ENDPOINTS.entityTypes`).
+- **Paginación:** según la OpenAPI (`DT_ENDPOINTS.entityTypes`), la página 2 se pide solo con
+  `nextPageKey`. No comprobado en vivo: en la prueba no hubo página 2.
 
 ### `GET /entities`
 
@@ -176,8 +176,8 @@ Tipos explorados: `SERVICE`, `HOST`, `PROCESS_GROUP`, `APPLICATION` y `KUBERNETE
   - Página 2 solo con `nextPageKey` → OK.
   - Página 2 con `nextPageKey` **y `fields`** → **400**. A diferencia de `/problems`, aquí no se
     repite nada (`DT_ENDPOINTS.entities.keepOnNextPage = []`).
-  - Por tanto, las partes pedidas con `fields` se aplican a todas las páginas, aunque solo se
-    envíen en la primera.
+  - Las partes pedidas con `fields` se mantienen en la página 2 aunque solo se envíen en la
+    primera: la página 2 pedida solo con `nextPageKey` trae `properties` (observado).
   - `nextPageKey` solo aparece cuando hay más páginas.
 - **Campos vacíos (con `fields`):** `displayName` y `properties` siempre llegan. `managementZones`
   está vacío casi siempre. `tags` varía mucho según el tipo. Las relaciones suelen venir, salvo en
