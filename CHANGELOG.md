@@ -12,12 +12,14 @@ Fase 4: cliente de Dynatrace.
 - Cliente HTTP en main (`dtRequest` y `paginate`) para la API clásica y la de plataforma, con
   token clásico, OAuth `client_credentials` y platform token. Reintenta un 401 con OAuth (token
   nuevo) y los 429 (`Retry-After` o backoff con jitter, máximo 3 veces y 60 s), con timeout por
-  petición y errores tipados que la interfaz traduce.
+  petición y errores tipados que la interfaz traduce. `paginate` avisa si la lista se ha truncado
+  al llegar al máximo de páginas.
 - Gestor de tokens OAuth en memoria por entorno: usa `expires_in`, renueva con menos de 60 s y
   comparte una única renovación.
 - Enmascarado de tokens y cabeceras en errores y logs; nunca se registran cabeceras ni cuerpos.
 - Red por entorno con la sesión de Chromium y tres niveles de certificados: sistema, huella
   fijada (por host, en la base) e ignorar errores, con aviso rojo permanente en la barra superior.
+  "Ignorar" solo vale para los hosts del entorno: nunca para el SSO, que recibe el client secret.
   Una huella nueva solo sustituye a la anterior si el usuario la acepta viendo las dos.
 - "Probar conexión" por mecanismo, con los scopes que faltan para Problemas, Métricas y SLOs, y
   la tarjeta del pie con el estado real y la caducidad del token OAuth.
