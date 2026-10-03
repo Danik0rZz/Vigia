@@ -1,16 +1,22 @@
 import { app } from 'electron'
 import { join } from 'node:path'
-import { APP_ID, APP_NAME } from '@shared/app'
+import { APP_NAME } from '@shared/app'
+import { resolveUserDataDir, USER_DATA_DIR_ENV } from './user-data'
 
 /**
- * Fija el nombre visible y la carpeta de datos. La carpeta usa el identificador
- * sin tilde (`%APPDATA%/vigia`), y en desarrollo una distinta para no mezclar
- * datos de pruebas con los reales. Debe llamarse antes de que la app esté lista.
+ * Fija el nombre visible y la carpeta de datos (ver `resolveUserDataDir`).
+ * Debe llamarse antes de que la app esté lista.
  */
 export function configureAppPaths(): void {
   app.setName(APP_NAME)
-  const folder = app.isPackaged ? APP_ID : `${APP_ID}-dev`
-  app.setPath('userData', join(app.getPath('appData'), folder))
+  app.setPath(
+    'userData',
+    resolveUserDataDir({
+      packaged: app.isPackaged,
+      appData: app.getPath('appData'),
+      override: process.env[USER_DATA_DIR_ENV]
+    })
+  )
 }
 
 export function logsDir(): string {
