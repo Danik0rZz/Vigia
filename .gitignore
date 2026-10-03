@@ -12,3 +12,5 @@ backups/
 .env*
 .vscode/
 docs/especificacion.md
+live-reports/
+docs/.respaldo/

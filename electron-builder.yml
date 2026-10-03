@@ -12,6 +12,8 @@ files:
   - '!node_modules/better-sqlite3/prebuilds/win32-arm64.node'
   # Solo hace falta para compilar better-sqlite3, que ya viene precompilado.
   - '!node_modules/node-addon-api/**'
+  # Tipos de TypeScript que llegan como dependencias transitivas (ExcelJS).
+  - '!node_modules/@types/**'
 asar: true
 # Los módulos nativos no se pueden cargar desde dentro del asar.
 asarUnpack:

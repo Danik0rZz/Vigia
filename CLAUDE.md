@@ -68,7 +68,6 @@ Fase 6:
 
 - `e2e/views.spec.ts` depende del orden de sus tests: cada test debería preparar su propio estado (anotado en la cabecera del spec).
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec, "Funcionalidades").
-- Excluir `!node_modules/@types/**` en `electron-builder.yml` (llega de forma transitiva con ExcelJS).
 - Streaming de exportaciones y aviso de filas de Excel en CSV, con DQL en la Fase 8 (ver la spec, "Exportación de datos").
 
 ## Primer paso al retomar
@@ -79,8 +78,11 @@ Fase 6:
 
 - Una fase cada vez; al terminarla, se continúa con la siguiente y la aceptación manual queda en la lista de pendientes de Dani.
 - Las dudas de diseño, alcance dentro de una fase, orden o interpretación de la spec las deciden los agentes, y se anotan en la spec o en el CHANGELOG. Solo se escala a Dani lo destructivo o irreversible (lo aprueba él en la sesión que lo ejecuta), publicar algo nuevo hacia fuera, licencia, marca y temas legales, qué hacen las funciones sin definir, la API cuando no se puede deducir y retomar Monaco. Al cerrar cada fase, un solo resumen para Dani, sin esperar su respuesta: lo hecho, las decisiones tomadas y lo que tiene que probar a mano.
+- Mientras Dani no está, peticiones decide en su nombre. Luz verde sin preguntar: lo recuperable con git que ya esté commiteado (código, dependencias exactas, node_modules, out, dist, tests, empaquetar, commits, push normal con el OK de senior y de test), lecturas del tenant de pruebas y matar procesos del equipo.
+- Se pregunta a peticiones: borrar o mover lo que no está en git (docs/especificacion.md, %APPDATA%igia, .env.live.local, ..API, nada fuera de app/), escrituras en el tenant, cambios globales en la máquina, y `git reset --hard`, `checkout --`, `clean` o `stash drop` con cambios sin commitear (salvo commit o stash previo). Antes de cambios grandes en la spec, copia en docs/.respaldo/ (ignorada) con la fecha en el nombre.
+- Solo lo decide Dani: force push, reescribir el historial publicado, borrar ramas remotas, tags, releases, publicar el zip, licencia y temas legales, y el qué de las funciones sin definir. El zip nunca se arranca en su perfil.
 - La API de cada módulo (v1, v2 o plataforma) se deduce de `..\API\` y de la documentación oficial; solo si no se puede deducir, se pregunta a Dani. La elección se anota.
-- El repositorio es público. Push automático: solo `git push origin main`, y solo después del visto bueno de senior y de test. Nunca `--force` ni `--force-with-lease`. Sin tags, releases ni subir el zip a GitHub (se escala a Dani). Antes de cada push, revisar el contenido sensible: autor y committer noreply, sin `docs/especificacion.md`, sin nombres de clientes, secretos, URLs o IDs de tenants reales, logs ni `.env`.
+- El repositorio es público. Push automático: solo `git push origin main`, y solo después del visto bueno de senior y de test. Nunca `--force` ni `--force-with-lease`. Sin tags, releases ni subir el zip a GitHub (se escala a Dani). Antes de cada push, `npm run scan:tenant` (busca restos del tenant de pruebas sin mostrar sus valores) y revisar el contenido sensible: autor y committer noreply, sin `docs/especificacion.md`, sin nombres de clientes, secretos, URLs o IDs de tenants reales, logs ni `.env`.
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
 - No inventar endpoints ni parámetros de Dynatrace o de Monaco: consultar `..\API\` y la documentación oficial.
 - Nunca escribir secretos, cabeceras `Authorization` ni cookies en logs, ficheros de configuración, mensajes de error ni en el repositorio.

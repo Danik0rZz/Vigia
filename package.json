@@ -21,7 +21,8 @@
     "dist:dir": "npm run build && electron-builder --win --dir",
     "dist:win": "npm run build && electron-builder --win zip",
     "dist:win:portable": "npm run build && electron-builder --win portable",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "scan:tenant": "node scripts/scan-tenant.mjs"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",
@@ -41,6 +42,7 @@
     "@radix-ui/react-popover": "1.1.23",
     "@radix-ui/react-radio-group": "1.4.7",
     "@radix-ui/react-toggle-group": "1.1.19",
+    "@radix-ui/react-tooltip": "1.2.16",
     "@tailwindcss/vite": "4.3.3",
     "@tanstack/react-query": "5.104.1",
     "@types/better-sqlite3": "9.6.0",

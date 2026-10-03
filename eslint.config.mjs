@@ -58,5 +58,10 @@ export default defineConfig(
       'i18next/no-literal-string': 'error'
     }
   },
+  {
+    // Scripts de Node en JavaScript: sin tipos de retorno.
+    files: ['scripts/**/*.{js,mjs}'],
+    rules: { '@typescript-eslint/explicit-function-return-type': 'off' }
+  },
   eslintConfigPrettier
 )
