@@ -42,7 +42,9 @@
   "palette": {
     "title": "Go to a section",
     "placeholder": "Search for a section…",
-    "empty": "No results"
+    "empty": "No results",
+    "sections": "Sections",
+    "environments": "Environments"
   },
   "envStatus": {
     "label": "Environment status",
@@ -55,7 +57,9 @@
       "oauth": "OAuth",
       "platform": "Platform token",
       "session": "Captured session"
-    }
+    },
+    "unchecked": "Not checked",
+    "noCredentials": "No credentials"
   },
   "settings": {
     "theme": "Theme",
@@ -65,5 +69,107 @@
     "language": "Language",
     "languageEs": "Español",
     "languageEn": "English"
+  },
+  "envSelector": {
+    "label": "Active environment",
+    "none": "No environment",
+    "placeholder": "Search for an environment…",
+    "empty": "No results"
+  },
+  "tenants": {
+    "title": "Clients and environments",
+    "addClient": "Add client",
+    "addEnvironment": "Add environment",
+    "export": "Export",
+    "import": "Import",
+    "empty": "There are no clients yet.",
+    "noEnvironments": "No environments.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "readOnly": "Read-only",
+    "exported": "Configuration exported."
+  },
+  "clientForm": {
+    "createTitle": "New client",
+    "editTitle": "Edit client",
+    "name": "Name",
+    "color": "Colour"
+  },
+  "environmentForm": {
+    "createTitle": "New environment",
+    "editTitle": "Edit environment",
+    "name": "Name",
+    "type": "Type",
+    "deployment": "Deployment",
+    "classicApiUrl": "Classic API URL",
+    "platformUrl": "Platform URL",
+    "ssoUrl": "SSO URL",
+    "oauthClientId": "OAuth client ID",
+    "oauthScopes": "OAuth scopes (space separated)",
+    "accountUuid": "Account UUID",
+    "certificateLevel": "Certificates",
+    "tags": "Tags (comma separated)",
+    "capturePatterns": "Capture patterns (one per line)",
+    "readOnly": "Read-only (no write actions)",
+    "credentials": "Credentials",
+    "credentialsHint": "They are stored encrypted and never shown again.",
+    "saveFirst": "Save the environment to add its credentials."
+  },
+  "environmentTypes": {
+    "production": "Production",
+    "preproduction": "Pre-production",
+    "integration": "Integration",
+    "development": "Development",
+    "other": "Other"
+  },
+  "deployments": {
+    "saas": "SaaS",
+    "managed": "Managed"
+  },
+  "certificateLevels": {
+    "system": "System certificates",
+    "pinned": "Pinned fingerprint",
+    "ignore": "Ignore errors (insecure)"
+  },
+  "secrets": {
+    "kinds": {
+      "classicToken": "Classic token",
+      "oauthClientSecret": "OAuth client secret",
+      "platformToken": "Platform token"
+    },
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "placeholder": "New value",
+    "save": "Save",
+    "delete": "Delete",
+    "unavailable": "System encryption is not available: credentials cannot be saved."
+  },
+  "form": {
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "confirm": {
+    "deleteClient": "Delete the client “{{name}}”?",
+    "deleteClientBody": "Its environments and their credentials are deleted too.",
+    "deleteEnvironment": "Delete the environment “{{name}}”?",
+    "deleteEnvironmentBody": "Its credentials are deleted too.",
+    "accept": "Delete",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "required": "Required.",
+    "tooLong": "Too long.",
+    "httpsUrl": "Must be a valid https:// URL, without credentials or #.",
+    "color": "Use a #rrggbb colour.",
+    "nameTaken": "One with that name already exists.",
+    "invalidFile": "The file is not a valid Vigía configuration.",
+    "generic": "The operation could not be completed."
+  },
+  "importSummary": {
+    "title": "Import finished",
+    "created": "Created: {{clients}} clients and {{environments}} environments.",
+    "skipped": "Already existed and were left untouched: {{names}}.",
+    "errors": "With errors, not imported: {{names}}.",
+    "close": "Close"
   }
 }

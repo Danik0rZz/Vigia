@@ -4,8 +4,9 @@ import type { ThemePreference } from '@shared/ipc'
 import { usePreferences, type Language } from '../app/preferences'
 import { OptionGroup } from '../components/OptionGroup'
 import { PageHeader } from '../components/PageHeader'
+import { TenantsSection } from '../settings/TenantsSection'
 
-/** Ajustes de la Fase 2: tema e idioma. */
+/** Ajustes: tema, idioma, y clientes y entornos con sus credenciales. */
 export function SettingsPage(): JSX.Element {
   const { t } = useTranslation()
   const theme = usePreferences((state) => state.theme)
@@ -51,6 +52,7 @@ export function SettingsPage(): JSX.Element {
             testIdPrefix="language"
           />
         </section>
+        <TenantsSection />
       </div>
     </>
   )

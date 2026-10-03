@@ -2,6 +2,7 @@ import { useEffect, useState, type JSX } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { motion } from 'motion/react'
 import { CommandPalette } from '../components/CommandPalette'
+import { useActiveEnvironment } from '../data/tenants'
 import { Sidebar } from '../components/Sidebar'
 import { TopBar } from '../components/TopBar'
 
@@ -9,6 +10,15 @@ import { TopBar } from '../components/TopBar'
 export function Layout(): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const { pathname } = useLocation()
+  const active = useActiveEnvironment()
+  const accent = active?.client.color ?? null
+
+  // El color de acento sigue al cliente activo; el distintivo de Producción no cambia.
+  useEffect(() => {
+    const root = document.documentElement.style
+    if (accent === null) root.removeProperty('--accent')
+    else root.setProperty('--accent', accent)
+  }, [accent])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {

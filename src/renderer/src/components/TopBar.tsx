@@ -5,14 +5,20 @@ import { Languages, Moon, Search, Sun } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
 import { usePreferences } from '../app/preferences'
 import { useResolvedTheme } from '../app/theme'
+import { useActiveEnvironment } from '../data/tenants'
+import { EnvSelector } from './EnvSelector'
+import { ProductionBadge } from './ProductionBadge'
 import { TimeRangeSelector } from './TimeRangeSelector'
+
+/** Separador de la ruta; es un signo, no texto traducible. */
+const SEPARATOR = '›'
 
 const iconButton =
   'app-no-drag flex h-7 items-center gap-1.5 rounded-md px-2 text-muted-foreground hover:bg-hover hover:text-foreground'
 
 /**
- * Barra superior: ruta de la sección, rango temporal, búsqueda (Ctrl+K) y cambio
- * rápido de tema e idioma. Cliente y Entorno se añaden a la ruta en la Fase 3.
+ * Barra superior: ruta "Cliente › Entorno › Sección", selector de entorno, rango
+ * temporal, búsqueda (Ctrl+K) y cambio rápido de tema e idioma.
  */
 export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.Element {
   const { t } = useTranslation()
@@ -22,12 +28,25 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
   const language = usePreferences((state) => state.language)
   const setLanguage = usePreferences((state) => state.setLanguage)
 
+  const active = useActiveEnvironment()
   const current = NAV_SECTIONS.find((section) => section.path === pathname)
   const ThemeIcon = theme === 'dark' ? Sun : Moon
 
   return (
     <header className="app-drag titlebar-inset flex h-12 shrink-0 items-center gap-2 pl-4">
-      <nav aria-label={t('topbar.breadcrumb')} className="min-w-0 flex-1 truncate">
+      <nav
+        aria-label={t('topbar.breadcrumb')}
+        className="flex min-w-0 flex-1 items-center gap-1.5 truncate"
+      >
+        {active !== null && (
+          <>
+            <span className="text-muted-foreground">{active.client.name}</span>
+            <span className="text-muted-foreground">{SEPARATOR}</span>
+            <span className="text-muted-foreground">{active.environment.name}</span>
+            {active.environment.type === 'production' && <ProductionBadge />}
+            <span className="text-muted-foreground">{SEPARATOR}</span>
+          </>
+        )}
         {current !== undefined && (
           <span className="font-medium" aria-current="page">
             {t(current.labelKey)}
@@ -35,6 +54,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
         )}
       </nav>
 
+      <EnvSelector />
       <TimeRangeSelector />
 
       <button type="button" onClick={onOpenPalette} className={iconButton}>

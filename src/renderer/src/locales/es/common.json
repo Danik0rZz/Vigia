@@ -42,7 +42,9 @@
   "palette": {
     "title": "Ir a una sección",
     "placeholder": "Buscar una sección…",
-    "empty": "Sin resultados"
+    "empty": "Sin resultados",
+    "sections": "Secciones",
+    "environments": "Entornos"
   },
   "envStatus": {
     "label": "Estado del entorno",
@@ -55,7 +57,9 @@
       "oauth": "OAuth",
       "platform": "Platform token",
       "session": "Sesión capturada"
-    }
+    },
+    "unchecked": "Sin comprobar",
+    "noCredentials": "Sin credenciales"
   },
   "settings": {
     "theme": "Tema",
@@ -65,5 +69,107 @@
     "language": "Idioma",
     "languageEs": "Español",
     "languageEn": "English"
+  },
+  "envSelector": {
+    "label": "Entorno activo",
+    "none": "Sin entorno",
+    "placeholder": "Buscar un entorno…",
+    "empty": "Sin resultados"
+  },
+  "tenants": {
+    "title": "Clientes y entornos",
+    "addClient": "Añadir cliente",
+    "addEnvironment": "Añadir entorno",
+    "export": "Exportar",
+    "import": "Importar",
+    "empty": "Todavía no hay clientes.",
+    "noEnvironments": "Sin entornos.",
+    "edit": "Editar",
+    "delete": "Borrar",
+    "readOnly": "Solo lectura",
+    "exported": "Configuración exportada."
+  },
+  "clientForm": {
+    "createTitle": "Nuevo cliente",
+    "editTitle": "Editar cliente",
+    "name": "Nombre",
+    "color": "Color"
+  },
+  "environmentForm": {
+    "createTitle": "Nuevo entorno",
+    "editTitle": "Editar entorno",
+    "name": "Nombre",
+    "type": "Tipo",
+    "deployment": "Despliegue",
+    "classicApiUrl": "URL de la API clásica",
+    "platformUrl": "URL de plataforma",
+    "ssoUrl": "URL del SSO",
+    "oauthClientId": "Client ID de OAuth",
+    "oauthScopes": "Scopes de OAuth (separados por espacios)",
+    "accountUuid": "UUID de la cuenta",
+    "certificateLevel": "Certificados",
+    "tags": "Etiquetas (separadas por comas)",
+    "capturePatterns": "Patrones de captura (uno por línea)",
+    "readOnly": "Solo lectura (sin acciones de escritura)",
+    "credentials": "Credenciales",
+    "credentialsHint": "Se guardan cifradas y no se vuelven a mostrar.",
+    "saveFirst": "Guarda el entorno para añadir sus credenciales."
+  },
+  "environmentTypes": {
+    "production": "Producción",
+    "preproduction": "Preproducción",
+    "integration": "Integración",
+    "development": "Desarrollo",
+    "other": "Otro"
+  },
+  "deployments": {
+    "saas": "SaaS",
+    "managed": "Managed"
+  },
+  "certificateLevels": {
+    "system": "Certificados del sistema",
+    "pinned": "Huella fijada",
+    "ignore": "Ignorar errores (inseguro)"
+  },
+  "secrets": {
+    "kinds": {
+      "classicToken": "Token clásico",
+      "oauthClientSecret": "Client secret de OAuth",
+      "platformToken": "Platform token"
+    },
+    "configured": "Configurado",
+    "notConfigured": "Sin configurar",
+    "placeholder": "Valor nuevo",
+    "save": "Guardar",
+    "delete": "Borrar",
+    "unavailable": "El cifrado del sistema no está disponible: no se pueden guardar credenciales."
+  },
+  "form": {
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "confirm": {
+    "deleteClient": "¿Borrar el cliente «{{name}}»?",
+    "deleteClientBody": "Se borran también sus entornos y sus credenciales.",
+    "deleteEnvironment": "¿Borrar el entorno «{{name}}»?",
+    "deleteEnvironmentBody": "Se borran también sus credenciales.",
+    "accept": "Borrar",
+    "cancel": "Cancelar"
+  },
+  "errors": {
+    "required": "Obligatorio.",
+    "tooLong": "Demasiado largo.",
+    "httpsUrl": "Debe ser una URL https:// válida, sin credenciales ni #.",
+    "color": "Usa un color #rrggbb.",
+    "nameTaken": "Ya existe uno con ese nombre.",
+    "invalidFile": "El fichero no es una configuración de Vigía válida.",
+    "generic": "No se pudo completar la operación."
+  },
+  "importSummary": {
+    "title": "Importación terminada",
+    "created": "Creados: {{clients}} clientes y {{environments}} entornos.",
+    "skipped": "Ya existían y no se han tocado: {{names}}.",
+    "errors": "Con errores, no importados: {{names}}.",
+    "close": "Cerrar"
   }
 }

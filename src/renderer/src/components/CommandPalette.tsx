@@ -3,9 +3,20 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Command } from 'cmdk'
+import { Server } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
+import { environmentLabel, useTenantMutation, useTenants } from '../data/tenants'
+import { ProductionBadge } from './ProductionBadge'
 
-/** Paleta de comandos (Ctrl+K): busca entre las mismas secciones que el menú y navega. */
+const GROUP =
+  '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground'
+const ITEM =
+  'flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-3 text-muted-foreground data-[selected=true]:bg-active data-[selected=true]:text-foreground'
+
+/**
+ * Paleta de comandos (Ctrl+K): navega a las mismas secciones que el menú y
+ * activa un entorno ("Cliente › Entorno").
+ */
 export function CommandPalette({
   open,
   onOpenChange
@@ -15,6 +26,15 @@ export function CommandPalette({
 }): JSX.Element {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { clients, environments } = useTenants()
+  const setActive = useTenantMutation('environments:setActive')
+
+  const environmentOptions = environments.flatMap((environment) => {
+    const client = clients.find((candidate) => candidate.id === environment.clientId)
+    return client === undefined
+      ? []
+      : [{ environment, label: environmentLabel(client, environment) }]
+  })
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -35,24 +55,45 @@ export function CommandPalette({
               <Command.Empty className="px-3 py-6 text-center text-muted-foreground">
                 {t('palette.empty')}
               </Command.Empty>
-              {NAV_SECTIONS.map((section) => {
-                const label = t(section.labelKey)
-                const Icon = section.icon
-                return (
-                  <Command.Item
-                    key={section.id}
-                    value={label}
-                    onSelect={() => {
-                      void navigate(section.path)
-                      onOpenChange(false)
-                    }}
-                    className="flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-3 text-muted-foreground data-[selected=true]:bg-active data-[selected=true]:text-foreground"
-                  >
-                    <Icon aria-hidden="true" className="size-4" />
-                    {label}
-                  </Command.Item>
-                )
-              })}
+              <Command.Group heading={t('palette.sections')} className={GROUP}>
+                {NAV_SECTIONS.map((section) => {
+                  const label = t(section.labelKey)
+                  const Icon = section.icon
+                  return (
+                    <Command.Item
+                      key={section.id}
+                      value={label}
+                      onSelect={() => {
+                        void navigate(section.path)
+                        onOpenChange(false)
+                      }}
+                      className={ITEM}
+                    >
+                      <Icon aria-hidden="true" className="size-4" />
+                      {label}
+                    </Command.Item>
+                  )
+                })}
+              </Command.Group>
+              {environmentOptions.length > 0 && (
+                <Command.Group heading={t('palette.environments')} className={GROUP}>
+                  {environmentOptions.map(({ environment, label }) => (
+                    <Command.Item
+                      key={environment.id}
+                      value={label}
+                      onSelect={() => {
+                        setActive.mutate([{ environmentId: environment.id }])
+                        onOpenChange(false)
+                      }}
+                      className={ITEM}
+                    >
+                      <Server aria-hidden="true" className="size-4" />
+                      {label}
+                      {environment.type === 'production' && <ProductionBadge />}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
             </Command.List>
           </Command>
         </Dialog.Content>

@@ -25,6 +25,9 @@
   --glass-shadow: 0 1px 2px rgb(15 18 24 / 0.06), 0 8px 24px rgb(15 18 24 / 0.06);
   --overlay: rgb(15 18 24 / 0.3);
   --status-neutral: #8a93a6;
+  --danger: #c93a3a;
+  /* Distintivo fijo de los entornos de Producción: no cambia con el cliente. */
+  --production: #d4472f;
 
   --motion-duration: 200ms;
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
@@ -47,6 +50,8 @@
   --glass-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
   --overlay: rgb(0 0 0 / 0.5);
   --status-neutral: #6b7487;
+  --danger: #ff6b6b;
+  --production: #ff6a4d;
 }
 
 /* Movimiento reducido: todas las transiciones y animaciones CSS pasan a casi 0. */
@@ -77,6 +82,8 @@
   --color-ring: var(--ring);
   --color-overlay: var(--overlay);
   --color-status-neutral: var(--status-neutral);
+  --color-danger: var(--danger);
+  --color-production: var(--production);
   --font-sans: var(--font-sans);
 }
 
