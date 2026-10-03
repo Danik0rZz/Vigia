@@ -231,6 +231,9 @@
     "loading": "Cargando…",
     "truncated": "Mostrando los primeros {{count}}.",
     "truncatedOf": "Mostrando {{shown}} de {{total}}.",
+    "filteredOf": "Mostrando {{shown}} (filtro de clúster) de {{loaded}} cargados.",
+    "filteredOfTotal": "Mostrando {{shown}} (filtro de clúster) de {{loaded}} cargados de {{total}}.",
+    "filteredOfFirst": "Mostrando {{shown}} (filtro de clúster) de los primeros {{loaded}} cargados.",
     "invalidItems_one": "{{count}} elemento no se pudo leer y no se muestra.",
     "invalidItems_other": "{{count}} elementos no se pudieron leer y no se muestran.",
     "empty": "Sin datos en este rango.",
@@ -244,7 +247,11 @@
       "all": "Todos",
       "open": "Abiertos",
       "closed": "Cerrados",
-      "text": "Buscar"
+      "text": "Buscar",
+      "cluster": "Clúster",
+      "clusterAll": "Todos",
+      "clusterSome": "{{count}} seleccionados",
+      "clusterLocal": "Filtra los problemas ya cargados, no busca en Dynatrace."
     },
     "columns": {
       "displayId": "ID",
@@ -254,6 +261,7 @@
       "severity": "Severidad",
       "affected": "Entidades afectadas",
       "rootCause": "Causa raíz",
+      "cluster": "Clúster",
       "namespace": "Namespace",
       "start": "Inicio",
       "end": "Fin",
@@ -271,6 +279,7 @@
       "rootCauseName": "Causa raíz",
       "rootCauseType": "Tipo de la causa raíz",
       "rootCauseId": "ID de la causa raíz",
+      "clusters": "Clústeres",
       "namespaces": "Namespaces",
       "startTime": "Inicio",
       "endTime": "Fin",
@@ -375,7 +384,8 @@
       "to": "Hasta",
       "note": "Nota",
       "warning": "Aviso",
-      "invalidItems": "Elementos descartados"
+      "invalidItems": "Elementos descartados",
+      "clusterFilter": "Filtro de clúster"
     }
   },
   "exportSettings": {

@@ -62,7 +62,9 @@ export const problemSummarySchema = z.object({
   rootCause: entityRefSchema.nullable(),
   managementZones: z.array(z.string()),
   /** De "k8s.namespace.name"; vacío si no viene. */
-  namespaces: z.array(z.string())
+  namespaces: z.array(z.string()),
+  /** De "k8s.cluster.name" (no lo declara la OpenAPI); vacío si no viene. */
+  clusters: z.array(z.string())
 })
 export type ProblemSummary = z.output<typeof problemSummarySchema>
 
@@ -183,7 +185,9 @@ export const xlsxLabelsSchema = z.object({
   /** Opcional: etiqueta de cada aviso de los datos. */
   warning: z.string().min(1).max(60).optional(),
   /** Opcional: etiqueta de la fila con los elementos descartados. */
-  invalidItems: z.string().min(1).max(60).optional()
+  invalidItems: z.string().min(1).max(60).optional(),
+  /** Opcional: etiqueta de la fila del filtro de clúster. */
+  clusterFilter: z.string().min(1).max(60).optional()
 })
 export type XlsxLabels = z.output<typeof xlsxLabelsSchema>
 

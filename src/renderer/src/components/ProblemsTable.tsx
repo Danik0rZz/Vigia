@@ -19,6 +19,7 @@ const COLUMNS = [
   'severity',
   'affected',
   'rootCause',
+  'cluster',
   'namespace',
   'start',
   'end',
@@ -133,6 +134,9 @@ export function ProblemsTable({
         <ListCell values={row.affectedNames} />
       </td>
       <td className="max-w-60 truncate px-2 py-1.5">{naIfEmpty(row.rootCauseName)}</td>
+      <td className="max-w-48 px-2 py-1.5">
+        <ListCell values={row.clusters} />
+      </td>
       <td className="max-w-48 px-2 py-1.5">
         <ListCell values={row.namespaces} />
       </td>

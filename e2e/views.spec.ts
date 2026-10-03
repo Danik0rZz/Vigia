@@ -47,6 +47,7 @@ const problemsA: FakeProblem[] = [
   {
     problemId: 'pa-1',
     displayId: 'P-101',
+    'k8s.cluster.name': ['cluster-norte'],
     title: 'Respuesta lenta en pagos',
     status: 'OPEN',
     severityLevel: 'PERFORMANCE',
@@ -80,6 +81,7 @@ const problemsA: FakeProblem[] = [
     // Título con forma de fórmula: el CSV tiene que neutralizarlo.
     problemId: 'pa-3',
     displayId: 'P-103',
+    'k8s.cluster.name': ['cluster-sur', 'cluster-norte'],
     title: '=HYPERLINK("http://x","y") errores',
     status: 'OPEN',
     // Severidad que la app no conoce: se muestra tal cual (con un console.warn, no error).
@@ -605,6 +607,7 @@ test('tabla de Problemas: columnas, N/A, "+N" con tooltip, en curso y fechas pro
       'severity',
       'affected',
       'rootCause',
+      'cluster',
       'namespace',
       'start',
       'end',
@@ -637,11 +640,88 @@ test('tabla de Problemas: columnas, N/A, "+N" con tooltip, en curso y fechas pro
   // P-103: severidad desconocida en crudo y dos namespaces → el primero y "+1".
   await expect(row('P-103')).toContainText('NUEVA_SEVERIDAD')
   await expect(row('P-103')).toContainText('carrito-ns')
-  await expect(row('P-103').getByTestId('more-values')).toHaveText(/\+1/)
+  // P-103 tiene dos «+1» (clúster y namespace): cada uno se identifica por sus valores.
+  await expect(
+    row('P-103')
+      .getByTestId('more-values')
+      .and(page.getByRole('button', { name: /comun-ns/ }))
+  ).toHaveText(/\+1/)
 
   // Los tipos y los ids de las entidades no van en la tabla.
   await expect(table).not.toContainText('SERVICE-AAA1')
   await expect(table).not.toContainText('HOST-AAA1')
+})
+
+test('clúster: columna, filtro local, aviso y exportación filtrada', async () => {
+  const rows = page.getByTestId('problem-row')
+  const row = (id: string): Locator => rows.filter({ hasText: id })
+  await expect(rows).toHaveCount(3)
+
+  // Columna: el primero y "+N"; sin clúster, N/A.
+  await expect(row('P-101')).toContainText('cluster-norte')
+  await expect(row('P-103')).toContainText('cluster-sur')
+  await expect(
+    row('P-103')
+      .getByTestId('more-values')
+      .and(page.getByRole('button', { name: /cluster-norte/ }))
+  ).toHaveText(/\+1/)
+
+  // Filtro: una casilla por clúster de los datos cargados, ordenadas.
+  await page.getByTestId('problems-filter-cluster').click()
+  const options = page.getByTestId('cluster-option')
+  await expect(options).toHaveCount(2)
+  expect(await options.evaluateAll((els) => els.map((el) => el.getAttribute('value')))).toEqual([
+    'cluster-norte',
+    'cluster-sur'
+  ])
+
+  // Solo cluster-sur → P-103; el aviso dice que hay filtro y cuántos se cargaron.
+  await page.locator('[data-testid="cluster-option"][value="cluster-sur"]').click()
+  await page.keyboard.press('Escape')
+  await expect(rows).toHaveCount(1)
+  await expect(row('P-103')).toHaveCount(1)
+  const notice = page.getByTestId('list-truncated')
+  await expect(notice).toContainText('filtro de clúster')
+  await expect(notice).toContainText('de 3')
+
+  // La exportación sale filtrada.
+  const lines = readFileSync(await exportTo('problems-table', 'export-csv'))
+    .subarray(3)
+    .toString('utf8')
+    .split('\r\n')
+    .filter((line) => line !== '')
+  expect(lines).toHaveLength(2)
+  expect(lines[1]).toContain('P-103')
+
+  // El XLSX filtrado lo dice en Info, con su fila propia.
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(
+    readFileSync(await exportTo('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
+  )
+  const info: [string, unknown][] = []
+  workbook.getWorksheet('Info')?.eachRow((r) => {
+    info.push([String(r.getCell(1).value), r.getCell(2).value])
+  })
+  expect(info.filter(([label]) => label === 'Filtro de clúster')).toEqual([
+    ['Filtro de clúster', 'cluster-sur']
+  ])
+  expect(workbook.getWorksheet('Datos')?.actualRowCount).toBe(2)
+
+  // Con las dos marcadas (OR) salen P-101 y P-103; P-102 no tiene clúster.
+  await page.getByTestId('problems-filter-cluster').click()
+  await page.locator('[data-testid="cluster-option"][value="cluster-norte"]').click()
+  await page.keyboard.press('Escape')
+  await expect(rows).toHaveCount(2)
+  await expect(row('P-102')).toHaveCount(0)
+
+  // Sin filtro: vuelven las 3 y el aviso desaparece.
+  await page.getByTestId('problems-filter-cluster').click()
+  for (const name of ['cluster-norte', 'cluster-sur']) {
+    await page.locator(`[data-testid="cluster-option"][value="${name}"]`).click()
+  }
+  await page.keyboard.press('Escape')
+  await expect(rows).toHaveCount(3)
+  await expect(notice).toHaveCount(0)
 })
 
 test('tabla de Problemas virtualizada con 300 problemas', async () => {
@@ -734,7 +814,8 @@ test('una lista truncada lo indica, con el total real de la API', async () => {
 
 test('exporta problemas a CSV: BOM, ";", una fila por problema y fórmulas neutralizadas', async () => {
   const file = await exportTo('problems-table', 'export-csv')
-  expect(file).toMatch(/Cliente_A_Producción_problems_\d{8}-\d{4}\.csv$/)
+  // Si en el mismo minuto ya se exportó otro (por ejemplo, el CSV filtrado del test del clúster), lleva -N.
+  expect(file).toMatch(/Cliente_A_Producción_problems_\d{8}-\d{4}(-\d+)?\.csv$/)
 
   const buffer = readFileSync(file)
   expect([...buffer.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
@@ -769,14 +850,15 @@ test('exporta problemas a XLSX con su hoja Info, y a TXT alineado y con tabulado
   expect(infoText['Hasta']).toBeInstanceOf(Date)
   expect(String(infoText['Nota'])).toContain('Problemas abiertos: sin fin')
   const header = (data?.getRow(1).values as unknown[]).slice(1).map(String)
-  expect(header).toHaveLength(16)
+  expect(header).toHaveLength(17)
   // La fila de un problema abierto: fin vacío y duración en número.
   let openRow: unknown[] = []
   data?.eachRow((r, n) => {
     if (n > 1 && String(r.getCell(1).value) === 'P-101') openRow = (r.values as unknown[]).slice(1)
   })
-  expect(openRow[13] ?? null, 'endTime vacío si está abierto').toBeNull()
-  expect(typeof openRow[14], 'durationMinutes es número').toBe('number')
+  expect(String(openRow[11]), 'clusters antes de namespaces').toBe('cluster-norte')
+  expect(openRow[14] ?? null, 'endTime vacío si está abierto').toBeNull()
+  expect(typeof openRow[15], 'durationMinutes es número').toBe('number')
   expect(String(openRow[5]), 'afectadas unidas con " | "').toBe('pagos | host-pagos-01')
   expect(String(openRow[7])).toBe('SERVICE-AAA1 | HOST-AAA1')
 
@@ -848,6 +930,24 @@ test('AUD-08: elementos ilegibles y avisos de la API se ven en Problemas y en In
   await goTo('home')
   await page.getByTestId('module-refresh').click()
   await expect(page.getByTestId('api-warnings').first()).toContainText('1 elemento')
+
+  // El XLSX de Problemas lleva la fila «Elementos descartados» con 1, aparte de los avisos.
+  await goTo('problems')
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(
+    readFileSync(await exportTo('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
+  )
+  const info: [string, unknown][] = []
+  workbook.getWorksheet('Info')?.eachRow((r) => {
+    info.push([String(r.getCell(1).value), r.getCell(2).value])
+  })
+  expect(info.filter(([label]) => label === 'Elementos descartados')).toEqual([
+    ['Elementos descartados', 1]
+  ])
+  expect(info.filter(([label]) => label === 'Aviso').map(([, value]) => value)).toEqual([
+    'Aviso de prueba de la API'
+  ])
+  await goTo('home')
 
   // Se deja todo como estaba (y se refrescan las dos vistas, que guardan caché).
   sim.invalidOne = false

@@ -32,7 +32,8 @@ function problem(
     impactedEntities: [],
     rootCause: null,
     managementZones: [],
-    namespaces: []
+    namespaces: [],
+    clusters: []
   } as ProblemSummary
 }
 

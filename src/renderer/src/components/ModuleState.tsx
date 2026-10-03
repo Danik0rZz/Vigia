@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { unavailableReason, type ModuleAccess } from '../data/modules'
 import { dataWarnings } from '../lib/data-warnings'
+import { listNotice } from '../lib/list-notice'
 import { IpcError } from '../lib/ipc'
 import { BUTTON_SECONDARY } from './styles'
 
@@ -98,18 +99,32 @@ export function ApiWarnings({
  */
 export function TruncatedNotice({
   shown,
-  total
+  total,
+  loaded = shown,
+  truncated = true,
+  filtered = false
 }: {
   shown: number
   total: number | null
-}): JSX.Element {
+  /** Filas cargadas antes del filtro local (por defecto, las que se ven). */
+  loaded?: number
+  truncated?: boolean
+  filtered?: boolean
+}): JSX.Element | null {
   const { t, i18n } = useTranslation()
-  const format = (value: number): string => new Intl.NumberFormat(i18n.language).format(value)
+  const notice = listNotice({ shown, loaded, total, truncated, filtered })
+  if (notice === null) return null
+  const format = new Intl.NumberFormat(i18n.language)
+  // `count` va sin formato: i18next lo usa para elegir el plural.
+  const params = Object.fromEntries(
+    Object.entries(notice.params).map(([key, value]) => [
+      key,
+      key === 'count' ? value : format.format(value)
+    ])
+  )
   return (
     <p data-testid="list-truncated" className="text-xs text-muted-foreground">
-      {total !== null && total > shown
-        ? t('module.truncatedOf', { shown: format(shown), total: format(total) })
-        : t('module.truncated', { count: shown })}
+      {t(notice.key, params)}
     </p>
   )
 }

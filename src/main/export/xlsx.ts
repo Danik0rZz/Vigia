@@ -17,7 +17,8 @@ export const DEFAULT_XLSX_LABELS: XlsxLabels = {
   to: 'Hasta',
   note: 'Nota',
   warning: 'Aviso',
-  invalidItems: 'Elementos descartados'
+  invalidItems: 'Elementos descartados',
+  clusterFilter: 'Filtro de clúster'
 }
 
 /** Filas de datos por hoja que admite Excel (1.048.576 menos la cabecera). */
@@ -40,6 +41,8 @@ export interface XlsxInfo {
   warnings?: readonly string[] | undefined
   /** Elementos descartados al leer la lista: fila propia si hay alguno. */
   invalidCount?: number | undefined
+  /** Clústeres del filtro local: los datos exportados no son el total. */
+  clusterFilter?: readonly string[] | undefined
 }
 
 const MIN_WIDTH = 8
@@ -128,6 +131,12 @@ export async function buildXlsx(
   if (info.to !== undefined) entries.push([labels.to, info.to])
   if (info.note !== undefined) {
     entries.push([labels.note ?? DEFAULT_XLSX_LABELS.note ?? '', info.note])
+  }
+  if (info.clusterFilter !== undefined && info.clusterFilter.length > 0) {
+    entries.push([
+      labels.clusterFilter ?? DEFAULT_XLSX_LABELS.clusterFilter ?? '',
+      info.clusterFilter.join(' | ')
+    ])
   }
   if (info.invalidCount !== undefined && info.invalidCount > 0) {
     entries.push([labels.invalidItems ?? DEFAULT_XLSX_LABELS.invalidItems ?? '', info.invalidCount])

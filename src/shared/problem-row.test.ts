@@ -36,6 +36,7 @@ function summary(overrides: Partial<ProblemSummary> = {}): ProblemSummary {
     impactedEntities: [],
     rootCause: { id: 'SERVICE-1', type: 'SERVICE', name: 'pagos' },
     managementZones: ['Producción'],
+    clusters: ['cluster-norte'],
     namespaces: ['pagos-ns', 'comun-ns'],
     ...overrides
   } as ProblemSummary
@@ -81,6 +82,7 @@ describe('toProblemRow', () => {
       rootCauseName: 'pagos',
       rootCauseType: 'SERVICE',
       rootCauseId: 'SERVICE-1',
+      clusters: ['cluster-norte'],
       namespaces: ['pagos-ns', 'comun-ns'],
       startTime: START,
       endTime: START + 42 * MIN,
@@ -155,6 +157,7 @@ describe('exportación desde la misma fila', () => {
       'rootCauseName',
       'rootCauseType',
       'rootCauseId',
+      'clusters',
       'namespaces',
       'startTime',
       'endTime',
@@ -179,6 +182,7 @@ describe('exportación desde la misma fila', () => {
       rootCauseName: 'pagos',
       rootCauseType: 'SERVICE',
       rootCauseId: 'SERVICE-1',
+      clusters: 'cluster-norte',
       namespaces: 'pagos-ns | comun-ns',
       startTime: START,
       endTime: null,
@@ -189,7 +193,7 @@ describe('exportación desde la misma fila', () => {
 
   it('lo que falta sale como N/A, igual que en la tabla', () => {
     const row = toProblemRow(
-      summary({ rootCause: null, namespaces: [], affectedEntities: [] }),
+      summary({ rootCause: null, namespaces: [], clusters: [], affectedEntities: [] }),
       NOW
     )
     expect(toProblemExport(row)).toMatchObject({
@@ -199,8 +203,23 @@ describe('exportación desde la misma fila', () => {
       rootCauseName: 'N/A',
       rootCauseType: 'N/A',
       rootCauseId: 'N/A',
+      clusters: 'N/A',
       namespaces: 'N/A'
     })
+  })
+
+  it('17 columnas, con clusters justo antes de namespaces', () => {
+    const keys = PROBLEM_EXPORT_COLUMNS.map((c) => c.key)
+    expect(keys).toHaveLength(17)
+    expect(keys.indexOf('clusters')).toBe(keys.indexOf('namespaces') - 1)
+    expect(PROBLEM_EXPORT_COLUMNS.find((c) => c.key === 'clusters')?.type).toBe('string')
+  })
+
+  it('varios clústeres se unen con " | " y la fila los conserva', () => {
+    const row = toProblemRow(summary({ clusters: ['cluster-norte', 'cluster-sur'] }), NOW)
+    expect(row.clusters).toEqual(['cluster-norte', 'cluster-sur'])
+    expect(toProblemExport(row)['clusters']).toBe('cluster-norte | cluster-sur')
+    expect(displayList(row.clusters)).toBe('cluster-norte')
   })
 
   it('tabla y exportación salen de la misma fila: el primer valor de la tabla es el primero exportado', () => {

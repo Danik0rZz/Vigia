@@ -24,6 +24,7 @@ export interface ProblemRow {
   rootCauseName: string | null
   rootCauseType: string | null
   rootCauseId: string | null
+  clusters: string[]
   namespaces: string[]
   startTime: number
   /** null mientras el problema sigue abierto. */
@@ -64,6 +65,7 @@ export function toProblemRow(problem: ProblemSummary, now: Date): ProblemRow {
       problem.rootCause === null ? null : (problem.rootCause.name ?? problem.rootCause.id),
     rootCauseType: problem.rootCause?.type ?? null,
     rootCauseId: problem.rootCause?.id ?? null,
+    clusters: problem.clusters,
     namespaces: problem.namespaces,
     startTime: problem.startTime,
     endTime: end,
@@ -85,6 +87,7 @@ export const PROBLEM_EXPORT_COLUMNS: readonly ExportColumn[] = [
   { key: 'rootCauseName', header: 'rootCauseName', type: 'string' },
   { key: 'rootCauseType', header: 'rootCauseType', type: 'string' },
   { key: 'rootCauseId', header: 'rootCauseId', type: 'string' },
+  { key: 'clusters', header: 'clusters', type: 'string' },
   { key: 'namespaces', header: 'namespaces', type: 'string' },
   { key: 'startTime', header: 'startTime', type: 'date' },
   { key: 'endTime', header: 'endTime', type: 'date' },
@@ -106,6 +109,7 @@ export function toProblemExport(row: ProblemRow): ExportRow {
     rootCauseName: naIfEmpty(row.rootCauseName),
     rootCauseType: naIfEmpty(row.rootCauseType),
     rootCauseId: naIfEmpty(row.rootCauseId),
+    clusters: joinValues(row.clusters),
     namespaces: joinValues(row.namespaces),
     startTime: row.startTime,
     endTime: row.endTime,

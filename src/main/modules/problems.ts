@@ -99,7 +99,8 @@ export function toProblemSummary(problem: Problem): ProblemSummary {
     impactedEntities: problem.impactedEntities.map(toEntity),
     rootCause: problem.rootCauseEntity ? toEntity(problem.rootCauseEntity) : null,
     managementZones: problem.managementZones.map((zone) => zone.name),
-    namespaces: problem['k8s.namespace.name'] ?? []
+    namespaces: problem['k8s.namespace.name'] ?? [],
+    clusters: problem['k8s.cluster.name'] ?? []
   }
 }
 

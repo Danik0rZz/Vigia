@@ -153,7 +153,8 @@ export function createExportHandlers(
               to: dates?.to,
               note: input.note,
               warnings: input.warnings,
-              invalidCount: input.invalidCount
+              invalidCount: input.invalidCount,
+              clusterFilter: input.clusterFilter
             },
             { labels: input.xlsxLabels }
           )

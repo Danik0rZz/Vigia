@@ -214,6 +214,73 @@ describe('export:table con VIGIA_EXPORT_DIR', () => {
     return rows
   }
 
+  it('clusterFilter → fila propia «Filtro de clúster» con los valores unidos, antes de descartados y Aviso', async () => {
+    await call(
+      build(dir),
+      'export:table',
+      table('xlsx', {
+        clusterFilter: ['cluster-sur', 'cluster-norte'],
+        invalidCount: 1,
+        warnings: ['Aviso de la API']
+      })
+    )
+    const rows = await infoRows()
+    expect(rows.filter(([label]) => label === 'Filtro de clúster')).toEqual([
+      ['Filtro de clúster', 'cluster-sur | cluster-norte']
+    ])
+    const labels = rows.map(([label]) => label)
+    expect(labels.indexOf('Filtro de clúster')).toBeLessThan(
+      labels.indexOf('Elementos descartados')
+    )
+    expect(labels.indexOf('Filtro de clúster')).toBeLessThan(labels.indexOf('Aviso'))
+  })
+
+  it('sin clusterFilter no hay fila de filtro', async () => {
+    await call(build(dir), 'export:table', table('xlsx'))
+    expect((await infoRows()).some(([label]) => label === 'Filtro de clúster')).toBe(false)
+  })
+
+  it('con xlsxLabels.clusterFilter usa esa etiqueta', async () => {
+    const xlsxLabels = {
+      dataSheet: 'Data',
+      infoSheet: 'Info',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To',
+      clusterFilter: 'Cluster filter'
+    }
+    await call(build(dir), 'export:table', table('xlsx', { xlsxLabels, clusterFilter: ['c1'] }))
+    expect((await infoRows()).filter(([label]) => label === 'Cluster filter')).toEqual([
+      ['Cluster filter', 'c1']
+    ])
+  })
+
+  it.each([
+    ['vacío', []],
+    ['con un valor de 201 caracteres', ['x'.repeat(201)]],
+    ['con un valor vacío', ['']],
+    ['con 101 valores', Array.from({ length: 101 }, (_, i) => `c${i}`)]
+  ])('clusterFilter %s → INVALID_INPUT', async (_case, clusterFilter) => {
+    expect(await call(build(dir), 'export:table', table('xlsx', { clusterFilter }))).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' }
+    })
+    expect(written.size).toBe(0)
+  })
+
+  it('CSV con clusterFilter: sin filas de contexto (el CSV no lleva Info)', async () => {
+    await call(build(dir), 'export:table', table('csv', { clusterFilter: ['cluster-sur'] }))
+    const text = [...written.values()][0]?.toString('utf8') ?? ''
+    expect(text).not.toContain('Filtro de clúster')
+    expect(text).not.toContain('cluster-sur')
+  })
+
   it('AUD-08: invalidCount > 0 → fila propia «Elementos descartados» con el número, antes de los Aviso', async () => {
     await call(
       build(dir),

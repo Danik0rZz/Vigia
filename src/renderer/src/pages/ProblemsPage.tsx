@@ -4,6 +4,7 @@ import type { EChartsCoreOption } from 'echarts/core'
 import type { ExportColumn, ProblemSummary } from '@shared/modules'
 import { PROBLEM_EXPORT_COLUMNS, toProblemExport, toProblemRow } from '@shared/problem-row'
 import { timeRangeToDates } from '@shared/time-range'
+import { useProblemFilters } from '../app/problem-filters'
 import { useTimeRangeValue } from '../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../components/Chart'
 import { ExportMenu } from '../components/ExportMenu'
@@ -15,6 +16,7 @@ import {
   TruncatedNotice
 } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
+import { ClusterFilter } from '../components/ClusterFilter'
 import { ProblemDetail } from '../components/ProblemDetail'
 import { ProblemsTable } from '../components/ProblemsTable'
 import { INPUT } from '../components/styles'
@@ -46,9 +48,15 @@ export function ProblemsPage(): JSX.Element {
   const access = useModuleAccess('problems')
   const envId = access.available ? access.envId : null
   const timeRange = useTimeRangeValue()
-  const [status, setStatus] = useState<'all' | 'open' | 'closed'>('all')
-  const [textInput, setTextInput] = useState('')
-  const [text, setText] = useState('')
+  // Los filtros viven en un store: sobreviven al cambio de sección.
+  const status = useProblemFilters((state) => state.status)
+  const setStatus = useProblemFilters((state) => state.setStatus)
+  const textInput = useProblemFilters((state) => state.text)
+  const setTextInput = useProblemFilters((state) => state.setText)
+  const clusterSelection = useProblemFilters((state) => state.clusters)
+  const setClusterSelection = useProblemFilters((state) => state.setClusters)
+  // Al volver a la sección, el texto guardado se aplica sin esperar.
+  const [text, setText] = useState(() => textInput.trim())
   const [selected, setSelected] = useState<string | null>(null)
   const chart = useRef<ChartHandle>(null)
   const tableRef = useRef<HTMLDivElement>(null)
@@ -64,7 +72,29 @@ export function ProblemsPage(): JSX.Element {
   }
   const query = useProblems(envId, filters)
   const refresh = useModuleRefresh(envId, 'problems')
-  const problems = useMemo(() => query.data?.problems ?? [], [query.data])
+  const loaded = useMemo(() => query.data?.problems ?? [], [query.data])
+
+  // Filtro de clúster LOCAL (problemSelector no lo admite): sobre lo cargado.
+  const clusterOptions = useMemo(
+    () =>
+      [...new Set(loaded.flatMap((problem) => problem.clusters))].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [loaded]
+  )
+  // Una selección que ya no está en los datos cargados no filtra.
+  const activeClusters = useMemo(
+    () => clusterSelection.filter((cluster) => clusterOptions.includes(cluster)),
+    [clusterSelection, clusterOptions]
+  )
+  const filtered = activeClusters.length > 0
+  const problems = useMemo(
+    () =>
+      activeClusters.length > 0
+        ? loaded.filter((problem) => problem.clusters.some((c) => activeClusters.includes(c)))
+        : loaded,
+    [loaded, activeClusters]
+  )
 
   // El rango del gráfico es el del momento en que llegaron los datos.
   const buckets = useMemo(() => {
@@ -139,6 +169,13 @@ export function ProblemsPage(): JSX.Element {
               className={`${INPUT} w-60`}
             />
           </label>
+          {clusterOptions.length > 0 && (
+            <ClusterFilter
+              options={clusterOptions}
+              selected={activeClusters}
+              onChange={setClusterSelection}
+            />
+          )}
           <span className="flex-1" />
           <RefreshButton onRefresh={refresh} busy={query.isFetching} />
         </div>
@@ -158,7 +195,8 @@ export function ProblemsPage(): JSX.Element {
                   { key: 'count', header: t('problems.table'), type: 'number' }
                 ],
                 rows: buckets.map(([time, count]) => ({ time, count })),
-                timeRange
+                timeRange,
+                clusterFilter: filtered ? activeClusters : undefined
               }}
             />
           </div>
@@ -185,13 +223,20 @@ export function ProblemsPage(): JSX.Element {
                 timeRange,
                 note: t('problems.exportNote'),
                 warnings: query.data?.warnings,
-                invalidCount: query.data?.invalid
+                invalidCount: query.data?.invalid,
+                clusterFilter: filtered ? activeClusters : undefined
               }}
             />
           </div>
           <ApiWarnings invalid={query.data?.invalid} warnings={query.data?.warnings} />
-          {query.data?.truncated === true && (
-            <TruncatedNotice shown={problems.length} total={query.data.totalCount} />
+          {query.data !== undefined && (
+            <TruncatedNotice
+              shown={problems.length}
+              loaded={loaded.length}
+              total={query.data.totalCount}
+              truncated={query.data.truncated}
+              filtered={filtered}
+            />
           )}
           <ProblemsTable
             rows={rows}

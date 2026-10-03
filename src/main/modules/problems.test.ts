@@ -111,6 +111,7 @@ describe('problemSchema y toProblemSummary', () => {
       impactedEntities: [{ id: 'APPLICATION-1', type: 'APPLICATION', name: 'web' }],
       rootCause: { id: 'SERVICE-1', type: 'SERVICE', name: 'pagos' },
       managementZones: ['Producción', 'Pagos'],
+      clusters: [],
       namespaces: []
     })
   })
@@ -327,16 +328,20 @@ describe('problemDetailSchema y toProblemDetail', () => {
 })
 
 describe('k8s.cluster.name y k8s.cluster.uid (opcionales, fuera de la OpenAPI)', () => {
-  it('se aceptan como listas de texto y no van al resumen', () => {
+  it('se aceptan como listas de texto; el nombre va al resumen como clusters y el uid no', () => {
     const parsed = problemSchema.safeParse(
-      problem({ 'k8s.cluster.name': ['cluster-a'], 'k8s.cluster.uid': ['uid-a'] })
+      problem({ 'k8s.cluster.name': ['cluster-a', 'cluster-b'], 'k8s.cluster.uid': ['uid-a'] })
     )
     expect(parsed.success).toBe(true)
     if (parsed.success) {
-      const summary = toProblemSummary(parsed.data) as Record<string, unknown>
-      expect(JSON.stringify(summary)).not.toContain('cluster-a')
+      const summary = toProblemSummary(parsed.data)
+      expect(summary.clusters).toEqual(['cluster-a', 'cluster-b'])
       expect(JSON.stringify(summary)).not.toContain('uid-a')
     }
+  })
+
+  it('sin k8s.cluster.name, clusters []', () => {
+    expect(toProblemSummary(problemSchema.parse(problem())).clusters).toEqual([])
   })
 
   it('sin ellos sigue validando, y con un tipo raro no', () => {
