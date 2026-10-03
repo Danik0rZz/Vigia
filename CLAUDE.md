@@ -62,6 +62,12 @@ Fase 6:
 - [ ] Inicio, Problemas y Métricas contra un tenant real, con exportación y capturas.
 - [ ] El zip 0.6.0 sobre sus datos aplica la migración 0002 (consultas guardadas) sin perder nada.
 
+### Mejoras para después de la primera versión
+
+- `e2e/views.spec.ts` depende del orden de sus tests: cada test debería preparar su propio estado (anotado en la cabecera del spec).
+- Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec, "Funcionalidades").
+- Streaming de exportaciones y aviso de filas de Excel en CSV, con DQL en la Fase 8 (ver la spec, "Exportación de datos").
+
 ## Primer paso al retomar
 
 1. `npm install`, y después `npm run check` y `npm run test:e2e`. Si algo falla, arreglarlo antes de seguir.

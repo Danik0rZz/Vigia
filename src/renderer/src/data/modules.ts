@@ -43,7 +43,13 @@ export function useModuleAccess(module: DataModule): ModuleAccess {
  * Sin auto-refresco: los datos se piden al entrar con una clave nueva y al pulsar
  * "Actualizar", nunca solos (cada petición gasta cuota de la API).
  */
-const MANUAL = { staleTime: Infinity, refetchOnMount: false, retry: false } as const
+const MANUAL = {
+  staleTime: Infinity,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  retry: false
+} as const
 
 /** Clave de los datos de un módulo: [envId, módulo, parámetros, rango]. */
 const moduleKey = (envId: string, module: string, params: unknown, range?: TimeRangeValue) =>

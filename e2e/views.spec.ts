@@ -24,6 +24,10 @@ import es from '../src/renderer/src/locales/es/common.json'
  * Los entornos usan el nivel 'ignore' para no tener que fijar huellas (eso ya
  * lo prueba tls.spec). Las exportaciones van a una carpeta temporal
  * (VIGIA_EXPORT_DIR). El portapapeles del sistema se guarda y se restaura.
+ *
+ * Deuda conocida (para después de la primera versión): las pruebas dependen del
+ * orden, porque cada una parte del estado que dejó la anterior. Lo ideal es que
+ * cada prueba prepare su propio estado.
  */
 test.describe.configure({ mode: 'serial' })
 
@@ -493,11 +497,22 @@ test('Problemas: filtros de estado y de texto', async () => {
   await expect(rows).toHaveCount(3)
 })
 
-test('sin auto-refresco: volver a la vista no pide datos; module-refresh sí', async () => {
+test('sin auto-refresco: ni volver a la vista, ni el foco, ni la reconexión piden datos; module-refresh sí', async () => {
   const before = sim.problemsRequests
   await goTo('metrics')
   await goTo('problems')
   await expect(page.getByTestId('problem-row')).toHaveCount(3)
+
+  // Lo que dispararía un refresco automático (refetchOnWindowFocus, refetchOnReconnect).
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'))
+    window.dispatchEvent(new Event('visibilitychange'))
+    document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('online'))
+  })
+  await page.evaluate(() => window.blur())
+  await page.bringToFront()
+  // Aserción negativa: no hay ninguna condición que esperar, solo un margen de tiempo.
   await page.waitForTimeout(1500)
   expect(sim.problemsRequests).toBe(before)
 
@@ -557,6 +572,30 @@ test('exporta problemas a XLSX con su hoja Info, y a TXT alineado y con tabulado
   expect(txt).not.toContain('\t')
   const tabs = readFileSync(await exportTo('problems-table', 'export-txt-tabs'), 'utf8')
   expect(tabs.split(/\r?\n/)[0]).toContain('\t')
+})
+
+test('con la interfaz en inglés, el XLSX lleva las hojas y la Info en inglés', async () => {
+  await goTo('settings')
+  await page.getByTestId('language-en').click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await goTo('problems')
+
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(
+    readFileSync(await exportTo('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
+  )
+  expect(workbook.worksheets.map((sheet) => sheet.name).sort()).toEqual(['Data', 'Info'])
+  const info: Record<string, unknown> = {}
+  workbook.getWorksheet('Info')?.eachRow((row) => {
+    info[String(row.getCell(1).value)] = row.getCell(2).value
+  })
+  expect(info['Client']).toBe('Cliente A')
+  expect(info['Environment']).toBe('Producción')
+  expect(info['Cliente']).toBeUndefined()
+
+  await goTo('settings')
+  await page.getByTestId('language-es').click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'es')
 })
 
 test('con el separador "," en Ajustes, el CSV usa coma', async () => {
