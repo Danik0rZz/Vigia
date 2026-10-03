@@ -89,3 +89,5 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 ## Versiones fijadas
 
 Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5. Node 22 o superior.
+
+Pendiente al subir electron-builder: `npm audit` marca 8 "high" (http-cache-semantics vía `@electron/get`), solo de empaquetado; `npm audit --omit=dev` = 0. No forzar overrides.
