@@ -172,10 +172,50 @@ describe('locales es y en', () => {
       'certificates.previous',
       'certificates.current',
       'certificates.accept',
-      'certificates.ignoreWarning'
+      'certificates.ignoreRisk'
     ]) {
       expect(text('es', 'common', key), `es ${key}`).toBeTypeOf('string')
     }
+  })
+
+  it('cada sección del menú tiene su ayuda en navHelp, distinta del nombre (common)', () => {
+    const sections = [
+      'home',
+      'problems',
+      'topology',
+      'metrics',
+      'logs',
+      'slos',
+      'serviceFlows',
+      'businessView',
+      'configuration',
+      'integrations',
+      'settings'
+    ]
+    for (const id of sections) {
+      for (const locale of ['es', 'en'] as const) {
+        const help = text(locale, 'common', `navHelp.${id}`)
+        expect(typeof help === 'string' && help.trim().length > 0, `${locale} navHelp.${id}`).toBe(
+          true
+        )
+        expect(help, `${locale} navHelp.${id}`).not.toBe(text(locale, 'common', `nav.${id}`))
+      }
+    }
+  })
+
+  it('el aviso de ignorar certificados y su línea en la tarjeta están traducidos (common)', () => {
+    const all = (locale: 'es' | 'en'): string =>
+      Object.values(locale === 'es' ? (es['common'] ?? {}) : (en['common'] ?? {})).join(' | ')
+    expect(all('es')).toContain(
+      'Cualquiera en la red podría hacerse pasar por este entorno. Úsalo solo si no puedes fijar la huella.'
+    )
+    expect(all('en')).toContain(
+      'Anyone on the network could impersonate this environment. Use it only if you cannot pin the fingerprint.'
+    )
+    expect(all('es')).toMatch(/Certificados: ignorados/)
+    expect(all('en')).toMatch(/Certificates: ignored/)
+    expect(all('es')).toContain('No los usa Vigía')
+    expect(all('en')).toContain('Not used by Vigía')
   })
 
   it('el glosario tiene los nombres propios esperados', () => {

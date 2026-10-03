@@ -20,7 +20,11 @@ export function Field({
   const control = cloneElement(children, {
     id,
     'aria-invalid': error !== undefined ? true : undefined,
-    'aria-describedby': error !== undefined ? errorId : undefined
+    // Se suma a la descripción que ya traiga el control (por ejemplo, un aviso).
+    'aria-describedby':
+      [error !== undefined ? errorId : null, children.props['aria-describedby']]
+        .filter((id) => typeof id === 'string' && id !== '')
+        .join(' ') || undefined
   })
 
   return (

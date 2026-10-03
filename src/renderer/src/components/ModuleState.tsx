@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
-import type { ModuleAccess } from '../data/modules'
+import { unavailableReason, type ModuleAccess } from '../data/modules'
 import { IpcError } from '../lib/ipc'
 import { BUTTON_SECONDARY } from './styles'
 
@@ -12,12 +12,8 @@ export function ModuleUnavailable({
   access: Exclude<ModuleAccess, { available: true }>
 }): JSX.Element {
   const { t } = useTranslation()
-  const text =
-    access.reason === 'missingScope'
-      ? t('module.missingScope', { scopes: access.scopes.join(', ') })
-      : access.reason === 'classicToken'
-        ? t('module.classicToken')
-        : t('module.noEnvironment')
+  const reason = unavailableReason(access)
+  const text = t(reason.key, reason.params)
   return (
     <p
       data-testid="module-unavailable"

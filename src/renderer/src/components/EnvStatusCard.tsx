@@ -77,6 +77,9 @@ export function EnvStatusCard({
               })}
             </p>
           )}
+          {status.certificatesIgnored && (
+            <p data-testid="env-status-certificates">{t('envStatus.certificatesIgnored')}</p>
+          )}
         </div>
       )}
     </section>

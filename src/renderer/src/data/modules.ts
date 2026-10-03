@@ -39,6 +39,17 @@ export function useModuleAccess(module: DataModule): ModuleAccess {
   return { available: true, envId: active.environment.id }
 }
 
+/** Clave i18n y parámetros del motivo por el que un módulo no está disponible. */
+export function unavailableReason(access: Exclude<ModuleAccess, { available: true }>): {
+  key: string
+  params?: Record<string, string>
+} {
+  if (access.reason === 'missingScope') {
+    return { key: 'module.missingScope', params: { scopes: access.scopes.join(', ') } }
+  }
+  return { key: access.reason === 'classicToken' ? 'module.classicToken' : 'module.noEnvironment' }
+}
+
 /**
  * Sin auto-refresco: los datos se piden al entrar con una clave nueva y al pulsar
  * "Actualizar", nunca solos (cada petición gasta cuota de la API).

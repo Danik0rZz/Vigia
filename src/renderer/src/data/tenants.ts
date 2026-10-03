@@ -8,7 +8,9 @@ import {
 import type { ConnectionReport } from '@shared/dynatrace'
 import type { IpcArgs, IpcChannel, IpcOutput } from '@shared/ipc'
 import type { Client, EnvironmentView } from '@shared/tenants'
+import { useTranslation } from 'react-i18next'
 import { invoke } from '../lib/ipc'
+import { compareEnvironments, environmentLabel } from './environment-label'
 
 /**
  * Datos de main vía IPC con TanStack Query. Las claves de clientes y entornos
@@ -45,6 +47,19 @@ export function useTenants(): { clients: Client[]; environments: EnvironmentView
 export interface ActiveEnvironment {
   environment: EnvironmentView
   client: Client
+  /** Etiqueta del entorno (tipo, o nombre si hace falta); ver environmentLabel. */
+  label: string
+}
+
+/** Etiqueta de un entorno entre los de su cliente, con los tipos traducidos. */
+function useLabeller(environments: EnvironmentView[]): (environment: EnvironmentView) => string {
+  const { t } = useTranslation()
+  return (environment) =>
+    environmentLabel(
+      environment,
+      environments.filter((other) => other.clientId === environment.clientId),
+      (type) => t(`environmentTypes.${type}`)
+    )
 }
 
 /** Entorno activo con su cliente, o `null` si no hay ninguno. */
@@ -56,7 +71,40 @@ export function useActiveEnvironment(): ActiveEnvironment | null {
   })
   const environment = environments.find((env) => env.id === data?.environmentId)
   const client = clients.find((candidate) => candidate.id === environment?.clientId)
-  return environment !== undefined && client !== undefined ? { environment, client } : null
+  const label = useLabeller(environments)
+  return environment !== undefined && client !== undefined
+    ? { environment, client, label: label(environment) }
+    : null
+}
+
+export interface EnvironmentOption {
+  environment: EnvironmentView
+  client: Client
+  label: string
+  /** "Cliente › etiqueta": el nombre con que se elige un entorno. */
+  full: string
+}
+
+/**
+ * Entornos para el selector y Ctrl+K: agrupados por cliente (por nombre) y, en
+ * cada cliente, en el orden fijo de tipos (Producción, Preproducción,
+ * Integración, Desarrollo, Otro).
+ */
+export function useEnvironmentOptions(): { client: Client; options: EnvironmentOption[] }[] {
+  const { clients, environments } = useTenants()
+  const label = useLabeller(environments)
+  return clients.map((client) => ({
+    client,
+    options: environments
+      .filter((environment) => environment.clientId === client.id)
+      .sort(compareEnvironments)
+      .map((environment) => ({
+        environment,
+        client,
+        label: label(environment),
+        full: environmentPath(client, label(environment))
+      }))
+  }))
 }
 
 /** Se consulta cada vez que se monta quien lo usa: el cifrado puede dejar de estar disponible. */
@@ -90,7 +138,7 @@ export function useTenantMutation<C extends IpcChannel>(
   })
 }
 
-/** "Cliente › Entorno", el nombre con que se elige un entorno. */
-export function environmentLabel(client: Client, environment: EnvironmentView): string {
-  return `${client.name} › ${environment.name}`
+/** "Cliente › etiqueta del entorno". */
+export function environmentPath(client: Client, label: string): string {
+  return `${client.name} › ${label}`
 }

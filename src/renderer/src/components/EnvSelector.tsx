@@ -4,27 +4,23 @@ import * as Popover from '@radix-ui/react-popover'
 import { Command } from 'cmdk'
 import { ChevronsUpDown } from 'lucide-react'
 import {
-  environmentLabel,
+  environmentPath,
   useActiveEnvironment,
-  useTenantMutation,
-  useTenants
+  useEnvironmentOptions,
+  useTenantMutation
 } from '../data/tenants'
-import { ProductionBadge } from './ProductionBadge'
+import { EnvTypeBadge } from './EnvTypeBadge'
 
-/** Selector "Cliente › Entorno" de la barra superior, con búsqueda. */
+const GROUP =
+  '[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground'
+
+/** Selector "Cliente › Entorno" de la barra superior, con búsqueda y agrupado por cliente. */
 export function EnvSelector(): JSX.Element {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const { clients, environments } = useTenants()
+  const groups = useEnvironmentOptions()
   const active = useActiveEnvironment()
   const setActive = useTenantMutation('environments:setActive')
-
-  const options = environments.flatMap((environment) => {
-    const client = clients.find((candidate) => candidate.id === environment.clientId)
-    return client === undefined
-      ? []
-      : [{ environment, label: environmentLabel(client, environment) }]
-  })
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -37,8 +33,8 @@ export function EnvSelector(): JSX.Element {
           <span className="text-muted-foreground">{t('envSelector.none')}</span>
         ) : (
           <>
-            {active.environment.type === 'production' && <ProductionBadge />}
-            <span className="truncate">{environmentLabel(active.client, active.environment)}</span>
+            <EnvTypeBadge type={active.environment.type} />
+            <span className="truncate">{environmentPath(active.client, active.label)}</span>
           </>
         )}
         <ChevronsUpDown aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
@@ -59,20 +55,30 @@ export function EnvSelector(): JSX.Element {
               <Command.Empty className="px-3 py-4 text-center text-xs text-muted-foreground">
                 {t('envSelector.empty')}
               </Command.Empty>
-              {options.map(({ environment, label }) => (
-                <Command.Item
-                  key={environment.id}
-                  value={label}
-                  onSelect={() => {
-                    setActive.mutate([{ environmentId: environment.id }])
-                    setOpen(false)
-                  }}
-                  className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm text-muted-foreground data-[selected=true]:bg-active data-[selected=true]:text-foreground"
-                >
-                  {label}
-                  {environment.type === 'production' && <ProductionBadge />}
-                </Command.Item>
-              ))}
+              {groups
+                .filter((group) => group.options.length > 0)
+                .map((group) => (
+                  <Command.Group
+                    key={group.client.id}
+                    heading={group.client.name}
+                    className={GROUP}
+                  >
+                    {group.options.map(({ environment, full }) => (
+                      <Command.Item
+                        key={environment.id}
+                        value={full}
+                        onSelect={() => {
+                          setActive.mutate([{ environmentId: environment.id }])
+                          setOpen(false)
+                        }}
+                        className="flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm text-muted-foreground data-[selected=true]:bg-active data-[selected=true]:text-foreground"
+                      >
+                        <EnvTypeBadge type={environment.type} />
+                        {full}
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                ))}
             </Command.List>
           </Command>
         </Popover.Content>

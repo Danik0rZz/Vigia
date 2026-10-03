@@ -1,13 +1,13 @@
 import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router'
-import { Languages, Moon, Search, ShieldAlert, Sun } from 'lucide-react'
+import { Languages, Moon, Search, Sun } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
 import { usePreferences } from '../app/preferences'
 import { useResolvedTheme } from '../app/theme'
 import { useActiveEnvironment } from '../data/tenants'
 import { EnvSelector } from './EnvSelector'
-import { ProductionBadge } from './ProductionBadge'
+import { EnvTypeBadge } from './EnvTypeBadge'
 import { TimeRangeSelector } from './TimeRangeSelector'
 
 /** Separador de la ruta; es un signo, no texto traducible. */
@@ -42,8 +42,8 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
           <>
             <span className="text-muted-foreground">{active.client.name}</span>
             <span className="text-muted-foreground">{SEPARATOR}</span>
-            <span className="text-muted-foreground">{active.environment.name}</span>
-            {active.environment.type === 'production' && <ProductionBadge />}
+            <span className="text-muted-foreground">{active.label}</span>
+            <EnvTypeBadge type={active.environment.type} />
             <span className="text-muted-foreground">{SEPARATOR}</span>
           </>
         )}
@@ -54,16 +54,6 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
         )}
       </nav>
 
-      {active?.environment.certificateLevel === 'ignore' && (
-        <p
-          data-testid="tls-ignore-warning"
-          role="alert"
-          className="app-no-drag flex h-7 items-center gap-1.5 rounded-md bg-danger px-2 text-xs font-medium text-white"
-        >
-          <ShieldAlert aria-hidden="true" className="size-3.5" />
-          {t('certificates.ignoreWarning')}
-        </p>
-      )}
       <EnvSelector />
       <TimeRangeSelector />
 

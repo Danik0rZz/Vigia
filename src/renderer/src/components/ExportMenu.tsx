@@ -5,7 +5,7 @@ import { Camera, Copy, Download } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import type { ExportColumn, ExportModule, ExportRow, XlsxLabels } from '@shared/modules'
 import type { TimeRangeValue } from '@shared/time-range'
-import { useActiveEnvironment, environmentLabel } from '../data/tenants'
+import { environmentPath, useActiveEnvironment } from '../data/tenants'
 import { useExportSettings } from '../data/modules'
 import { invoke } from '../lib/ipc'
 import { BUTTON_ICON } from './styles'
@@ -101,7 +101,7 @@ export function ExportMenu({
     if (dataUrl !== null) {
       const footer =
         settings.captureFooter && active !== null
-          ? `${environmentLabel(active.client, active.environment)} · ${new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date())}`
+          ? `${environmentPath(active.client, active.label)} · ${new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'short' }).format(new Date())}`
           : null
       return invoke('capture:image', {
         ...(environmentId === undefined ? {} : { environmentId }),

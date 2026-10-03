@@ -281,11 +281,35 @@ test('con la huella fijada conecta, sin scopes que falten', async () => {
   await expect(form.getByTestId('certificate-untrusted')).toHaveCount(0)
   await expect(page.getByTestId('env-status')).toContainText('Token clásico')
   await expect(page.getByTestId('env-status')).toContainText('Conectado')
+
+  // Información del token: nombre, sin caducidad y sus scopes (ninguno falta ni sobra).
+  const info = form.getByTestId('token-info-classic')
+  await expect(info).toBeVisible()
+  await expect(info).toContainText('e2e')
+  await expect(info).toContainText('Sin caducidad')
+  const granted = info.getByTestId('token-scopes-granted')
+  for (const scope of ['problems.read', 'metrics.read', 'slo.read'])
+    await expect(granted).toContainText(scope)
+  await expect(info.getByTestId('token-scopes-missing')).not.toContainText('.read')
+  await expect(info.getByTestId('token-scopes-extra')).not.toContainText('.read')
+  await expect(form.getByTestId('token-disabled')).toHaveCount(0)
+  await expect(page.locator('body')).not.toContainText('SECRETOE2ETLS')
   await closeEnvironmentForm()
 
   const report = await testConnection()
   expect(report.mechanisms).toEqual([
-    { id: 'classic', state: 'connected', error: null, missingScopes: [] }
+    {
+      id: 'classic',
+      state: 'connected',
+      error: null,
+      missingScopes: [],
+      tokenInfo: {
+        name: 'e2e',
+        enabled: true,
+        expiresAt: null,
+        scopes: { granted: ['metrics.read', 'problems.read', 'slo.read'], missing: [], extra: [] }
+      }
+    }
   ])
   expect(report.untrustedCertificates).toEqual([])
 })
@@ -334,18 +358,36 @@ test('la interfaz muestra la huella antigua y la nueva; aceptar fija la nueva y 
   expect((await testConnection()).mechanisms[0]).toMatchObject({ state: 'connected' })
 })
 
-test('nivel ignore: conecta con un certificado desconocido y la barra superior avisa', async () => {
+test('nivel ignore: conecta con un certificado desconocido; avisa en la tarjeta y en el formulario, no en la barra', async () => {
   await startServer() // tercer certificado, ni fijado ni confiable
-  await expect(page.getByTestId('tls-ignore-warning')).toHaveCount(0)
+  await expect(page.getByTestId('env-status-certificates')).toHaveCount(0)
 
   await setLevel('ignore')
   const report = await testConnection()
   expect(report.mechanisms[0]).toMatchObject({ id: 'classic', state: 'connected' })
   expect(report.untrustedCertificates).toEqual([])
 
-  const warning = page.getByTestId('tls-ignore-warning')
+  // Ya no hay aviso rojo en la barra superior: va a una línea de la tarjeta.
+  await expect(page.getByTestId('tls-ignore-warning')).toHaveCount(0)
+  await expect(page.getByTestId('env-status-certificates')).toContainText('Certificados: ignorados')
+
+  // En el formulario, el aviso acompaña al select y está asociado con aria-describedby.
+  await openEnvironmentForm()
+  const form = page.getByTestId('environment-form')
+  const level = form.getByTestId('environment-certificate-level')
+  const warning = form.getByTestId('certificate-ignore-warning')
+  await expect(level).toHaveValue('ignore')
   await expect(warning).toBeVisible()
   await expect(warning).toHaveAttribute('role', 'alert')
+  await expect(warning).toContainText('Cualquiera en la red podría hacerse pasar por este entorno')
+  const warningId = await warning.getAttribute('id')
+  expect(warningId).toBeTruthy()
+  expect((await level.getAttribute('aria-describedby'))?.split(/\s+/)).toContain(warningId)
+
+  // Con otro nivel en el select, el aviso desaparece (sin guardar).
+  await level.selectOption('pinned')
+  await expect(form.getByTestId('certificate-ignore-warning')).toHaveCount(0)
+  await closeEnvironmentForm()
 })
 
 test('nivel ignore NO vale para el SSO: un SSO ajeno autofirmado falla y no recibe el client_secret', async () => {
@@ -394,6 +436,7 @@ test('de vuelta a system: otra vez no confiable (no queda nada en caché) y sin 
     reason: 'untrusted'
   })
   await expect(page.getByTestId('tls-ignore-warning')).toHaveCount(0)
+  await expect(page.getByTestId('env-status-certificates')).toHaveCount(0)
 })
 
 test('connection:status devuelve el último informe y se borra al cambiar el entorno', async () => {

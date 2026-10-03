@@ -3,12 +3,20 @@ import { useTranslation } from 'react-i18next'
 import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import type { Client, EnvironmentView, ImportSummary } from '@shared/tenants'
 import { ConfirmDialog, FormDialog } from '../components/dialogs'
-import { ProductionBadge } from '../components/ProductionBadge'
+import { EnvTypeBadge } from '../components/EnvTypeBadge'
 import { BUTTON_ICON, BUTTON_PRIMARY, BUTTON_SECONDARY } from '../components/styles'
 import { useTenantMutation, useTenants } from '../data/tenants'
 import { IpcError } from '../lib/ipc'
 import { ClientForm } from './ClientForm'
 import { EnvironmentForm } from './EnvironmentForm'
+
+const TYPE_TEXT: Record<EnvironmentView['type'], string> = {
+  production: 'text-env-production',
+  preproduction: 'text-env-preproduction',
+  integration: 'text-env-integration',
+  development: 'text-env-development',
+  other: 'text-env-other'
+}
 
 /** Separador entre datos de una fila; es un signo, no texto traducible. */
 const DOT = ' · '
@@ -42,10 +50,13 @@ function EnvironmentRow({
       className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-hover"
     >
       <span className="font-medium">{environment.name}</span>
-      {environment.type === 'production' && <ProductionBadge />}
+      <EnvTypeBadge type={environment.type} />
+      {/* El texto del tipo lleva su color (contraste AA comprobado en env-colors.test). */}
+      <span className={`text-xs font-medium ${TYPE_TEXT[environment.type]}`}>
+        {t(`environmentTypes.${environment.type}`)}
+      </span>
       <span className="flex gap-1.5 text-xs text-muted-foreground">
         {[
-          t(`environmentTypes.${environment.type}`),
           t(`deployments.${environment.deployment}`),
           ...(environment.readOnly ? [t('tenants.readOnly')] : [])
         ].join(DOT)}

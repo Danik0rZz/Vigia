@@ -128,7 +128,9 @@ test('sin datos: selector "Sin entorno", ruta solo con la sección y tarjeta neu
   await expect(page.getByTestId('env-selector')).toHaveText(/Sin entorno/)
   await expect(breadcrumb()).toHaveText(/^\s*Inicio\s*$/)
   await expect(page.getByTestId('env-status')).toContainText('Sin entorno configurado')
-  await expect(page.getByTestId('production-badge')).toHaveCount(0)
+  await expect(page.locator('[data-testid="env-type-badge"][data-type="production"]')).toHaveCount(
+    0
+  )
 })
 
 test('crea un cliente desde Ajustes', async () => {
@@ -252,9 +254,13 @@ test('elige el entorno en el selector: ruta Cliente › Entorno › Sección y d
 
   const selector = page.getByTestId('env-selector')
   await expect(selector).toHaveText(/Cliente A\s*›\s*Producción/)
-  await expect(selector.getByTestId('production-badge')).toBeVisible()
+  await expect(
+    selector.locator('[data-testid="env-type-badge"][data-type="production"]')
+  ).toBeVisible()
   await expect(breadcrumb()).toHaveText(/Cliente A\s*›\s*Producción\s*›\s*Ajustes/)
-  await expect(breadcrumb().getByTestId('production-badge')).toBeVisible()
+  await expect(
+    breadcrumb().locator('[data-testid="env-type-badge"][data-type="production"]')
+  ).toBeVisible()
 
   // La ruta sigue a la sección.
   await page.getByTestId('nav-problems').click()
@@ -283,14 +289,91 @@ test('Ctrl+K lista los entornos y elegir uno lo activa', async () => {
 
   const selector = page.getByTestId('env-selector')
   await expect(selector).toHaveText(/Cliente A\s*›\s*Desarrollo/)
-  await expect(selector.getByTestId('production-badge')).toHaveCount(0)
-  await expect(breadcrumb().getByTestId('production-badge')).toHaveCount(0)
+  await expect(
+    selector.locator('[data-testid="env-type-badge"][data-type="production"]')
+  ).toHaveCount(0)
+  await expect(
+    breadcrumb().locator('[data-testid="env-type-badge"][data-type="production"]')
+  ).toHaveCount(0)
   await expect(page.getByTestId('env-status')).toContainText('Sin credenciales')
 
   // Vuelve a Producción con el selector.
   await selector.click()
   await page.getByRole('option', { name: 'Cliente A › Producción' }).click()
   await expect(selector).toHaveText(/Cliente A\s*›\s*Producción/)
+})
+
+test('selector y Ctrl+K agrupan por cliente y ordenan por tipo; la ruta muestra el tipo con su distintivo', async () => {
+  // Un cliente aparte, con tipos desordenados y dos "otro"; se borra al final.
+  const client = (await invoke('clients:create', { name: 'Cliente Orden', color: '#225588' })) as {
+    ok: boolean
+    data: { id: string }
+  }
+  const clientId = client.data.id
+  const base = {
+    clientId,
+    deployment: 'saas',
+    classicApiUrl: CLASSIC_URL,
+    platformUrl: null,
+    ssoUrl: null,
+    oauthClientId: null,
+    oauthScopes: [],
+    accountUuid: null,
+    certificateLevel: 'system',
+    captureUrlPatterns: [],
+    tags: [],
+    readOnly: false
+  }
+  for (const [name, type] of [
+    ['Zeta', 'other'],
+    ['Dev', 'development'],
+    ['Alfa', 'other'],
+    ['Prod', 'production']
+  ]) {
+    await invoke('environments:create', { ...base, name, type })
+  }
+  await page.reload()
+  await page.waitForLoadState('domcontentloaded')
+
+  const expected = [
+    'Cliente Orden › Producción',
+    'Cliente Orden › Desarrollo',
+    'Cliente Orden › Alfa',
+    'Cliente Orden › Zeta'
+  ]
+
+  // Selector: grupo con el nombre del cliente y opciones en orden de tipo y, a igualdad, de nombre.
+  await page.getByTestId('env-selector').click()
+  const group = page.getByRole('group', { name: 'Cliente Orden' })
+  await expect(group).toBeVisible()
+  await expect(group.getByRole('option')).toHaveText(expected.map((name) => new RegExp(name)))
+  for (const [i, type] of ['production', 'development', 'other', 'other'].entries()) {
+    await expect(group.getByRole('option').nth(i).getByTestId('env-type-badge')).toHaveAttribute(
+      'data-type',
+      type
+    )
+  }
+  await group.getByRole('option', { name: 'Cliente Orden › Producción' }).click()
+  await expect(breadcrumb()).toHaveText(/Cliente Orden\s*›\s*Producción\s*›/)
+  const crumbBadge = breadcrumb().getByTestId('env-type-badge')
+  await expect(crumbBadge).toHaveAttribute('data-type', 'production')
+  await expect(crumbBadge).toHaveAttribute('aria-label', /Producción/)
+  await expect(crumbBadge).toHaveText('')
+
+  // Ctrl+K: el mismo orden dentro del grupo del cliente.
+  await page.keyboard.press('Control+K')
+  const palette = page.getByTestId('command-palette')
+  const paletteOptions = palette.getByRole('option').filter({ hasText: 'Cliente Orden' })
+  await expect(paletteOptions).toHaveText(expected.map((name) => new RegExp(name)))
+  await page.keyboard.press('Escape')
+
+  // Se vuelve al estado anterior: Producción de Cliente A activo y Cliente Orden borrado.
+  await page.getByTestId('env-selector').click()
+  await page.getByRole('option', { name: 'Cliente A › Producción' }).click()
+  await invoke('clients:delete', { id: clientId })
+  await page.reload()
+  await page.waitForLoadState('domcontentloaded')
+  await expect(page.getByTestId('env-selector')).toHaveText(/Cliente A\s*›\s*Producción/)
 })
 
 test('en inglés: estados de credenciales y tarjeta traducidos', async () => {
@@ -318,7 +401,9 @@ test('al relanzar la app siguen el entorno activo, el cliente, los entornos y el
 
   const selector = page.getByTestId('env-selector')
   await expect(selector).toHaveText(/Cliente A\s*›\s*Producción/)
-  await expect(selector.getByTestId('production-badge')).toBeVisible()
+  await expect(
+    selector.locator('[data-testid="env-type-badge"][data-type="production"]')
+  ).toBeVisible()
 
   await goToSettings()
   await expect(clientRow('Cliente A')).toHaveCount(1)

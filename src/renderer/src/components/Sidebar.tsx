@@ -1,36 +1,69 @@
 import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { APP_NAME } from '@shared/app'
 import { AppIcon, NAV_GROUPS, NAV_SECTIONS, type NavSection } from '../app/navigation'
 import { usePreferences } from '../app/preferences'
+import { unavailableReason, useModuleAccess, type ModuleAccess } from '../data/modules'
 import { cn } from '../lib/cn'
 import { useEnvStatus } from './env-status'
 import { EnvStatusCard } from './EnvStatusCard'
 
-function NavItem({ section, collapsed }: { section: NavSection; collapsed: boolean }): JSX.Element {
+/** Inicio, Problemas y Métricas dependen del entorno, del token y de los permisos. */
+type ModuleAccessById = Partial<Record<string, ModuleAccess>>
+
+function NavItem({
+  section,
+  collapsed,
+  access
+}: {
+  section: NavSection
+  collapsed: boolean
+  access: ModuleAccess | undefined
+}): JSX.Element {
   const { t } = useTranslation()
   const label = t(section.labelKey)
   const Icon = section.icon
+  const reason = access !== undefined && !access.available ? unavailableReason(access) : null
+  const help = reason !== null ? t(reason.key, reason.params) : t(`navHelp.${section.id}`)
+  // Plegado, el nombre solo se ve en el tooltip: va delante.
+  const tooltip = collapsed ? `${label}: ${help}` : help
 
   return (
-    <NavLink
-      to={section.path}
-      end={section.path === '/'}
-      data-testid={`nav-${section.id}`}
-      title={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        cn(
-          'flex h-8 items-center gap-2.5 rounded-md px-2 text-muted-foreground hover:bg-hover hover:text-foreground',
-          isActive && 'bg-active text-foreground',
-          collapsed && 'justify-center px-0'
-        )
-      }
-    >
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
-    </NavLink>
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <NavLink
+          to={section.path}
+          end={section.path === '/'}
+          data-testid={`nav-${section.id}`}
+          // Sigue navegando: la página explica por qué no está disponible.
+          data-unavailable={reason !== null ? 'true' : undefined}
+          className={({ isActive }) =>
+            cn(
+              'flex h-8 items-center gap-2.5 rounded-md px-2 text-muted-foreground hover:bg-hover hover:text-foreground',
+              isActive && 'bg-active text-foreground',
+              reason !== null && 'opacity-60',
+              collapsed && 'justify-center px-0'
+            )
+          }
+        >
+          <Icon aria-hidden="true" className="size-4 shrink-0" />
+          <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
+          {reason !== null && <span className="sr-only">{` ${t('nav.unavailable')}`}</span>}
+        </NavLink>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          side="right"
+          sideOffset={8}
+          className="glass z-50 max-w-64 rounded-md px-3 py-2 text-xs text-foreground"
+        >
+          {tooltip}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }
 
@@ -40,6 +73,11 @@ export function Sidebar(): JSX.Element {
   const collapsed = usePreferences((state) => state.sidebarCollapsed)
   const toggleSidebar = usePreferences((state) => state.toggleSidebar)
   const envStatus = useEnvStatus()
+  const access: ModuleAccessById = {
+    home: useModuleAccess('home'),
+    problems: useModuleAccess('problems'),
+    metrics: useModuleAccess('metrics')
+  }
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose
 
   return (
@@ -77,7 +115,7 @@ export function Sidebar(): JSX.Element {
             <ul className="grid gap-0.5">
               {NAV_SECTIONS.filter((section) => section.group === group).map((section) => (
                 <li key={section.id}>
-                  <NavItem section={section} collapsed={collapsed} />
+                  <NavItem section={section} collapsed={collapsed} access={access[section.id]} />
                 </li>
               ))}
             </ul>
@@ -88,10 +126,16 @@ export function Sidebar(): JSX.Element {
       <div className="grid gap-1 p-2">
         <EnvStatusCard status={envStatus} collapsed={collapsed} />
         {NAV_SECTIONS.filter((section) => section.group === null).map((section) => (
-          <NavItem key={section.id} section={section} collapsed={collapsed} />
+          <NavItem
+            key={section.id}
+            section={section}
+            collapsed={collapsed}
+            access={access[section.id]}
+          />
         ))}
         <button
           type="button"
+          data-testid="sidebar-toggle"
           onClick={toggleSidebar}
           aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}

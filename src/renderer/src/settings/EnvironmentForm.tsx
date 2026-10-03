@@ -1,4 +1,4 @@
-import { useEffect, type FocusEvent, type JSX } from 'react'
+import { useEffect, useId, type FocusEvent, type JSX } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
@@ -42,6 +42,8 @@ export function EnvironmentForm({
   })
   const { errors } = form.formState
   const saas = useWatch({ control: form.control, name: 'deployment' }) === 'saas'
+  const ignoring = useWatch({ control: form.control, name: 'certificateLevel' }) === 'ignore'
+  const ignoreWarningId = useId()
 
   // Aceptar una huella cambia el nivel en main: el formulario lo refleja, para
   // que guardar no lo devuelva al valor anterior.
@@ -106,6 +108,7 @@ export function EnvironmentForm({
             <select
               data-testid="environment-certificate-level"
               className={INPUT}
+              aria-describedby={ignoring ? ignoreWarningId : undefined}
               {...form.register('certificateLevel')}
             >
               {certificateLevels.map((level) => (
@@ -115,6 +118,16 @@ export function EnvironmentForm({
               ))}
             </select>
           </Field>
+          {ignoring && (
+            <p
+              id={ignoreWarningId}
+              data-testid="certificate-ignore-warning"
+              role="alert"
+              className="text-xs text-danger sm:col-span-2"
+            >
+              {t('certificates.ignoreRisk')}
+            </p>
+          )}
           <Field label={t('environmentForm.classicApiUrl')} error={errors.classicApiUrl?.message}>
             <input
               data-testid="environment-classic-url"

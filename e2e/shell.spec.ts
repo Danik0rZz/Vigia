@@ -234,6 +234,48 @@ test('la barra lateral tiene los grupos y las secciones de la lista única', asy
   expect(order.filter((id) => ids.includes(id))).toEqual(ids)
 })
 
+test('tooltips del menú: con el ratón, con el teclado, en las vistas no disponibles y con el menú plegado', async () => {
+  const tooltip = page.getByRole('tooltip')
+  const away = async (): Promise<void> => {
+    await page.mouse.move(0, 0)
+    await page.keyboard.press('Escape')
+    await expect(tooltip).toHaveCount(0)
+  }
+
+  // Sin entorno, Problemas no está disponible: lo marca y el tooltip da el motivo, pero sigue siendo un enlace.
+  const problems = page.getByTestId('nav-problems')
+  await expect(problems).toHaveAttribute('data-unavailable', 'true')
+  await expect(problems).toHaveText(new RegExp(t('es', 'nav.problems')))
+  await problems.hover()
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toContainText('Sin entorno')
+  await away()
+
+  // Con el teclado: el foco abre el tooltip, con el texto de ayuda de la sección.
+  await page.getByTestId('nav-topology').focus()
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toContainText(t('es', 'navHelp.topology'))
+  await away()
+
+  // Ajustes siempre está disponible.
+  await expect(page.getByTestId('nav-settings')).not.toHaveAttribute('data-unavailable', 'true')
+
+  // Menú plegado: el tooltip empieza por el nombre de la sección.
+  await page.getByTestId('sidebar-toggle').click()
+  await page.getByTestId('nav-metrics').hover()
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toHaveText(new RegExp(`^\\s*${t('es', 'nav.metrics')}`))
+  await away()
+  await page.getByTestId('sidebar-toggle').click()
+
+  // La vista desactivada sigue siendo navegable y lo explica.
+  await problems.click()
+  await expect(page).toHaveURL(`${ENTRY}#/problems`)
+  await expect(page.getByTestId('module-unavailable')).toContainText('Sin entorno')
+  await expectNothingForbidden()
+  await goTo('home')
+})
+
 test('el pie muestra un estado neutro sin entorno y sin backups', async () => {
   const status = page.getByTestId('env-status')
   await expect(status).toBeVisible()

@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import type { UntrustedCertificate } from '@shared/dynatrace'
+import type { TokenInfo, UntrustedCertificate } from '@shared/dynatrace'
 import type { EnvironmentView } from '@shared/tenants'
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from '../components/styles'
 import { queryKeys, useTenantMutation } from '../data/tenants'
@@ -62,6 +62,70 @@ function CertificateBlock({
           {t('certificates.accept')}
         </button>
       </div>
+    </div>
+  )
+}
+
+/** Lista de scopes con su título; vacía muestra "Ninguno". */
+function ScopeList({
+  testId,
+  title,
+  scopes
+}: {
+  testId: string
+  title: string
+  scopes: string[]
+}): JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <div data-testid={testId} className="grid gap-0.5">
+      <span className="text-muted-foreground">{title}</span>
+      <span className="break-all">
+        {scopes.length === 0 ? t('connection.token.none') : scopes.join(', ')}
+      </span>
+    </div>
+  )
+}
+
+/** Lo que se sabe del token probado: nombre, caducidad y scopes (nunca el token ni su id). */
+function TokenInfoBlock({ id, info }: { id: string; info: TokenInfo }): JSX.Element {
+  const { t, i18n } = useTranslation()
+  const expires =
+    info.expiresAt === null
+      ? t('connection.token.noExpiry')
+      : t('connection.token.expires', {
+          date: new Intl.DateTimeFormat(i18n.language, {
+            dateStyle: 'short',
+            timeStyle: 'short'
+          }).format(new Date(info.expiresAt))
+        })
+  return (
+    <div data-testid={`token-info-${id}`} className="mt-1 grid gap-1 border-t border-border pt-1">
+      <span>
+        {info.name ?? t('connection.token.title')}
+        {' · '}
+        {expires}
+      </span>
+      {info.enabled === false && (
+        <span data-testid="token-disabled" role="alert" className="text-danger">
+          {t('connection.token.disabled')}
+        </span>
+      )}
+      <ScopeList
+        testId="token-scopes-granted"
+        title={t('connection.token.granted')}
+        scopes={info.scopes.granted}
+      />
+      <ScopeList
+        testId="token-scopes-missing"
+        title={t('connection.token.missing')}
+        scopes={info.scopes.missing}
+      />
+      <ScopeList
+        testId="token-scopes-extra"
+        title={t('connection.token.extra')}
+        scopes={info.scopes.extra}
+      />
     </div>
   )
 }
@@ -138,6 +202,9 @@ export function ConnectionPanel({ environment }: { environment: EnvironmentView 
                 <span className="text-muted-foreground">
                   {t('connection.missingScopes', { scopes: mechanism.missingScopes.join(', ') })}
                 </span>
+              )}
+              {mechanism.tokenInfo !== null && (
+                <TokenInfoBlock id={mechanism.id} info={mechanism.tokenInfo} />
               )}
             </li>
           ))}

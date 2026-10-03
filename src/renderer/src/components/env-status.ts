@@ -18,6 +18,8 @@ export interface EnvStatus {
   mechanisms: MechanismStatus[]
   /** Caducidad del token OAuth, si el entorno lo usa. */
   oauthExpiresAt: Date | null
+  /** El entorno tiene el nivel "ignorar" de certificados. */
+  certificatesIgnored: boolean
 }
 
 const MECHANISM_BY_SECRET: Record<SecretKind, MechanismId> = {
@@ -34,14 +36,16 @@ export function useEnvStatus(): EnvStatus | null {
   const active = useActiveEnvironment()
   const report = useConnectionStatus(active?.environment.id ?? null)
   if (active === null) return null
+  const certificatesIgnored = active.environment.certificateLevel === 'ignore'
   if (report !== null) {
     return {
       mechanisms: report.mechanisms.map(({ id, state }) => ({ id, state })),
-      oauthExpiresAt: report.oauthExpiresAt === null ? null : new Date(report.oauthExpiresAt)
+      oauthExpiresAt: report.oauthExpiresAt === null ? null : new Date(report.oauthExpiresAt),
+      certificatesIgnored
     }
   }
   const mechanisms = (Object.keys(MECHANISM_BY_SECRET) as SecretKind[])
     .filter((kind) => active.environment.secrets[kind])
     .map((kind) => ({ id: MECHANISM_BY_SECRET[kind], state: 'unchecked' as const }))
-  return { mechanisms, oauthExpiresAt: null }
+  return { mechanisms, oauthExpiresAt: null, certificatesIgnored }
 }

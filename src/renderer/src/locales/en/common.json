@@ -16,7 +16,8 @@
     "businessView": "Business view",
     "configuration": "Configuration",
     "integrations": "Integrations",
-    "settings": "Settings"
+    "settings": "Settings",
+    "unavailable": "(unavailable)"
   },
   "sidebar": {
     "collapse": "Collapse sidebar",
@@ -60,7 +61,8 @@
       "platform": "Platform token"
     },
     "unchecked": "Not checked",
-    "noCredentials": "No credentials"
+    "noCredentials": "No credentials",
+    "certificatesIgnored": "Certificates: ignored"
   },
   "settings": {
     "theme": "Theme",
@@ -180,7 +182,17 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "noCredentials": "Save a credential to be able to test the connection.",
-    "missingScopes": "Missing scopes: {{scopes}}"
+    "missingScopes": "Missing scopes: {{scopes}}",
+    "token": {
+      "title": "Token",
+      "noExpiry": "No expiry",
+      "expires": "Expires on {{date}}",
+      "granted": "Token scopes",
+      "missing": "Missing",
+      "extra": "Not used by Vigía",
+      "none": "None",
+      "disabled": "The token is disabled."
+    }
   },
   "certificates": {
     "untrusted": "The certificate of {{host}} is not trusted.",
@@ -188,7 +200,7 @@
     "previous": "Accepted fingerprint",
     "current": "New fingerprint",
     "accept": "Accept this fingerprint",
-    "ignoreWarning": "Certificate verification is disabled for this environment"
+    "ignoreRisk": "Anyone on the network could impersonate this environment. Use it only if you cannot pin the fingerprint."
   },
   "dtErrors": {
     "NO_CREDENTIAL": "The credential or the URL is missing.",
@@ -327,5 +339,18 @@
     "captureFooter": "Footer on captures",
     "footerOn": "With client, environment and date",
     "footerOff": "No footer"
+  },
+  "navHelp": {
+    "home": "Overview of the active environment: open problems, SLOs and service health.",
+    "problems": "Environment problems, with filters, a timeline and the affected entities in detail.",
+    "topology": "Will show the graph of hosts, processes and services of the environment, in 3D and 2D.",
+    "metrics": "Metric queries with a chart, and saved queries per environment.",
+    "logs": "Will show a DQL editor to query logs in Grail, with the cost of each query.",
+    "slos": "Will show the status, trend and error budget of each SLO.",
+    "serviceFlows": "Will show the flows between services, beyond what Dynatrace offers.",
+    "businessView": "Will show indicators in business language, with reports.",
+    "configuration": "Will show copying and migrating configuration between environments.",
+    "integrations": "Will show connectors to external tools.",
+    "settings": "Clients, environments and credentials, theme, language and export."
   }
 }

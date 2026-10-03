@@ -6,13 +6,8 @@ import { Command } from 'cmdk'
 import { ChartLine, Server } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
 import { useSavedQueries } from '../data/modules'
-import {
-  environmentLabel,
-  useActiveEnvironment,
-  useTenantMutation,
-  useTenants
-} from '../data/tenants'
-import { ProductionBadge } from './ProductionBadge'
+import { useActiveEnvironment, useEnvironmentOptions, useTenantMutation } from '../data/tenants'
+import { EnvTypeBadge } from './EnvTypeBadge'
 
 const GROUP =
   '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground'
@@ -32,17 +27,10 @@ export function CommandPalette({
 }): JSX.Element {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { clients, environments } = useTenants()
+  const environmentGroups = useEnvironmentOptions().filter((group) => group.options.length > 0)
   const setActive = useTenantMutation('environments:setActive')
   const active = useActiveEnvironment()
   const savedQueries = useSavedQueries(active?.environment.id ?? null).data ?? []
-
-  const environmentOptions = environments.flatMap((environment) => {
-    const client = clients.find((candidate) => candidate.id === environment.clientId)
-    return client === undefined
-      ? []
-      : [{ environment, label: environmentLabel(client, environment) }]
-  })
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -102,12 +90,12 @@ export function CommandPalette({
                   ))}
                 </Command.Group>
               )}
-              {environmentOptions.length > 0 && (
-                <Command.Group heading={t('palette.environments')} className={GROUP}>
-                  {environmentOptions.map(({ environment, label }) => (
+              {environmentGroups.map((group) => (
+                <Command.Group key={group.client.id} heading={group.client.name} className={GROUP}>
+                  {group.options.map(({ environment, full }) => (
                     <Command.Item
                       key={environment.id}
-                      value={label}
+                      value={full}
                       onSelect={() => {
                         setActive.mutate([{ environmentId: environment.id }])
                         onOpenChange(false)
@@ -115,12 +103,12 @@ export function CommandPalette({
                       className={ITEM}
                     >
                       <Server aria-hidden="true" className="size-4" />
-                      {label}
-                      {environment.type === 'production' && <ProductionBadge />}
+                      {full}
+                      <EnvTypeBadge type={environment.type} />
                     </Command.Item>
                   ))}
                 </Command.Group>
-              )}
+              ))}
             </Command.List>
           </Command>
         </Dialog.Content>

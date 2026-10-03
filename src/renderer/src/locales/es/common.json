@@ -16,7 +16,8 @@
     "businessView": "Vista de negocio",
     "configuration": "Configuración",
     "integrations": "Integraciones",
-    "settings": "Ajustes"
+    "settings": "Ajustes",
+    "unavailable": "(no disponible)"
   },
   "sidebar": {
     "collapse": "Plegar la barra lateral",
@@ -60,7 +61,8 @@
       "platform": "Platform token"
     },
     "unchecked": "Sin comprobar",
-    "noCredentials": "Sin credenciales"
+    "noCredentials": "Sin credenciales",
+    "certificatesIgnored": "Certificados: ignorados"
   },
   "settings": {
     "theme": "Tema",
@@ -180,7 +182,17 @@
     "connected": "Conectado",
     "disconnected": "Sin conexión",
     "noCredentials": "Guarda alguna credencial para poder probar la conexión.",
-    "missingScopes": "Faltan scopes: {{scopes}}"
+    "missingScopes": "Faltan scopes: {{scopes}}",
+    "token": {
+      "title": "Token",
+      "noExpiry": "Sin caducidad",
+      "expires": "Caduca el {{date}}",
+      "granted": "Scopes del token",
+      "missing": "Faltan",
+      "extra": "No los usa Vigía",
+      "none": "Ninguno",
+      "disabled": "El token está desactivado."
+    }
   },
   "certificates": {
     "untrusted": "El certificado de {{host}} no es de confianza.",
@@ -188,7 +200,7 @@
     "previous": "Huella aceptada",
     "current": "Huella nueva",
     "accept": "Aceptar esta huella",
-    "ignoreWarning": "Verificación de certificados desactivada en este entorno"
+    "ignoreRisk": "Cualquiera en la red podría hacerse pasar por este entorno. Úsalo solo si no puedes fijar la huella."
   },
   "dtErrors": {
     "NO_CREDENTIAL": "Falta la credencial o la URL.",
@@ -327,5 +339,18 @@
     "captureFooter": "Pie en las capturas",
     "footerOn": "Con cliente, entorno y fecha",
     "footerOff": "Sin pie"
+  },
+  "navHelp": {
+    "home": "Resumen del entorno activo: problemas abiertos, SLOs y salud de servicios.",
+    "problems": "Problemas del entorno, con filtros, línea de tiempo y detalle de las entidades afectadas.",
+    "topology": "Mostrará el grafo de hosts, procesos y servicios del entorno, en 3D y en 2D.",
+    "metrics": "Consultas de métricas con gráfico, y consultas guardadas por entorno.",
+    "logs": "Mostrará un editor DQL para consultar logs en Grail, con el coste de cada consulta.",
+    "slos": "Mostrará el estado, la tendencia y el presupuesto de error de cada SLO.",
+    "serviceFlows": "Mostrará los flujos entre servicios, más allá de lo que ofrece Dynatrace.",
+    "businessView": "Mostrará indicadores en lenguaje de negocio, con informes.",
+    "configuration": "Mostrará la copia y la migración de la configuración entre entornos.",
+    "integrations": "Mostrará conectores con herramientas externas.",
+    "settings": "Clientes, entornos y credenciales, tema, idioma y exportación."
   }
 }
