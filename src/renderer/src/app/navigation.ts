@@ -1,4 +1,4 @@
-﻿import {
+import {
   Activity,
   TriangleAlert,
   Briefcase,
