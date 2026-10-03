@@ -190,7 +190,9 @@ describe.skipIf(live === null)('exploración: Problems (bloque a)', () => {
       },
       'text("a")': { problemSelector: 'text("a")' },
       'selector mal formado': { problemSelector: 'status(open' },
-      'entitySelector type("SERVICE")': { entitySelector: 'type("SERVICE")' }
+      'entitySelector type("SERVICE")': { entitySelector: 'type("SERVICE")' },
+      // ¿Filtra por clúster en el servidor? La OpenAPI no lo declara; valor inventado.
+      'k8s.cluster.name("cluster-falso")': { problemSelector: 'k8s.cluster.name("cluster-falso")' }
     }
     for (const [name, query] of Object.entries(cases)) {
       report[`selector ${name}`] = await codeOf(

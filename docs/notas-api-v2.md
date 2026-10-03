@@ -7,6 +7,12 @@ contra el tenant de pruebas.
 **Aquí solo van comportamientos.** Nunca URLs, IDs, nombres de entidades, etiquetas ni ningún otro
 dato del tenant. Los ejemplos usan valores inventados (`svc-falso`, `HOST-0000000000000001`…).
 
+**Solo tipos estándar de Dynatrace** (`SERVICE`, `HOST`, `PROCESS_GROUP`…). Los tipos de entidad
+personalizados o de extensión (con prefijos como `empresa:…` o `custom:…`), las métricas
+personalizadas (`calc:`, `ext:`, `log:` con nombres propios) y los SLOs y eventTypes
+personalizados pueden identificar al cliente: aquí se describe su forma y se cuentan como "tipos
+personalizados (N)", nunca su nombre. El informe local de las pruebas tampoco guarda esos nombres.
+
 Estado de cada sección: _OpenAPI_ (solo lo que dice la spec, sin comprobar) o _Observado_ (con la
 fecha de la prueba en vivo).
 
@@ -128,8 +134,10 @@ no la API en general.
 - **Selectores:**
   - Funcionan `status("open")`, `severityLevel("ERROR","AVAILABILITY")`, `text("a")` y
     `entitySelector=type("SERVICE")`.
-  - Un `problemSelector` mal formado da **400**, que hoy Vigía muestra como
-    `INVALID_RESPONSE` (ver Propuestas).
+  - Un `problemSelector` mal formado da **400**. Vigía lo muestra como `BAD_REQUEST`, con el
+    mensaje de Dynatrace.
+  - **No hay criterio de clúster:** `problemSelector=k8s.cluster.name("…")` da 400 y la OpenAPI no
+    lo declara. El filtro de clúster de Problemas es local, sobre lo cargado.
 - **Límites:** `now-30d`, `now-90d` y `now-1y` responden sin error con `pageSize` 1.
 - **Tiempos:** mediana de unos 350 ms y máximo por debajo de 600 ms en las 15 peticiones.
 
@@ -181,10 +189,7 @@ _OpenAPI._ Solo si sobra tiempo.
 Funciones que la exploración hace posibles y que decide Dani. No se implementa ninguna interfaz
 nueva sin su visto bueno.
 
-- **Problems: mostrar `warnings`.** La lista trae `warnings` y hoy se descartan. Mejora del módulo
-  que ya existe (como los de Métricas): un aviso bajo la tabla.
-- **Error 400 propio.** Hoy un 400 (selector mal formado o parámetros de más) llega como
-  `INVALID_RESPONSE` ("respuesta inesperada"). Un código `BAD_REQUEST` con el mensaje de la API
-  diría qué parámetro falla.
-- **Problems por clúster de Kubernetes.** La lista trae `k8s.cluster.name`, que no declara la
-  OpenAPI: se podría filtrar o agrupar por clúster, igual que por namespace.
+- ~~Problems: mostrar `warnings`~~ y ~~error 400 propio (`BAD_REQUEST`)~~: correcciones técnicas,
+  ya hechas (las decidió senior).
+- **Problems por clúster de Kubernetes:** decidido por peticiones. Columna "Clúster" y filtro local
+  (sin agrupar).
