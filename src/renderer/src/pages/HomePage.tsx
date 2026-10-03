@@ -1,50 +1,11 @@
 import { useMemo, useRef, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { severityLevels, type ProblemSummary } from '@shared/modules'
+import { serviceHealth } from '@shared/service-health'
 import { ExportMenu } from '../components/ExportMenu'
 import { ModuleError, ModuleUnavailable, RefreshButton } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
-
-/**
- * Peor severidad primero: el orden de la API (disponibilidad antes que
- * rendimiento…). Una severidad que la app no conoce va al final.
- */
-function severityRank(severity: string): number {
-  const index = (severityLevels as readonly string[]).indexOf(severity)
-  return index === -1 ? severityLevels.length : index
-}
-
-interface ServiceHealth {
-  id: string
-  name: string
-  severity: string
-  problems: number
-}
-
-/** Servicios afectados por problemas abiertos, con su peor severidad (sin endpoints nuevos). */
-function serviceHealth(problems: ProblemSummary[]): ServiceHealth[] {
-  const services = new Map<string, ServiceHealth>()
-  for (const problem of problems) {
-    if (problem.status !== 'OPEN') continue
-    for (const entity of problem.affectedEntities) {
-      if (entity.type !== 'SERVICE') continue
-      const current = services.get(entity.id)
-      services.set(entity.id, {
-        id: entity.id,
-        name: entity.name ?? entity.id,
-        severity:
-          current === undefined ||
-          severityRank(problem.severityLevel) < severityRank(current.severity)
-            ? problem.severityLevel
-            : current.severity,
-        problems: (current?.problems ?? 0) + 1
-      })
-    }
-  }
-  return [...services.values()].sort((a, b) => severityRank(a.severity) - severityRank(b.severity))
-}
 
 /** Tarjeta con entrada escalonada (Motion respeta el movimiento reducido). */
 function Card({

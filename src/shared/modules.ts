@@ -14,6 +14,26 @@ export const severityLevels = [
 ] as const
 export const impactLevels = ['APPLICATION', 'ENVIRONMENT', 'INFRASTRUCTURE', 'SERVICES'] as const
 export type SeverityLevel = (typeof severityLevels)[number]
+
+/**
+ * Orden de gravedad, de peor a menos grave (severityLevels es alfabético, el
+ * del enum de la API, y no sirve para ordenar). Lo decidió peticiones.
+ */
+export const SEVERITY_ORDER: readonly SeverityLevel[] = [
+  'AVAILABILITY',
+  'ERROR',
+  'PERFORMANCE',
+  'RESOURCE_CONTENTION',
+  'CUSTOM_ALERT',
+  'MONITORING_UNAVAILABLE',
+  'INFO'
+]
+
+/** Posición en SEVERITY_ORDER (menor = más grave); un valor desconocido va al final. */
+export function severityRank(severity: string): number {
+  const index = (SEVERITY_ORDER as readonly string[]).indexOf(severity)
+  return index === -1 ? SEVERITY_ORDER.length : index
+}
 export type ImpactLevel = (typeof impactLevels)[number]
 
 export const entityRefSchema = z.object({
