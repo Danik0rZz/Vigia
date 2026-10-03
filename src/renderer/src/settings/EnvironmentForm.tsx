@@ -1,4 +1,4 @@
-import { useEffect, type JSX } from 'react'
+import { useEffect, type FocusEvent, type JSX } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
@@ -13,6 +13,7 @@ import {
   environmentToForm,
   formToEnvironmentInput,
   NEW_ENVIRONMENT,
+  normalizedClassicUrl,
   type EnvironmentFormValues
 } from './forms'
 import { ConnectionPanel } from './ConnectionPanel'
@@ -118,7 +119,13 @@ export function EnvironmentForm({
             <input
               data-testid="environment-classic-url"
               className={INPUT}
-              {...form.register('classicApiUrl')}
+              {...form.register('classicApiUrl', {
+                // Al salir del campo se ve la URL tal como se guardará (sin /api/v2).
+                onBlur: (event: FocusEvent<HTMLInputElement>) => {
+                  const normalized = normalizedClassicUrl(event.target.value)
+                  if (normalized !== event.target.value) form.setValue('classicApiUrl', normalized)
+                }
+              })}
             />
           </Field>
           <Field label={t('environmentForm.ssoUrl')} error={errors.ssoUrl?.message}>

@@ -406,19 +406,24 @@ test('connection:status devuelve el último informe y se borra al cambiar el ent
   expect(await invoke('connection:status', { environmentId })).toBeNull()
 })
 
-test('una URL clásica con /api/v2 da error en el formulario', async () => {
+test('una URL clásica con /api/v2 se normaliza en el formulario y se guarda sin el sufijo', async () => {
   await openEnvironmentForm()
   const form = page.getByTestId('environment-form')
   const field = form.getByTestId('environment-classic-url')
-  await field.fill(`https://127.0.0.1:${port}/api/v2`)
-  await form.getByTestId('form-save').click()
+  await field.fill(`https://127.0.0.1:${port}/API/v2/`)
+  await field.press('Tab')
 
-  await expect(form).toBeVisible()
-  await expect(field).toHaveAttribute('aria-invalid', 'true')
-  await expect(
-    form.getByRole('alert').filter({ hasText: 'Escribe la URL del entorno sin /api/v2' })
-  ).toBeVisible()
-  await closeEnvironmentForm()
+  await expect(field).toHaveValue(`https://127.0.0.1:${port}`)
+  await expect(field).not.toHaveAttribute('aria-invalid', 'true')
+
+  await form.getByTestId('form-save').click()
+  await expect(form).toBeHidden()
+  const list = await invoke<{ environments: { id: string; classicApiUrl: string | null }[] }>(
+    'tenants:list'
+  )
+  expect(list.environments.find((e) => e.id === environmentId)?.classicApiUrl).toBe(
+    `https://127.0.0.1:${port}`
+  )
 })
 
 test('ninguna respuesta IPC contiene el token, y sin errores de consola ni peticiones remotas del renderer', async () => {

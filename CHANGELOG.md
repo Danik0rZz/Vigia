@@ -3,6 +3,15 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+Fase 6: primeras vistas core (en curso).
+
+### Cambiado
+
+- La URL de la API clásica que termina en `/api`, `/api/v1` o `/api/v2` ya no se rechaza: se
+  normaliza quitando ese sufijo, y el formulario muestra el valor normalizado.
+
 ## [0.4.0] - 2026-10-03
 
 Fase 4: cliente de Dynatrace.

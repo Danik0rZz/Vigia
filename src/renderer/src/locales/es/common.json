@@ -162,8 +162,7 @@
     "color": "Usa un color #rrggbb.",
     "nameTaken": "Ya existe uno con ese nombre.",
     "invalidFile": "El fichero no es una configuración de Vigía válida.",
-    "generic": "No se pudo completar la operación.",
-    "apiSuffix": "Escribe la URL del entorno sin /api/v2"
+    "generic": "No se pudo completar la operación."
   },
   "importSummary": {
     "title": "Importación terminada",

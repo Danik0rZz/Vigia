@@ -48,12 +48,14 @@ export const httpsUrlSchema = z
 
 /**
  * URL base del entorno para la API clásica, sin /api/v2: el cliente lo añade.
- * Se rechaza si termina en /api, /api/v1 o /api/v2, para no pedir /api/v2/api/v2.
+ * Si se pega terminada en /api, /api/v1 o /api/v2 (lo habitual al copiarla de
+ * la documentación), se quita ese sufijo final; /api en medio de la ruta no se toca.
  */
-export const classicApiUrlSchema = httpsUrlSchema.refine(
-  (url) => !/\/api(\/v[12])?$/i.test(new URL(url).pathname.replace(/\/+$/, '')),
-  'Escribe la URL del entorno sin /api/v2'
-)
+export function normalizeClassicApiUrl(url: string): string {
+  return url.replace(/\/api(\/v[12])?\/*$/i, '').replace(/\/+$/, '')
+}
+
+export const classicApiUrlSchema = httpsUrlSchema.transform(normalizeClassicApiUrl)
 
 const nameSchema = z.string().trim().min(1).max(80)
 

@@ -162,8 +162,7 @@
     "color": "Use a #rrggbb colour.",
     "nameTaken": "One with that name already exists.",
     "invalidFile": "The file is not a valid Vigía configuration.",
-    "generic": "The operation could not be completed.",
-    "apiSuffix": "Enter the environment URL without /api/v2"
+    "generic": "The operation could not be completed."
   },
   "importSummary": {
     "title": "Import finished",

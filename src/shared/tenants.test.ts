@@ -104,54 +104,68 @@ describe('clientInputSchema', () => {
 })
 
 describe('classicApiUrlSchema', () => {
-  const MESSAGE = 'Escribe la URL del entorno sin /api/v2'
+  it.each([
+    ['https://abc12345.live.dynatrace.com', 'https://abc12345.live.dynatrace.com'],
+    ['https://abc12345.live.dynatrace.com/', 'https://abc12345.live.dynatrace.com'],
+    ['https://dt.ejemplo.local/e/abc-123', 'https://dt.ejemplo.local/e/abc-123'],
+    ['https://dt.ejemplo.local/e/abc-123/', 'https://dt.ejemplo.local/e/abc-123']
+  ])('deja %s como %s', (url, expected) => {
+    expect(classicApiUrlSchema.parse(url)).toBe(expected)
+  })
 
   it.each([
-    'https://abc12345.live.dynatrace.com',
-    'https://abc12345.live.dynatrace.com/',
-    'https://dt.ejemplo.local/e/abc-123',
-    // Solo se rechaza el sufijo exacto, no rutas que lo contienen en medio o que se le parecen.
+    ['https://abc12345.live.dynatrace.com/api/v2', 'https://abc12345.live.dynatrace.com'],
+    ['https://abc12345.live.dynatrace.com/api/v2/', 'https://abc12345.live.dynatrace.com'],
+    ['https://abc12345.live.dynatrace.com/API/V2', 'https://abc12345.live.dynatrace.com'],
+    ['https://abc12345.live.dynatrace.com/api', 'https://abc12345.live.dynatrace.com'],
+    ['https://abc12345.live.dynatrace.com/api/', 'https://abc12345.live.dynatrace.com'],
+    ['https://abc12345.live.dynatrace.com/api/v1', 'https://abc12345.live.dynatrace.com'],
+    ['https://abc12345.live.dynatrace.com/api/v1/', 'https://abc12345.live.dynatrace.com'],
+    ['https://dt.ejemplo.local/e/abc-123/api/v2', 'https://dt.ejemplo.local/e/abc-123'],
+    ['https://dt.ejemplo.local/e/abc-123/Api/V1/', 'https://dt.ejemplo.local/e/abc-123']
+  ])('normaliza %s quitando el sufijo de API', (url, expected) => {
+    expect(classicApiUrlSchema.parse(url)).toBe(expected)
+  })
+
+  it.each([
     'https://dt.ejemplo.local/api/e/abc-123',
-    'https://dt.ejemplo.local/e/apiary'
-  ])('acepta %s', (url) => {
-    expect(classicApiUrlSchema.safeParse(url).success).toBe(true)
+    'https://dt.ejemplo.local/e/apiary',
+    'https://dt.ejemplo.local/e/abc-123/apis',
+    'https://dt.ejemplo.local/e/abc-123/api/v3'
+  ])('no toca una ruta que solo contiene /api en medio o un sufijo distinto: %s', (url) => {
+    expect(classicApiUrlSchema.parse(url)).toBe(url)
   })
 
-  it('normaliza la "/" final como httpsUrlSchema', () => {
-    expect(classicApiUrlSchema.parse('https://dt.ejemplo.local/e/abc-123/')).toBe(
-      'https://dt.ejemplo.local/e/abc-123'
-    )
-  })
-
-  it.each([
-    'https://abc12345.live.dynatrace.com/api/v2',
-    'https://abc12345.live.dynatrace.com/api/v2/',
-    'https://abc12345.live.dynatrace.com/api/v1',
-    'https://abc12345.live.dynatrace.com/api',
-    'https://abc12345.live.dynatrace.com/API/V2',
-    'https://dt.ejemplo.local/e/abc-123/api',
-    'https://dt.ejemplo.local/e/abc-123/Api/v1/'
-  ])('rechaza %s con el mensaje acordado', (url) => {
-    const result = classicApiUrlSchema.safeParse(url)
-    expect(result.success).toBe(false)
-    expect(result.error?.issues.map((issue) => issue.message)).toContain(MESSAGE)
-  })
-
-  it('sigue rechazando lo que rechaza httpsUrlSchema', () => {
+  it('no deja nunca un /api/v2 final tras normalizar', () => {
     for (const url of [
-      'http://abc12345.live.dynatrace.com',
-      'https://u:p@abc12345.live.dynatrace.com'
+      'https://abc12345.live.dynatrace.com/api/v2',
+      'https://dt.ejemplo.local/e/abc-123/API/v2/'
     ]) {
-      expect(classicApiUrlSchema.safeParse(url).success).toBe(false)
+      expect(classicApiUrlSchema.parse(url)).not.toMatch(/\/api(\/v[12])?\/?$/i)
     }
   })
 
-  it('environmentInputSchema usa esta regla en classicApiUrl y no en las otras URL', () => {
-    expect(
-      environmentInputSchema.safeParse(
-        saasEnvironment({ classicApiUrl: 'https://abc12345.live.dynatrace.com/api/v2' })
-      ).success
-    ).toBe(false)
+  it('sigue rechazando lo que rechaza httpsUrlSchema, también con sufijo de API', () => {
+    for (const url of [
+      'http://abc12345.live.dynatrace.com',
+      'http://abc12345.live.dynatrace.com/api/v2',
+      'https://u:p@abc12345.live.dynatrace.com/api/v2',
+      'https://abc12345.live.dynatrace.com/api/v2#x',
+      'not a url'
+    ]) {
+      expect(classicApiUrlSchema.safeParse(url).success, url).toBe(false)
+    }
+  })
+
+  it('environmentInputSchema normaliza classicApiUrl y no las otras URL', () => {
+    const parsed = environmentInputSchema.parse(
+      saasEnvironment({
+        classicApiUrl: 'https://abc12345.live.dynatrace.com/api/v2/',
+        platformUrl: 'https://abc12345.apps.dynatrace.com/api'
+      })
+    )
+    expect(parsed.classicApiUrl).toBe('https://abc12345.live.dynatrace.com')
+    expect(parsed.platformUrl).toBe('https://abc12345.apps.dynatrace.com/api')
     expect(environmentInputSchema.safeParse(saasEnvironment({ classicApiUrl: null })).success).toBe(
       true
     )

@@ -162,11 +162,7 @@ describe('locales es y en', () => {
     const texts = {
       'connection.test': ['Probar conexión', 'Test connection'],
       'connection.connected': ['Conectado', 'Connected'],
-      'connection.disconnected': ['Sin conexión', 'Disconnected'],
-      'errors.apiSuffix': [
-        'Escribe la URL del entorno sin /api/v2',
-        'Enter the environment URL without /api/v2'
-      ]
+      'connection.disconnected': ['Sin conexión', 'Disconnected']
     }
     for (const [key, [textEs, textEn]] of Object.entries(texts)) {
       expect(text('es', 'common', key), `es ${key}`).toBe(textEs)

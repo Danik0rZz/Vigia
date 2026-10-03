@@ -20,11 +20,14 @@ const optionalUrl = z
     'errors.httpsUrl'
   )
 
-/** URL de la API clásica: la base del entorno, sin /api/v2 (lo añade el cliente). */
-const classicUrl = optionalUrl.refine(
-  (value) => value.trim() === '' || classicApiUrlSchema.safeParse(value).success,
-  'errors.apiSuffix'
-)
+/**
+ * URL de la API clásica como se guardará: sin /api/v2 final (lo añade el
+ * cliente). Si no es válida, se devuelve tal cual para que el campo dé su error.
+ */
+export function normalizedClassicUrl(value: string): string {
+  const parsed = classicApiUrlSchema.safeParse(value)
+  return parsed.success ? parsed.data : value
+}
 
 export const clientFormSchema = z.object({
   name,
@@ -36,7 +39,7 @@ export const environmentFormSchema = z.object({
   name,
   type: z.enum(environmentTypes),
   deployment: z.enum(deployments),
-  classicApiUrl: classicUrl,
+  classicApiUrl: optionalUrl,
   platformUrl: optionalUrl,
   ssoUrl: optionalUrl,
   oauthClientId: z.string(),
@@ -101,7 +104,7 @@ export function formToEnvironmentInput(
     name: values.name.trim(),
     type: values.type,
     deployment: values.deployment,
-    classicApiUrl: text(values.classicApiUrl),
+    classicApiUrl: text(normalizedClassicUrl(values.classicApiUrl)),
     platformUrl: saas ? text(values.platformUrl) : null,
     ssoUrl: text(values.ssoUrl),
     oauthClientId: saas ? text(values.oauthClientId) : null,
