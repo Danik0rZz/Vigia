@@ -53,6 +53,7 @@ Fase 4:
 - [ ] "Probar conexión" funciona contra un tenant real con token clásico (y, si se usa, OAuth y platform token), y avisa de los scopes que faltan.
 - [ ] Detrás del proxy corporativo y con su CA: con el nivel "sistema" conecta sin tocar nada.
 - [ ] La tarjeta del pie muestra el estado real y la caducidad del token OAuth.
+- [ ] Arrancar el zip 0.4.0 sobre sus datos: aplica la migración 0001 sin perder clientes, entornos ni credenciales.
 
 ## Primer paso al retomar
 

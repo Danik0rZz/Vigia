@@ -55,6 +55,19 @@ describe('verifyCertificate', () => {
       ).toBe('chromium')
     })
 
+    it('un host ajeno con huella fijada (por ejemplo, el SSO) se trata como pinned', () => {
+      const sso = { level: 'ignore' as const, pins: [PIN], hostname: 'sso.ejemplo.local' }
+      expect(check({ ...sso, fingerprint: PIN, chromiumOk: false })).toBe('accept')
+      expect(check({ ...sso, fingerprint: OTHER, chromiumOk: true })).toBe('reject')
+      expect(check({ ...sso, fingerprint: OTHER, chromiumOk: false })).toBe('reject')
+    })
+
+    it('un host del entorno se acepta aunque tenga fijada otra huella', () => {
+      expect(check({ level: 'ignore', pins: [PIN], fingerprint: OTHER, chromiumOk: false })).toBe(
+        'accept'
+      )
+    })
+
     it('sin hosts del entorno deja decidir a Chromium', () => {
       expect(check({ level: 'ignore', envHosts: [] })).toBe('chromium')
     })
