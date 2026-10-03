@@ -110,7 +110,12 @@ export function createReadOnlyFetch(
       inFlight += 1
       stats.maxInFlight = Math.max(stats.maxInFlight, inFlight)
       try {
-        const response = await base(input, init)
+        // Sin seguir redirecciones: un 307/308 repetiría el método, el cuerpo y el
+        // token hacia una URL que la guarda no ha visto. Una redirección es un error.
+        const response =
+          request === null
+            ? await base(input, { ...init, redirect: 'error' })
+            : await base(new Request(request, { ...init, redirect: 'error' }))
         if (response.status === 429) {
           const retryAfter = parseRetryAfter(response.headers.get('retry-after'), new Date(now()))
           if (retryAfter !== null) nextStart = Math.max(nextStart, now() + retryAfter)

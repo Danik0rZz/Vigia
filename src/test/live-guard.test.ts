@@ -185,6 +185,73 @@ describe('createReadOnlyFetch: deja pasar solo lo permitido', () => {
   })
 })
 
+describe('createReadOnlyFetch: sin redirecciones', () => {
+  // Un 307 o 308 repetiría el POST (con su cuerpo y el token) hacia la ruta
+  // de destino sin volver a pasar por la guarda: se fuerza redirect 'error'.
+  it.each(['follow', 'manual', undefined] as const)(
+    'con un string y redirect %s en el init, base recibe redirect "error"',
+    async (redirect) => {
+      const base = okFetch()
+      const { fetch } = createReadOnlyFetch(base as unknown as typeof globalThis.fetch, {
+        origin: ORIGIN,
+        ...noWait
+      })
+      await fetch(`${ORIGIN}/api/v2/problems`, redirect === undefined ? undefined : { redirect })
+      await fetch(LOOKUP, {
+        method: 'POST',
+        body: '{}',
+        ...(redirect === undefined ? {} : { redirect })
+      })
+      expect(base).toHaveBeenCalledTimes(2)
+      for (const [input, init] of base.mock.calls as [unknown, RequestInit | undefined][]) {
+        const effective = input instanceof Request ? input.redirect : init?.redirect
+        expect(effective).toBe('error')
+      }
+    }
+  )
+
+  it('con una URL (objeto URL) también se fuerza redirect "error"', async () => {
+    const base = okFetch()
+    const { fetch } = createReadOnlyFetch(base as unknown as typeof globalThis.fetch, {
+      origin: ORIGIN,
+      ...noWait
+    })
+    await fetch(new URL(`${ORIGIN}/api/v2/problems`), { redirect: 'follow' })
+    const [input, init] = base.mock.calls[0] as [unknown, RequestInit | undefined]
+    expect(input instanceof Request ? input.redirect : init?.redirect).toBe('error')
+  })
+
+  it('con un Request con redirect "follow", base recibe un Request con redirect "error"', async () => {
+    const base = okFetch()
+    const { fetch } = createReadOnlyFetch(base as unknown as typeof globalThis.fetch, {
+      origin: ORIGIN,
+      ...noWait
+    })
+    await fetch(new Request(`${ORIGIN}/api/v2/problems`, { redirect: 'follow' }))
+    await fetch(new Request(LOOKUP, { method: 'POST', body: '{}', redirect: 'follow' }))
+    expect(base).toHaveBeenCalledTimes(2)
+    for (const [input, init] of base.mock.calls as [unknown, RequestInit | undefined][]) {
+      expect(input).toBeInstanceOf(Request)
+      expect((input as Request).redirect).toBe('error')
+      // Si además viniera init, tampoco puede reabrir las redirecciones.
+      expect(init?.redirect ?? 'error').toBe('error')
+    }
+  })
+
+  it('el Request que recibe base conserva el método y la URL del original', async () => {
+    const base = okFetch()
+    const { fetch } = createReadOnlyFetch(base as unknown as typeof globalThis.fetch, {
+      origin: ORIGIN,
+      ...noWait
+    })
+    await fetch(new Request(LOOKUP, { method: 'POST', body: '{"token":"x"}', redirect: 'follow' }))
+    const request = base.mock.calls[0]?.[0] as Request
+    expect(request.method).toBe('POST')
+    expect(request.url).toBe(LOOKUP)
+    expect(await request.text()).toBe('{"token":"x"}')
+  })
+})
+
 describe('createLiveClient', () => {
   it('solo expone client, logged y stats (nunca el fetch sin envolver)', () => {
     const live = createLiveClient(ENV, { fetch: forbiddenFetch() as unknown as typeof fetch })
