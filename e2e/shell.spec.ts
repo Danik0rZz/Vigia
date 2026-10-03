@@ -284,6 +284,127 @@ test('tooltips del menú: con el ratón, con el teclado, en las vistas no dispon
   await goTo('home')
 })
 
+/** Cajas del enlace, de su icono y de su etiqueta (el elemento con el nombre visible). */
+async function navGeometry(
+  id: string,
+  label: string
+): Promise<{
+  classes: string[]
+  link: { x: number; y: number; width: number; height: number }
+  icon: { x: number; y: number; width: number; height: number } | null
+  label: { x: number; y: number; width: number; height: number } | null
+}> {
+  return page.getByTestId(`nav-${id}`).evaluate((link, text) => {
+    const box = (
+      el: Element | null
+    ): { x: number; y: number; width: number; height: number } | null => {
+      if (el === null) return null
+      const r = el.getBoundingClientRect()
+      return { x: r.x, y: r.y, width: r.width, height: r.height }
+    }
+    // La etiqueta: el elemento más interno cuyo texto es el nombre de la sección.
+    const candidates = Array.from(link.querySelectorAll('*')).filter(
+      (el) => el.tagName.toLowerCase() !== 'svg' && el.textContent?.trim() === text
+    )
+    const labelEl =
+      candidates.find((el) => !candidates.some((other) => other !== el && el.contains(other))) ??
+      null
+    return {
+      classes: Array.from(link.classList),
+      link: box(link) ?? { x: 0, y: 0, width: 0, height: 0 },
+      icon: box(link.querySelector('svg')),
+      label: box(labelEl)
+    }
+  }, label)
+}
+
+test('maquetación del menú: icono y nombre en la misma fila, desplegado y plegado; el activo se distingue', async () => {
+  await goTo('home')
+  await page.mouse.move(0, 0)
+
+  // Desplegado: flex, icono a la izquierda y nombre a su derecha, en la misma fila.
+  for (const section of SECTIONS) {
+    const g = await navGeometry(section.id, t('es', `nav.${section.id}`))
+    expect(g.classes, `nav-${section.id}`).toContain('flex')
+    expect(g.icon, `icono de nav-${section.id}`).not.toBeNull()
+    expect(g.label, `etiqueta de nav-${section.id}`).not.toBeNull()
+    if (g.icon === null || g.label === null) continue
+    const iconCenterY = g.icon.y + g.icon.height / 2
+    expect(
+      iconCenterY,
+      `nav-${section.id}: centro del icono dentro de la caja del nombre`
+    ).toBeGreaterThanOrEqual(g.label.y - 2)
+    expect(
+      iconCenterY,
+      `nav-${section.id}: centro del icono dentro de la caja del nombre`
+    ).toBeLessThanOrEqual(g.label.y + g.label.height + 2)
+    expect(
+      g.label.x,
+      `nav-${section.id}: el nombre va a la derecha del icono`
+    ).toBeGreaterThanOrEqual(g.icon.x + g.icon.width - 1)
+    // Una sola fila: el enlace no es más alto que dos veces el icono.
+    expect(g.link.height, `nav-${section.id}: altura de una fila`).toBeLessThan(
+      2 * g.icon.height + 24
+    )
+  }
+
+  // El activo lleva aria-current="page" y un fondo distinto del de uno inactivo.
+  const active = page.getByTestId('nav-home')
+  const inactive = page.getByTestId('nav-problems')
+  await expect(active).toHaveAttribute('aria-current', 'page')
+  await expect(inactive).not.toHaveAttribute('aria-current', 'page')
+  const background = (testId: string): Promise<string> =>
+    page.getByTestId(testId).evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(await background('nav-home')).not.toBe(await background('nav-problems'))
+
+  // Plegado: sigue siendo flex y el icono queda centrado en el enlace (±2 px).
+  await page.getByTestId('sidebar-toggle').click()
+  await page.mouse.move(0, 0)
+  for (const section of SECTIONS) {
+    const g = await navGeometry(section.id, t('es', `nav.${section.id}`))
+    expect(g.classes, `nav-${section.id} plegado`).toContain('flex')
+    expect(g.icon, `icono de nav-${section.id} plegado`).not.toBeNull()
+    if (g.icon === null) continue
+    const iconCenterX = g.icon.x + g.icon.width / 2
+    const linkCenterX = g.link.x + g.link.width / 2
+    expect(
+      Math.abs(iconCenterX - linkCenterX),
+      `nav-${section.id} plegado: icono centrado`
+    ).toBeLessThanOrEqual(2)
+    const iconCenterY = g.icon.y + g.icon.height / 2
+    expect(
+      Math.abs(iconCenterY - (g.link.y + g.link.height / 2)),
+      `nav-${section.id} plegado: centrado en vertical`
+    ).toBeLessThanOrEqual(2)
+  }
+  await expect(page.getByTestId('nav-home')).toHaveAttribute('aria-current', 'page')
+
+  // El tooltip sigue saliendo plegado, con el ratón y con el foco.
+  const tooltip = page.getByRole('tooltip')
+  await page.getByTestId('nav-problems').hover()
+  await expect(tooltip).toBeVisible()
+  await page.mouse.move(0, 0)
+  await page.keyboard.press('Escape')
+  await expect(tooltip).toHaveCount(0)
+  await page.getByTestId('nav-slos').focus()
+  await expect(tooltip).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await page.getByTestId('sidebar-toggle').click()
+})
+
+test('maquetación de la barra superior: sus controles en una sola fila', async () => {
+  const ids = ['time-range', 'env-selector']
+  const centers: number[] = []
+  for (const id of ids) {
+    const box = await page.getByTestId(id).boundingBox()
+    expect(box, id).not.toBeNull()
+    if (box !== null) centers.push(box.y + box.height / 2)
+  }
+  const spread = Math.max(...centers) - Math.min(...centers)
+  expect(spread, 'centros verticales de los controles de la barra superior').toBeLessThanOrEqual(4)
+})
+
 test('el pie muestra un estado neutro sin entorno y sin backups', async () => {
   const status = page.getByTestId('env-status')
   await expect(status).toBeVisible()
