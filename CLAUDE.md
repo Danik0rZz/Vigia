@@ -86,6 +86,9 @@ Fase 6:
 - La API de cada módulo (v1, v2 o plataforma) se deduce de `..\API\` y de la documentación oficial; solo si no se puede deducir, se pregunta a Dani. La elección se anota.
 - El repositorio es público. Push automático: solo `git push origin main`, y solo después del visto bueno de senior y de test. Nunca `--force` ni `--force-with-lease`. Sin tags, releases ni subir el zip a GitHub (se escala a Dani). Antes de cada push, `npm run scan:tenant` (busca restos del tenant de pruebas sin mostrar sus valores) y revisar el contenido sensible: autor y committer noreply, sin `docs/especificacion.md`, sin nombres de clientes, secretos, URLs o IDs de tenants reales, logs ni `.env`.
 - Pruebas en vivo (`npm run test:live`): solo lectura, una petición detrás de otra, `pageSize` de 500 como máximo y pocas páginas. Nunca leer ni mostrar `.env.live.local` (solo lo carga el proceso de test); nada del tenant (nombres, IDs, URLs, valores) en el repositorio, en fixtures ni en mensajes entre sesiones. Los informes van a `live-reports/` (ignorado) y se resumen sin datos del tenant.
+- Niveles de prueba. Durante el desarrollo: `npm run check` y `npm run test:e2e:affected` (mientras se itera, `vitest related <ficheros>` o `--changed`).
+- Si el cambio es transversal (lo decide `e2e/areas.json`): e2e completo.
+- Al cerrar una versión: e2e completo tres veces y `npm run dist:win`.
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
 - No inventar endpoints ni parámetros de Dynatrace o de Monaco: consultar `..\API\` y la documentación oficial.
 - Nunca escribir secretos, cabeceras `Authorization` ni cookies en logs, ficheros de configuración, mensajes de error ni en el repositorio.
@@ -97,18 +100,20 @@ Fase 6:
 
 ## Comandos
 
-| Comando               | Qué hace                                                |
-| --------------------- | ------------------------------------------------------- |
-| `npm run dev`         | App en desarrollo con recarga en caliente               |
-| `npm run check`       | Lint, tipos y tests unitarios                           |
-| `npm run test:e2e`    | Compila y prueba la app de punta a punta (Playwright)   |
-| `npm run build`       | Tipos y compilación a `out/`                            |
-| `npm run dist:win`    | Zip de Windows en `dist/`                               |
-| `npm run format`      | Prettier                                                |
-| `npm run test:live`   | Pruebas de solo lectura contra el tenant de pruebas     |
-| `npm run scan:tenant` | Busca restos del tenant de pruebas (antes de cada push) |
+| Comando                                | Qué hace                                                          |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| `npm run dev`                          | App en desarrollo con recarga en caliente                         |
+| `npm run check`                        | Lint, tipos y tests unitarios                                     |
+| `npm run test:e2e`                     | Compila y prueba la app de punta a punta (Playwright)             |
+| `npm run build`                        | Tipos y compilación a `out/`                                      |
+| `npm run dist:win`                     | Zip de Windows en `dist/`                                         |
+| `npm run format`                       | Prettier                                                          |
+| `npm run test:e2e:affected -- [rango]` | Solo los e2e afectados (`e2e/areas.json`), compilando una vez     |
+| `npm run test:e2e:nobuild`             | e2e sin compilar (si solo cambian los specs y `out/` está al día) |
+| `npm run test:live`                    | Pruebas de solo lectura contra el tenant de pruebas               |
+| `npm run scan:tenant`                  | Busca restos del tenant de pruebas (antes de cada push)           |
 
-Antes de dar una tarea por terminada: `npm run check`, `npm run test:e2e` y `npm run format:check`.
+Antes de dar una tarea por terminada: `npm run check`, `npm run test:e2e:affected` (o `npm run test:e2e` si el cambio es transversal) y `npm run format:check`.
 
 ## Arquitectura
 

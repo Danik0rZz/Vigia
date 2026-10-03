@@ -59,9 +59,12 @@ export default defineConfig(
     }
   },
   {
-    // Scripts de Node en JavaScript: sin tipos de retorno.
-    files: ['scripts/**/*.{js,mjs}'],
-    rules: { '@typescript-eslint/explicit-function-return-type': 'off' }
+    // Scripts de Node en JavaScript: sin tipos de retorno; los .cjs usan require.
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-require-imports': 'off'
+    }
   },
   eslintConfigPrettier
 )
