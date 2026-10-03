@@ -35,6 +35,12 @@ export function createDynatraceServices(deps: {
   const status = createConnectionStatusStore()
   const network = createEnvironmentNetwork({
     certificateLevel: (envId) => repo.getEnvironment(envId).certificateLevel,
+    environmentHosts: (envId) => {
+      const { classicApiUrl, platformUrl } = repo.getEnvironment(envId)
+      return [classicApiUrl, platformUrl].flatMap((url) =>
+        url === null ? [] : [new URL(url).hostname]
+      )
+    },
     pins
   })
 

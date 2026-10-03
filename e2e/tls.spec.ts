@@ -36,16 +36,27 @@ let host = ''
 let environmentId = ''
 let clientId = ''
 const fingerprints: string[] = []
+/** Segundo servidor, en 'localhost' (otro hostname): hace de SSO ajeno al entorno. */
+let ssoServer: Server | null = null
+let ssoRequests = 0
+const CLIENT_SECRET = `dt0s02.CLIENTEPUBLICO00000000000.${'SECRETOE2ESSO'.padEnd(64, 'X')}`
 const consoleErrors: string[] = []
 const rendererRemote: string[] = []
 const ipcOutputs: string[] = []
 
-/** Certificado autofirmado para 127.0.0.1 y su huella como la da Electron ("sha256/<base64>"). */
-async function newCertificate(): Promise<{ key: string; cert: string; fingerprint: string }> {
-  const pems = await generate([{ name: 'commonName', value: '127.0.0.1' }], {
+/** Certificado autofirmado para 127.0.0.1 (o localhost) y su huella como la da Electron ("sha256/<base64>"). */
+async function newCertificate(
+  name: '127.0.0.1' | 'localhost' = '127.0.0.1'
+): Promise<{ key: string; cert: string; fingerprint: string }> {
+  const pems = await generate([{ name: 'commonName', value: name }], {
     keySize: 2048,
     algorithm: 'sha256',
-    extensions: [{ name: 'subjectAltName', altNames: [{ type: 7, ip: '127.0.0.1' }] }]
+    extensions: [
+      {
+        name: 'subjectAltName',
+        altNames: [name === 'localhost' ? { type: 2, value: 'localhost' } : { type: 7, ip: name }]
+      }
+    ]
   })
   const der = new X509Certificate(pems.cert).raw
   return {
@@ -143,10 +154,13 @@ async function testConnection(): Promise<Report> {
   return invoke<Report>('connection:test', { environmentId })
 }
 
-async function setLevel(level: 'system' | 'pinned' | 'ignore'): Promise<void> {
+async function setLevel(
+  level: 'system' | 'pinned' | 'ignore',
+  extra: Record<string, unknown> = {}
+): Promise<void> {
   const list = await invoke<{ environments: Record<string, unknown>[] }>('tenants:list')
   const env = list.environments.find((e) => e['id'] === environmentId) ?? {}
-  const input: Record<string, unknown> = { ...env, certificateLevel: level }
+  const input: Record<string, unknown> = { ...env, ...extra, certificateLevel: level }
   delete input['secrets']
   await invoke('environments:update', input)
   await reloadUi()
@@ -215,6 +229,8 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await app?.close()
+  ssoServer?.closeAllConnections()
+  await new Promise<void>((resolve) => (ssoServer ? ssoServer.close(() => resolve()) : resolve()))
   server?.closeAllConnections()
   await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()))
   rmSync(userDataDir, { recursive: true, force: true })
@@ -330,6 +346,39 @@ test('nivel ignore: conecta con un certificado desconocido y la barra superior a
   const warning = page.getByTestId('tls-ignore-warning')
   await expect(warning).toBeVisible()
   await expect(warning).toHaveAttribute('role', 'alert')
+})
+
+test('nivel ignore NO vale para el SSO: un SSO ajeno autofirmado falla y no recibe el client_secret', async () => {
+  // SSO en 'localhost', un hostname distinto de los del entorno (127.0.0.1).
+  const { key, cert } = await newCertificate('localhost')
+  ssoServer = createServer({ key, cert }, (_req, res) => {
+    ssoRequests += 1
+    res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
+    res.end(JSON.stringify({ access_token: 'NOSEDEBEUSAR', expires_in: 300, token_type: 'Bearer' }))
+  })
+  await new Promise<void>((resolve) => ssoServer?.listen(0, '127.0.0.1', resolve))
+  const ssoPort = (ssoServer.address() as AddressInfo).port
+
+  await setLevel('ignore', {
+    oauthClientId: 'dt0s02.CLIENTEPUBLICO00000000000',
+    oauthScopes: ['platform-management:environments:read'],
+    ssoUrl: `https://localhost:${ssoPort}/sso/oauth2/token`
+  })
+  await invoke('secrets:set', { environmentId, kind: 'oauthClientSecret', value: CLIENT_SECRET })
+
+  const report = await testConnection()
+  expect(report.mechanisms.find((m) => m.id === 'classic')).toMatchObject({ state: 'connected' })
+  expect(report.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
+    state: 'disconnected',
+    error: { code: 'TLS_UNTRUSTED' }
+  })
+  expect(report.untrustedCertificates.filter((c) => c.host === host)).toEqual([])
+  // El handshake TLS falla antes de enviar nada: el SSO falso no ha recibido ninguna petición.
+  expect(ssoRequests).toBe(0)
+
+  // Se deja el entorno como estaba para los pasos siguientes.
+  await invoke('secrets:delete', { environmentId, kind: 'oauthClientSecret' })
+  await setLevel('ignore', { oauthClientId: null, oauthScopes: [], ssoUrl: null })
 })
 
 test('de vuelta a system: otra vez no confiable (no queda nada en caché) y sin aviso', async () => {

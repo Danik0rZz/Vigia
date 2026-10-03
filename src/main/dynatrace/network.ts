@@ -41,6 +41,8 @@ const hostnameOf = (host: string): string => new URL(`https://${host}`).hostname
  */
 export function createEnvironmentNetwork(deps: {
   certificateLevel(envId: string): CertificateLevel
+  /** Nombres de host de la API clásica y de plataforma del entorno (los únicos que "ignorar" acepta). */
+  environmentHosts(envId: string): string[]
   pins: PinStore
 }): EnvironmentNetwork {
   const sessions = new Map<string, Session>()
@@ -77,7 +79,9 @@ export function createEnvironmentNetwork(deps: {
         level: deps.certificateLevel(envId),
         pins,
         fingerprint,
-        chromiumOk
+        chromiumOk,
+        hostname: request.hostname,
+        envHosts: deps.environmentHosts(envId)
       })
 
       const seen = observedFor(envId)
