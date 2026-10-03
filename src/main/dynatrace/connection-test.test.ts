@@ -117,7 +117,17 @@ describe('testConnection', () => {
         id: 'classic',
         state: 'connected',
         error: null,
-        missingScopes: REQUIRED_CLASSIC_SCOPES.filter((s) => s !== 'problems.read')
+        missingScopes: REQUIRED_CLASSIC_SCOPES.filter((s) => s !== 'problems.read'),
+        tokenInfo: {
+          name: 'prueba',
+          enabled: true,
+          expiresAt: null,
+          scopes: {
+            granted: ['problems.read'],
+            missing: REQUIRED_CLASSIC_SCOPES.filter((s) => s !== 'problems.read'),
+            extra: []
+          }
+        }
       }
     ])
     expect(dtRequest).toHaveBeenCalledWith(
@@ -161,7 +171,21 @@ describe('testConnection', () => {
       id: 'oauth',
       state: 'connected',
       error: null,
-      missingScopes: ['environment-api:problems:read']
+      missingScopes: ['environment-api:problems:read'],
+      tokenInfo: {
+        name: null,
+        enabled: null,
+        expiresAt: OAUTH_EXPIRES.toISOString(),
+        scopes: {
+          granted: ['platform-management:environments:read'],
+          missing: [
+            'environment-api:metrics:read',
+            'environment-api:problems:read',
+            'environment-api:slo:read'
+          ],
+          extra: []
+        }
+      }
     })
     expect(report.oauthExpiresAt).toBe(OAUTH_EXPIRES.toISOString())
     expect(dtRequest).toHaveBeenCalledWith(
@@ -173,12 +197,34 @@ describe('testConnection', () => {
     )
   })
 
-  it('OAuth sin scopes en la respuesta: missingScopes vacío', async () => {
+  it('OAuth sin scope en la respuesta (null): missingScopes vacío y tokenInfo null', async () => {
+    secrets = { oauthClientSecret: CLIENT_SECRET }
+    grantedScopes = null as unknown as string[]
+    expect((await run()).mechanisms).toEqual([
+      { id: 'oauth', state: 'connected', error: null, missingScopes: [], tokenInfo: null }
+    ])
+  })
+
+  it('OAuth con scope vacío ([]): faltan todos los pedidos y tokenInfo sin ninguno concedido', async () => {
     secrets = { oauthClientSecret: CLIENT_SECRET }
     grantedScopes = []
-    expect((await run()).mechanisms).toEqual([
-      { id: 'oauth', state: 'connected', error: null, missingScopes: [] }
+    const [oauthResult] = (await run()).mechanisms
+    expect(oauthResult?.id).toBe('oauth')
+    expect([...(oauthResult?.missingScopes ?? [])].sort()).toEqual([
+      'environment-api:problems:read',
+      'platform-management:environments:read'
     ])
+    expect(oauthResult?.tokenInfo).toMatchObject({
+      scopes: {
+        granted: [],
+        missing: [
+          'environment-api:metrics:read',
+          'environment-api:problems:read',
+          'environment-api:slo:read'
+        ],
+        extra: []
+      }
+    })
   })
 
   it('OAuth sin oauthClientId no se prueba', async () => {
@@ -191,7 +237,7 @@ describe('testConnection', () => {
   it('platform token: GET de plataforma con el platform token', async () => {
     secrets = { platformToken: PLATFORM_TOKEN }
     expect((await run()).mechanisms).toEqual([
-      { id: 'platform', state: 'connected', error: null, missingScopes: [] }
+      { id: 'platform', state: 'connected', error: null, missingScopes: [], tokenInfo: null }
     ])
     expect(dtRequest).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -249,5 +295,159 @@ describe('testConnection', () => {
     for (const secret of ['SECRETOCLASICO', 'SECRETOPLATFORM', 'SECRETOOAUTH', 'ACCESSOOAUTH']) {
       expect(json).not.toContain(secret)
     }
+  })
+})
+
+describe('testConnection: información del token', () => {
+  it('token clásico: nombre, enabled, caducidad y scopes concedidos, que faltan y que no usa la app, ordenados', async () => {
+    secrets = { classicToken: CLASSIC_TOKEN }
+    lookupResponse = {
+      ...lookupResponse,
+      name: 'Token de pruebas',
+      expirationDate: '2099-01-01T00:00:00.000Z',
+      scopes: ['problems.read', 'metrics.read', 'logs.read', 'entities.read']
+    }
+
+    const [classic] = (await run()).mechanisms
+    expect(classic).toMatchObject({ id: 'classic', state: 'connected' })
+    expect(classic?.tokenInfo).toEqual({
+      name: 'Token de pruebas',
+      enabled: true,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      scopes: {
+        granted: ['entities.read', 'logs.read', 'metrics.read', 'problems.read'],
+        missing: ['slo.read'],
+        extra: ['entities.read', 'logs.read']
+      }
+    })
+  })
+
+  it('token clásico sin caducidad: expiresAt null', async () => {
+    secrets = { classicToken: CLASSIC_TOKEN }
+    expect((await run()).mechanisms[0]?.tokenInfo).toMatchObject({ expiresAt: null, enabled: true })
+  })
+
+  it('token clásico desactivado: disconnected con UNAUTHORIZED, pero con tokenInfo y enabled false', async () => {
+    secrets = { classicToken: CLASSIC_TOKEN }
+    lookupResponse = { ...lookupResponse, enabled: false }
+    const [classic] = (await run()).mechanisms
+    expect(classic).toMatchObject({ state: 'disconnected', error: { code: 'UNAUTHORIZED' } })
+    expect(classic?.tokenInfo).toMatchObject({ enabled: false, name: 'prueba' })
+  })
+
+  it('si el lookup falla, tokenInfo es null', async () => {
+    secrets = { classicToken: CLASSIC_TOKEN }
+    failures = { classic: new DtError('UNAUTHORIZED', 'Token no válido', 401) }
+    const [classic] = (await run()).mechanisms
+    expect(classic).toMatchObject({ state: 'disconnected', tokenInfo: null })
+  })
+
+  it('OAuth: caducidad del token y scopes concedidos frente a los de los módulos', async () => {
+    secrets = { oauthClientSecret: CLIENT_SECRET }
+    grantedScopes = [
+      'platform-management:environments:read',
+      'environment-api:problems:read',
+      'storage:logs:read'
+    ]
+
+    const oauthResult = (await run()).mechanisms.find((m) => m.id === 'oauth')
+    expect(oauthResult?.tokenInfo).toEqual({
+      name: null,
+      enabled: null,
+      expiresAt: OAUTH_EXPIRES.toISOString(),
+      scopes: {
+        granted: [
+          'environment-api:problems:read',
+          'platform-management:environments:read',
+          'storage:logs:read'
+        ],
+        missing: ['environment-api:metrics:read', 'environment-api:slo:read'],
+        // platform-management:environments:read lo usa Probar conexión: no es "extra".
+        extra: ['storage:logs:read']
+      }
+    })
+  })
+
+  it('OAuth sin scope en la respuesta del SSO: tokenInfo null', async () => {
+    secrets = { oauthClientSecret: CLIENT_SECRET }
+    grantedScopes = null as unknown as string[]
+    const oauthResult = (await run()).mechanisms.find((m) => m.id === 'oauth')
+    expect(oauthResult).toMatchObject({ state: 'connected', tokenInfo: null })
+  })
+
+  it('platform token: tokenInfo siempre null (no hay endpoint para consultar sus permisos)', async () => {
+    secrets = { platformToken: PLATFORM_TOKEN }
+    expect((await run()).mechanisms[0]).toMatchObject({ id: 'platform', tokenInfo: null })
+  })
+
+  it('el informe con tokenInfo no lleva el token, su secreto ni su id', async () => {
+    secrets = {
+      classicToken: CLASSIC_TOKEN,
+      oauthClientSecret: CLIENT_SECRET,
+      platformToken: PLATFORM_TOKEN
+    }
+    lookupResponse = { ...lookupResponse, name: 'Token de pruebas', scopes: ['problems.read'] }
+    const json = JSON.stringify(await run())
+    expect(json).toContain('Token de pruebas')
+    for (const secret of [
+      'SECRETOCLASICO',
+      'SECRETOPLATFORM',
+      'SECRETOOAUTH',
+      'ACCESSOOAUTH',
+      'dt0c01.PUBLICAPRUEBA'
+    ]) {
+      expect(json).not.toContain(secret)
+    }
+  })
+})
+
+describe('testConnection con el cliente real: nada del token en el log', () => {
+  it('un lookup que da 500 y otro que da 401, con el token en la petición y en la respuesta', async () => {
+    const { createDtClient } = await import('./client')
+    const logger = { warn: vi.fn(), error: vi.fn() }
+    const answers = [500, 401]
+    const fetchSpy = vi.fn(async () => {
+      const status = answers.shift() ?? 500
+      return new Response(
+        JSON.stringify({
+          error: { code: status, message: `Token ${CLASSIC_TOKEN}` },
+          token: CLASSIC_TOKEN
+        }),
+        { status, headers: { 'content-type': 'application/json' } }
+      )
+    })
+    const client = createDtClient({
+      fetchFor: () => fetchSpy as unknown as typeof fetch,
+      getEnvironment: () => environment,
+      readSecret: () => CLASSIC_TOKEN,
+      oauth,
+      sleep: async () => undefined,
+      now: () => new Date('2026-10-03T10:00:00.000Z'),
+      random: () => 0,
+      logger
+    } as unknown as Parameters<typeof createDtClient>[0])
+    const deps = {
+      client,
+      oauth,
+      getEnvironment: () => environment,
+      secretsStatus: () => ({ classicToken: true, oauthClientSecret: false, platformToken: false }),
+      readSecret: () => CLASSIC_TOKEN
+    } as unknown as Parameters<typeof testConnection>[1]
+
+    const reports = [await testConnection(ENV, deps), await testConnection(ENV, deps)]
+
+    expect(reports.map((r) => r.mechanisms[0]?.error?.code)).toEqual([
+      'SERVER_ERROR',
+      'UNAUTHORIZED'
+    ])
+    const logged = [...logger.warn.mock.calls, ...logger.error.mock.calls]
+      .flat()
+      .map((arg) =>
+        arg instanceof Error ? `${arg.message} ${arg.stack ?? ''}` : JSON.stringify(arg)
+      )
+      .join('\n')
+    // El id público puede salir enmascarado (dt0c01.<id>.***) por diseño de maskSecrets; el secreto, nunca.
+    expect(logged).not.toContain('SECRETOCLASICO')
+    expect(JSON.stringify(reports)).not.toContain('SECRETOCLASICO')
   })
 })

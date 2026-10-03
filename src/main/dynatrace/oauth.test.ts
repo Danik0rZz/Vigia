@@ -139,8 +139,13 @@ describe('createOAuthTokenManager: caché y renovación', () => {
     expect(oauth.expiresAt(ENV)).toEqual(new Date(T0.getTime() + 300_000))
   })
 
-  it('sin scope en la respuesta, grantedScopes es []', async () => {
+  it('sin scope en la respuesta, grantedScopes es null (no se sabe qué concedió)', async () => {
     const { oauth } = manager(okToken(300))
+    expect((await oauth.getToken(ENV)).grantedScopes).toBeNull()
+  })
+
+  it('con scope vacío en la respuesta, grantedScopes es [] (no concedió ninguno)', async () => {
+    const { oauth } = manager(okToken(300, ''))
     expect((await oauth.getToken(ENV)).grantedScopes).toEqual([])
   })
 

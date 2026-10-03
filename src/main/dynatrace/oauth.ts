@@ -16,8 +16,8 @@ export interface OAuthCredentials {
 export interface OAuthToken {
   accessToken: string
   expiresAt: Date
-  /** Scopes que concede el SSO (`scope` de la respuesta); vacío si no lo indica. */
-  grantedScopes: string[]
+  /** Scopes que concede el SSO (`scope` de la respuesta); null si no lo indica. */
+  grantedScopes: string[] | null
 }
 
 export interface OAuthTokenManager {
@@ -105,7 +105,10 @@ export function createOAuthTokenManager(deps: {
     return {
       accessToken: parsed.data.access_token,
       expiresAt: new Date(deps.now().getTime() + parsed.data.expires_in * 1000),
-      grantedScopes: parsed.data.scope?.split(/\s+/).filter((scope) => scope !== '') ?? []
+      grantedScopes:
+        parsed.data.scope === undefined
+          ? null
+          : parsed.data.scope.split(/\s+/).filter((scope) => scope !== '')
     }
   }
 

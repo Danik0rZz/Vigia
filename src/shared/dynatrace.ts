@@ -16,6 +16,14 @@ export const REQUIRED_CLASSIC_SCOPES: readonly string[] = [
   ...new Set(Object.values(MODULE_SCOPES).flatMap((module) => module.classic))
 ].sort()
 
+/** Scopes OAuth de todos los módulos, sin repetir y ordenados. */
+export const REQUIRED_OAUTH_SCOPES: readonly string[] = [
+  ...new Set(Object.values(MODULE_SCOPES).flatMap((module) => module.oauth))
+].sort()
+
+/** Scope que usa "Probar conexión" en la plataforma (no lo pide ningún módulo). */
+export const PLATFORM_CHECK_SCOPE = 'platform-management:environments:read'
+
 /** Mecanismos de autenticación que se prueban (la sesión capturada es de la Fase 10). */
 export const mechanismIds = ['classic', 'oauth', 'platform'] as const
 export type MechanismId = (typeof mechanismIds)[number]
@@ -35,11 +43,28 @@ export const dtErrorCodes = [
 ] as const
 export type DtErrorCode = (typeof dtErrorCodes)[number]
 
+/**
+ * Lo que se sabe del token que se ha probado: nunca el token ni su id. `extra`
+ * son scopes que ningún módulo de Vigía usa (no es un error del token).
+ */
+export const tokenInfoSchema = z.object({
+  name: z.string().nullable(),
+  enabled: z.boolean().nullable(),
+  expiresAt: z.iso.datetime().nullable(),
+  scopes: z.object({
+    granted: z.array(z.string()),
+    missing: z.array(z.string()),
+    extra: z.array(z.string())
+  })
+})
+export type TokenInfo = z.output<typeof tokenInfoSchema>
+
 export const mechanismResultSchema = z.object({
   id: z.enum(mechanismIds),
   state: z.enum(['connected', 'disconnected']),
   error: z.object({ code: z.enum(dtErrorCodes), message: z.string() }).nullable(),
-  missingScopes: z.array(z.string())
+  missingScopes: z.array(z.string()),
+  tokenInfo: tokenInfoSchema.nullable()
 })
 export type MechanismResult = z.output<typeof mechanismResultSchema>
 
