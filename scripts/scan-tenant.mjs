@@ -122,6 +122,11 @@ export function main(argv) {
     console.log('scan:tenant: sin .env.live.local: no hay nada que buscar.')
     return 0
   }
+  if (result.count === 0) {
+    // Existe pero sin valores: no se ha revisado nada y no debe parecer que sí.
+    console.warn('AVISO: .env.live.local está vacío; la revisión del tenant NO está activa.')
+    return 0
+  }
   console.log(
     `scan:tenant: rango ${range}; valores buscados: ${result.count} (${result.kinds.join(', ') || 'ninguno'})`
   )

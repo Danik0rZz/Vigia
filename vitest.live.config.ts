@@ -13,6 +13,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.live.test.ts'],
+    globalSetup: ['src/test/live-setup.ts'],
     passWithNoTests: true,
     env: { TZ: 'Europe/Madrid' },
     // Concurrencia 1: una petición detrás de otra, para no cargar el tenant.
