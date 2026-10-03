@@ -8,8 +8,8 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
-import en from '../src/renderer/src/locales/en.json'
-import es from '../src/renderer/src/locales/es.json'
+import en from '../src/renderer/src/locales/en/common.json'
+import es from '../src/renderer/src/locales/es/common.json'
 
 /**
  * Fase 2, esqueleto de la interfaz, sobre la app compilada (`out/`): barra

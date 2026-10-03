@@ -41,7 +41,13 @@
     "none": "Sin entorno configurado",
     "connected": "Conectado",
     "disconnected": "Sin conexión",
-    "oauthExpires": "El token OAuth caduca a las {{time}}"
+    "oauthExpires": "El token OAuth caduca el {{time}}",
+    "mechanisms": {
+      "classic": "Token clásico",
+      "oauth": "OAuth",
+      "platform": "Platform token",
+      "session": "Sesión capturada"
+    }
   },
   "settings": {
     "theme": "Tema",

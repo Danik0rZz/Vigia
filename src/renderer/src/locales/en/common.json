@@ -41,7 +41,13 @@
     "none": "No environment configured",
     "connected": "Connected",
     "disconnected": "Disconnected",
-    "oauthExpires": "The OAuth token expires at {{time}}"
+    "oauthExpires": "The OAuth token expires on {{time}}",
+    "mechanisms": {
+      "classic": "Classic token",
+      "oauth": "OAuth",
+      "platform": "Platform token",
+      "session": "Captured session"
+    }
   },
   "settings": {
     "theme": "Theme",

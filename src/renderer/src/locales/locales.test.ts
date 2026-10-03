@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import glossaryMarkdown from '../../../../docs/glosario.md?raw'
-import en from './en.json'
-import es from './es.json'
 
 /**
- * Textos de la interfaz: los dos idiomas tienen exactamente las mismas claves,
- * ninguna vacía, y los nombres propios de Dynatrace del glosario se escriben
- * igual en los dos.
+ * Textos de la interfaz, en `locales/<idioma>/<namespace>.json`: los dos
+ * idiomas tienen los mismos namespaces y, en cada uno, exactamente las mismas
+ * claves, ninguna vacía. Los nombres propios de Dynatrace del glosario se
+ * escriben igual en los dos.
  */
 
+type Locale = 'es' | 'en'
 type Messages = { [key: string]: string | Messages }
 
 /** Aplana el JSON anidado a `{ 'nav.home': 'Inicio', ... }`. */
@@ -34,35 +34,68 @@ function glossaryTerms(markdown: string): string[] {
     .filter((term) => term !== '' && term !== 'Término' && !/^-+$/.test(term))
 }
 
-const flatEs = flatten(es)
-const flatEn = flatten(en)
+/** `{ es: { common: {...}, ... }, en: {...} }`, ya aplanados, a partir de los ficheros. */
+const files = import.meta.glob('./*/*.json', { eager: true, import: 'default' })
+const locales: Record<string, Record<string, Record<string, unknown>>> = {}
+for (const [path, messages] of Object.entries(files)) {
+  const match = /^\.\/([^/]+)\/([^/]+)\.json$/.exec(path)
+  if (match === null) continue
+  const [, locale = '', namespace = ''] = match
+  locales[locale] ??= {}
+  locales[locale][namespace] = flatten(messages)
+}
+
+const es = locales['es'] ?? {}
+const en = locales['en'] ?? {}
+const namespaces = Object.keys(es).sort()
+
+/** Texto de `namespace:clave` en un idioma. */
+function text(locale: Locale, namespace: string, key: string): unknown {
+  return (locale === 'es' ? es : en)[namespace]?.[key]
+}
 
 describe('locales es y en', () => {
-  it('tienen exactamente el mismo conjunto de claves', () => {
-    const esKeys = Object.keys(flatEs).sort()
-    const enKeys = Object.keys(flatEn).sort()
-    expect(
-      esKeys.filter((key) => !(key in flatEn)),
-      'claves solo en es'
-    ).toEqual([])
-    expect(
-      enKeys.filter((key) => !(key in flatEs)),
-      'claves solo en en'
-    ).toEqual([])
-    expect(esKeys.length).toBeGreaterThan(0)
+  it('solo hay carpetas es y en', () => {
+    expect(Object.keys(locales).sort()).toEqual(['en', 'es'])
   })
 
-  it.each([
-    ['es', flatEs],
-    ['en', flatEn]
-  ])('%s no tiene valores vacíos ni que no sean texto', (_locale, flat) => {
-    const invalid = Object.entries(flat)
-      .filter(([, value]) => typeof value !== 'string' || value.trim() === '')
-      .map(([key]) => key)
+  it('existe el namespace common', () => {
+    expect(namespaces).toContain('common')
+  })
+
+  it('los dos idiomas tienen el mismo conjunto de namespaces', () => {
+    expect(Object.keys(en).sort()).toEqual(namespaces)
+  })
+
+  it.each(namespaces)('el namespace %s tiene exactamente las mismas claves en es y en', (ns) => {
+    const esKeys = Object.keys(es[ns] ?? {})
+    const enKeys = Object.keys(en[ns] ?? {})
+    expect(
+      esKeys.filter((key) => !enKeys.includes(key)),
+      `claves de ${ns} solo en es`
+    ).toEqual([])
+    expect(
+      enKeys.filter((key) => !esKeys.includes(key)),
+      `claves de ${ns} solo en en`
+    ).toEqual([])
+    expect(esKeys.length, `${ns} no está vacío`).toBeGreaterThan(0)
+  })
+
+  it('ningún valor está vacío ni deja de ser texto', () => {
+    const invalid: string[] = []
+    for (const [locale, byNamespace] of Object.entries(locales)) {
+      for (const [ns, flat] of Object.entries(byNamespace)) {
+        for (const [key, value] of Object.entries(flat)) {
+          if (typeof value !== 'string' || value.trim() === '') {
+            invalid.push(`${locale}/${ns}:${key}`)
+          }
+        }
+      }
+    }
     expect(invalid).toEqual([])
   })
 
-  it('traducen el menú', () => {
+  it('traducen el menú (common)', () => {
     const menu = {
       home: ['Inicio', 'Home'],
       problems: ['Problemas', 'Problems'],
@@ -77,8 +110,22 @@ describe('locales es y en', () => {
       settings: ['Ajustes', 'Settings']
     }
     for (const [id, [textEs, textEn]] of Object.entries(menu)) {
-      expect(flatEs[`nav.${id}`], `es nav.${id}`).toBe(textEs)
-      expect(flatEn[`nav.${id}`], `en nav.${id}`).toBe(textEn)
+      expect(text('es', 'common', `nav.${id}`), `es nav.${id}`).toBe(textEs)
+      expect(text('en', 'common', `nav.${id}`), `en nav.${id}`).toBe(textEn)
+    }
+  })
+
+  it('traducen los mecanismos de conexión de la tarjeta de estado (common)', () => {
+    const mechanisms = {
+      classic: ['Token clásico', 'Classic token'],
+      oauth: ['OAuth', 'OAuth'],
+      platform: ['Platform token', 'Platform token'],
+      session: ['Sesión capturada', 'Captured session']
+    }
+    for (const [id, [textEs, textEn]] of Object.entries(mechanisms)) {
+      const key = `envStatus.mechanisms.${id}`
+      expect(text('es', 'common', key), `es ${key}`).toBe(textEs)
+      expect(text('en', 'common', key), `en ${key}`).toBe(textEn)
     }
   })
 
@@ -93,12 +140,14 @@ describe('locales es y en', () => {
   it('los nombres propios del glosario se escriben igual en es y en', () => {
     const terms = glossaryTerms(glossaryMarkdown)
     const mismatches: string[] = []
-    for (const key of Object.keys(flatEs)) {
-      const textEs = String(flatEs[key])
-      const textEn = String(flatEn[key] ?? '')
-      for (const term of terms) {
-        if (textEs.includes(term) !== textEn.includes(term)) {
-          mismatches.push(`${key}: "${term}" (es: "${textEs}", en: "${textEn}")`)
+    for (const ns of namespaces) {
+      for (const key of Object.keys(es[ns] ?? {})) {
+        const textEs = String(text('es', ns, key))
+        const textEn = String(text('en', ns, key) ?? '')
+        for (const term of terms) {
+          if (textEs.includes(term) !== textEn.includes(term)) {
+            mismatches.push(`${ns}:${key}: "${term}" (es: "${textEs}", en: "${textEn}")`)
+          }
         }
       }
     }
