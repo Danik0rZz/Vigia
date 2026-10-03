@@ -42,14 +42,14 @@ function NavItem({
           data-testid={`nav-${section.id}`}
           // Sigue navegando: la página explica por qué no está disponible.
           data-unavailable={reason !== null ? 'true' : undefined}
-          className={({ isActive }) =>
-            cn(
-              'flex h-8 items-center gap-2.5 rounded-md px-2 text-muted-foreground hover:bg-hover hover:text-foreground',
-              isActive && 'bg-active text-foreground',
-              reason !== null && 'opacity-60',
-              collapsed && 'justify-center px-0'
-            )
-          }
+          // Cadena fija, no función: el Slot de Radix (asChild) fusiona className como
+          // cadena. El estado activo lo pinta CSS con el aria-current que pone NavLink.
+          className={cn(
+            'flex h-8 items-center gap-2.5 rounded-md px-2 text-muted-foreground hover:bg-hover hover:text-foreground',
+            'aria-[current=page]:bg-active aria-[current=page]:text-foreground',
+            reason !== null && 'opacity-60',
+            collapsed && 'justify-center px-0'
+          )}
         >
           <Icon aria-hidden="true" className="size-4 shrink-0" />
           <span className={cn('truncate', collapsed && 'sr-only')}>{label}</span>
