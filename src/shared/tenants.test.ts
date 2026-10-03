@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   certificateLevels,
+  classicApiUrlSchema,
   clientInputSchema,
   configFileSchema,
   deployments,
@@ -97,6 +98,61 @@ describe('clientInputSchema', () => {
 
   it('acepta un nombre de 80 caracteres', () => {
     expect(clientInputSchema.safeParse({ name: 'x'.repeat(80), color: '#112233' }).success).toBe(
+      true
+    )
+  })
+})
+
+describe('classicApiUrlSchema', () => {
+  const MESSAGE = 'Escribe la URL del entorno sin /api/v2'
+
+  it.each([
+    'https://abc12345.live.dynatrace.com',
+    'https://abc12345.live.dynatrace.com/',
+    'https://dt.ejemplo.local/e/abc-123',
+    // Solo se rechaza el sufijo exacto, no rutas que lo contienen en medio o que se le parecen.
+    'https://dt.ejemplo.local/api/e/abc-123',
+    'https://dt.ejemplo.local/e/apiary'
+  ])('acepta %s', (url) => {
+    expect(classicApiUrlSchema.safeParse(url).success).toBe(true)
+  })
+
+  it('normaliza la "/" final como httpsUrlSchema', () => {
+    expect(classicApiUrlSchema.parse('https://dt.ejemplo.local/e/abc-123/')).toBe(
+      'https://dt.ejemplo.local/e/abc-123'
+    )
+  })
+
+  it.each([
+    'https://abc12345.live.dynatrace.com/api/v2',
+    'https://abc12345.live.dynatrace.com/api/v2/',
+    'https://abc12345.live.dynatrace.com/api/v1',
+    'https://abc12345.live.dynatrace.com/api',
+    'https://abc12345.live.dynatrace.com/API/V2',
+    'https://dt.ejemplo.local/e/abc-123/api',
+    'https://dt.ejemplo.local/e/abc-123/Api/v1/'
+  ])('rechaza %s con el mensaje acordado', (url) => {
+    const result = classicApiUrlSchema.safeParse(url)
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((issue) => issue.message)).toContain(MESSAGE)
+  })
+
+  it('sigue rechazando lo que rechaza httpsUrlSchema', () => {
+    for (const url of [
+      'http://abc12345.live.dynatrace.com',
+      'https://u:p@abc12345.live.dynatrace.com'
+    ]) {
+      expect(classicApiUrlSchema.safeParse(url).success).toBe(false)
+    }
+  })
+
+  it('environmentInputSchema usa esta regla en classicApiUrl y no en las otras URL', () => {
+    expect(
+      environmentInputSchema.safeParse(
+        saasEnvironment({ classicApiUrl: 'https://abc12345.live.dynatrace.com/api/v2' })
+      ).success
+    ).toBe(false)
+    expect(environmentInputSchema.safeParse(saasEnvironment({ classicApiUrl: null })).success).toBe(
       true
     )
   })

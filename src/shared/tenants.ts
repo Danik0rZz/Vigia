@@ -46,6 +46,15 @@ export const httpsUrlSchema = z
     return url.toString().replace(/\/+$/, '')
   })
 
+/**
+ * URL base del entorno para la API clásica, sin /api/v2: el cliente lo añade.
+ * Se rechaza si termina en /api, /api/v1 o /api/v2, para no pedir /api/v2/api/v2.
+ */
+export const classicApiUrlSchema = httpsUrlSchema.refine(
+  (url) => !/\/api(\/v[12])?$/i.test(new URL(url).pathname.replace(/\/+$/, '')),
+  'Escribe la URL del entorno sin /api/v2'
+)
+
 const nameSchema = z.string().trim().min(1).max(80)
 
 export const clientInputSchema = z.object({
@@ -61,7 +70,7 @@ const environmentFieldsSchema = z.object({
   name: nameSchema,
   type: z.enum(environmentTypes),
   deployment: z.enum(deployments),
-  classicApiUrl: httpsUrlSchema.nullable(),
+  classicApiUrl: classicApiUrlSchema.nullable(),
   platformUrl: httpsUrlSchema.nullable(),
   ssoUrl: httpsUrlSchema.nullable(),
   oauthClientId: z.string().trim().min(1).max(200).nullable(),
