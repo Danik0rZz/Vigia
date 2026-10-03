@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
+import { DT_ENDPOINTS, type DtListEndpoint } from '@shared/dt-endpoints'
 import { createDtClient } from './client'
 import { DtError } from './errors'
 
@@ -538,6 +539,8 @@ describe('nada secreto en el log', () => {
 
 describe('paginate', () => {
   const item = z.object({ id: z.string() })
+  /** Lista genérica de prueba: sin parámetros que se repitan. */
+  const X: DtListEndpoint = { path: '/x', itemsKey: 'items', keepOnNextPage: [] }
 
   it('junta las páginas y en las siguientes manda SOLO nextPageKey y fields, sin pedir nada al módulo', async () => {
     responses.push(
@@ -549,7 +552,7 @@ describe('paginate', () => {
     const page = await client().paginate({
       envId: ENV,
       api: 'classic',
-      path: '/problems',
+      endpoint: DT_ENDPOINTS.problems,
       query: {
         fields: '+evidenceDetails',
         problemSelector: 'status("open")',
@@ -557,7 +560,6 @@ describe('paginate', () => {
         from: 'now-2h',
         pageSize: 2
       },
-      itemsKey: 'problems',
       schema: item
     })
 
@@ -593,9 +595,8 @@ describe('paginate', () => {
     const page = await client().paginate({
       envId: ENV,
       api: 'classic',
-      path: '/x',
+      endpoint: X,
       query: { from: 'now-7d', pageSize: 1, entitySelector: 'type(HOST)', extra: ['a', 'b'] },
-      itemsKey: 'items',
       schema: item
     })
     expect(page.items.map((i) => i.id)).toEqual(['a', 'b', 'c'])
@@ -609,8 +610,7 @@ describe('paginate', () => {
       client().paginate({
         envId: ENV,
         api: 'classic',
-        path: '/x',
-        itemsKey: 'items',
+        endpoint: X,
         // @ts-expect-error keepParams se eliminó: la regla de páginas siguientes es fija.
         keepParams: ['fields'],
         schema: item
@@ -618,13 +618,61 @@ describe('paginate', () => {
     expect(typeof call).toBe('function')
   })
 
+  it.each(['entities', 'slo', 'events'] as const)(
+    '%s: la página 2 lleva SOLO nextPageKey aunque la primera llevara fields',
+    async (name) => {
+      const endpoint = DT_ENDPOINTS[name]
+      responses.push(
+        json(200, { [endpoint.itemsKey]: [{ id: 'a' }], nextPageKey: 'k1' }),
+        json(200, { [endpoint.itemsKey]: [{ id: 'b' }] })
+      )
+      const page = await client().paginate({
+        envId: ENV,
+        api: 'classic',
+        endpoint,
+        query: { fields: '+x', from: 'now-2h', pageSize: 1, entitySelector: 'type(HOST)' },
+        schema: item
+      })
+      expect(page.items.map((i) => i.id)).toEqual(['a', 'b'])
+      expect(`${sent(0).url.pathname}`).toBe(`/api/v2${endpoint.path}`)
+      expect([...sent(1).url.searchParams.entries()]).toEqual([['nextPageKey', 'k1']])
+    }
+  )
+
+  it('lee los elementos de la clave del descriptor (eventTypes → eventTypeInfos)', async () => {
+    responses.push(json(200, { eventTypeInfos: [{ id: 'a' }], nextPageKey: null }))
+    const page = await client().paginate({
+      envId: ENV,
+      api: 'classic',
+      endpoint: DT_ENDPOINTS.eventTypes,
+      schema: item
+    })
+    expect(page.items).toEqual([{ id: 'a' }])
+  })
+
+  it('endpoint es obligatorio: sin él (o con path/itemsKey sueltos) tsc falla', () => {
+    const call = (): unknown =>
+      // @ts-expect-error falta endpoint: paginate exige el descriptor.
+      client().paginate({ envId: ENV, api: 'classic', schema: item })
+    const legacy = (): unknown =>
+      client().paginate({
+        envId: ENV,
+        api: 'classic',
+        endpoint: X,
+        // @ts-expect-error path ya no se pasa suelto: va en el descriptor.
+        path: '/x',
+        schema: item
+      })
+    expect(typeof call).toBe('function')
+    expect(typeof legacy).toBe('function')
+  })
+
   it('para cuando no viene nextPageKey', async () => {
     responses.push(json(200, { items: [{ id: 'a' }] }))
     const page = await client().paginate({
       envId: ENV,
       api: 'classic',
-      path: '/x',
-      itemsKey: 'items',
+      endpoint: X,
       schema: item
     })
     expect(page).toEqual({ items: [{ id: 'a' }], truncated: false })
@@ -641,9 +689,8 @@ describe('paginate', () => {
     const page = await client().paginate({
       envId: ENV,
       api: 'classic',
-      path: '/x',
+      endpoint: X,
       query: { entitySelector: 'type(HOST)' },
-      itemsKey: 'items',
       maxPages: 2,
       schema: item
     })
@@ -668,8 +715,7 @@ describe('paginate', () => {
     const page = await client().paginate({
       envId: ENV,
       api: 'classic',
-      path: '/x',
-      itemsKey: 'items',
+      endpoint: X,
       maxPages: 2,
       schema: item
     })
@@ -683,8 +729,7 @@ describe('paginate', () => {
       client().paginate({
         envId: ENV,
         api: 'classic',
-        path: '/x',
-        itemsKey: 'items',
+        endpoint: X,
         schema: item
       }),
       'INVALID_RESPONSE'

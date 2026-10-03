@@ -1,4 +1,5 @@
 import { z, type ZodType } from 'zod'
+import { nextPageQuery, type DtListEndpoint } from '@shared/dt-endpoints'
 import type { Environment, SecretKind } from '@shared/tenants'
 import { DtError } from './errors'
 import type { OAuthTokenManager } from './oauth'
@@ -30,12 +31,14 @@ export interface DtRequestOptions<T> {
   auth?: DtAuth
 }
 
-export interface DtPaginateOptions<T> extends Omit<DtRequestOptions<T>, 'schema'> {
+export interface DtPaginateOptions<T> extends Omit<DtRequestOptions<T>, 'schema' | 'path'> {
+  /** Ruta, propiedad de la lista y qué se repite en la página siguiente (DT_ENDPOINTS). */
+  endpoint: DtListEndpoint
   /** Esquema de cada elemento de la lista. */
   schema: ZodType<T>
-  /** Propiedad de la respuesta con la lista (`problems`, `slo`…). */
-  itemsKey: string
   maxPages?: number
+  /** La ruta la da `endpoint`. */
+  path?: never
 }
 
 export interface DtClient {
@@ -304,7 +307,9 @@ export function createDtClient(deps: DtClientDeps): DtClient {
   }
 
   async function paginate<T>(options: DtPaginateOptions<T>): Promise<DtPage<T>> {
-    const { itemsKey, schema, maxPages = 20, ...request } = options
+    const { endpoint, schema, maxPages = 20, ...rest } = options
+    const { itemsKey } = endpoint
+    const request = { ...rest, path: endpoint.path }
     const pageSchema = z.object({
       nextPageKey: z.string().nullable().optional(),
       [itemsKey]: z.array(schema)
@@ -319,10 +324,8 @@ export function createDtClient(deps: DtClientDeps): DtClient {
       items.push(...(result[itemsKey] as T[]))
       const next = result.nextPageKey
       if (next === null || next === undefined || next === '') return { items, truncated: false }
-      // Regla de la API v2: con nextPageKey se omite el resto de parámetros salvo
-      // `fields` (válido solo para la página que se pide).
-      const fields = request.query?.['fields']
-      query = fields === undefined ? { nextPageKey: next } : { fields, nextPageKey: next }
+      // Con nextPageKey solo viaja lo que el endpoint permite repetir.
+      query = nextPageQuery(endpoint, request.query, next)
     }
     // Se ha llegado al tope con páginas pendientes: no se corta en silencio.
     deps.logger.warn(`Dynatrace: ${request.path} truncado a ${maxPages} páginas`)

@@ -1,3 +1,4 @@
+import { DT_ENDPOINTS } from '@shared/dt-endpoints'
 import { timeRangeToDt } from '@shared/time-range'
 import type { DtClient } from '../../dynatrace/client'
 import {
@@ -58,14 +59,13 @@ export function createModuleHandlers(
       const page = await client.paginate({
         envId: environmentId,
         api: 'classic',
-        path: '/problems',
+        endpoint: DT_ENDPOINTS.problems,
         query: {
           ...timeRangeToDt(timeRange),
           problemSelector: buildProblemSelector({ status, severity, impact, text }),
           pageSize: PROBLEMS_PAGE_SIZE
         },
         schema: problemSchema,
-        itemsKey: 'problems',
         maxPages: PROBLEMS_MAX_PAGES
       })
       return {
