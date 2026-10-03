@@ -157,7 +157,7 @@ async function expectPalette(locale: Locale, query: string): Promise<void> {
   await expectPage(locale, SECTIONS[3])
 }
 
-const TIME_RANGES = ['2h', '24h', '7d'] as const
+const TIME_RANGES = ['2h', '24h', '7d', 'custom'] as const
 
 /** Comprueba que solo está marcada la opción `selected` del rango temporal. */
 async function expectTimeRange(selected: (typeof TIME_RANGES)[number]): Promise<void> {

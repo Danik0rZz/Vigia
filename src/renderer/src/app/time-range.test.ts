@@ -19,8 +19,8 @@ function lookup(messages: unknown, key: string): unknown {
 }
 
 describe('TIME_RANGES', () => {
-  it('tiene 2h, 24h y 7d, en ese orden', () => {
-    expect(TIME_RANGES.map((range) => range.id)).toEqual(['2h', '24h', '7d'])
+  it('tiene 2h, 24h, 7d y personalizado, en ese orden', () => {
+    expect(TIME_RANGES.map((range) => range.id)).toEqual(['2h', '24h', '7d', 'custom'])
   })
 
   it('cada rango usa la clave timeRange.options.<id>', () => {
@@ -34,11 +34,11 @@ describe('TIME_RANGES', () => {
     ['en', en, 'Time range']
   ])('los textos existen en %s', (_locale, messages, label) => {
     expect(lookup(messages, 'timeRange.label')).toBe(label)
-    expect(TIME_RANGES.map((range) => lookup(messages, range.labelKey))).toEqual([
-      '2 h',
-      '24 h',
-      '7 d'
-    ])
+    const labels = TIME_RANGES.map((range) => lookup(messages, range.labelKey))
+    expect(labels.slice(0, 3)).toEqual(['2 h', '24 h', '7 d'])
+    expect(typeof labels[3] === 'string' && labels[3].trim() !== '', 'texto de personalizado').toBe(
+      true
+    )
   })
 })
 
