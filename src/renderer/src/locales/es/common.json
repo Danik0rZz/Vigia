@@ -36,7 +36,8 @@
     "options": {
       "2h": "2 h",
       "24h": "24 h",
-      "7d": "7 d"
+      "7d": "7 d",
+      "custom": "Personalizado"
     }
   },
   "palette": {
@@ -44,7 +45,8 @@
     "placeholder": "Buscar una sección…",
     "empty": "Sin resultados",
     "sections": "Secciones",
-    "environments": "Entornos"
+    "environments": "Entornos",
+    "savedQueries": "Consultas guardadas"
   },
   "envStatus": {
     "label": "Estado del entorno",
@@ -200,5 +202,117 @@
     "TLS_PIN_MISMATCH": "El certificado no coincide con la huella aceptada.",
     "INVALID_RESPONSE": "Respuesta inesperada de Dynatrace.",
     "SERVER_ERROR": "Error del servidor de Dynatrace."
+  },
+  "customRange": {
+    "title": "Rango personalizado",
+    "from": "Desde",
+    "to": "Hasta",
+    "invalid": "La fecha de inicio tiene que ser anterior a la de fin, y el rango de un año como máximo."
+  },
+  "module": {
+    "refresh": "Actualizar",
+    "loading": "Cargando…",
+    "truncated": "Mostrando los primeros {{count}}.",
+    "empty": "Sin datos en este rango.",
+    "noEnvironment": "Sin entorno activo: elige uno en la barra superior.",
+    "classicToken": "Este módulo usa el token clásico: añádelo en Ajustes.",
+    "missingScope": "Falta el permiso {{scopes}} en el token clásico."
+  },
+  "problems": {
+    "filters": {
+      "status": "Estado",
+      "all": "Todos",
+      "open": "Abiertos",
+      "closed": "Cerrados",
+      "text": "Buscar"
+    },
+    "columns": {
+      "displayId": "ID",
+      "title": "Título",
+      "status": "Estado",
+      "severity": "Severidad",
+      "impact": "Impacto",
+      "start": "Inicio",
+      "end": "Fin",
+      "affected": "Entidades afectadas"
+    },
+    "table": "Problemas",
+    "timeline": "Problemas en el tiempo",
+    "detail": "Detalle del problema",
+    "affectedEntities": "Entidades afectadas",
+    "rootCause": "Causa raíz",
+    "close": "Cerrar",
+    "status": {
+      "OPEN": "Abierto",
+      "CLOSED": "Cerrado"
+    },
+    "severity": {
+      "AVAILABILITY": "Disponibilidad",
+      "CUSTOM_ALERT": "Alerta personalizada",
+      "ERROR": "Error",
+      "INFO": "Información",
+      "MONITORING_UNAVAILABLE": "Monitorización no disponible",
+      "PERFORMANCE": "Rendimiento",
+      "RESOURCE_CONTENTION": "Contención de recursos"
+    },
+    "impact": {
+      "APPLICATION": "Aplicación",
+      "ENVIRONMENT": "Entorno",
+      "INFRASTRUCTURE": "Infraestructura",
+      "SERVICES": "Servicios"
+    }
+  },
+  "metrics": {
+    "search": "Buscar métricas…",
+    "selector": "Selector de métrica",
+    "resolution": "Resolución",
+    "resolutionAuto": "Automática",
+    "run": "Consultar",
+    "chart": "Gráfico de la métrica",
+    "saved": "Consultas guardadas",
+    "save": "Guardar consulta",
+    "saveTitle": "Guardar la consulta",
+    "name": "Nombre",
+    "noSaved": "No hay consultas guardadas.",
+    "delete": "Borrar",
+    "deleteConfirm": "¿Borrar la consulta «{{name}}»?",
+    "deleteBody": "Solo se borra la consulta guardada.",
+    "noSeries": "La consulta no ha devuelto datos."
+  },
+  "home": {
+    "openProblems": "Problemas abiertos",
+    "slos": "SLOs",
+    "target": "Objetivo",
+    "budget": "Presupuesto de error",
+    "value": "Valor",
+    "noSlos": "No hay SLOs.",
+    "serviceHealth": "Salud de servicios",
+    "noServices": "Ningún servicio afectado por problemas abiertos.",
+    "sloStatus": {
+      "SUCCESS": "Correcto",
+      "WARNING": "Aviso",
+      "FAILURE": "Fallo"
+    }
+  },
+  "export": {
+    "menu": "Exportar o capturar",
+    "csv": "Exportar CSV",
+    "xlsx": "Exportar Excel (XLSX)",
+    "txt": "Exportar TXT",
+    "txtTabs": "Exportar TXT con tabuladores",
+    "copy": "Copiar imagen",
+    "savePng": "Guardar imagen PNG",
+    "saved": "Guardado: {{file}}",
+    "copied": "Imagen copiada.",
+    "failed": "No se pudo exportar."
+  },
+  "exportSettings": {
+    "title": "Exportación",
+    "csvSeparator": "Separador del CSV",
+    "semicolon": "Punto y coma (;)",
+    "comma": "Coma (,)",
+    "captureFooter": "Pie en las capturas",
+    "footerOn": "Con cliente, entorno y fecha",
+    "footerOff": "Sin pie"
   }
 }

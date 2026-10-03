@@ -31,6 +31,8 @@ export interface ExportHandlerDeps {
   exportDir: string | null
   dialogs: { chooseSaveFile(defaultPath: string, kind: SaveKind): Promise<string | null> }
   writeFile(path: string, data: Buffer): Promise<void>
+  /** Con la carpeta fija, para no sobrescribir un fichero del mismo minuto. */
+  fileExists?(path: string): boolean
   clipboard: { writeImage(png: Buffer): void | Promise<void> }
   window: { size(): { width: number; height: number }; capturePage(rect: Rect): Promise<Buffer> }
   now(): Date
@@ -70,8 +72,14 @@ export function createExportHandlers(
   /** Guarda en la carpeta fija o, con diálogo, donde elija el usuario (recordando la carpeta). */
   async function save(fileName: string, kind: SaveKind, data: Buffer): Promise<string | null> {
     if (deps.exportDir !== null) {
-      await deps.writeFile(join(deps.exportDir, fileName), data)
-      return fileName
+      const dir = deps.exportDir
+      const dot = fileName.lastIndexOf('.')
+      let name = fileName
+      for (let n = 2; deps.fileExists?.(join(dir, name)) === true; n += 1) {
+        name = `${fileName.slice(0, dot)}-${n}${fileName.slice(dot)}`
+      }
+      await deps.writeFile(join(dir, name), data)
+      return name
     }
     const lastDir = settings.get(SETTING_LAST_DIR)
     const path = await deps.dialogs.chooseSaveFile(

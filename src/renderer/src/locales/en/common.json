@@ -36,7 +36,8 @@
     "options": {
       "2h": "2 h",
       "24h": "24 h",
-      "7d": "7 d"
+      "7d": "7 d",
+      "custom": "Custom"
     }
   },
   "palette": {
@@ -44,7 +45,8 @@
     "placeholder": "Search for a section…",
     "empty": "No results",
     "sections": "Sections",
-    "environments": "Environments"
+    "environments": "Environments",
+    "savedQueries": "Saved queries"
   },
   "envStatus": {
     "label": "Environment status",
@@ -200,5 +202,117 @@
     "TLS_PIN_MISMATCH": "The certificate does not match the accepted fingerprint.",
     "INVALID_RESPONSE": "Unexpected response from Dynatrace.",
     "SERVER_ERROR": "Dynatrace server error."
+  },
+  "customRange": {
+    "title": "Custom range",
+    "from": "From",
+    "to": "To",
+    "invalid": "The start must be before the end, and the range at most one year."
+  },
+  "module": {
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "truncated": "Showing the first {{count}}.",
+    "empty": "No data in this range.",
+    "noEnvironment": "No active environment: choose one in the top bar.",
+    "classicToken": "This module uses the classic token: add it in Settings.",
+    "missingScope": "The classic token is missing the {{scopes}} permission."
+  },
+  "problems": {
+    "filters": {
+      "status": "Status",
+      "all": "All",
+      "open": "Open",
+      "closed": "Closed",
+      "text": "Search"
+    },
+    "columns": {
+      "displayId": "ID",
+      "title": "Title",
+      "status": "Status",
+      "severity": "Severity",
+      "impact": "Impact",
+      "start": "Start",
+      "end": "End",
+      "affected": "Affected entities"
+    },
+    "table": "Problems",
+    "timeline": "Problems over time",
+    "detail": "Problem details",
+    "affectedEntities": "Affected entities",
+    "rootCause": "Root cause",
+    "close": "Close",
+    "status": {
+      "OPEN": "Open",
+      "CLOSED": "Closed"
+    },
+    "severity": {
+      "AVAILABILITY": "Availability",
+      "CUSTOM_ALERT": "Custom alert",
+      "ERROR": "Error",
+      "INFO": "Information",
+      "MONITORING_UNAVAILABLE": "Monitoring unavailable",
+      "PERFORMANCE": "Performance",
+      "RESOURCE_CONTENTION": "Resource contention"
+    },
+    "impact": {
+      "APPLICATION": "Application",
+      "ENVIRONMENT": "Environment",
+      "INFRASTRUCTURE": "Infrastructure",
+      "SERVICES": "Services"
+    }
+  },
+  "metrics": {
+    "search": "Search metrics…",
+    "selector": "Metric selector",
+    "resolution": "Resolution",
+    "resolutionAuto": "Automatic",
+    "run": "Run",
+    "chart": "Metric chart",
+    "saved": "Saved queries",
+    "save": "Save query",
+    "saveTitle": "Save the query",
+    "name": "Name",
+    "noSaved": "There are no saved queries.",
+    "delete": "Delete",
+    "deleteConfirm": "Delete the query “{{name}}”?",
+    "deleteBody": "Only the saved query is deleted.",
+    "noSeries": "The query returned no data."
+  },
+  "home": {
+    "openProblems": "Open problems",
+    "slos": "SLOs",
+    "target": "Target",
+    "budget": "Error budget",
+    "value": "Value",
+    "noSlos": "There are no SLOs.",
+    "serviceHealth": "Service health",
+    "noServices": "No services affected by open problems.",
+    "sloStatus": {
+      "SUCCESS": "Success",
+      "WARNING": "Warning",
+      "FAILURE": "Failure"
+    }
+  },
+  "export": {
+    "menu": "Export or capture",
+    "csv": "Export CSV",
+    "xlsx": "Export Excel (XLSX)",
+    "txt": "Export TXT",
+    "txtTabs": "Export TXT with tabs",
+    "copy": "Copy image",
+    "savePng": "Save PNG image",
+    "saved": "Saved: {{file}}",
+    "copied": "Image copied.",
+    "failed": "The export failed."
+  },
+  "exportSettings": {
+    "title": "Export",
+    "csvSeparator": "CSV separator",
+    "semicolon": "Semicolon (;)",
+    "comma": "Comma (,)",
+    "captureFooter": "Footer on captures",
+    "footerOn": "With client, environment and date",
+    "footerOff": "No footer"
   }
 }

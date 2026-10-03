@@ -1,4 +1,5 @@
 import { app, BrowserWindow, clipboard, ClipboardItem, dialog, safeStorage } from 'electron'
+import { existsSync } from 'node:fs'
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { themePreferences, type ThemePreference } from '@shared/ipc'
@@ -112,6 +113,7 @@ export function openLocalData(logger: {
       }
     },
     writeFile: (path, data) => writeFile(path, data),
+    fileExists: (path) => existsSync(path),
     // Electron 44: portapapeles asíncrono al estilo W3C (ya no hay writeImage).
     clipboard: {
       writeImage: (png) =>

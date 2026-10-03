@@ -3,9 +3,15 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Command } from 'cmdk'
-import { Server } from 'lucide-react'
+import { ChartLine, Server } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
-import { environmentLabel, useTenantMutation, useTenants } from '../data/tenants'
+import { useSavedQueries } from '../data/modules'
+import {
+  environmentLabel,
+  useActiveEnvironment,
+  useTenantMutation,
+  useTenants
+} from '../data/tenants'
 import { ProductionBadge } from './ProductionBadge'
 
 const GROUP =
@@ -28,6 +34,8 @@ export function CommandPalette({
   const navigate = useNavigate()
   const { clients, environments } = useTenants()
   const setActive = useTenantMutation('environments:setActive')
+  const active = useActiveEnvironment()
+  const savedQueries = useSavedQueries(active?.environment.id ?? null).data ?? []
 
   const environmentOptions = environments.flatMap((environment) => {
     const client = clients.find((candidate) => candidate.id === environment.clientId)
@@ -75,6 +83,25 @@ export function CommandPalette({
                   )
                 })}
               </Command.Group>
+              {savedQueries.length > 0 && (
+                <Command.Group heading={t('palette.savedQueries')} className={GROUP}>
+                  {savedQueries.map((savedQuery) => (
+                    <Command.Item
+                      key={savedQuery.id}
+                      value={savedQuery.name}
+                      keywords={[savedQuery.metricSelector]}
+                      onSelect={() => {
+                        void navigate(`/metrics?saved=${savedQuery.id}`)
+                        onOpenChange(false)
+                      }}
+                      className={ITEM}
+                    >
+                      <ChartLine aria-hidden="true" className="size-4" />
+                      {savedQuery.name}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
               {environmentOptions.length > 0 && (
                 <Command.Group heading={t('palette.environments')} className={GROUP}>
                   {environmentOptions.map(({ environment, label }) => (
