@@ -36,36 +36,39 @@ Aceptación manual de la Fase 1 (comprobada por Dani en Windows):
 
 No bloquea: se sigue con la fase siguiente y Dani lo prueba cuando pueda.
 
+Dani aceptó la v0.6.0 el 2026-10-04 (cliente y entorno que se conservan al reiniciar) y dio por cumplidos los criterios manuales de las fases 2, 3, 4 y 6. "Probar conexión contra un tenant real" queda cubierto por las pruebas en vivo (`npm run test:live`, v0.7.0), y "XLSX y CSV en Excel" se revisa con las exportaciones reales de esas pruebas.
+
 Fase 2:
 
-- [ ] Se navega por todas las secciones (vacías) en ambos idiomas y temas.
-- [ ] La barra de título propia funciona: se arrastra la ventana y los botones nativos siguen al tema.
-- [ ] El tema cristal se lee bien en claro y en oscuro.
+- [x] Se navega por todas las secciones (vacías) en ambos idiomas y temas.
+- [x] La barra de título propia funciona: se arrastra la ventana y los botones nativos siguen al tema.
+- [x] El tema cristal se lee bien en claro y en oscuro.
 - Sin probar: el material nativo de Windows 11 (`backgroundMaterial: 'mica'`), que es opcional.
 
 Fase 3:
 
-- [ ] Crear un cliente y un entorno real, guardar un token y comprobar que tras reiniciar sigue "Configurado" y el entorno sigue activo.
-- [ ] Exportar la configuración, importarla en otro PC (o en una carpeta de datos vacía) y comprobar el resumen.
-- [ ] Con el tema "Oscuro" y Windows en claro, la barra de título ya no parpadea al arrancar.
+- [x] Crear un cliente y un entorno real, guardar un token y comprobar que tras reiniciar sigue "Configurado" y el entorno sigue activo.
+- [x] Exportar la configuración, importarla en otro PC (o en una carpeta de datos vacía) y comprobar el resumen.
+- [x] Con el tema "Oscuro" y Windows en claro, la barra de título ya no parpadea al arrancar.
 
 Fase 4:
 
-- [ ] "Probar conexión" funciona contra un tenant real con token clásico (y, si se usa, OAuth y platform token), y avisa de los scopes que faltan.
-- [ ] Detrás del proxy corporativo y con su CA: con el nivel "sistema" conecta sin tocar nada.
-- [ ] La tarjeta del pie muestra el estado real y la caducidad del token OAuth.
-- [ ] Arrancar el zip 0.4.0 sobre sus datos: aplica la migración 0001 sin perder clientes, entornos ni credenciales.
+- [x] "Probar conexión" funciona contra un tenant real con token clásico (y, si se usa, OAuth y platform token), y avisa de los scopes que faltan.
+- [x] Detrás del proxy corporativo y con su CA: con el nivel "sistema" conecta sin tocar nada.
+- [x] La tarjeta del pie muestra el estado real y la caducidad del token OAuth.
+- [x] Arrancar el zip 0.4.0 sobre sus datos: aplica la migración 0001 sin perder clientes, entornos ni credenciales.
 
 Fase 6:
 
-- [ ] El XLSX se abre en Excel con los tipos correctos (fechas y números) y el CSV muestra bien los acentos.
-- [ ] Inicio, Problemas y Métricas contra un tenant real, con exportación y capturas.
-- [ ] El zip 0.6.0 sobre sus datos aplica la migración 0002 (consultas guardadas) sin perder nada.
+- [x] El XLSX se abre en Excel con los tipos correctos (fechas y números) y el CSV muestra bien los acentos.
+- [x] Inicio, Problemas y Métricas contra un tenant real, con exportación y capturas.
+- [x] El zip 0.6.0 sobre sus datos aplica la migración 0002 (consultas guardadas) sin perder nada.
 
 ### Mejoras para después de la primera versión
 
 - `e2e/views.spec.ts` depende del orden de sus tests: cada test debería preparar su propio estado (anotado en la cabecera del spec).
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec, "Funcionalidades").
+- Excluir `!node_modules/@types/**` en `electron-builder.yml` (llega de forma transitiva con ExcelJS).
 - Streaming de exportaciones y aviso de filas de Excel en CSV, con DQL en la Fase 8 (ver la spec, "Exportación de datos").
 
 ## Primer paso al retomar
