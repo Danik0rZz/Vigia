@@ -3,6 +3,35 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.3.0] - 2026-10-03
+
+Fase 3: datos locales y secretos.
+
+### Añadido
+
+- Base de datos local con better-sqlite3 y Drizzle en la carpeta de datos, con migraciones que
+  main aplica al arrancar (`npm run db:generate` para generarlas).
+- Clientes y entornos: alta, edición y borrado desde Ajustes, con borrado en cascada y nombres
+  únicos sin distinguir mayúsculas.
+- Credenciales cifradas con `safeStorage`. El renderer solo puede guardarlas, borrarlas y saber
+  si hay cifrado; nunca leerlas. Sin cifrado disponible no se guardan.
+- Exportar e importar la configuración en JSON, sin secretos y como mucho de 1 MB, con resumen de
+  creados, saltados y errores.
+- Selector de entorno en la barra superior, ruta "Cliente › Entorno › Sección" y entornos en la
+  paleta `Ctrl+K`. El entorno activo se recupera al arrancar.
+- Distintivo fijo de los entornos de Producción y color de acento del cliente activo.
+- La tarjeta de estado muestra los mecanismos con credencial como "Sin comprobar" hasta la Fase 4.
+
+### Cambiado
+
+- El tema guardado se aplica antes de crear la ventana: la barra de título ya no parpadea al
+  arrancar.
+- Las pruebas e2e usan cada una su propia carpeta de datos.
+
+### Aplazado
+
+- Logo del cliente y registro local de acciones de escritura (ver la especificación).
+
 ## [0.2.0] - 2026-10-03
 
 Fase 2: esqueleto de la interfaz.

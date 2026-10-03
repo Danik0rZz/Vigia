@@ -16,7 +16,8 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 
 - **Fase 1 (base del proyecto): aceptada, versión 0.1.0.** Criterios automáticos y manuales cumplidos; los manuales los comprobó Dani en Windows.
 - **Fase 2 (esqueleto de la interfaz): cerrada, versión 0.2.0.** Criterios automáticos cumplidos (check 54 tests, e2e 29 tests, en Windows); la aceptación manual está en la lista de pendientes.
-- **En curso: Fase 3 (datos locales y secretos).** Después, la 4 y la 6.
+- **Fase 3 (datos locales y secretos): cerrada, versión 0.3.0.** Criterios automáticos cumplidos en Windows (check y e2e, con relanzamiento de la app); la aceptación manual está en la lista de pendientes.
+- **Siguiente: Fase 4 (cliente de Dynatrace).** Después, la 6.
 - **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
 - El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
@@ -39,6 +40,12 @@ Fase 2:
 - [ ] La barra de título propia funciona: se arrastra la ventana y los botones nativos siguen al tema.
 - [ ] El tema cristal se lee bien en claro y en oscuro.
 - Sin probar: el material nativo de Windows 11 (`backgroundMaterial: 'mica'`), que es opcional.
+
+Fase 3:
+
+- [ ] Crear un cliente y un entorno real, guardar un token y comprobar que tras reiniciar sigue "Configurado" y el entorno sigue activo.
+- [ ] Exportar la configuración, importarla en otro PC (o en una carpeta de datos vacía) y comprobar el resumen.
+- [ ] Con el tema "Oscuro" y Windows en claro, la barra de título ya no parpadea al arrancar.
 
 ## Primer paso al retomar
 
@@ -94,14 +101,17 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 - Los permisos web están denegados para todo (`src/main/security/harden.ts`). Si una fase necesita uno (por ejemplo, portapapeles desde la interfaz), se concede ahí de forma explícita.
 - Con los fusibles de Electron activos, Playwright no puede adjuntarse a la app empaquetada. Las pruebas e2e corren sobre `out/`, sin empaquetar.
 - electron-vite 5 no admite Vite 8. No subir Vite, TypeScript (7) ni ESLint (10) sin comprobar la compatibilidad de electron-vite y de typescript-eslint.
-- better-sqlite3 13 trae binarios precompilados N-API dentro del paquete: en la Fase 3 no hace falta recompilar ni `electron-builder install-app-deps`.
+- better-sqlite3 13 trae binarios precompilados N-API dentro del paquete: no hace falta recompilar ni `electron-builder install-app-deps`, y funciona igual en Vitest y en Electron. En el zip va fuera del asar (`asarUnpack`) y solo con el binario win32-x64.
+- Tras cambiar `src/main/db/schema.ts`: `npm run db:generate` y commitear la migración nueva. Main aplica las migraciones al arrancar (en la app empaquetada, desde `resources/migrations`).
+- `lower()` de SQLite solo pasa a minúsculas ASCII: los nombres únicos se comprueban en JS con `toLocaleLowerCase('es')`.
+- Cada e2e usa su propia carpeta de datos (`VIGIA_USER_DATA_DIR`): el bloqueo de instancia única va por carpeta, así que no chocan con un `npm run dev` abierto.
+- `Set-Content -Encoding utf8` de PowerShell 5.1 escribe BOM. Para editar ficheros, usar las herramientas de edición o `sed`.
 - En producción no hay menú (`Menu.setApplicationMenu(null)`), así que tampoco hay atajos de recarga ni DevTools.
 - Las librerías solo del renderer van en devDependencies: Vite las empaqueta y electron-builder metería en el asar todo lo de dependencies.
-- Al arrancar, main crea la ventana con el tema de Windows hasta que el renderer envía `ui:setTheme`: con la preferencia "Oscuro" y Windows en claro, la barra de título puede parpadear. Se resuelve en la Fase 3, cuando main tenga las preferencias en SQLite.
 - Si `npm run dist:win` falla en Windows con un error de enlaces simbólicos, hace falta el Modo de desarrollador de Windows o una terminal de administrador.
 
 ## Versiones fijadas
 
-Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0. Node 22 o superior.
+Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, react-hook-form 7.89.0. Node 22 o superior.
 
 Pendiente al subir electron-builder: `npm audit` marca 8 "high" (http-cache-semantics vía `@electron/get`), solo de empaquetado; `npm audit --omit=dev` = 0. No forzar overrides.
