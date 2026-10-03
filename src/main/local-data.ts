@@ -3,6 +3,8 @@ import { readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { themePreferences, type ThemePreference } from '@shared/ipc'
 import { openDatabase, type AppDatabase } from './db/database'
+import { createDynatraceServices } from './dynatrace/services'
+import type { ConnectionHandlerDeps } from './ipc/handlers/connection'
 import type { TenantHandlerDeps } from './ipc/handlers/tenants'
 import { databasePath, migrationsDir } from './paths'
 import { createSecretStore } from './secrets/store'
@@ -15,10 +17,14 @@ export interface LocalData {
   db: AppDatabase
   settings: SettingsStore
   tenantDeps: TenantHandlerDeps
+  connectionDeps: ConnectionHandlerDeps
 }
 
 /** Abre la base local (aplicando migraciones) y prepara ajustes, tenants, secretos y diálogos. */
-export function openLocalData(): LocalData {
+export function openLocalData(logger: {
+  warn(...args: unknown[]): void
+  error(...args: unknown[]): void
+}): LocalData {
   const db = openDatabase(databasePath(), migrationsDir())
   const settings = createSettingsStore(db)
   const repo = createTenantRepository(db)
@@ -30,12 +36,15 @@ export function openLocalData(): LocalData {
     decryptString: (ciphertext) => safeStorage.decryptString(ciphertext)
   })
 
+  const dynatrace = createDynatraceServices({ db, repo, secrets, logger })
+
   const parent = (): BrowserWindow | undefined => BrowserWindow.getFocusedWindow() ?? undefined
   const filters = [{ name: 'JSON', extensions: ['json'] }]
 
   const tenantDeps: TenantHandlerDeps = {
     repo,
     secrets,
+    onEnvironmentChanged: dynatrace.onEnvironmentChanged,
     dialogs: {
       async chooseSaveFile(defaultName) {
         const options = { defaultPath: join(app.getPath('documents'), defaultName), filters }
@@ -61,7 +70,7 @@ export function openLocalData(): LocalData {
     writeFile: (path, content) => writeFile(path, content, 'utf8')
   }
 
-  return { db, settings, tenantDeps }
+  return { db, settings, tenantDeps, connectionDeps: dynatrace.connectionDeps }
 }
 
 /** Última preferencia de tema recibida, para aplicarla antes de crear la ventana. */

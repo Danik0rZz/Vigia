@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { ipcContract, type IpcChannel } from '@shared/ipc'
 import { openDatabase, type AppDatabase } from '../../db/database'
 import { createSecretStore } from '../../secrets/store'
@@ -49,6 +49,7 @@ let saveTarget: string | null
 let openTarget: string | null
 let deps: IpcHandlerDeps
 let calledChannels: Set<string>
+let environmentChanged: Mock<(envId: string) => void>
 let outputs: string[]
 
 function buildHandlers(encryptionAvailable: boolean): ReturnType<typeof createTenantHandlers> {
@@ -73,7 +74,8 @@ function buildHandlers(encryptionAvailable: boolean): ReturnType<typeof createTe
     },
     writeFile: async (path: string, content: string) => {
       files.set(path, content)
-    }
+    },
+    onEnvironmentChanged: environmentChanged
   })
 }
 
@@ -110,6 +112,7 @@ beforeEach(() => {
     logger: { warn: vi.fn(), error: vi.fn() }
   }
   calledChannels = new Set()
+  environmentChanged = vi.fn<(envId: string) => void>()
   outputs = []
 })
 
@@ -131,16 +134,6 @@ const environmentFields = {
   captureUrlPatterns: [],
   tags: [],
   readOnly: false
-}
-
-/**
- * Canales del contrato que este test no recorre, con el motivo. Añadir uno aquí
- * es una decisión: el canal no puede tocar secretos ni datos de tenants.
- */
-const EXEMPT_CHANNELS: Record<string, string> = {
-  'app:getInfo': 'Fase 1: nombre, versión y plataforma del runtime; sin datos de tenants',
-  'app:ping': 'Fase 1: canal de ejemplo que devuelve el texto recibido',
-  'ui:setTheme': 'Fase 2: aplica el tema a nativeTheme; solo recibe light/dark/system'
 }
 
 describe('aceptación de la Fase 3: ningún canal devuelve secretos', () => {
@@ -313,31 +306,91 @@ describe('aceptación de la Fase 3: ningún canal devuelve secretos', () => {
     }
     expect(loggedText(deps)).not.toContain(SECRET)
 
-    // Cada canal del contrato está cubierto aquí (lo implementa createTenantHandlers y
-    // se ha llamado) o está exento con su motivo. Un canal nuevo sin decidir hace fallar esto.
-    const contract = Object.keys(ipcContract)
-    const covered = Object.keys(handlers)
-    const exempt = Object.keys(EXEMPT_CHANNELS)
+    // Todos los canales de createTenantHandlers se han llamado. La cobertura del
+    // contrato completo (cubiertos + exentos) está en src/main/ipc/channel-coverage.test.ts.
     expect(
-      contract.filter((channel) => !covered.includes(channel) && !exempt.includes(channel)),
-      'canales sin cubrir ni eximir'
+      Object.keys(handlers).filter((channel) => !calledChannels.has(channel)),
+      'canales sin llamar'
     ).toEqual([])
-    expect(
-      covered.filter((channel) => !contract.includes(channel)),
-      'handlers fuera del contrato'
-    ).toEqual([])
-    expect(
-      exempt.filter((channel) => !contract.includes(channel)),
-      'exentos que ya no existen'
-    ).toEqual([])
-    expect(
-      covered.filter((channel) => exempt.includes(channel)),
-      'cubiertos y exentos a la vez'
-    ).toEqual([])
-    expect(
-      covered.filter((channel) => !calledChannels.has(channel)),
-      'cubiertos sin llamar'
-    ).toEqual([])
+  })
+})
+
+describe('onEnvironmentChanged', () => {
+  it('se avisa al cambiar un entorno o sus secretos, con su id', async () => {
+    const handlers = buildHandlers(true)
+    const client = await call(handlers, 'clients:create', { name: 'Cliente A', color: '#111111' })
+    const clientId = (client.data as { id: string }).id
+    const env = await call(handlers, 'environments:create', { clientId, ...environmentFields })
+    const environmentId = (env.data as { id: string }).id
+    environmentChanged.mockClear()
+
+    await call(handlers, 'environments:update', {
+      id: environmentId,
+      clientId,
+      ...environmentFields,
+      tags: ['x']
+    })
+    expect(environmentChanged).toHaveBeenLastCalledWith(environmentId)
+
+    await call(handlers, 'secrets:set', { environmentId, kind: 'classicToken', value: SECRET })
+    expect(environmentChanged).toHaveBeenLastCalledWith(environmentId)
+
+    await call(handlers, 'secrets:delete', { environmentId, kind: 'classicToken' })
+    expect(environmentChanged).toHaveBeenLastCalledWith(environmentId)
+
+    await call(handlers, 'environments:delete', { id: environmentId })
+    expect(environmentChanged).toHaveBeenLastCalledWith(environmentId)
+    expect(environmentChanged).toHaveBeenCalledTimes(4)
+  })
+
+  it('borrar un cliente avisa por cada uno de sus entornos, y solo por los suyos', async () => {
+    const handlers = buildHandlers(true)
+    const a = await call(handlers, 'clients:create', { name: 'Cliente A', color: '#111111' })
+    const b = await call(handlers, 'clients:create', { name: 'Cliente B', color: '#222222' })
+    const clientA = (a.data as { id: string }).id
+    const clientB = (b.data as { id: string }).id
+    const ids: string[] = []
+    for (const name of ['Producción', 'Desarrollo']) {
+      const env = await call(handlers, 'environments:create', {
+        clientId: clientA,
+        ...environmentFields,
+        name
+      })
+      ids.push((env.data as { id: string }).id)
+    }
+    const other = await call(handlers, 'environments:create', {
+      clientId: clientB,
+      ...environmentFields
+    })
+    const otherId = (other.data as { id: string }).id
+    environmentChanged.mockClear()
+
+    await call(handlers, 'clients:delete', { id: clientA })
+
+    expect(environmentChanged.mock.calls.map((c) => c[0]).sort()).toEqual([...ids].sort())
+    expect(environmentChanged).not.toHaveBeenCalledWith(otherId)
+  })
+
+  it('borrar un cliente sin entornos no avisa', async () => {
+    const handlers = buildHandlers(true)
+    const a = await call(handlers, 'clients:create', { name: 'Cliente A', color: '#111111' })
+    environmentChanged.mockClear()
+    await call(handlers, 'clients:delete', { id: (a.data as { id: string }).id })
+    expect(environmentChanged).not.toHaveBeenCalled()
+  })
+
+  it('no se avisa si la operación falla', async () => {
+    const handlers = buildHandlers(false)
+    const client = await call(handlers, 'clients:create', { name: 'Cliente A', color: '#111111' })
+    const clientId = (client.data as { id: string }).id
+    const env = await call(handlers, 'environments:create', { clientId, ...environmentFields })
+    const environmentId = (env.data as { id: string }).id
+    environmentChanged.mockClear()
+
+    // Sin cifrado, secrets:set falla y no hay nada que invalidar.
+    await call(handlers, 'secrets:set', { environmentId, kind: 'classicToken', value: SECRET })
+    await call(handlers, 'environments:delete', { id: '00000000-0000-4000-8000-000000000000' })
+    expect(environmentChanged).not.toHaveBeenCalled()
   })
 })
 

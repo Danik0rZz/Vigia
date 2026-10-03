@@ -7,6 +7,11 @@ import {
   importSummarySchema,
   secretKinds
 } from './tenants'
+import {
+  certificatePinSchema,
+  connectionReportSchema,
+  untrustedCertificateSchema
+} from './dynatrace'
 
 /** Preferencia de tema: "system" sigue al tema de Windows. */
 export const themePreferences = ['light', 'dark', 'system'] as const
@@ -112,6 +117,39 @@ export const ipcContract = {
     input: z.void(),
     output: z.object({ status: z.enum(['saved', 'cancelled']) })
   },
+  /**
+   * "Probar conexión" por mecanismo, con los scopes que faltan y los
+   * certificados no aceptados. Nunca devuelve tokens, tampoco el de OAuth.
+   */
+  'connection:test': {
+    input: z.object({ environmentId: z.uuid() }),
+    output: connectionReportSchema.extend({
+      untrustedCertificates: z.array(untrustedCertificateSchema)
+    })
+  },
+  /** Último resultado de "Probar conexión" (en memoria); null si no hay o ha cambiado algo. */
+  'connection:status': {
+    input: z.object({ environmentId: z.uuid() }),
+    output: connectionReportSchema.nullable()
+  },
+  'certificates:list': {
+    input: z.object({ environmentId: z.uuid() }),
+    output: z.array(certificatePinSchema)
+  },
+  /** Fija la huella de un host; solo por aceptación explícita del usuario. */
+  'certificates:pin': {
+    input: z.object({
+      environmentId: z.uuid(),
+      host: z.string().min(1).max(300),
+      fingerprint: z.string().regex(/^sha256\/[A-Za-z0-9+/]+=*$/)
+    }),
+    output: z.object({ ok: z.literal(true) })
+  },
+  'certificates:unpin': {
+    input: z.object({ environmentId: z.uuid(), host: z.string().min(1).max(300) }),
+    output: z.object({ ok: z.literal(true) })
+  },
+
   'config:import': {
     input: z.void(),
     output: z.discriminatedUnion('status', [

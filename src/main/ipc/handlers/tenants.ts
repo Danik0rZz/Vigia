@@ -38,6 +38,11 @@ export interface TenantHandlerDeps {
   readFile(path: string): Promise<string>
   writeFile(path: string, content: string): Promise<void>
   now?: () => Date
+  /**
+   * Ha cambiado un entorno (datos, secretos o borrado): main renueva su token
+   * OAuth, su estado de conexión y su sesión de red.
+   */
+  onEnvironmentChanged?: (envId: string) => void
 }
 
 /** Canales de clientes, entornos, secretos y configuración. El renderer no toca el disco. */
@@ -46,6 +51,7 @@ export function createTenantHandlers(
 ): Pick<IpcImplementations, TenantChannels> {
   const { repo, secrets } = deps
   const now = deps.now ?? (() => new Date())
+  const changed = (envId: string): void => deps.onEnvironmentChanged?.(envId)
 
   const view = (id: string): EnvironmentView => ({
     ...repo.getEnvironment(id),
@@ -92,13 +98,21 @@ export function createTenantHandlers(
     'clients:create': (input) => repo.createClient(input),
     'clients:update': ({ id, ...input }) => repo.updateClient(id, input),
     'clients:delete': ({ id }) => {
+      // Los entornos se borran en cascada: se avisa de cada uno.
+      const removed = repo.listEnvironments().filter((env) => env.clientId === id)
       repo.deleteClient(id)
+      for (const env of removed) changed(env.id)
       return { ok: true }
     },
     'environments:create': (input) => view(repo.createEnvironment(input).id),
-    'environments:update': ({ id, ...input }) => view(repo.updateEnvironment(id, input).id),
+    'environments:update': ({ id, ...input }) => {
+      repo.updateEnvironment(id, input)
+      changed(id)
+      return view(id)
+    },
     'environments:delete': ({ id }) => {
       repo.deleteEnvironment(id)
+      changed(id)
       return { ok: true }
     },
     'environments:getActive': () => ({ environmentId: repo.getActiveEnvironmentId() }),
@@ -108,10 +122,12 @@ export function createTenantHandlers(
     },
     'secrets:set': ({ environmentId, kind, value }) => {
       secrets.set(environmentId, kind, value)
+      changed(environmentId)
       return { configured: true }
     },
     'secrets:delete': ({ environmentId, kind }) => {
       secrets.delete(environmentId, kind)
+      changed(environmentId)
       return { configured: false }
     },
     'secrets:availability': () => ({ available: secrets.isAvailable() }),
