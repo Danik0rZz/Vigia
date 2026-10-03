@@ -139,8 +139,11 @@ export function ConnectionPanel({ environment }: { environment: EnvironmentView 
   const queryClient = useQueryClient()
   const test = useMutation({
     mutationFn: () => invoke('connection:test', { environmentId: environment.id }),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.connectionStatus(environment.id) })
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connectionStatus(environment.id) })
+      // Una credencial ilegible queda marcada en main: el estado de los secretos cambia.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
+    }
   })
   const hasCredentials = Object.values(environment.secrets).some(Boolean)
   const report = test.data

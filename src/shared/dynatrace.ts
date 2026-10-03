@@ -30,6 +30,8 @@ export type MechanismId = (typeof mechanismIds)[number]
 
 export const dtErrorCodes = [
   'NO_CREDENTIAL',
+  /** La credencial existe pero no se puede descifrar (otro equipo o usuario de Windows). */
+  'SECRET_UNREADABLE',
   'UNAUTHORIZED',
   'FORBIDDEN',
   'NOT_FOUND',

@@ -137,7 +137,9 @@ export const environmentViewSchema = environmentSchema.extend({
     classicToken: z.boolean(),
     oauthClientSecret: z.boolean(),
     platformToken: z.boolean()
-  })
+  }),
+  /** Secretos guardados que no se pudieron descifrar: hay que volver a introducirlos. */
+  unreadableSecrets: z.array(z.enum(secretKinds))
 })
 export type EnvironmentView = z.output<typeof environmentViewSchema>
 

@@ -27,6 +27,12 @@ function SecretRow({
   const save = useTenantMutation('secrets:set')
   const remove = useTenantMutation('secrets:delete')
   const configured = environment.secrets[kind]
+  // Guardada pero ilegible (otro equipo o usuario de Windows): hay que volver a introducirla.
+  const state = !configured
+    ? 'missing'
+    : environment.unreadableSecrets.includes(kind)
+      ? 'unreadable'
+      : 'configured'
   const inputId = `secret-${environment.id}-${kind}`
   const canSave = available && value.trim() !== '' && !save.isPending
 
@@ -61,8 +67,18 @@ function SecretRow({
         <label htmlFor={inputId} className="text-sm font-medium">
           {t(`secrets.kinds.${kind}`)}
         </label>
-        <span data-testid={`secret-status-${kind}`} className="text-xs text-muted-foreground">
-          {configured ? t('secrets.configured') : t('secrets.notConfigured')}
+        <span
+          data-testid={`secret-status-${kind}`}
+          data-state={state}
+          className={
+            state === 'unreadable' ? 'text-xs text-danger' : 'text-xs text-muted-foreground'
+          }
+        >
+          {state === 'unreadable'
+            ? t('secrets.unreadable')
+            : state === 'configured'
+              ? t('secrets.configured')
+              : t('secrets.notConfigured')}
         </span>
       </div>
       <div className="flex gap-2">

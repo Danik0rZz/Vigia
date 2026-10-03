@@ -1,5 +1,6 @@
 /** Errores de dominio que el renderer recibe con su código (ver `ipcErrorCodes`). */
-export type DomainErrorCode = 'CONFLICT' | 'NOT_FOUND' | 'INVALID_INPUT' | 'ENCRYPTION_UNAVAILABLE'
+export type DomainErrorCode =
+  'CONFLICT' | 'NOT_FOUND' | 'INVALID_INPUT' | 'ENCRYPTION_UNAVAILABLE' | 'SECRET_UNREADABLE'
 
 /**
  * Error esperado de una operación (nombre repetido, id inexistente…). Su mensaje

@@ -141,6 +141,7 @@
     },
     "configured": "Configurado",
     "notConfigured": "Sin configurar",
+    "unreadable": "Hay que volver a introducirla",
     "placeholder": "Valor nuevo",
     "save": "Guardar",
     "delete": "Borrar",
@@ -206,6 +207,7 @@
   },
   "dtErrors": {
     "NO_CREDENTIAL": "Falta la credencial o la URL.",
+    "SECRET_UNREADABLE": "No se puede leer la credencial (se guardó en otro equipo o usuario de Windows): vuelve a introducirla.",
     "UNAUTHORIZED": "Credencial no válida o caducada.",
     "FORBIDDEN": "Permisos insuficientes (scope).",
     "NOT_FOUND": "No encontrado: revisa la URL.",

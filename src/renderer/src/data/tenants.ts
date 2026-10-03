@@ -1,4 +1,5 @@
 import {
+  QueryCache,
   QueryClient,
   useMutation,
   useQuery,
@@ -9,15 +10,24 @@ import type { ConnectionReport } from '@shared/dynatrace'
 import type { IpcArgs, IpcChannel, IpcOutput } from '@shared/ipc'
 import type { Client, EnvironmentView } from '@shared/tenants'
 import { useTranslation } from 'react-i18next'
-import { invoke } from '../lib/ipc'
+import { invoke, IpcError } from '../lib/ipc'
 import { compareEnvironments, environmentLabel } from './environment-label'
 
 /**
  * Datos de main vía IPC con TanStack Query. Las claves de clientes y entornos
  * son globales; las de datos de un entorno (Fase 4 en adelante) incluyen su `envId`.
  */
-export const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } }
+export const queryClient: QueryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  // Una credencial que no se puede descifrar queda marcada en main: se vuelve a
+  // pedir la lista de entornos para que Ajustes diga "Hay que volver a introducirla".
+  queryCache: new QueryCache({
+    onError: (error) => {
+      if (error instanceof IpcError && error.code === 'SECRET_UNREADABLE') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.tenants })
+      }
+    }
+  })
 })
 
 export const queryKeys = {

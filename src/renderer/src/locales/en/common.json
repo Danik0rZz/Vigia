@@ -141,6 +141,7 @@
     },
     "configured": "Configured",
     "notConfigured": "Not configured",
+    "unreadable": "Must be entered again",
     "placeholder": "New value",
     "save": "Save",
     "delete": "Delete",
@@ -206,6 +207,7 @@
   },
   "dtErrors": {
     "NO_CREDENTIAL": "The credential or the URL is missing.",
+    "SECRET_UNREADABLE": "The credential cannot be read (it was saved on another computer or Windows user): enter it again.",
     "UNAUTHORIZED": "Invalid or expired credential.",
     "FORBIDDEN": "Insufficient permissions (scope).",
     "NOT_FOUND": "Not found: check the URL.",

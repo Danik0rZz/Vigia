@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { openDatabase, type AppDatabase } from '../db/database'
 import { DomainError } from '../errors'
 import { createTenantRepository } from '../tenants/repository'
@@ -210,5 +210,77 @@ describe('createSecretStore', () => {
     expect(await store.status(otherId)).toEqual(NONE)
     expect(await store.status(keepId)).toEqual({ ...NONE, classicToken: true })
     expect(secretRows()).toHaveLength(1)
+  })
+})
+
+describe('AUD-05: secretos que no se pueden descifrar', () => {
+  /** Cifrado que guarda bien pero no sabe descifrar (otro equipo u otro usuario de Windows). */
+  function brokenCrypto(): Parameters<typeof createSecretStore>[1] & {
+    decryptString: ReturnType<typeof vi.fn>
+  } {
+    return {
+      ...fakeCrypto(),
+      decryptString: vi.fn(() => {
+        throw new Error(`DPAPI: clave de otro usuario; datos ${SECRET}`)
+      })
+    }
+  }
+
+  it('read lanza SECRET_UNREADABLE sin el error original y lo marca', async () => {
+    const envId = await createEnvironment()
+    const store = createSecretStore(db, brokenCrypto())
+    await store.set(envId, 'classicToken', SECRET)
+
+    const error = await expectDomainError(
+      () => store.read(envId, 'classicToken'),
+      'SECRET_UNREADABLE'
+    )
+    expect(error.message).not.toContain(SECRET)
+    expect(error.message).not.toContain('DPAPI')
+    expect(JSON.stringify({ ...error, message: error.message })).not.toContain(SECRET)
+    expect(await store.unreadable(envId)).toEqual(['classicToken'])
+  })
+
+  it('unreadable() sigue el orden de secretKinds y es por entorno', async () => {
+    const envId = await createEnvironment('Cliente A', 'Producción')
+    const otherId = await createEnvironment('Cliente A', 'Desarrollo')
+    const store = createSecretStore(db, brokenCrypto())
+    for (const kind of ['platformToken', 'classicToken'] as const) {
+      await store.set(envId, kind, SECRET)
+      await expectDomainError(() => store.read(envId, kind), 'SECRET_UNREADABLE')
+    }
+    expect(await store.unreadable(envId)).toEqual(['classicToken', 'platformToken'])
+    expect(await store.unreadable(otherId)).toEqual([])
+  })
+
+  it('set y delete del mismo secreto borran la marca', async () => {
+    const envId = await createEnvironment()
+    const store = createSecretStore(db, brokenCrypto())
+    await store.set(envId, 'classicToken', SECRET)
+    await store.set(envId, 'platformToken', SECRET)
+    await expectDomainError(() => store.read(envId, 'classicToken'), 'SECRET_UNREADABLE')
+    await expectDomainError(() => store.read(envId, 'platformToken'), 'SECRET_UNREADABLE')
+
+    await store.set(envId, 'classicToken', 'dt0c01.NUEVO')
+    expect(await store.unreadable(envId)).toEqual(['platformToken'])
+    await store.delete(envId, 'platformToken')
+    expect(await store.unreadable(envId)).toEqual([])
+  })
+
+  it('status no descifra nunca y sigue devolviendo booleanos', async () => {
+    const envId = await createEnvironment()
+    const crypto = brokenCrypto()
+    const store = createSecretStore(db, crypto)
+    await store.set(envId, 'classicToken', SECRET)
+    expect(await store.status(envId)).toEqual({ ...NONE, classicToken: true })
+    expect(crypto.decryptString).not.toHaveBeenCalled()
+  })
+
+  it('un read que funciona no marca nada', async () => {
+    const envId = await createEnvironment()
+    const store = createSecretStore(db, fakeCrypto())
+    await store.set(envId, 'classicToken', SECRET)
+    expect(await store.read(envId, 'classicToken')).toBe(SECRET)
+    expect(await store.unreadable(envId)).toEqual([])
   })
 })

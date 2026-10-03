@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { dtErrorCodes } from '@shared/dynatrace'
 import glossaryMarkdown from '../../../../docs/glosario.md?raw'
 
 /**
@@ -138,20 +139,8 @@ describe('locales es y en', () => {
   })
 
   it('hay un texto de error para cada código del cliente de Dynatrace (common)', () => {
-    // Copia de DtErrorCode (src/main/dynatrace/errors.ts); el renderer no puede importar main.
-    const codes = [
-      'NO_CREDENTIAL',
-      'UNAUTHORIZED',
-      'FORBIDDEN',
-      'NOT_FOUND',
-      'RATE_LIMITED',
-      'TIMEOUT',
-      'NETWORK',
-      'TLS_UNTRUSTED',
-      'TLS_PIN_MISMATCH',
-      'INVALID_RESPONSE',
-      'SERVER_ERROR'
-    ]
+    // La lista vive en shared (el renderer no puede importar main).
+    const codes = dtErrorCodes
     const dtErrorKeys = Object.keys(es['common'] ?? {})
       .filter((key) => key.startsWith('dtErrors.'))
       .map((key) => key.slice('dtErrors.'.length))

@@ -451,3 +451,31 @@ describe('testConnection con el cliente real: nada del token en el log', () => {
     expect(JSON.stringify(reports)).not.toContain('SECRETOCLASICO')
   })
 })
+
+describe('AUD-05: credencial ilegible', () => {
+  it('si leer el token clásico da SECRET_UNREADABLE, el mecanismo queda disconnected con ese código', async () => {
+    const { DomainError } = await import('../errors')
+    secrets = { classicToken: CLASSIC_TOKEN, platformToken: PLATFORM_TOKEN }
+    const report = await testConnection(ENV, {
+      client: { dtRequest, paginate: vi.fn() },
+      oauth,
+      getEnvironment: () => environment,
+      secretsStatus: () => ({ classicToken: true, oauthClientSecret: false, platformToken: true }),
+      readSecret: (_envId: string, kind: string) => {
+        if (kind === 'classicToken') {
+          throw new DomainError('SECRET_UNREADABLE' as never, 'No se puede leer la credencial')
+        }
+        return PLATFORM_TOKEN
+      }
+    } as unknown as Parameters<typeof testConnection>[1])
+
+    const classic = report.mechanisms.find((m) => m.id === 'classic')
+    expect(classic).toMatchObject({
+      state: 'disconnected',
+      error: { code: 'SECRET_UNREADABLE' },
+      tokenInfo: null
+    })
+    // Un fallo de lectura no impide probar los demás.
+    expect(report.mechanisms.find((m) => m.id === 'platform')).toMatchObject({ state: 'connected' })
+  })
+})

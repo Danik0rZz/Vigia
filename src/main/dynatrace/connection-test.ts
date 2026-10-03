@@ -9,6 +9,7 @@ import {
   type TokenInfo
 } from '@shared/dynatrace'
 import type { Environment, SecretKind } from '@shared/tenants'
+import { DomainError } from '../errors'
 import type { DtClient } from './client'
 import { DtError } from './errors'
 import type { OAuthTokenManager } from './oauth'
@@ -53,7 +54,9 @@ function failed(
   const dtError =
     error instanceof DtError
       ? error
-      : new DtError('NETWORK', 'Error inesperado al probar la conexión.')
+      : error instanceof DomainError && error.code === 'SECRET_UNREADABLE'
+        ? new DtError('SECRET_UNREADABLE', error.message)
+        : new DtError('NETWORK', 'Error inesperado al probar la conexión.')
   return {
     id,
     state: 'disconnected',

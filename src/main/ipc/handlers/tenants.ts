@@ -55,7 +55,8 @@ export function createTenantHandlers(
 
   const view = (id: string): EnvironmentView => ({
     ...repo.getEnvironment(id),
-    secrets: secrets.status(id)
+    secrets: secrets.status(id),
+    unreadableSecrets: secrets.unreadable(id)
   })
 
   const exportConfig: IpcImplementation<'config:export'> = async () => {
@@ -92,7 +93,8 @@ export function createTenantHandlers(
       clients: repo.listClients(),
       environments: repo.listEnvironments().map((env) => ({
         ...env,
-        secrets: secrets.status(env.id)
+        secrets: secrets.status(env.id),
+        unreadableSecrets: secrets.unreadable(env.id)
       }))
     }),
     'clients:create': (input) => repo.createClient(input),

@@ -20,8 +20,15 @@ export interface SecretStore {
   set(environmentId: string, kind: SecretKind, value: string): void
   /** Idempotente: borrar lo que no existe no es un error. */
   delete(environmentId: string, kind: SecretKind): void
+  /** Qué secretos existen. No descifra nada. */
   status(environmentId: string): Record<SecretKind, boolean>
-  /** Solo para main (cliente de Dynatrace). Nunca se expone por IPC. */
+  /** Secretos que existen pero no se pudieron descifrar en un `read`. */
+  unreadable(environmentId: string): SecretKind[]
+  /**
+   * Solo para main (cliente de Dynatrace). Nunca se expone por IPC. Si no se
+   * puede descifrar, lanza SECRET_UNREADABLE y lo marca hasta que se vuelva a
+   * guardar o se borre.
+   */
   read(environmentId: string, kind: SecretKind): string | null
 }
 
@@ -42,6 +49,10 @@ export function createSecretStore(db: AppDatabase, crypto: SecretCrypto): Secret
 
   const where = (environmentId: string, kind: SecretKind): SQL | undefined =>
     and(eq(secrets.environmentId, environmentId), eq(secrets.kind, kind))
+
+  // Marca en memoria: al reiniciar se pierde y el siguiente read la vuelve a poner.
+  const unreadableKeys = new Set<string>()
+  const markKey = (environmentId: string, kind: SecretKind): string => `${environmentId}:${kind}`
 
   return {
     isAvailable(): boolean {
@@ -65,10 +76,12 @@ export function createSecretStore(db: AppDatabase, crypto: SecretCrypto): Secret
         .values({ environmentId, kind, ciphertext })
         .onConflictDoUpdate({ target: [secrets.environmentId, secrets.kind], set: { ciphertext } })
         .run()
+      unreadableKeys.delete(markKey(environmentId, kind))
     },
 
     delete(environmentId: string, kind: SecretKind): void {
       db.delete(secrets).where(where(environmentId, kind)).run()
+      unreadableKeys.delete(markKey(environmentId, kind))
     },
 
     status(environmentId: string): Record<SecretKind, boolean> {
@@ -86,9 +99,24 @@ export function createSecretStore(db: AppDatabase, crypto: SecretCrypto): Secret
       >
     },
 
+    unreadable(environmentId: string): SecretKind[] {
+      return secretKinds.filter((kind) => unreadableKeys.has(markKey(environmentId, kind)))
+    },
+
     read(environmentId: string, kind: SecretKind): string | null {
       const row = db.select().from(secrets).where(where(environmentId, kind)).get()
-      return row === undefined ? null : crypto.decryptString(row.ciphertext)
+      if (row === undefined) return null
+      try {
+        return crypto.decryptString(row.ciphertext)
+      } catch {
+        // Cifrado con la clave de otro equipo o de otro usuario de Windows. El
+        // error original no se propaga: podría describir el contenido.
+        unreadableKeys.add(markKey(environmentId, kind))
+        throw new DomainError(
+          'SECRET_UNREADABLE',
+          'No se puede leer la credencial: se guardó en otro equipo o con otro usuario de Windows. Vuelve a introducirla.'
+        )
+      }
     }
   }
 }
