@@ -2,6 +2,8 @@ import { app, BrowserWindow, dialog, Menu, nativeTheme } from 'electron'
 import { APP_NAME, APP_ORIGIN, APP_USER_MODEL_ID } from '@shared/app'
 import { createAppHandlers } from './ipc/handlers/app'
 import { createConnectionHandlers } from './ipc/handlers/connection'
+import { createExportHandlers } from './ipc/handlers/export'
+import { createModuleHandlers } from './ipc/handlers/modules'
 import { createTenantHandlers } from './ipc/handlers/tenants'
 import { createUiHandlers } from './ipc/handlers/ui'
 import { openLocalData, storedTheme, storeTheme, type LocalData } from './local-data'
@@ -99,7 +101,9 @@ function bootstrap(): void {
           }
         }),
         ...createTenantHandlers(data.tenantDeps),
-        ...createConnectionHandlers(data.connectionDeps)
+        ...createConnectionHandlers(data.connectionDeps),
+        ...createModuleHandlers(data.moduleDeps),
+        ...createExportHandlers(data.exportDeps)
       },
       {
         isTrustedSender: (sender) =>

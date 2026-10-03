@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { DtError } from '../dynatrace/errors'
 import { createIpcHandler, type IpcHandlerDeps, type IpcSender } from './handler'
 import { createAppHandlers } from './handlers/app'
 
@@ -112,5 +113,57 @@ describe('comprobaciones comunes de createIpcHandler', () => {
     const result = await handler(trusted, { message: 'hola' })
 
     expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_OUTPUT' } })
+  })
+})
+
+describe('errores de Dynatrace hacia el renderer', () => {
+  const TOKEN = `dt0c01.PUBLICAPRUEBA0000000000A.${'SECRETODTERROR'.padEnd(64, 'X')}`
+
+  it.each(['FORBIDDEN', 'UNAUTHORIZED', 'NO_CREDENTIAL', 'RATE_LIMITED', 'TLS_UNTRUSTED'] as const)(
+    'un DtError %s llega con su código y el mensaje enmascarado',
+    async (code) => {
+      const deps = makeDeps()
+      const handler = createIpcHandler(
+        'app:ping',
+        () => {
+          throw new DtError(code, `Falta el scope metrics.read; Api-Token ${TOKEN}`, 403)
+        },
+        deps
+      )
+
+      const result = await handler(trusted, { message: 'hola' })
+
+      expect(result).toMatchObject({ ok: false, error: { code } })
+      const message = (result as { error: { message: string } }).error.message
+      expect(message).toContain('metrics.read')
+      expect(JSON.stringify(result)).not.toContain('SECRETODTERROR')
+    }
+  )
+
+  it('un Error normal sigue saliendo como INTERNAL sin detalle', async () => {
+    const handler = createIpcHandler(
+      'app:ping',
+      () => {
+        throw new Error('fallo con FORBIDDEN en el texto')
+      },
+      makeDeps()
+    )
+    expect(await handler(trusted, { message: 'hola' })).toEqual({
+      ok: false,
+      error: { code: 'INTERNAL', message: 'Error interno al procesar la petición.' }
+    })
+  })
+
+  it('un Error con una propiedad code que imita a un DtError no pasa como tal', async () => {
+    const handler = createIpcHandler(
+      'app:ping',
+      () => {
+        throw Object.assign(new Error(`secreto ${TOKEN}`), { code: 'FORBIDDEN' })
+      },
+      makeDeps()
+    )
+    const result = await handler(trusted, { message: 'hola' })
+    expect(result).toMatchObject({ ok: false, error: { code: 'INTERNAL' } })
+    expect(JSON.stringify(result)).not.toContain('SECRETODTERROR')
   })
 })

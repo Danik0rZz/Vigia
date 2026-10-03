@@ -8,6 +8,23 @@ import {
   secretKinds
 } from './tenants'
 import {
+  exportColumnSchema,
+  exportModules,
+  exportSettingsSchema,
+  MAX_CAPTURE_DATA_URL,
+  MAX_EXPORT_ROWS,
+  impactLevels,
+  metricInfoSchema,
+  metricResultSchema,
+  problemSummarySchema,
+  resolutionSchema,
+  savedQuerySchema,
+  severityLevels,
+  sloSummarySchema
+} from './modules'
+import { timeRangeSchema } from './time-range'
+import {
+  dtErrorCodes,
   certificatePinSchema,
   connectionReportSchema,
   untrustedCertificateSchema
@@ -150,6 +167,108 @@ export const ipcContract = {
     output: z.object({ ok: z.literal(true) })
   },
 
+  /** Problemas del entorno en el rango (API clásica, /api/v2/problems). */
+  'problems:list': {
+    input: z.object({
+      environmentId: z.uuid(),
+      timeRange: timeRangeSchema,
+      status: z.enum(['open', 'closed']).optional(),
+      severity: z.array(z.enum(severityLevels)).max(severityLevels.length).optional(),
+      impact: z.array(z.enum(impactLevels)).max(impactLevels.length).optional(),
+      text: z.string().max(30).optional()
+    }),
+    output: z.object({
+      problems: z.array(problemSummarySchema),
+      totalCount: z.number(),
+      truncated: z.boolean()
+    })
+  },
+  'problems:get': {
+    input: z.object({ environmentId: z.uuid(), problemId: z.string().min(1).max(200) }),
+    output: problemSummarySchema
+  },
+  'metrics:query': {
+    input: z.object({
+      environmentId: z.uuid(),
+      timeRange: timeRangeSchema,
+      metricSelector: z.string().trim().min(1).max(2000),
+      resolution: resolutionSchema.optional()
+    }),
+    output: metricResultSchema
+  },
+  'metrics:search': {
+    input: z.object({ environmentId: z.uuid(), text: z.string().trim().min(1).max(100) }),
+    output: z.object({ metrics: z.array(metricInfoSchema), truncated: z.boolean() })
+  },
+  'slos:list': {
+    input: z.object({ environmentId: z.uuid() }),
+    output: z.object({ slos: z.array(sloSummarySchema), truncated: z.boolean() })
+  },
+  'savedQueries:list': {
+    input: z.object({ environmentId: z.uuid() }),
+    output: z.array(savedQuerySchema)
+  },
+  'savedQueries:save': {
+    input: z.object({
+      environmentId: z.uuid(),
+      id: z.uuid().optional(),
+      name: z.string().trim().min(1).max(80),
+      metricSelector: z.string().trim().min(1).max(2000),
+      resolution: resolutionSchema.nullable().optional()
+    }),
+    output: savedQuerySchema
+  },
+  'savedQueries:delete': {
+    input: z.object({ id: z.uuid() }),
+    output: z.object({ ok: z.literal(true) })
+  },
+
+  /** Exporta una tabla; main escribe el fichero (diálogo de guardado). */
+  'export:table': {
+    input: z.object({
+      environmentId: z.uuid(),
+      module: z.enum(exportModules),
+      format: z.enum(['csv', 'xlsx', 'txt', 'txt-tabs']),
+      columns: z.array(exportColumnSchema).min(1).max(100),
+      rows: z
+        .array(z.record(z.string(), z.union([z.string(), z.number(), z.null()])))
+        .max(MAX_EXPORT_ROWS),
+      query: z.string().max(2000).optional(),
+      timeRange: timeRangeSchema.optional()
+    }),
+    output: z.object({
+      status: z.enum(['saved', 'cancelled']),
+      fileName: z.string().optional()
+    })
+  },
+  'export:getSettings': { input: z.void(), output: exportSettingsSchema },
+  'export:setSettings': { input: exportSettingsSchema.partial(), output: exportSettingsSchema },
+  /** Captura de un gráfico (PNG ya compuesto por el renderer): al portapapeles o a fichero. */
+  'capture:image': {
+    input: z.object({
+      environmentId: z.uuid().optional(),
+      module: z.enum(exportModules),
+      dataUrl: z.string().max(MAX_CAPTURE_DATA_URL),
+      action: z.enum(['clipboard', 'save'])
+    }),
+    output: z.object({ status: z.enum(['copied', 'saved', 'cancelled']) })
+  },
+  /** Captura de una zona de la ventana (webContents.capturePage), validada contra su tamaño. */
+  'capture:region': {
+    input: z.object({
+      environmentId: z.uuid().optional(),
+      module: z.enum(exportModules),
+      rect: z.object({
+        x: z.number().int().min(0),
+        y: z.number().int().min(0),
+        width: z.number().int().min(1),
+        height: z.number().int().min(1)
+      }),
+      action: z.enum(['clipboard', 'save'])
+    }),
+    output: z.object({ status: z.enum(['copied', 'saved', 'cancelled']) })
+  },
+
   'config:import': {
     input: z.void(),
     output: z.discriminatedUnion('status', [
@@ -179,7 +298,9 @@ export const ipcErrorCodes = [
   'INTERNAL',
   'CONFLICT',
   'NOT_FOUND',
-  'ENCRYPTION_UNAVAILABLE'
+  'ENCRYPTION_UNAVAILABLE',
+  // Errores de Dynatrace: la interfaz los traduce por código.
+  ...dtErrorCodes
 ] as const
 export type IpcErrorCode = (typeof ipcErrorCodes)[number]
 

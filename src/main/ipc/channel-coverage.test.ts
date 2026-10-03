@@ -3,6 +3,8 @@ import { ipcContract } from '@shared/ipc'
 import { openDatabase, type AppDatabase } from '../db/database'
 import { createTenantRepository } from '../tenants/repository'
 import { createConnectionHandlers } from './handlers/connection'
+import { createExportHandlers } from './handlers/export'
+import { createModuleHandlers } from './handlers/modules'
 import { createTenantHandlers } from './handlers/tenants'
 
 /**
@@ -13,6 +15,8 @@ import { createTenantHandlers } from './handlers/tenants'
  * Cubiertos:
  * - createTenantHandlers → src/main/ipc/handlers/tenants.test.ts
  * - createConnectionHandlers → src/main/ipc/handlers/connection.test.ts
+ * - createModuleHandlers → src/main/ipc/handlers/modules.test.ts
+ * - createExportHandlers → src/main/ipc/handlers/export.test.ts
  */
 
 /** Canales que no pasan por esas pruebas, con el motivo. Añadir uno es una decisión. */
@@ -57,6 +61,26 @@ function coveredByFactory(): Record<string, string[]> {
         repo,
         onChanged: unused
       } as unknown as Parameters<typeof createConnectionHandlers>[0])
+    ),
+    modules: Object.keys(
+      createModuleHandlers({
+        client: { dtRequest: unused, paginate: unused },
+        savedQueries: unused,
+        repo
+      } as unknown as Parameters<typeof createModuleHandlers>[0])
+    ),
+    export: Object.keys(
+      createExportHandlers({
+        repo,
+        settings: { get: unused, set: unused },
+        exportDir: null,
+        dialogs: { chooseSaveFile: unused },
+        writeFile: unused,
+        clipboard: { writeImage: unused },
+        window: { size: unused, capturePage: unused },
+        now: unused,
+        timeZone: unused
+      } as unknown as Parameters<typeof createExportHandlers>[0])
     )
   }
 }
@@ -100,6 +124,27 @@ describe('cobertura de los canales IPC', () => {
       'certificates:unpin',
       'connection:status',
       'connection:test'
+    ])
+  })
+
+  it('los canales de módulos y de exportación están en sus factorías', () => {
+    const byFactory = coveredByFactory()
+    expect([...(byFactory['modules'] ?? [])].sort()).toEqual([
+      'metrics:query',
+      'metrics:search',
+      'problems:get',
+      'problems:list',
+      'savedQueries:delete',
+      'savedQueries:list',
+      'savedQueries:save',
+      'slos:list'
+    ])
+    expect([...(byFactory['export'] ?? [])].sort()).toEqual([
+      'capture:image',
+      'capture:region',
+      'export:getSettings',
+      'export:setSettings',
+      'export:table'
     ])
   })
 })
