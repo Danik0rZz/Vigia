@@ -1,0 +1,91 @@
+import { app, BrowserWindow, Menu } from 'electron'
+import { APP_NAME, APP_ORIGIN, APP_USER_MODEL_ID } from '@shared/app'
+import { createAppHandlers } from './ipc/handlers/app'
+import { registerIpcHandlers } from './ipc/register'
+import { initLogging, log } from './logging'
+import { configureAppPaths, rendererRoot } from './paths'
+import { registerAppProtocol, registerAppScheme } from './protocol'
+import { hardenAllWebContents, hardenDefaultSession } from './security/harden'
+import { isAllowedOrigin, originOf } from './security/origins'
+import { asciiUserAgent } from './user-agent'
+import { createMainWindow, focusMainWindow } from './window'
+
+/**
+ * En desarrollo, electron-vite sirve la interfaz desde su servidor y lo indica
+ * con esta variable. En la app empaquetada se ignora siempre.
+ */
+function resolveDevServerUrl(): string | undefined {
+  if (app.isPackaged) return undefined
+  const url = process.env['ELECTRON_RENDERER_URL']
+  return url !== undefined && url !== '' ? url : undefined
+}
+
+function bootstrap(): void {
+  configureAppPaths()
+  initLogging()
+  app.userAgentFallback = asciiUserAgent(app.userAgentFallback, app.getName(), app.getVersion())
+
+  // Instancia única: una segunda ejecución enfoca la ventana ya abierta.
+  if (!app.requestSingleInstanceLock()) {
+    app.quit()
+    return
+  }
+  app.on('second-instance', () => focusMainWindow())
+
+  const devServerUrl = resolveDevServerUrl()
+  const devServerOrigin =
+    devServerUrl !== undefined ? (originOf(devServerUrl) ?? undefined) : undefined
+
+  // Único origen del que se aceptan navegación y mensajes IPC.
+  const trustedOrigins = [devServerOrigin ?? APP_ORIGIN]
+
+  registerAppScheme()
+  hardenAllWebContents(trustedOrigins)
+
+  app.on('window-all-closed', () => app.quit())
+
+  void app.whenReady().then(() => {
+    log.info(`${APP_NAME} ${app.getVersion()} arrancando`, {
+      electron: process.versions.electron,
+      packaged: app.isPackaged
+    })
+
+    app.setAppUserModelId(APP_USER_MODEL_ID)
+    // Sin menú en producción: desactiva también sus atajos (recargar, DevTools).
+    if (app.isPackaged) Menu.setApplicationMenu(null)
+
+    hardenDefaultSession(devServerOrigin)
+    registerAppProtocol(rendererRoot())
+
+    registerIpcHandlers(
+      {
+        ...createAppHandlers({
+          getInfo: () => ({
+            name: APP_NAME,
+            version: app.getVersion(),
+            packaged: app.isPackaged,
+            platform: process.platform,
+            versions: {
+              electron: process.versions.electron,
+              chrome: process.versions.chrome,
+              node: process.versions.node
+            }
+          })
+        })
+      },
+      {
+        isTrustedSender: (sender) =>
+          sender.isMainFrame && isAllowedOrigin(sender.url, trustedOrigins),
+        logger: log
+      }
+    )
+
+    createMainWindow(devServerUrl)
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow(devServerUrl)
+    })
+  })
+}
+
+bootstrap()

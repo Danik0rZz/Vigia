@@ -1,0 +1,57 @@
+{
+  "name": "vigia",
+  "version": "0.1.0",
+  "description": "Vigía: app de escritorio para trabajar con Dynatrace",
+  "main": "./out/main/index.js",
+  "author": "Dani",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint --cache .",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "electron-vite build && playwright test",
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "build": "npm run typecheck && electron-vite build",
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "dist:win": "npm run build && electron-builder --win zip",
+    "dist:win:portable": "npm run build && electron-builder --win portable"
+  },
+  "dependencies": {
+    "electron-log": "5.4.4",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-prettier": "3.0.1",
+    "@electron-toolkit/eslint-config-ts": "3.1.0",
+    "@electron-toolkit/tsconfig": "2.0.0",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "eslint": "9.39.5",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.4.26",
+    "prettier": "3.9.9",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "5.0.3",
+    "@playwright/test": "1.63.0"
+  },
+  "private": true,
+  "productName": "Vigía",
+  "engines": {
+    "node": ">=22"
+  }
+}
