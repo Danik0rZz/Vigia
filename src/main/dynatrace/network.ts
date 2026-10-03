@@ -25,7 +25,7 @@ export interface EnvironmentNetwork {
    */
   reset(envId: string): void
   /** Por qué falló el certificado de `host` (con puerto) en la última petición. */
-  tlsFailure(envId: string, host: string): 'untrusted' | 'mismatch'
+  tlsFailure(envId: string, host: string): 'untrusted' | 'mismatch' | null
   /** Antes de "Probar conexión": olvida qué hosts fallaron en la prueba anterior. */
   clearFailures(envId: string): void
   /** Certificados rechazados de los hosts que han fallado desde `clearFailures`. */
@@ -123,7 +123,7 @@ export function createEnvironmentNetwork(deps: {
         failedHosts.set(envId, hosts)
       }
       hosts.set(hostname, host)
-      return observed.get(envId)?.get(hostname)?.reason ?? 'untrusted'
+      return observed.get(envId)?.get(hostname)?.reason ?? null
     },
 
     clearFailures(envId) {

@@ -58,8 +58,11 @@ export interface DtClientDeps {
   random(): number
   logger: { warn(...args: unknown[]): void; error(...args: unknown[]): void }
   timeoutMs?: number
-  /** Por qué se rechazó el certificado de un host: huella cambiada o no confiable. */
-  tlsFailure?(envId: string, host: string): 'untrusted' | 'mismatch'
+  /**
+   * Por qué se rechazó el certificado de un host (huella cambiada o no
+   * confiable), o null si el verificador no lo ha rechazado.
+   */
+  tlsFailure?(envId: string, host: string): 'untrusted' | 'mismatch' | null
 }
 
 /** Cuerpo de error de la API v2 y de plataforma: { error: { code, message, details } }. */
@@ -174,9 +177,14 @@ export function createDtClient(deps: DtClientDeps): DtClient {
       if (controller.signal.aborted || name === 'AbortError' || name === 'TimeoutError') {
         throw new DtError('TIMEOUT', `Sin respuesta en ${Math.round(timeoutMs / 1000)} s.`)
       }
-      if (/ERR_CERT|ERR_SSL/i.test(text)) {
-        const host = new URL(url).host
-        const reason = deps.tlsFailure?.(envId, host) ?? 'untrusted'
+      // Un rechazo del verificador propio llega como net::ERR_FAILED, no como
+      // ERR_CERT: solo cuenta como fallo de certificado si el verificador lo anotó.
+      const certError = /ERR_CERT|ERR_SSL/i.test(text)
+      const host = new URL(url).host
+      const observed =
+        certError || /ERR_FAILED/.test(text) ? (deps.tlsFailure?.(envId, host) ?? null) : null
+      if (certError || observed !== null) {
+        const reason = observed ?? 'untrusted'
         throw new DtError(
           reason === 'mismatch' ? 'TLS_PIN_MISMATCH' : 'TLS_UNTRUSTED',
           reason === 'mismatch'
