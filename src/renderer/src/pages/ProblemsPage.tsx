@@ -8,11 +8,13 @@ import { useTimeRangeValue } from '../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../components/Chart'
 import { ExportMenu } from '../components/ExportMenu'
 import {
+  ApiWarnings,
   ModuleError,
   ModuleUnavailable,
   RefreshButton,
   TruncatedNotice
 } from '../components/ModuleState'
+import { dataWarnings } from '../lib/data-warnings'
 import { PageHeader } from '../components/PageHeader'
 import { ProblemDetail } from '../components/ProblemDetail'
 import { ProblemsTable } from '../components/ProblemsTable'
@@ -182,10 +184,12 @@ export function ProblemsPage(): JSX.Element {
                 rows: rows.map(toProblemExport),
                 query: text === '' ? undefined : text,
                 timeRange,
-                note: t('problems.exportNote')
+                note: t('problems.exportNote'),
+                warnings: dataWarnings(t, query.data?.invalid ?? 0, query.data?.warnings)
               }}
             />
           </div>
+          <ApiWarnings invalid={query.data?.invalid} warnings={query.data?.warnings} />
           {query.data?.truncated === true && (
             <TruncatedNotice shown={problems.length} total={query.data.totalCount} />
           )}

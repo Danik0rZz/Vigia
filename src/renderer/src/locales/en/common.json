@@ -209,6 +209,7 @@
     "NO_CREDENTIAL": "The credential or the URL is missing.",
     "SECRET_UNREADABLE": "The credential cannot be read (it was saved on another computer or Windows user): enter it again.",
     "UNAUTHORIZED": "Invalid or expired credential.",
+    "BAD_REQUEST": "The query is not valid.",
     "FORBIDDEN": "Insufficient permissions (scope).",
     "NOT_FOUND": "Not found: check the URL.",
     "RATE_LIMITED": "Dynatrace is rate limiting requests; try again later.",
@@ -230,6 +231,8 @@
     "loading": "Loading…",
     "truncated": "Showing the first {{count}}.",
     "truncatedOf": "Showing {{shown}} of {{total}}.",
+    "invalidItems_one": "{{count}} item could not be read and is not shown.",
+    "invalidItems_other": "{{count}} items could not be read and are not shown.",
     "empty": "No data in this range.",
     "noEnvironment": "No active environment: choose one in the top bar.",
     "classicToken": "This module uses the classic token: add it in Settings.",
@@ -370,7 +373,8 @@
       "range": "Range",
       "from": "From",
       "to": "To",
-      "note": "Note"
+      "note": "Note",
+      "warning": "Warning"
     }
   },
   "exportSettings": {

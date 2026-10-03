@@ -183,7 +183,11 @@ export const ipcContract = {
       problems: z.array(problemSummarySchema),
       /** Total real según la API (puede ser mayor que lo traído); null si no lo da. */
       totalCount: z.number().nullable(),
-      truncated: z.boolean()
+      truncated: z.boolean(),
+      /** Elementos descartados por no cumplir el esquema (se avisa en la vista). */
+      invalid: z.number().int().min(0),
+      /** Avisos de Dynatrace (`warnings`), sin duplicados. */
+      warnings: z.array(z.string()).max(20)
     })
   },
   /** Detalle con evidencias, impacto y comentarios recientes. */
@@ -213,7 +217,8 @@ export const ipcContract = {
     output: z.object({
       slos: z.array(sloSummarySchema),
       truncated: z.boolean(),
-      totalCount: z.number().nullable()
+      totalCount: z.number().nullable(),
+      invalid: z.number().int().min(0)
     })
   },
   'savedQueries:list': {
@@ -249,6 +254,8 @@ export const ipcContract = {
       timeRange: timeRangeSchema.optional(),
       /** Nota para la hoja Info del XLSX, en el idioma de la interfaz. */
       note: z.string().max(500).optional(),
+      /** Avisos de los datos (elementos descartados, warnings de la API) para la hoja Info. */
+      warnings: z.array(z.string().max(500)).max(20).optional(),
       /** Etiquetas del XLSX en el idioma de la interfaz (solo con format xlsx). */
       xlsxLabels: xlsxLabelsSchema.optional()
     }),

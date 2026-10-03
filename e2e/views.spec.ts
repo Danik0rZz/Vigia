@@ -174,6 +174,10 @@ const sim = {
   problemsRequests: 0,
   truncate: false,
   many: false,
+  /** AUD-08: mete un problema inválido (sin problemId) y avisos de la API. */
+  invalidOne: false,
+  warnings: [] as string[],
+  badRequest: false,
   lastDetailQuery: new URLSearchParams(),
   lastProblemsQuery: new URLSearchParams(),
   lastMetricsQuery: new URLSearchParams()
@@ -260,9 +264,16 @@ async function startServer(): Promise<void> {
             }
           })
         }
+        if (sim.badRequest) {
+          return send(400, { error: { code: 400, message: 'Selector mal formado en la prueba' } })
+        }
         const source = sim.many && token === TOKEN_A ? manyProblems : problemsFor(token)
-        const problems = applySelector(source, url.searchParams.get('problemSelector'))
+        const selected = applySelector(source, url.searchParams.get('problemSelector'))
+        const problems = sim.invalidOne
+          ? [...selected, { displayId: 'P-ROTO', title: 'Sin problemId', status: 'OPEN' }]
+          : selected
         return send(200, {
+          ...(sim.warnings.length > 0 ? { warnings: sim.warnings } : {}),
           // Al truncar, el total de la API es mayor que lo que llega (AUD-07).
           totalCount: sim.truncate ? 999 : problems.length,
           problems,
@@ -817,6 +828,45 @@ test('con el separador "," en Ajustes, el CSV usa coma', async () => {
   await goTo('settings')
   await page.getByTestId('csv-separator-semicolon').click()
   expect(await invoke('export:getSettings')).toMatchObject({ csvSeparator: ';' })
+})
+
+test('AUD-08: elementos ilegibles y avisos de la API se ven en Problemas y en Inicio', async () => {
+  await goTo('problems')
+  await expect(page.getByTestId('api-warnings')).toHaveCount(0)
+
+  sim.invalidOne = true
+  sim.warnings = ['Aviso de prueba de la API']
+  await page.getByTestId('module-refresh').click()
+  const warnings = page.getByTestId('api-warnings')
+  await expect(warnings).toBeVisible()
+  await expect(warnings).toContainText('1 elemento')
+  await expect(warnings).toContainText('Aviso de prueba de la API')
+  // El problema ilegible no sale en la tabla; los demás sí.
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+  await expect(page.getByTestId('problems-table')).not.toContainText('P-ROTO')
+
+  await goTo('home')
+  await page.getByTestId('module-refresh').click()
+  await expect(page.getByTestId('api-warnings').first()).toContainText('1 elemento')
+
+  // Se deja todo como estaba (y se refrescan las dos vistas, que guardan caché).
+  sim.invalidOne = false
+  sim.warnings = []
+  await page.getByTestId('module-refresh').click()
+  await expect(page.getByTestId('api-warnings')).toHaveCount(0)
+  await goTo('problems')
+  await page.getByTestId('module-refresh').click()
+  await expect(page.getByTestId('api-warnings')).toHaveCount(0)
+})
+
+test('BAD_REQUEST: un 400 se muestra como «La consulta no es válida» con el mensaje de la API', async () => {
+  sim.badRequest = true
+  await page.getByTestId('module-refresh').click()
+  await expect(page.getByText('La consulta no es válida').first()).toBeVisible()
+  await expect(page.getByText(/Selector mal formado en la prueba/).first()).toBeVisible()
+  sim.badRequest = false
+  await page.getByTestId('module-refresh').click()
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
 })
 
 test('captura del gráfico al portapapeles', async () => {

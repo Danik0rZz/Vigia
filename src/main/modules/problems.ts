@@ -68,7 +68,10 @@ export const problemSchema = z.looseObject({
   problemFilters: z.array(z.unknown()),
   rootCauseEntity: entityStubSchema.nullable().optional(),
   /** Clave con puntos, no un objeto anidado. */
-  'k8s.namespace.name': z.array(z.string()).optional()
+  'k8s.namespace.name': z.array(z.string()).optional(),
+  /** Llegan aunque la OpenAPI no los declara (exploración del bloque a). */
+  'k8s.cluster.name': z.array(z.string()).optional(),
+  'k8s.cluster.uid': z.array(z.string()).optional()
 })
 export type Problem = z.output<typeof problemSchema>
 

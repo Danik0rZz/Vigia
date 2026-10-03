@@ -203,6 +203,60 @@ describe('export:table con VIGIA_EXPORT_DIR', () => {
     expect(info).toMatchObject({ Client: 'Cliente A', Environment: 'Producción', Range: 'now-24h' })
   })
 
+  it('AUD-08: los warnings van a la hoja Info, una fila por aviso, con la etiqueta Aviso', async () => {
+    await call(
+      build(dir),
+      'export:table',
+      table('xlsx', {
+        warnings: ['1 elemento no se pudo leer y no se muestra.', 'Aviso de la API']
+      })
+    )
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load([...written.values()][0] as unknown as ArrayBuffer)
+    const rows: [string, string][] = []
+    workbook.getWorksheet('Info')?.eachRow((row) => {
+      rows.push([String(row.getCell(1).value), String(row.getCell(2).value)])
+    })
+    const warnings = rows.filter(([label]) => label === 'Aviso').map(([, value]) => value)
+    expect(warnings).toEqual(['1 elemento no se pudo leer y no se muestra.', 'Aviso de la API'])
+  })
+
+  it('AUD-08: con xlsxLabels.warning usa esa etiqueta', async () => {
+    const xlsxLabels = {
+      dataSheet: 'Data',
+      infoSheet: 'Info',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To',
+      warning: 'Warning'
+    }
+    await call(build(dir), 'export:table', table('xlsx', { xlsxLabels, warnings: ['W'] }))
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load([...written.values()][0] as unknown as ArrayBuffer)
+    let found = false
+    workbook.getWorksheet('Info')?.eachRow((row) => {
+      if (row.getCell(1).value === 'Warning' && row.getCell(2).value === 'W') found = true
+    })
+    expect(found).toBe(true)
+  })
+
+  it.each([
+    ['más de 20 avisos', Array.from({ length: 21 }, (_, i) => `A${i}`)],
+    ['un aviso de más de 500 caracteres', ['x'.repeat(501)]]
+  ])('AUD-08: rechaza %s', async (_case, warnings) => {
+    expect(await call(build(dir), 'export:table', table('xlsx', { warnings }))).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' }
+    })
+    expect(written.size).toBe(0)
+  })
+
   it.each([
     ['vacía', ''],
     ['de más de 60 caracteres', 'x'.repeat(61)]

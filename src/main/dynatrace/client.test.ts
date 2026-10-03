@@ -622,6 +622,44 @@ describe('validación de la respuesta', () => {
   })
 })
 
+describe('AUD-08 y BAD_REQUEST', () => {
+  it('un 400 da BAD_REQUEST con el mensaje de la API enmascarado (no INVALID_RESPONSE)', async () => {
+    responses.push(
+      dtError(400, `Constraints violated: problemSelector mal formado; Api-Token ${CLASSIC_TOKEN}`)
+    )
+    const error = await expectDtError(
+      client().dtRequest({ envId: ENV, api: 'classic', path: '/problems', schema: anyObject }),
+      'BAD_REQUEST'
+    )
+    expect(error.status).toBe(400)
+    expect(error.message).toContain('problemSelector mal formado')
+    expect(error.message).not.toContain('SECRETOCLASICO')
+    expect(fetchSpy).toHaveBeenCalledOnce()
+  })
+
+  it('INVALID_RESPONSE registra con logger.error las rutas de Zod, sin valores', async () => {
+    const SENSITIVE = 'valor-secreto-del-tenant'
+    responses.push(json(200, { totalCount: SENSITIVE, problems: [{ title: SENSITIVE }] }))
+    await expectDtError(
+      client().dtRequest({
+        envId: ENV,
+        api: 'classic',
+        path: '/problems',
+        schema: z.object({
+          totalCount: z.number(),
+          problems: z.array(z.object({ id: z.string() }))
+        })
+      }),
+      'INVALID_RESPONSE'
+    )
+    expect(logger.error).toHaveBeenCalled()
+    const logged = logger.error.mock.calls.map((call) => JSON.stringify(call)).join('\n')
+    expect(logged).toContain('totalCount')
+    expect(logged).not.toContain(SENSITIVE)
+    expect(logged).not.toMatch(/received/i)
+  })
+})
+
 describe('nada secreto en el log', () => {
   it('un lookup que recibe 429, 401 y 500 con el token en el cuerpo no lo registra', async () => {
     const tokenBody = {
@@ -689,7 +727,9 @@ describe('paginate', () => {
     expect(page).toEqual({
       items: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }],
       truncated: false,
-      totalCount: null
+      totalCount: null,
+      invalid: 0,
+      warnings: []
     })
     expect(fetchSpy).toHaveBeenCalledTimes(3)
     expect(logger.warn).not.toHaveBeenCalled()
@@ -800,7 +840,13 @@ describe('paginate', () => {
       endpoint: X,
       schema: item
     })
-    expect(page).toEqual({ items: [{ id: 'a' }], truncated: false, totalCount: null })
+    expect(page).toEqual({
+      items: [{ id: 'a' }],
+      truncated: false,
+      totalCount: null,
+      invalid: 0,
+      warnings: []
+    })
     expect(fetchSpy).toHaveBeenCalledOnce()
     expect(logger.warn).not.toHaveBeenCalled()
   })
@@ -819,7 +865,13 @@ describe('paginate', () => {
       maxPages: 2,
       schema: item
     })
-    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: true, totalCount: null })
+    expect(page).toEqual({
+      items: [{ id: 'a' }, { id: 'b' }],
+      truncated: true,
+      totalCount: null,
+      invalid: 0,
+      warnings: []
+    })
     expect(fetchSpy).toHaveBeenCalledTimes(2)
 
     expect(logger.warn).toHaveBeenCalledOnce()
@@ -844,7 +896,13 @@ describe('paginate', () => {
       maxPages: 2,
       schema: item
     })
-    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: false, totalCount: null })
+    expect(page).toEqual({
+      items: [{ id: 'a' }, { id: 'b' }],
+      truncated: false,
+      totalCount: null,
+      invalid: 0,
+      warnings: []
+    })
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
@@ -854,7 +912,13 @@ describe('paginate', () => {
       json(200, { items: [{ id: 'b' }], nextPageKey: null, totalCount: 99 })
     )
     const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
-    expect(page).toEqual({ items: [{ id: 'a' }, { id: 'b' }], truncated: false, totalCount: 7 })
+    expect(page).toEqual({
+      items: [{ id: 'a' }, { id: 'b' }],
+      truncated: false,
+      totalCount: 7,
+      invalid: 0,
+      warnings: []
+    })
   })
 
   it.each([
@@ -876,15 +940,53 @@ describe('paginate', () => {
     expect(page.totalCount).toBeNull()
   })
 
-  it('un item que no cumple el esquema da INVALID_RESPONSE', async () => {
-    responses.push(json(200, { items: [{ id: 1 }] }))
+  it('AUD-08: un elemento inválido se descarta y se cuenta; el warn solo lleva rutas', async () => {
+    const SENSITIVE = 'svc-secreto-cliente.ejemplo.invalid'
+    responses.push(
+      json(200, { items: [{ id: 'a' }, { id: { nombre: SENSITIVE } }], nextPageKey: 'k1' }),
+      json(200, { items: [{ id: 'b' }, { id: 2 }, { otro: SENSITIVE }] })
+    )
+    const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
+    expect(page.items).toEqual([{ id: 'a' }, { id: 'b' }])
+    expect(page.invalid).toBe(3)
+
+    const warned = logger.warn.mock.calls.map((call) => JSON.stringify(call)).join('\n')
+    expect(warned).toContain('/x')
+    expect(warned).toContain('3')
+    expect(warned).toContain('id')
+    expect(warned).not.toContain(SENSITIVE)
+    expect(warned).not.toMatch(/expected|received/i)
+  })
+
+  it('los warnings de la API se juntan de todas las páginas, sin duplicados y con tope de 20', async () => {
+    responses.push(
+      json(200, { items: [{ id: 'a' }], nextPageKey: 'k1', warnings: ['uno', 'dos'] }),
+      json(200, { items: [{ id: 'b' }], nextPageKey: 'k2', warnings: ['dos', 'tres'] }),
+      json(200, { items: [{ id: 'c' }], warnings: Array.from({ length: 30 }, (_, i) => `w${i}`) })
+    )
+    const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
+    expect(page.warnings.slice(0, 3)).toEqual(['uno', 'dos', 'tres'])
+    expect(page.warnings).toHaveLength(20)
+    expect(new Set(page.warnings).size).toBe(20)
+  })
+
+  it('sin warnings en ninguna página, warnings []', async () => {
+    responses.push(json(200, { items: [{ id: 'a' }] }))
+    const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
+    expect(page.warnings).toEqual([])
+  })
+
+  it('AUD-08: sin elementos inválidos no hay warn de descartados', async () => {
+    responses.push(json(200, { items: [{ id: 'a' }] }))
+    const page = await client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item })
+    expect(page.invalid).toBe(0)
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  it('AUD-08: una página sin la lista de elementos sigue dando INVALID_RESPONSE', async () => {
+    responses.push(json(200, { otraCosa: [] }))
     await expectDtError(
-      client().paginate({
-        envId: ENV,
-        api: 'classic',
-        endpoint: X,
-        schema: item
-      }),
+      client().paginate({ envId: ENV, api: 'classic', endpoint: X, schema: item }),
       'INVALID_RESPONSE'
     )
   })

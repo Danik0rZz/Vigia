@@ -209,6 +209,7 @@
     "NO_CREDENTIAL": "Falta la credencial o la URL.",
     "SECRET_UNREADABLE": "No se puede leer la credencial (se guardó en otro equipo o usuario de Windows): vuelve a introducirla.",
     "UNAUTHORIZED": "Credencial no válida o caducada.",
+    "BAD_REQUEST": "La consulta no es válida.",
     "FORBIDDEN": "Permisos insuficientes (scope).",
     "NOT_FOUND": "No encontrado: revisa la URL.",
     "RATE_LIMITED": "Dynatrace limita las peticiones; prueba más tarde.",
@@ -230,6 +231,8 @@
     "loading": "Cargando…",
     "truncated": "Mostrando los primeros {{count}}.",
     "truncatedOf": "Mostrando {{shown}} de {{total}}.",
+    "invalidItems_one": "{{count}} elemento no se pudo leer y no se muestra.",
+    "invalidItems_other": "{{count}} elementos no se pudieron leer y no se muestran.",
     "empty": "Sin datos en este rango.",
     "noEnvironment": "Sin entorno activo: elige uno en la barra superior.",
     "classicToken": "Este módulo usa el token clásico: añádelo en Ajustes.",
@@ -370,7 +373,8 @@
       "range": "Rango",
       "from": "Desde",
       "to": "Hasta",
-      "note": "Nota"
+      "note": "Nota",
+      "warning": "Aviso"
     }
   },
   "exportSettings": {

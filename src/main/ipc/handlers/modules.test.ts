@@ -218,6 +218,88 @@ describe('problems:list', () => {
     expect(requests[0]?.searchParams.get('to')).toBe('2026-10-01T10:00:00.000Z')
   })
 
+  it('AUD-08: un problema sin problemId se descarta, se cuenta y el resto llega bien', async () => {
+    const bad = problem('x')
+    delete bad['problemId']
+    routes['/problems'] = () =>
+      json(200, { totalCount: 3, problems: [problem('1'), bad, problem('2')], nextPageKey: null })
+    const result = await call('problems:list', { environmentId: envId, timeRange: '2h' })
+    expect(result).toMatchObject({ ok: true, data: { invalid: 1, totalCount: 3 } })
+    expect(
+      (result.data as { problems: { problemId: string }[] }).problems.map((p) => p.problemId)
+    ).toEqual(['1', '2'])
+  })
+
+  it('AUD-08: sin inválidos, invalid 0; y los warnings de la API se juntan sin duplicados', async () => {
+    let n = 0
+    routes['/problems'] = () => {
+      n += 1
+      return json(200, {
+        totalCount: 2,
+        problems: [problem(String(n))],
+        nextPageKey: n === 1 ? 'k1' : null,
+        warnings: n === 1 ? ['Aviso uno', 'Aviso dos'] : ['Aviso dos', 'Aviso tres']
+      })
+    }
+    const result = await call('problems:list', { environmentId: envId, timeRange: '2h' })
+    expect(result).toMatchObject({ ok: true, data: { invalid: 0 } })
+    expect((result.data as { warnings: string[] }).warnings).toEqual([
+      'Aviso uno',
+      'Aviso dos',
+      'Aviso tres'
+    ])
+  })
+
+  it('AUD-08: sin warnings en la API, warnings []; y como mucho 20', async () => {
+    routes['/problems'] = () =>
+      json(200, { totalCount: 1, problems: [problem('1')], nextPageKey: null })
+    expect(await call('problems:list', { environmentId: envId, timeRange: '2h' })).toMatchObject({
+      ok: true,
+      data: { warnings: [] }
+    })
+    routes['/problems'] = () =>
+      json(200, {
+        totalCount: 1,
+        problems: [problem('1')],
+        nextPageKey: null,
+        warnings: Array.from({ length: 30 }, (_, i) => `Aviso ${i}`)
+      })
+    const many = await call('problems:list', { environmentId: envId, timeRange: '2h' })
+    expect((many.data as { warnings: string[] }).warnings).toHaveLength(20)
+  })
+
+  it('AUD-08: slos:list también descarta y cuenta los inválidos', async () => {
+    routes['/slo'] = () =>
+      json(200, {
+        totalCount: 2,
+        nextPageKey: null,
+        slo: [
+          {
+            id: 'slo-1',
+            name: 'A',
+            enabled: true,
+            status: 'SUCCESS',
+            target: 99,
+            warning: 99.5,
+            evaluatedPercentage: 99,
+            errorBudget: 1,
+            error: 'NONE'
+          },
+          { id: 'slo-2', name: 'B', status: 'NO_ES_UN_ESTADO' }
+        ]
+      })
+    const result = await call('slos:list', { environmentId: envId })
+    expect(result).toMatchObject({ ok: true, data: { invalid: 1, totalCount: 2 } })
+    expect((result.data as { slos: { id: string }[] }).slos.map((s) => s.id)).toEqual(['slo-1'])
+  })
+
+  it('AUD-08: un 400 de Dynatrace llega como BAD_REQUEST', async () => {
+    routes['/problems'] = () => json(400, { error: { code: 400, message: 'Selector mal formado' } })
+    const result = await call('problems:list', { environmentId: envId, timeRange: '2h' })
+    expect(result).toMatchObject({ ok: false, error: { code: 'BAD_REQUEST' } })
+    expect(result.error?.message).toContain('Selector mal formado')
+  })
+
   it('AUD-07: devuelve el totalCount de la API, no el número de elementos', async () => {
     routes['/problems'] = () =>
       json(200, {

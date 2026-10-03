@@ -2,6 +2,7 @@ import { z, type ZodType } from 'zod'
 import { nextPageQuery, type DtListEndpoint } from '@shared/dt-endpoints'
 import type { Environment, SecretKind } from '@shared/tenants'
 import { DtError } from './errors'
+import { issuePath, parseItems } from './parse-items'
 import type { OAuthTokenManager } from './oauth'
 import { parseRetryAfter } from './retry-after'
 
@@ -52,7 +53,13 @@ export interface DtPage<T> {
   truncated: boolean
   /** `totalCount` de la PRIMERA página (el total real); null si la API no lo da. */
   totalCount: number | null
+  /** Elementos descartados porque no cumplían el esquema (ver parseItems). */
+  invalid: number
+  /** `warnings` de Dynatrace de todas las páginas, sin duplicados (como mucho 20). */
+  warnings: string[]
 }
+
+const MAX_WARNINGS = 20
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -324,14 +331,17 @@ export function createDtClient(deps: DtClientDeps): DtClient {
 
       if (!response.ok) {
         const message = await readBody(readErrorMessage(response))
+        // INVALID_RESPONSE queda para las respuestas que no cumplen el esquema.
         const code =
-          response.status === 403
-            ? 'FORBIDDEN'
-            : response.status === 404
-              ? 'NOT_FOUND'
-              : response.status >= 500
-                ? 'SERVER_ERROR'
-                : 'INVALID_RESPONSE'
+          response.status === 400
+            ? 'BAD_REQUEST'
+            : response.status === 403
+              ? 'FORBIDDEN'
+              : response.status === 404
+                ? 'NOT_FOUND'
+                : response.status >= 500
+                  ? 'SERVER_ERROR'
+                  : 'INVALID_RESPONSE'
         const error = new DtError(code, message, response.status)
         deps.logger.error(`Dynatrace ${response.status} en ${method} ${path}: ${error.message}`)
         throw error
@@ -346,6 +356,11 @@ export function createDtClient(deps: DtClientDeps): DtClient {
       }
       const parsed = schema.safeParse(json)
       if (!parsed.success) {
+        // Para diagnosticar sin datos del tenant: solo las rutas de Zod, nunca valores.
+        const paths = [...new Set(parsed.error.issues.map((issue) => issuePath(issue.path)))]
+        deps.logger.error(
+          `Dynatrace: respuesta de ${method} ${path} sin el formato esperado; rutas: ${paths.slice(0, 20).join(', ')}`
+        )
         throw new DtError(
           'INVALID_RESPONSE',
           `La respuesta no tiene el formato esperado (${path}).`,
@@ -360,36 +375,58 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     const { endpoint, schema, maxPages = 20, ...rest } = options
     const { itemsKey } = endpoint
     const request = { ...rest, path: endpoint.path }
+    // Los elementos se validan uno a uno (parseItems): uno inesperado se descarta
+    // y se cuenta, en vez de tumbar la lista entera.
     const pageSchema = z.object({
       nextPageKey: z.string().nullable().optional(),
-      // Se lee sin validar: si no es un número, el total queda en null.
+      // Se leen sin validar: si no tienen la forma esperada, se ignoran.
       totalCount: z.unknown().optional(),
-      [itemsKey]: z.array(schema)
+      warnings: z.unknown().optional(),
+      [itemsKey]: z.array(z.unknown())
     })
     const items: T[] = []
+    const warnings = new Set<string>()
+    let invalid = 0
+    const paths = new Set<string>()
     let totalCount: number | null = null
     let query = request.query
+    const done = (truncated: boolean): DtPage<T> => {
+      if (invalid > 0) {
+        deps.logger.warn(
+          `Dynatrace: ${request.path}: ${invalid} elementos descartados; rutas: ${[...paths].join(', ')}`
+        )
+      }
+      return { items, truncated, totalCount, invalid, warnings: [...warnings] }
+    }
     for (let page = 0; page < maxPages; page += 1) {
       const result = (await dtRequest({ ...request, query, schema: pageSchema })) as Record<
         string,
         unknown
       > & { nextPageKey?: string | null }
-      items.push(...(result[itemsKey] as T[]))
+      const parsed = parseItems(schema, result[itemsKey] as unknown[])
+      items.push(...parsed.items)
+      invalid += parsed.invalid
+      for (const path of parsed.paths) paths.add(path)
+      // Avisos de Dynatrace de todas las páginas, sin duplicados y con tope.
+      const pageWarnings = result['warnings']
+      if (Array.isArray(pageWarnings)) {
+        for (const warning of pageWarnings) {
+          if (typeof warning === 'string' && warnings.size < MAX_WARNINGS) warnings.add(warning)
+        }
+      }
       // El total real es el de la primera página: las siguientes no lo cambian.
       if (page === 0) {
         const total = result['totalCount']
         totalCount = typeof total === 'number' && Number.isFinite(total) ? total : null
       }
       const next = result.nextPageKey
-      if (next === null || next === undefined || next === '') {
-        return { items, truncated: false, totalCount }
-      }
+      if (next === null || next === undefined || next === '') return done(false)
       // Con nextPageKey solo viaja lo que el endpoint permite repetir.
       query = nextPageQuery(endpoint, request.query, next)
     }
     // Se ha llegado al tope con páginas pendientes: no se corta en silencio.
     deps.logger.warn(`Dynatrace: ${request.path} truncado a ${maxPages} páginas`)
-    return { items, truncated: true, totalCount }
+    return done(true)
   }
 
   return { dtRequest, paginate }

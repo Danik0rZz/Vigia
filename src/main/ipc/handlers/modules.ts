@@ -73,7 +73,9 @@ export function createModuleHandlers(
         problems: page.items.map(toProblemSummary),
         // El total real de la API (puede ser mayor que lo traído), no items.length.
         totalCount: page.totalCount,
-        truncated: page.truncated
+        truncated: page.truncated,
+        invalid: page.invalid,
+        warnings: page.warnings
       }
     },
 
@@ -130,7 +132,8 @@ export function createModuleHandlers(
       return {
         slos: page.items.map(toSloSummary),
         truncated: page.truncated,
-        totalCount: page.totalCount
+        totalCount: page.totalCount,
+        invalid: page.invalid
       }
     },
 

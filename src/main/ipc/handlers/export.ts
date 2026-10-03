@@ -151,7 +151,8 @@ export function createExportHandlers(
                 input.timeRange === undefined ? undefined : timeRangeToDt(input.timeRange).from,
               from: dates?.from,
               to: dates?.to,
-              note: input.note
+              note: input.note,
+              warnings: input.warnings
             },
             { labels: input.xlsxLabels }
           )

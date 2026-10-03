@@ -33,6 +33,8 @@ export const dtErrorCodes = [
   /** La credencial existe pero no se puede descifrar (otro equipo o usuario de Windows). */
   'SECRET_UNREADABLE',
   'UNAUTHORIZED',
+  /** 400: la petición no es válida (selector mal formado, parámetros de más…). */
+  'BAD_REQUEST',
   'FORBIDDEN',
   'NOT_FOUND',
   'RATE_LIMITED',

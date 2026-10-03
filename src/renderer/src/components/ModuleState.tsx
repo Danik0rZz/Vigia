@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { unavailableReason, type ModuleAccess } from '../data/modules'
+import { dataWarnings } from '../lib/data-warnings'
 import { IpcError } from '../lib/ipc'
 import { BUTTON_SECONDARY } from './styles'
 
@@ -61,6 +62,33 @@ export function RefreshButton({
       <RefreshCw aria-hidden="true" className={busy ? 'size-4 animate-spin' : 'size-4'} />
       {t('module.refresh')}
     </button>
+  )
+}
+
+/**
+ * Avisos sobre los datos mostrados, en un bloque discreto: elementos que no se
+ * pudieron leer (y se han descartado) y los `warnings` que devuelve Dynatrace.
+ * Sin avisos no pinta nada.
+ */
+export function ApiWarnings({
+  invalid = 0,
+  warnings = []
+}: {
+  invalid?: number | undefined
+  warnings?: readonly string[] | undefined
+}): JSX.Element | null {
+  const lines = dataWarnings(useTranslation().t, invalid, warnings)
+  if (lines.length === 0) return null
+  return (
+    <ul
+      data-testid="api-warnings"
+      role="status"
+      className="grid gap-0.5 text-xs text-muted-foreground"
+    >
+      {lines.map((line, index) => (
+        <li key={`${index}-${line}`}>{line}</li>
+      ))}
+    </ul>
   )
 }
 

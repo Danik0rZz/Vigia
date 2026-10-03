@@ -326,6 +326,25 @@ describe('problemDetailSchema y toProblemDetail', () => {
   })
 })
 
+describe('k8s.cluster.name y k8s.cluster.uid (opcionales, fuera de la OpenAPI)', () => {
+  it('se aceptan como listas de texto y no van al resumen', () => {
+    const parsed = problemSchema.safeParse(
+      problem({ 'k8s.cluster.name': ['cluster-a'], 'k8s.cluster.uid': ['uid-a'] })
+    )
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      const summary = toProblemSummary(parsed.data) as Record<string, unknown>
+      expect(JSON.stringify(summary)).not.toContain('cluster-a')
+      expect(JSON.stringify(summary)).not.toContain('uid-a')
+    }
+  })
+
+  it('sin ellos sigue validando, y con un tipo raro no', () => {
+    expect(problemSchema.safeParse(problem()).success).toBe(true)
+    expect(problemSchema.safeParse(problem({ 'k8s.cluster.name': [1] })).success).toBe(false)
+  })
+})
+
 describe('problemsPageSchema', () => {
   it('acepta una página con nextPageKey o sin él', () => {
     expect(

@@ -15,7 +15,8 @@ export const DEFAULT_XLSX_LABELS: XlsxLabels = {
   range: 'Rango',
   from: 'Desde',
   to: 'Hasta',
-  note: 'Nota'
+  note: 'Nota',
+  warning: 'Aviso'
 }
 
 /** Filas de datos por hoja que admite Excel (1.048.576 menos la cabecera). */
@@ -34,6 +35,8 @@ export interface XlsxInfo {
   to?: Date | undefined
   /** Aclaración del módulo sobre los datos (por ejemplo, qué significa un fin vacío). */
   note?: string | undefined
+  /** Avisos sobre los datos exportados: una fila por aviso. */
+  warnings?: readonly string[] | undefined
 }
 
 const MIN_WIDTH = 8
@@ -122,6 +125,9 @@ export async function buildXlsx(
   if (info.to !== undefined) entries.push([labels.to, info.to])
   if (info.note !== undefined) {
     entries.push([labels.note ?? DEFAULT_XLSX_LABELS.note ?? '', info.note])
+  }
+  for (const warning of info.warnings ?? []) {
+    entries.push([labels.warning ?? DEFAULT_XLSX_LABELS.warning ?? '', warning])
   }
   for (const [label, value] of entries) {
     const row = infoSheet.addRow({ label, value })

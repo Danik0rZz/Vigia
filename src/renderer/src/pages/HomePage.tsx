@@ -4,11 +4,13 @@ import { motion } from 'motion/react'
 import { serviceHealth } from '@shared/service-health'
 import { ExportMenu } from '../components/ExportMenu'
 import {
+  ApiWarnings,
   ModuleError,
   ModuleUnavailable,
   RefreshButton,
   TruncatedNotice
 } from '../components/ModuleState'
+import { dataWarnings } from '../lib/data-warnings'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
 
@@ -94,6 +96,7 @@ export function HomePage(): JSX.Element {
             <p className="text-3xl font-semibold tabular-nums">
               {open.data === undefined ? '—' : (open.data.totalCount ?? open.data.problems.length)}
             </p>
+            <ApiWarnings invalid={open.data?.invalid} />
             {open.data?.truncated === true && (
               <TruncatedNotice shown={open.data.problems.length} total={open.data.totalCount} />
             )}
@@ -122,7 +125,8 @@ export function HomePage(): JSX.Element {
                     value: slo.evaluatedPercentage,
                     target: slo.target,
                     errorBudget: slo.errorBudget
-                  }))
+                  })),
+                  warnings: dataWarnings(t, slos.data?.invalid ?? 0)
                 }}
               />
             }
@@ -131,6 +135,7 @@ export function HomePage(): JSX.Element {
               {sloList.length === 0 && slos.isSuccess && (
                 <p className="text-sm text-muted-foreground">{t('home.noSlos')}</p>
               )}
+              <ApiWarnings invalid={slos.data?.invalid} />
               {slos.data?.truncated === true && (
                 <TruncatedNotice shown={sloList.length} total={slos.data.totalCount} />
               )}
