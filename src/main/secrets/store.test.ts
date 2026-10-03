@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { openDatabase, type AppDatabase } from '../db/database'
+import type { AppDatabase } from '../db/database'
 import { DomainError } from '../errors'
 import { createTenantRepository } from '../tenants/repository'
 import { createSecretStore } from './store'
+import { createTestDb, fakeCrypto } from '../../test/fixtures'
 
 /**
  * Secretos cifrados con safeStorage (aquí, un cifrado falso). En la base solo
@@ -12,20 +13,11 @@ import { createSecretStore } from './store'
 const SECRET = 'dt0c01.SECRETOPRUEBA'
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000'
 
-/** Cifrado falso y reversible: invierte el texto y le pone un prefijo. */
-function fakeCrypto(available = true): Parameters<typeof createSecretStore>[1] {
-  return {
-    isEncryptionAvailable: () => available,
-    encryptString: (value: string) => Buffer.from(`enc:${[...value].reverse().join('')}`, 'utf8'),
-    decryptString: (buffer: Buffer) => [...buffer.toString('utf8').slice(4)].reverse().join('')
-  }
-}
-
 let db: AppDatabase
 let repo: ReturnType<typeof createTenantRepository>
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   repo = createTenantRepository(db)
 })
 
@@ -129,7 +121,7 @@ describe('createSecretStore', () => {
 
   it('sin cifrado disponible no guarda nada y da ENCRYPTION_UNAVAILABLE', async () => {
     const envId = await createEnvironment()
-    const store = createSecretStore(db, fakeCrypto(false))
+    const store = createSecretStore(db, fakeCrypto({ available: false }))
 
     expect(await store.isAvailable()).toBe(false)
     const error = await expectDomainError(

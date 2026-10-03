@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IpcChannel } from '@shared/ipc'
-import { openDatabase, type AppDatabase } from '../../db/database'
+import type { AppDatabase } from '../../db/database'
 import { createDtClient } from '../../dynatrace/client'
 import { testConnection } from '../../dynatrace/connection-test'
 import { createOAuthTokenManager } from '../../dynatrace/oauth'
@@ -10,6 +10,7 @@ import { createSecretStore } from '../../secrets/store'
 import { createTenantRepository } from '../../tenants/repository'
 import { createIpcHandler, type IpcHandlerDeps, type IpcImplementation } from '../handler'
 import { createConnectionHandlers } from './connection'
+import { createTestDb, fakeCrypto } from '../../../test/fixtures'
 
 /**
  * Canales connection:* y certificates:*, con testConnection REAL (cliente y
@@ -24,12 +25,6 @@ const CLIENT_SECRET = `dt0s02.CLIENTEPUBLICO00000000000.${'SECRETOOAUTH'.padEnd(
 const ACCESS_TOKEN = 'ACCESSOOAUTHCONOCIDO'
 const SECRETS = ['SECRETOCLASICO', 'SECRETOPLATFORM', 'SECRETOOAUTH', ACCESS_TOKEN, 'enc:']
 const FINGERPRINT = 'sha256/41dd/dggRAcg5cQCL/1k1EsfDBwepuCzHHNupCcW8c0='
-
-const fakeCrypto = {
-  isEncryptionAvailable: () => true,
-  encryptString: (value: string) => Buffer.from(`enc:${[...value].reverse().join('')}`, 'utf8'),
-  decryptString: (buffer: Buffer) => [...buffer.toString('utf8').slice(4)].reverse().join('')
-}
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -73,9 +68,9 @@ let outputs: string[]
 let called: Set<string>
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   repo = createTenantRepository(db)
-  const secrets = createSecretStore(db, fakeCrypto)
+  const secrets = createSecretStore(db, fakeCrypto())
   const client = repo.createClient({ name: 'Cliente A', color: '#111111' })
   envId = repo.createEnvironment({
     clientId: client.id,

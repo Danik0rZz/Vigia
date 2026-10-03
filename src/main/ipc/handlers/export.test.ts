@@ -2,11 +2,12 @@ import { dirname, join } from 'node:path'
 import ExcelJS from 'exceljs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IpcChannel } from '@shared/ipc'
-import { openDatabase, type AppDatabase } from '../../db/database'
+import type { AppDatabase } from '../../db/database'
 import { createSettingsStore } from '../../settings/store'
 import { createTenantRepository } from '../../tenants/repository'
 import { createIpcHandler, type IpcHandlerDeps, type IpcImplementation } from '../handler'
 import { createExportHandlers } from './export'
+import { createTestDb } from '../../../test/fixtures'
 
 /**
  * Canales de exportación y captura: los ficheros los escribe main, con el
@@ -77,7 +78,7 @@ async function call(
 }
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   const repo = createTenantRepository(db)
   const client = repo.createClient({ name: 'Cliente A', color: '#111111' })
   envId = repo.createEnvironment({

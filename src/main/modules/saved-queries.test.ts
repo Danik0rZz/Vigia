@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { openDatabase, type AppDatabase } from '../db/database'
+import type { AppDatabase } from '../db/database'
 import { DomainError } from '../errors'
 import { createTenantRepository } from '../tenants/repository'
 import { createSavedQueryStore } from './saved-queries'
+import { createTestDb } from '../../test/fixtures'
 
 /** Consultas de métricas guardadas por entorno (migración 0002, tabla saved_metric_queries). */
 
@@ -13,7 +14,7 @@ let repo: ReturnType<typeof createTenantRepository>
 let store: ReturnType<typeof createSavedQueryStore>
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   repo = createTenantRepository(db)
   store = createSavedQueryStore(db)
 })

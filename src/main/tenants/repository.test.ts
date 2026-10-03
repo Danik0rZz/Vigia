@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { openDatabase, type AppDatabase } from '../db/database'
+import type { AppDatabase } from '../db/database'
 import { DomainError } from '../errors'
 import { createTenantRepository } from './repository'
+import { createTestDb, environmentInput } from '../../test/fixtures'
 
 /**
  * Repositorio de clientes y entornos sobre SQLite en memoria, con las
@@ -10,7 +11,6 @@ import { createTenantRepository } from './repository'
  */
 
 type Repo = ReturnType<typeof createTenantRepository>
-type EnvironmentInput = Parameters<Repo['createEnvironment']>[0]
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -19,36 +19,13 @@ let db: AppDatabase
 let repo: Repo
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   repo = createTenantRepository(db)
 })
 
 afterEach(() => {
   db.$client.close()
 })
-
-function environmentInput(
-  clientId: string,
-  overrides: Partial<EnvironmentInput> = {}
-): EnvironmentInput {
-  return {
-    clientId,
-    name: 'Producción',
-    type: 'production',
-    deployment: 'saas',
-    classicApiUrl: 'https://abc12345.live.dynatrace.com',
-    platformUrl: 'https://abc12345.apps.dynatrace.com',
-    ssoUrl: null,
-    oauthClientId: 'dt0s02.EJEMPLO',
-    oauthScopes: ['storage:logs:read', 'storage:buckets:read'],
-    accountUuid: null,
-    certificateLevel: 'system',
-    captureUrlPatterns: ['https://abc12345.apps.dynatrace.com/platform/*'],
-    tags: ['core', 'pagos'],
-    readOnly: true,
-    ...overrides
-  } as EnvironmentInput
-}
 
 /** Comprueba que `action` lanza (o rechaza con) un DomainError con ese código. */
 async function expectDomainError(action: () => unknown, code: string): Promise<void> {

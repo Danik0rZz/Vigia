@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { ipcContract, type IpcChannel } from '@shared/ipc'
-import { openDatabase, type AppDatabase } from '../../db/database'
+import type { AppDatabase } from '../../db/database'
 import { createSecretStore } from '../../secrets/store'
 import { MAX_CONFIG_FILE_BYTES } from '../../tenants/config-file'
 import { createTenantRepository } from '../../tenants/repository'
 import { createIpcHandler, type IpcHandlerDeps, type IpcImplementation } from '../handler'
 import { createTenantHandlers } from './tenants'
+import { createTestDb, fakeCrypto } from '../../../test/fixtures'
 
 /**
  * ACEPTACIÓN DE LA FASE 3: ningún canal IPC devuelve secretos al renderer.
@@ -17,14 +18,6 @@ import { createTenantHandlers } from './tenants'
 
 const SECRET = 'dt0c01.SECRETOPRUEBA'
 const TRUSTED = { url: 'app://vigia/index.html', isMainFrame: true }
-
-function fakeCrypto(available: boolean): Parameters<typeof createSecretStore>[1] {
-  return {
-    isEncryptionAvailable: () => available,
-    encryptString: (value: string) => Buffer.from(`enc:${[...value].reverse().join('')}`, 'utf8'),
-    decryptString: (buffer: Buffer) => [...buffer.toString('utf8').slice(4)].reverse().join('')
-  }
-}
 
 /** Texto de todo lo registrado en el log, para buscar el secreto. */
 function loggedText(deps: IpcHandlerDeps): string {
@@ -56,7 +49,7 @@ function buildHandlers(encryptionAvailable: boolean): ReturnType<typeof createTe
   const repo = createTenantRepository(db)
   return createTenantHandlers({
     repo,
-    secrets: createSecretStore(db, fakeCrypto(encryptionAvailable)),
+    secrets: createSecretStore(db, fakeCrypto({ available: encryptionAvailable })),
     dialogs: {
       chooseSaveFile: async () => saveTarget,
       chooseOpenFile: async () => openTarget
@@ -101,7 +94,7 @@ async function call(
 }
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   files = new Map()
   fakeSizes = new Map()
   readCalls = []

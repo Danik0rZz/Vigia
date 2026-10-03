@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ipcContract } from '@shared/ipc'
-import { openDatabase, type AppDatabase } from '../db/database'
+import type { AppDatabase } from '../db/database'
 import { createTenantRepository } from '../tenants/repository'
 import { createConnectionHandlers } from './handlers/connection'
 import { createExportHandlers } from './handlers/export'
 import { createModuleHandlers } from './handlers/modules'
 import { createTenantHandlers } from './handlers/tenants'
+import { createTestDb } from '../../test/fixtures'
 
 /**
  * Cada canal del contrato IPC tiene que estar cubierto por un test que
@@ -29,7 +30,7 @@ const EXEMPT_CHANNELS: Record<string, string> = {
 let db: AppDatabase
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
 })
 
 afterEach(() => {

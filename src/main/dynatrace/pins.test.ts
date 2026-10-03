@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { openDatabase, type AppDatabase } from '../db/database'
+import type { AppDatabase } from '../db/database'
 import { createTenantRepository } from '../tenants/repository'
 import { createPinStore } from './pins'
+import { createTestDb } from '../../test/fixtures'
 
 /** Huellas de certificado fijadas por entorno y host (tabla certificate_pins, migración 0001). */
 
@@ -14,7 +15,7 @@ let repo: ReturnType<typeof createTenantRepository>
 let pins: ReturnType<typeof createPinStore>
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   repo = createTenantRepository(db)
   pins = createPinStore(db)
 })

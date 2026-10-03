@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { openDatabase, type AppDatabase } from '../db/database'
+import type { AppDatabase } from '../db/database'
 import { createSettingsStore } from './store'
+import { createTestDb } from '../../test/fixtures'
 
 /** Ajustes clave-valor de la app (por ejemplo `theme`) en SQLite. */
 
@@ -8,7 +9,7 @@ let db: AppDatabase
 let settings: ReturnType<typeof createSettingsStore>
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   settings = createSettingsStore(db)
 })
 

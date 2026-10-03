@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { openDatabase, type AppDatabase } from '../db/database'
+import type { AppDatabase } from '../db/database'
 import { DomainError } from '../errors'
 import { createSecretStore } from '../secrets/store'
 import { applyConfigImport, buildConfigExport, parseConfigFile } from './config-file'
 import { createTenantRepository } from './repository'
+import { createTestDb, fakeCrypto } from '../../test/fixtures'
 
 /**
  * Exportar e importar la configuración de clientes y entornos en JSON, sin
@@ -16,16 +17,10 @@ type EnvironmentInput = Parameters<Repo['createEnvironment']>[0]
 const SECRET = 'dt0c01.SECRETOPRUEBA'
 const NOW = new Date('2026-10-03T10:00:00.000Z')
 
-const fakeCrypto = {
-  isEncryptionAvailable: () => true,
-  encryptString: (value: string) => Buffer.from(`enc:${[...value].reverse().join('')}`, 'utf8'),
-  decryptString: (buffer: Buffer) => [...buffer.toString('utf8').slice(4)].reverse().join('')
-}
-
 let databases: AppDatabase[] = []
 
 function freshRepo(): { db: AppDatabase; repo: Repo } {
-  const db = openDatabase(':memory:', 'src/main/db/migrations')
+  const db = createTestDb()
   databases.push(db)
   return { db, repo: createTenantRepository(db) }
 }
@@ -139,7 +134,7 @@ describe('buildConfigExport', () => {
   it('no contiene secretos aunque los haya guardados (OBLIGATORIO)', async () => {
     const { db, repo } = freshRepo()
     await seed(repo)
-    const store = createSecretStore(db, fakeCrypto)
+    const store = createSecretStore(db, fakeCrypto())
     for (const env of await repo.listEnvironments()) {
       await store.set(env.id, 'classicToken', SECRET)
       await store.set(env.id, 'oauthClientSecret', 'dt0s02.SECRETOOAUTH')

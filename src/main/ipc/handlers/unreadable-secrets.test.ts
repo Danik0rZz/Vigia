@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IpcChannel } from '@shared/ipc'
-import { openDatabase, type AppDatabase } from '../../db/database'
+import type { AppDatabase } from '../../db/database'
 import { createDtClient } from '../../dynatrace/client'
 import { createSavedQueryStore } from '../../modules/saved-queries'
 import { createSecretStore } from '../../secrets/store'
@@ -8,6 +8,7 @@ import { createTenantRepository } from '../../tenants/repository'
 import { createIpcHandler, type IpcImplementation } from '../handler'
 import { createModuleHandlers } from './modules'
 import { createTenantHandlers } from './tenants'
+import { createTestDb } from '../../../test/fixtures'
 
 /**
  * AUD-05 por IPC: un secreto que no se puede descifrar (guardado en otro
@@ -34,7 +35,7 @@ let secrets: ReturnType<typeof createSecretStore>
 let fetchSpy: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
-  db = openDatabase(':memory:', 'src/main/db/migrations')
+  db = createTestDb()
   repo = createTenantRepository(db)
   secrets = createSecretStore(db, brokenCrypto)
   const client = repo.createClient({ name: 'Cliente A', color: '#111111' })
