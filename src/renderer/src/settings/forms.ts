@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   certificateLevels,
+  classicApiUrlSchema,
   deployments,
   environmentTypes,
   httpsUrlSchema,
@@ -19,6 +20,12 @@ const optionalUrl = z
     'errors.httpsUrl'
   )
 
+/** URL de la API clásica: la base del entorno, sin /api/v2 (lo añade el cliente). */
+const classicUrl = optionalUrl.refine(
+  (value) => value.trim() === '' || classicApiUrlSchema.safeParse(value).success,
+  'errors.apiSuffix'
+)
+
 export const clientFormSchema = z.object({
   name,
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'errors.color')
@@ -29,7 +36,7 @@ export const environmentFormSchema = z.object({
   name,
   type: z.enum(environmentTypes),
   deployment: z.enum(deployments),
-  classicApiUrl: optionalUrl,
+  classicApiUrl: classicUrl,
   platformUrl: optionalUrl,
   ssoUrl: optionalUrl,
   oauthClientId: z.string(),

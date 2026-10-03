@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import { useEffect, type JSX } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +15,7 @@ import {
   NEW_ENVIRONMENT,
   type EnvironmentFormValues
 } from './forms'
+import { ConnectionPanel } from './ConnectionPanel'
 import { SecretsPanel } from './SecretsPanel'
 
 /** Alta y edición de un entorno. Las credenciales se gestionan una vez guardado. */
@@ -40,6 +41,13 @@ export function EnvironmentForm({
   })
   const { errors } = form.formState
   const saas = useWatch({ control: form.control, name: 'deployment' }) === 'saas'
+
+  // Aceptar una huella cambia el nivel en main: el formulario lo refleja, para
+  // que guardar no lo devuelva al valor anterior.
+  const storedLevel = environment?.certificateLevel
+  useEffect(() => {
+    if (storedLevel !== undefined) form.setValue('certificateLevel', storedLevel)
+  }, [storedLevel, form])
 
   const onSubmit = form.handleSubmit(async (values) => {
     const input = formToEnvironmentInput(values, clientId)
@@ -183,7 +191,10 @@ export function EnvironmentForm({
         {environment === null ? (
           <p className="text-xs text-muted-foreground">{t('environmentForm.saveFirst')}</p>
         ) : (
-          <SecretsPanel environment={environment} />
+          <>
+            <SecretsPanel environment={environment} />
+            <ConnectionPanel environment={environment} />
+          </>
         )}
 
         <div className="flex justify-end gap-2">

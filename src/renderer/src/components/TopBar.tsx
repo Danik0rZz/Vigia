@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router'
-import { Languages, Moon, Search, Sun } from 'lucide-react'
+import { Languages, Moon, Search, ShieldAlert, Sun } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
 import { usePreferences } from '../app/preferences'
 import { useResolvedTheme } from '../app/theme'
@@ -54,6 +54,16 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
         )}
       </nav>
 
+      {active?.environment.certificateLevel === 'ignore' && (
+        <p
+          data-testid="tls-ignore-warning"
+          role="alert"
+          className="app-no-drag flex h-7 items-center gap-1.5 rounded-md bg-danger px-2 text-xs font-medium text-white"
+        >
+          <ShieldAlert aria-hidden="true" className="size-3.5" />
+          {t('certificates.ignoreWarning')}
+        </p>
+      )}
       <EnvSelector />
       <TimeRangeSelector />
 

@@ -1,0 +1,157 @@
+import type { JSX } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { UntrustedCertificate } from '@shared/dynatrace'
+import type { EnvironmentView } from '@shared/tenants'
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from '../components/styles'
+import { queryKeys, useTenantMutation } from '../data/tenants'
+import { invoke } from '../lib/ipc'
+import { cn } from '../lib/cn'
+
+function CertificateBlock({
+  environmentId,
+  certificate,
+  onAccepted
+}: {
+  environmentId: string
+  certificate: UntrustedCertificate
+  onAccepted: () => void
+}): JSX.Element {
+  const { t } = useTranslation()
+  const pin = useTenantMutation('certificates:pin')
+  const mismatch = certificate.reason === 'mismatch'
+
+  return (
+    <div
+      data-testid="certificate-untrusted"
+      role="alert"
+      className="grid gap-2 rounded-lg border border-danger/50 p-3 text-xs"
+    >
+      <p className="font-medium text-danger">
+        {t(mismatch ? 'certificates.mismatch' : 'certificates.untrusted', {
+          host: certificate.host
+        })}
+      </p>
+      {certificate.previousFingerprint !== null && (
+        <p>
+          <span className="text-muted-foreground">{t('certificates.previous')}: </span>
+          <code data-testid="certificate-previous-fingerprint" className="break-all">
+            {certificate.previousFingerprint}
+          </code>
+        </p>
+      )}
+      <p>
+        <span className="text-muted-foreground">{t('certificates.current')}: </span>
+        <code data-testid="certificate-new-fingerprint" className="break-all">
+          {certificate.fingerprint}
+        </code>
+      </p>
+      <div>
+        <button
+          type="button"
+          data-testid="certificate-accept"
+          disabled={pin.isPending}
+          onClick={() =>
+            pin.mutate(
+              [{ environmentId, host: certificate.host, fingerprint: certificate.fingerprint }],
+              { onSuccess: onAccepted }
+            )
+          }
+          className={BUTTON_SECONDARY}
+        >
+          {t('certificates.accept')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Probar conexión" de un entorno guardado: resultado por mecanismo, scopes que
+ * faltan y certificados por aceptar. La huella solo cambia si el usuario la acepta.
+ */
+export function ConnectionPanel({ environment }: { environment: EnvironmentView }): JSX.Element {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const test = useMutation({
+    mutationFn: () => invoke('connection:test', { environmentId: environment.id }),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.connectionStatus(environment.id) })
+  })
+  const hasCredentials = Object.values(environment.secrets).some(Boolean)
+  const report = test.data
+  const certificates = report?.untrustedCertificates ?? []
+
+  return (
+    <section className="grid gap-2" aria-labelledby="connection-title">
+      <div className="flex items-center gap-2">
+        <h3 id="connection-title" className="flex-1 font-semibold">
+          {t('connection.title')}
+        </h3>
+        <button
+          type="button"
+          data-testid="connection-test"
+          disabled={!hasCredentials || test.isPending}
+          onClick={() => test.mutate()}
+          className={BUTTON_PRIMARY}
+        >
+          {test.isPending ? t('connection.testing') : t('connection.test')}
+        </button>
+      </div>
+      {!hasCredentials && (
+        <p className="text-xs text-muted-foreground">{t('connection.noCredentials')}</p>
+      )}
+      {test.isError && (
+        <p role="alert" className="text-xs text-danger">
+          {t('errors.generic')}
+        </p>
+      )}
+      {report !== undefined && (
+        <ul className="grid gap-1">
+          {report.mechanisms.map((mechanism) => (
+            <li
+              key={mechanism.id}
+              data-testid={`connection-result-${mechanism.id}`}
+              className="grid gap-0.5 rounded-md border border-border px-3 py-2 text-xs"
+            >
+              <span className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'size-2 rounded-full',
+                    mechanism.state === 'connected' ? 'bg-accent' : 'bg-danger'
+                  )}
+                />
+                <span className="font-medium">{t(`envStatus.mechanisms.${mechanism.id}`)}</span>
+                <span>
+                  {mechanism.state === 'connected'
+                    ? t('connection.connected')
+                    : t('connection.disconnected')}
+                </span>
+              </span>
+              {mechanism.error !== null && (
+                <span className="text-danger">
+                  {t(`dtErrors.${mechanism.error.code}`)} {mechanism.error.message}
+                </span>
+              )}
+              {mechanism.missingScopes.length > 0 && (
+                <span className="text-muted-foreground">
+                  {t('connection.missingScopes', { scopes: mechanism.missingScopes.join(', ') })}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {certificates.map((certificate) => (
+        <CertificateBlock
+          key={certificate.host}
+          environmentId={environment.id}
+          certificate={certificate}
+          // Tras aceptar una huella el resultado anterior ya no vale: se vuelve a probar.
+          onAccepted={() => test.reset()}
+        />
+      ))}
+    </section>
+  )
+}

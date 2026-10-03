@@ -119,13 +119,66 @@ describe('locales es y en', () => {
     const mechanisms = {
       classic: ['Token clásico', 'Classic token'],
       oauth: ['OAuth', 'OAuth'],
-      platform: ['Platform token', 'Platform token'],
-      session: ['Sesión capturada', 'Captured session']
+      platform: ['Platform token', 'Platform token']
     }
     for (const [id, [textEs, textEn]] of Object.entries(mechanisms)) {
       const key = `envStatus.mechanisms.${id}`
       expect(text('es', 'common', key), `es ${key}`).toBe(textEs)
       expect(text('en', 'common', key), `en ${key}`).toBe(textEn)
+    }
+    // La sesión capturada es de la Fase 10: no puede haber textos suyos todavía.
+    const mechanismKeys = Object.keys(es['common'] ?? {}).filter((key) =>
+      key.startsWith('envStatus.mechanisms.')
+    )
+    expect(mechanismKeys.sort()).toEqual([
+      'envStatus.mechanisms.classic',
+      'envStatus.mechanisms.oauth',
+      'envStatus.mechanisms.platform'
+    ])
+  })
+
+  it('hay un texto de error para cada código del cliente de Dynatrace (common)', () => {
+    // Copia de DtErrorCode (src/main/dynatrace/errors.ts); el renderer no puede importar main.
+    const codes = [
+      'NO_CREDENTIAL',
+      'UNAUTHORIZED',
+      'FORBIDDEN',
+      'NOT_FOUND',
+      'RATE_LIMITED',
+      'TIMEOUT',
+      'NETWORK',
+      'TLS_UNTRUSTED',
+      'TLS_PIN_MISMATCH',
+      'INVALID_RESPONSE',
+      'SERVER_ERROR'
+    ]
+    const dtErrorKeys = Object.keys(es['common'] ?? {})
+      .filter((key) => key.startsWith('dtErrors.'))
+      .map((key) => key.slice('dtErrors.'.length))
+    expect(dtErrorKeys.sort()).toEqual([...codes].sort())
+  })
+
+  it('traducen la prueba de conexión y los certificados (common)', () => {
+    const texts = {
+      'connection.test': ['Probar conexión', 'Test connection'],
+      'connection.connected': ['Conectado', 'Connected'],
+      'connection.disconnected': ['Sin conexión', 'Disconnected'],
+      'errors.apiSuffix': [
+        'Escribe la URL del entorno sin /api/v2',
+        'Enter the environment URL without /api/v2'
+      ]
+    }
+    for (const [key, [textEs, textEn]] of Object.entries(texts)) {
+      expect(text('es', 'common', key), `es ${key}`).toBe(textEs)
+      expect(text('en', 'common', key), `en ${key}`).toBe(textEn)
+    }
+    for (const key of [
+      'certificates.previous',
+      'certificates.current',
+      'certificates.accept',
+      'certificates.ignoreWarning'
+    ]) {
+      expect(text('es', 'common', key), `es ${key}`).toBeTypeOf('string')
     }
   })
 

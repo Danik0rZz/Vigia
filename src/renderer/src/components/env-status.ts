@@ -1,10 +1,10 @@
+import type { MechanismId } from '@shared/dynatrace'
 import type { SecretKind } from '@shared/tenants'
-import { useActiveEnvironment } from '../data/tenants'
+import { useActiveEnvironment, useConnectionStatus } from '../data/tenants'
 
-/** Mecanismos de autenticación; los mismos ids que usará `dtRequest({ api })` en la Fase 4. */
-export type MechanismId = 'classic' | 'oauth' | 'platform' | 'session'
+export type { MechanismId }
 
-/** "unchecked": hay credencial, pero la conexión no se ha probado (llega en la Fase 4). */
+/** "unchecked": hay credencial, pero no se ha probado la conexión desde el último cambio. */
 export type MechanismState = 'unchecked' | 'connected' | 'disconnected'
 
 /** Estado de un mecanismo de autenticación del entorno activo. */
@@ -27,12 +27,19 @@ const MECHANISM_BY_SECRET: Record<SecretKind, MechanismId> = {
 }
 
 /**
- * Fuente de datos de la tarjeta: los mecanismos con credencial del entorno
- * activo. La comprobación de la conexión llega con el cliente de la Fase 4.
+ * Fuente de datos de la tarjeta: el último "Probar conexión" del entorno
+ * activo y, si no lo hay, sus mecanismos con credencial sin comprobar.
  */
 export function useEnvStatus(): EnvStatus | null {
   const active = useActiveEnvironment()
+  const report = useConnectionStatus(active?.environment.id ?? null)
   if (active === null) return null
+  if (report !== null) {
+    return {
+      mechanisms: report.mechanisms.map(({ id, state }) => ({ id, state })),
+      oauthExpiresAt: report.oauthExpiresAt === null ? null : new Date(report.oauthExpiresAt)
+    }
+  }
   const mechanisms = (Object.keys(MECHANISM_BY_SECRET) as SecretKind[])
     .filter((kind) => active.environment.secrets[kind])
     .map((kind) => ({ id: MECHANISM_BY_SECRET[kind], state: 'unchecked' as const }))

@@ -55,8 +55,7 @@
     "mechanisms": {
       "classic": "Token clásico",
       "oauth": "OAuth",
-      "platform": "Platform token",
-      "session": "Sesión capturada"
+      "platform": "Platform token"
     },
     "unchecked": "Sin comprobar",
     "noCredentials": "Sin credenciales"
@@ -163,7 +162,8 @@
     "color": "Usa un color #rrggbb.",
     "nameTaken": "Ya existe uno con ese nombre.",
     "invalidFile": "El fichero no es una configuración de Vigía válida.",
-    "generic": "No se pudo completar la operación."
+    "generic": "No se pudo completar la operación.",
+    "apiSuffix": "Escribe la URL del entorno sin /api/v2"
   },
   "importSummary": {
     "title": "Importación terminada",
@@ -171,5 +171,35 @@
     "skipped": "Ya existían y no se han tocado: {{names}}.",
     "errors": "Con errores, no importados: {{names}}.",
     "close": "Cerrar"
+  },
+  "connection": {
+    "title": "Conexión",
+    "test": "Probar conexión",
+    "testing": "Probando…",
+    "connected": "Conectado",
+    "disconnected": "Sin conexión",
+    "noCredentials": "Guarda alguna credencial para poder probar la conexión.",
+    "missingScopes": "Faltan scopes: {{scopes}}"
+  },
+  "certificates": {
+    "untrusted": "El certificado de {{host}} no es de confianza.",
+    "mismatch": "El certificado de {{host}} ha cambiado y no coincide con la huella aceptada.",
+    "previous": "Huella aceptada",
+    "current": "Huella nueva",
+    "accept": "Aceptar esta huella",
+    "ignoreWarning": "Verificación de certificados desactivada en este entorno"
+  },
+  "dtErrors": {
+    "NO_CREDENTIAL": "Falta la credencial o la URL.",
+    "UNAUTHORIZED": "Credencial no válida o caducada.",
+    "FORBIDDEN": "Permisos insuficientes (scope).",
+    "NOT_FOUND": "No encontrado: revisa la URL.",
+    "RATE_LIMITED": "Dynatrace limita las peticiones; prueba más tarde.",
+    "TIMEOUT": "Sin respuesta a tiempo.",
+    "NETWORK": "Error de red o de proxy.",
+    "TLS_UNTRUSTED": "Certificado no de confianza.",
+    "TLS_PIN_MISMATCH": "El certificado no coincide con la huella aceptada.",
+    "INVALID_RESPONSE": "Respuesta inesperada de Dynatrace.",
+    "SERVER_ERROR": "Error del servidor de Dynatrace."
   }
 }

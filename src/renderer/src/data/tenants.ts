@@ -5,6 +5,7 @@ import {
   useQueryClient,
   type UseMutationResult
 } from '@tanstack/react-query'
+import type { ConnectionReport } from '@shared/dynatrace'
 import type { IpcArgs, IpcChannel, IpcOutput } from '@shared/ipc'
 import type { Client, EnvironmentView } from '@shared/tenants'
 import { invoke } from '../lib/ipc'
@@ -20,7 +21,20 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   tenants: ['tenants'] as const,
   activeEnvironment: ['activeEnvironment'] as const,
-  secretsAvailability: ['secretsAvailability'] as const
+  secretsAvailability: ['secretsAvailability'] as const,
+  /** Datos de un entorno: la clave lleva su `envId`. */
+  connectionStatus: (envId: string) => ['connectionStatus', envId] as const,
+  certificatePins: (envId: string) => ['certificatePins', envId] as const
+}
+
+/** Último resultado de "Probar conexión" del entorno (`null` si no se ha probado o ha cambiado algo). */
+export function useConnectionStatus(envId: string | null): ConnectionReport | null {
+  const { data } = useQuery({
+    queryKey: queryKeys.connectionStatus(envId ?? 'none'),
+    queryFn: () => invoke('connection:status', { environmentId: envId ?? '' }),
+    enabled: envId !== null
+  })
+  return envId === null ? null : (data ?? null)
 }
 
 export function useTenants(): { clients: Client[]; environments: EnvironmentView[] } {
@@ -66,8 +80,12 @@ export function useTenantMutation<C extends IpcChannel>(
   return useMutation<IpcOutput<C>, Error, IpcArgs<C>>({
     mutationFn: (args) => invoke(channel, ...args),
     onSettled: async () => {
-      await client.invalidateQueries({ queryKey: queryKeys.tenants })
-      await client.invalidateQueries({ queryKey: queryKeys.activeEnvironment })
+      // Cambiar un entorno, sus secretos o sus certificados deja sin valor su estado de conexión.
+      await Promise.all(
+        ['tenants', 'activeEnvironment', 'connectionStatus', 'certificatePins'].map((key) =>
+          client.invalidateQueries({ queryKey: [key] })
+        )
+      )
     }
   })
 }
