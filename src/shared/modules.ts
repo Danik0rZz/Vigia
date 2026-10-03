@@ -28,17 +28,54 @@ export const problemSummarySchema = z.object({
   displayId: z.string(),
   title: z.string(),
   status: z.enum(problemStatuses),
-  severityLevel: z.enum(severityLevels),
-  impactLevel: z.enum(impactLevels),
+  /**
+   * Texto, no enum: Dynatrace puede añadir valores. Los conocidos se traducen
+   * (severityLevels, impactLevels); uno nuevo se muestra tal cual.
+   */
+  severityLevel: z.string(),
+  impactLevel: z.string(),
   startTime: z.number(),
   /** null si el problema sigue abierto. */
   endTime: z.number().nullable(),
   affectedEntities: z.array(entityRefSchema),
   impactedEntities: z.array(entityRefSchema),
   rootCause: entityRefSchema.nullable(),
-  managementZones: z.array(z.string())
+  managementZones: z.array(z.string()),
+  /** De "k8s.namespace.name"; vacío si no viene. */
+  namespaces: z.array(z.string())
 })
 export type ProblemSummary = z.output<typeof problemSummarySchema>
+
+/** Detalle de un problema: el resumen más lo que llega con `fields`. */
+export const problemDetailOutputSchema = problemSummarySchema.extend({
+  entityTags: z.array(z.string()),
+  linkedProblem: z
+    .object({ displayId: z.string().nullable(), problemId: z.string().nullable() })
+    .nullable(),
+  evidence: z.array(
+    z.object({
+      type: z.string(),
+      name: z.string(),
+      entity: z.string().nullable(),
+      startTime: z.number().nullable()
+    })
+  ),
+  impacts: z.array(
+    z.object({
+      type: z.string(),
+      entity: z.string().nullable(),
+      estimatedAffectedUsers: z.number().nullable()
+    })
+  ),
+  comments: z.array(
+    z.object({
+      author: z.string().nullable(),
+      content: z.string(),
+      createdAt: z.number().nullable()
+    })
+  )
+})
+export type ProblemDetail = z.output<typeof problemDetailOutputSchema>
 
 export const metricResultSchema = z.object({
   resolution: z.string(),
@@ -120,7 +157,9 @@ export const xlsxLabelsSchema = z.object({
   timeZone: z.string().min(1).max(60),
   range: z.string().min(1).max(60),
   from: z.string().min(1).max(60),
-  to: z.string().min(1).max(60)
+  to: z.string().min(1).max(60),
+  /** Opcional: solo hace falta si la exportación lleva nota. */
+  note: z.string().min(1).max(60).optional()
 })
 export type XlsxLabels = z.output<typeof xlsxLabelsSchema>
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'rea
 import { useTranslation } from 'react-i18next'
 import type { EChartsCoreOption } from 'echarts/core'
 import type { ExportColumn, ProblemSummary } from '@shared/modules'
+import { PROBLEM_EXPORT_COLUMNS, toProblemExport, toProblemRow } from '@shared/problem-row'
 import { timeRangeToDates } from '@shared/time-range'
 import { useTimeRangeValue } from '../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../components/Chart'
@@ -13,11 +14,12 @@ import {
   TruncatedNotice
 } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
+import { ProblemDetail } from '../components/ProblemDetail'
+import { ProblemsTable } from '../components/ProblemsTable'
 import { INPUT } from '../components/styles'
 import {
   useModuleAccess,
   useModuleRefresh,
-  useProblem,
   useProblems,
   type ProblemFilterValues
 } from '../data/modules'
@@ -37,43 +39,9 @@ function timelineBuckets(problems: ProblemSummary[], from: Date, to: Date): [num
   return counts.map((count, index) => [from.getTime() + index * size, count])
 }
 
-function ProblemDetail({ envId, problemId }: { envId: string; problemId: string }): JSX.Element {
-  const { t } = useTranslation()
-  const { data, error } = useProblem(envId, problemId)
-  if (error !== null) return <ModuleError error={error} />
-  if (data === undefined)
-    return <p className="text-sm text-muted-foreground">{t('module.loading')}</p>
-  return (
-    <section
-      data-testid="problem-detail"
-      className="glass grid gap-2 rounded-xl p-5"
-      aria-label={t('problems.detail')}
-    >
-      <h2 className="font-semibold">{`${data.displayId} · ${data.title}`}</h2>
-      {data.rootCause !== null && (
-        <p className="text-sm">
-          <span className="text-muted-foreground">{t('problems.rootCause')}: </span>
-          {data.rootCause.name ?? data.rootCause.id}
-        </p>
-      )}
-      <h3 className="text-sm font-medium text-muted-foreground">
-        {t('problems.affectedEntities')}
-      </h3>
-      <ul className="grid gap-1 text-sm">
-        {data.affectedEntities.map((entity) => (
-          <li key={entity.id} data-testid="problem-entity" className="flex gap-2">
-            <span>{entity.name ?? entity.id}</span>
-            <span className="text-muted-foreground">{entity.type}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
 /** Problemas del entorno activo en el rango global: filtros, línea de tiempo, tabla y detalle. */
 export function ProblemsPage(): JSX.Element {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const access = useModuleAccess('problems')
   const envId = access.available ? access.envId : null
   const timeRange = useTimeRangeValue()
@@ -96,16 +64,6 @@ export function ProblemsPage(): JSX.Element {
   const query = useProblems(envId, filters)
   const refresh = useModuleRefresh(envId, 'problems')
   const problems = useMemo(() => query.data?.problems ?? [], [query.data])
-
-  const formatDate = useCallback(
-    (value: number | null) =>
-      value === null
-        ? ''
-        : new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'short' }).format(
-            value
-          ),
-    [i18n.language]
-  )
 
   // El rango del gráfico es el del momento en que llegaron los datos.
   const buckets = useMemo(() => {
@@ -133,25 +91,14 @@ export function ProblemsPage(): JSX.Element {
     [buckets]
   )
 
-  const columns: ExportColumn[] = [
-    { key: 'displayId', header: t('problems.columns.displayId'), type: 'string' },
-    { key: 'title', header: t('problems.columns.title'), type: 'string' },
-    { key: 'status', header: t('problems.columns.status'), type: 'string' },
-    { key: 'severityLevel', header: t('problems.columns.severity'), type: 'string' },
-    { key: 'impactLevel', header: t('problems.columns.impact'), type: 'string' },
-    { key: 'startTime', header: t('problems.columns.start'), type: 'date' },
-    { key: 'endTime', header: t('problems.columns.end'), type: 'date' },
-    { key: 'affectedEntities', header: t('problems.columns.affected'), type: 'string' }
-  ]
-  const rows = problems.map((problem) => ({
-    displayId: problem.displayId,
-    title: problem.title,
-    status: problem.status,
-    severityLevel: problem.severityLevel,
-    impactLevel: problem.impactLevel,
-    startTime: problem.startTime,
-    endTime: problem.endTime,
-    affectedEntities: problem.affectedEntities.map((entity) => entity.name ?? entity.id).join(', ')
+  // Tabla y exportación usan las mismas filas; la duración de los abiertos, hasta la consulta.
+  const rows = useMemo(() => {
+    const now = new Date(query.dataUpdatedAt)
+    return problems.map((problem) => toProblemRow(problem, now))
+  }, [problems, query.dataUpdatedAt])
+  const columns: ExportColumn[] = PROBLEM_EXPORT_COLUMNS.map((column) => ({
+    ...column,
+    header: t(`problems.exportColumns.${column.key}`)
   }))
 
   if (!access.available) {
@@ -230,56 +177,32 @@ export function ProblemsPage(): JSX.Element {
               target="problems-table"
               module="problems"
               element={tableRef}
-              table={{ columns, rows, query: text === '' ? undefined : text, timeRange }}
+              table={{
+                columns,
+                rows: rows.map(toProblemExport),
+                query: text === '' ? undefined : text,
+                timeRange,
+                note: t('problems.exportNote')
+              }}
             />
           </div>
           {query.data?.truncated === true && <TruncatedNotice count={problems.length} />}
-          <div ref={tableRef} className="overflow-x-auto">
-            <table data-testid="problems-table" className="w-full text-left text-sm">
-              <thead className="text-xs text-muted-foreground">
-                <tr>
-                  {columns.slice(0, 7).map((column) => (
-                    <th key={column.key} className="px-2 py-1.5 font-medium">
-                      {column.header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {problems.map((problem) => (
-                  <tr
-                    key={problem.problemId}
-                    data-testid="problem-row"
-                    onClick={() => setSelected(problem.problemId)}
-                    className="cursor-pointer border-t border-border hover:bg-hover aria-selected:bg-active"
-                    aria-selected={selected === problem.problemId}
-                  >
-                    <td className="px-2 py-1.5 font-medium">{problem.displayId}</td>
-                    <td className="px-2 py-1.5">{problem.title}</td>
-                    <td className="px-2 py-1.5">{t(`problems.status.${problem.status}`)}</td>
-                    <td className="px-2 py-1.5">
-                      {t(`problems.severity.${problem.severityLevel}`)}
-                    </td>
-                    <td className="px-2 py-1.5">{t(`problems.impact.${problem.impactLevel}`)}</td>
-                    <td className="px-2 py-1.5 whitespace-nowrap">
-                      {formatDate(problem.startTime)}
-                    </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap">{formatDate(problem.endTime)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {query.isSuccess && problems.length === 0 && (
-              <p className="px-2 py-3 text-sm text-muted-foreground">{t('module.empty')}</p>
-            )}
-            {query.isPending && query.fetchStatus !== 'idle' && (
-              <p className="px-2 py-3 text-sm text-muted-foreground">{t('module.loading')}</p>
-            )}
-          </div>
+          <ProblemsTable
+            rows={rows}
+            selected={selected}
+            onSelect={setSelected}
+            scrollRef={tableRef}
+          />
+          {query.isSuccess && problems.length === 0 && (
+            <p className="px-2 py-3 text-sm text-muted-foreground">{t('module.empty')}</p>
+          )}
+          {query.isPending && query.fetchStatus !== 'idle' && (
+            <p className="px-2 py-3 text-sm text-muted-foreground">{t('module.loading')}</p>
+          )}
         </section>
 
         {selected !== null && envId !== null && (
-          <ProblemDetail envId={envId} problemId={selected} />
+          <ProblemDetail envId={envId} problemId={selected} timeRange={timeRange} />
         )}
       </div>
     </>

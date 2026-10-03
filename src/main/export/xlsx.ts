@@ -14,7 +14,8 @@ export const DEFAULT_XLSX_LABELS: XlsxLabels = {
   timeZone: 'Zona horaria',
   range: 'Rango',
   from: 'Desde',
-  to: 'Hasta'
+  to: 'Hasta',
+  note: 'Nota'
 }
 
 /** Filas de datos por hoja que admite Excel (1.048.576 menos la cabecera). */
@@ -31,6 +32,8 @@ export interface XlsxInfo {
   range?: string | undefined
   from?: Date | undefined
   to?: Date | undefined
+  /** Aclaración del módulo sobre los datos (por ejemplo, qué significa un fin vacío). */
+  note?: string | undefined
 }
 
 const MIN_WIDTH = 8
@@ -117,6 +120,9 @@ export async function buildXlsx(
   if (info.range !== undefined) entries.push([labels.range, info.range])
   if (info.from !== undefined) entries.push([labels.from, info.from])
   if (info.to !== undefined) entries.push([labels.to, info.to])
+  if (info.note !== undefined) {
+    entries.push([labels.note ?? DEFAULT_XLSX_LABELS.note ?? '', info.note])
+  }
   for (const [label, value] of entries) {
     const row = infoSheet.addRow({ label, value })
     row.getCell(1).font = { bold: true }

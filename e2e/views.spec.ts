@@ -59,7 +59,8 @@ const problemsA: FakeProblem[] = [
     ],
     impactedEntities: [{ entityId: { id: 'APPLICATION-AAA1', type: 'APPLICATION' }, name: 'web' }],
     rootCauseEntity: { entityId: { id: 'SERVICE-AAA1', type: 'SERVICE' }, name: 'pagos' },
-    managementZones: [{ id: '1', name: 'Producción' }]
+    managementZones: [{ id: '1', name: 'Producción' }],
+    problemFilters: []
   },
   {
     problemId: 'pa-2',
@@ -72,7 +73,8 @@ const problemsA: FakeProblem[] = [
     endTime: NOW - 2 * HOUR,
     affectedEntities: [{ entityId: { id: 'HOST-AAA2', type: 'HOST' }, name: 'host-bd-01' }],
     impactedEntities: [],
-    managementZones: []
+    managementZones: [],
+    problemFilters: []
   },
   {
     // Título con forma de fórmula: el CSV tiene que neutralizarlo.
@@ -80,13 +82,16 @@ const problemsA: FakeProblem[] = [
     displayId: 'P-103',
     title: '=HYPERLINK("http://x","y") errores',
     status: 'OPEN',
-    severityLevel: 'ERROR',
+    // Severidad que la app no conoce: se muestra tal cual (con un console.warn, no error).
+    severityLevel: 'NUEVA_SEVERIDAD',
+    'k8s.namespace.name': ['carrito-ns', 'comun-ns'],
     impactLevel: 'SERVICES',
     startTime: NOW - 30 * 60_000,
     endTime: -1,
     affectedEntities: [{ entityId: { id: 'SERVICE-AAA2', type: 'SERVICE' }, name: 'carrito' }],
     impactedEntities: [],
-    managementZones: []
+    managementZones: [],
+    problemFilters: []
   }
 ]
 
@@ -102,14 +107,74 @@ const problemsB: FakeProblem[] = [
     endTime: -1,
     affectedEntities: [{ entityId: { id: 'SERVICE-BBB1', type: 'SERVICE' }, name: 'login-dev' }],
     impactedEntities: [],
-    managementZones: []
+    managementZones: [],
+    problemFilters: []
   }
 ]
+
+/** 300 problemas sintéticos para la tabla virtualizada. */
+const manyProblems: FakeProblem[] = Array.from({ length: 300 }, (_, i) => ({
+  problemId: `pm-${i + 1}`,
+  displayId: `P-M${i + 1}`,
+  title: `Problema masivo ${i + 1}`,
+  status: 'OPEN',
+  severityLevel: 'ERROR',
+  impactLevel: 'SERVICES',
+  startTime: NOW - (i + 1) * 60_000,
+  endTime: -1,
+  affectedEntities: [
+    { entityId: { id: `SERVICE-M${i + 1}`, type: 'SERVICE' }, name: `svc-${i + 1}` }
+  ],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: []
+}))
+
+/** Partes del detalle de P-101 que llegan con fields (evidencias, impactos, comentarios…). */
+const detailExtras = {
+  entityTags: [
+    { context: 'CONTEXTLESS', key: 'equipo', value: 'pagos', stringRepresentation: 'equipo:pagos' }
+  ],
+  linkedProblemInfo: { displayId: 'P-099', problemId: 'pa-0' },
+  evidenceDetails: {
+    totalCount: 1,
+    details: [
+      {
+        evidenceType: 'EVENT',
+        displayName: 'Tiempo de respuesta degradado',
+        entity: { entityId: { id: 'SERVICE-AAA1', type: 'SERVICE' }, name: 'pagos' },
+        rootCauseRelevant: true,
+        startTime: NOW - HOUR
+      }
+    ]
+  },
+  impactAnalysis: {
+    impacts: [
+      {
+        impactType: 'APPLICATION',
+        impactedEntity: { entityId: { id: 'APPLICATION-AAA1', type: 'APPLICATION' }, name: 'web' },
+        estimatedAffectedUsers: 42
+      }
+    ]
+  },
+  recentComments: {
+    totalCount: 1,
+    comments: [
+      {
+        authorName: 'operador',
+        content: 'Revisando el pool de conexiones',
+        createdAtTimestamp: NOW
+      }
+    ]
+  }
+}
 
 /** Estado y registro del Dynatrace simulado. */
 const sim = {
   problemsRequests: 0,
   truncate: false,
+  many: false,
+  lastDetailQuery: new URLSearchParams(),
   lastProblemsQuery: new URLSearchParams(),
   lastMetricsQuery: new URLSearchParams()
 }
@@ -195,7 +260,8 @@ async function startServer(): Promise<void> {
             }
           })
         }
-        const problems = applySelector(problemsFor(token), url.searchParams.get('problemSelector'))
+        const source = sim.many && token === TOKEN_A ? manyProblems : problemsFor(token)
+        const problems = applySelector(source, url.searchParams.get('problemSelector'))
         return send(200, {
           totalCount: problems.length,
           problems,
@@ -204,10 +270,13 @@ async function startServer(): Promise<void> {
       }
       const single = /^\/api\/v2\/problems\/([^/]+)$/.exec(url.pathname)
       if (req.method === 'GET' && single !== null) {
+        sim.lastDetailQuery = url.searchParams
         const found = problemsFor(token).find(
           (p) => p['problemId'] === decodeURIComponent(single[1] ?? '')
         )
-        return found ? send(200, found) : send(404, { error: { code: 404, message: 'No existe' } })
+        return found
+          ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
+          : send(404, { error: { code: 404, message: 'No existe' } })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/metrics') {
         return send(200, {
@@ -481,9 +550,109 @@ test('Problemas: tabla, línea de tiempo y detalle con las entidades afectadas',
   await rows.filter({ hasText: 'P-101' }).click()
   const detail = page.getByTestId('problem-detail')
   await expect(detail).toBeVisible()
-  await expect(detail.getByTestId('problem-entity')).toHaveCount(2)
-  await expect(detail).toContainText('pagos')
-  await expect(detail).toContainText('host-pagos-01')
+  // Todas las entidades afectadas, con nombre, tipo e id.
+  const entities = detail.getByTestId('problem-entity')
+  await expect(entities).toHaveCount(2)
+  // Cada entidad se identifica por su id (los nombres pueden contenerse unos a otros).
+  const byId = (id: string): Locator =>
+    entities.filter({ has: page.getByTestId('entity-id').filter({ hasText: id }) })
+  await expect(byId('SERVICE-AAA1')).toContainText('pagos')
+  await expect(byId('SERVICE-AAA1').getByTestId('entity-type')).toHaveText(/SERVICE/)
+  await expect(byId('HOST-AAA1')).toContainText('host-pagos-01')
+  await expect(byId('HOST-AAA1').getByTestId('entity-type')).toHaveText(/HOST/)
+
+  // El detalle se pide con fields y muestra cada parte que llega.
+  await expect.poll(() => sim.lastDetailQuery.get('fields') ?? '').toContain('evidenceDetails')
+  for (const part of ['evidenceDetails', 'impactAnalysis', 'recentComments']) {
+    expect(sim.lastDetailQuery.get('fields') ?? '').toContain(part)
+  }
+  await expect(detail.getByTestId('detail-evidence')).toContainText('Tiempo de respuesta degradado')
+  await expect(detail.getByTestId('detail-impacts')).toContainText('42')
+  await expect(detail.getByTestId('detail-comments')).toContainText(
+    'Revisando el pool de conexiones'
+  )
+  await expect(detail.getByTestId('detail-zones')).toContainText('Producción')
+  await expect(detail.getByTestId('detail-impacted')).toContainText('web')
+  await expect(detail.getByTestId('detail-tags')).toContainText('equipo:pagos')
+  await expect(detail.getByTestId('detail-linked')).toContainText('P-099')
+  await expect(
+    page.locator('[data-testid="export-menu"][data-export-target="problem-detail"]')
+  ).toBeVisible()
+})
+
+test('tabla de Problemas: columnas, N/A, "+N" con tooltip, en curso y fechas propias', async () => {
+  const headers = await page
+    .locator('[data-testid^="col-"]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')))
+  expect(headers).toEqual(
+    [
+      'displayId',
+      'title',
+      'status',
+      'impact',
+      'severity',
+      'affected',
+      'rootCause',
+      'namespace',
+      'start',
+      'end',
+      'duration'
+    ].map((key) => `col-${key}`)
+  )
+
+  const row = (id: string): Locator => page.getByTestId('problem-row').filter({ hasText: id })
+  const table = page.getByTestId('problems-table')
+
+  // P-101, abierto: dos afectadas → la primera y "+1" con tooltip; sin namespace → N/A; fin N/A; en curso.
+  await expect(row('P-101')).toContainText('pagos')
+  await expect(row('P-101')).not.toContainText('host-pagos-01')
+  const more = row('P-101').getByTestId('more-values')
+  await expect(more).toHaveText(/\+1/)
+  await more.hover()
+  await expect(page.getByRole('tooltip')).toContainText('host-pagos-01')
+  await page.mouse.move(0, 0)
+  await expect(row('P-101')).toContainText('N/A')
+  await expect(row('P-101')).toContainText('(en curso)')
+  await expect(row('P-101')).toContainText(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)
+
+  // P-102, cerrado: sin causa raíz → N/A; fin con fecha; 60 min sin "(en curso)".
+  await expect(row('P-102')).toContainText('60 min')
+  await expect(row('P-102')).not.toContainText('(en curso)')
+  const dates = (await row('P-102').innerText()).match(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/g) ?? []
+  expect(dates, 'inicio y fin con fecha').toHaveLength(2)
+  await expect(row('P-102')).toContainText('N/A')
+
+  // P-103: severidad desconocida en crudo y dos namespaces → el primero y "+1".
+  await expect(row('P-103')).toContainText('NUEVA_SEVERIDAD')
+  await expect(row('P-103')).toContainText('carrito-ns')
+  await expect(row('P-103').getByTestId('more-values')).toHaveText(/\+1/)
+
+  // Los tipos y los ids de las entidades no van en la tabla.
+  await expect(table).not.toContainText('SERVICE-AAA1')
+  await expect(table).not.toContainText('HOST-AAA1')
+})
+
+test('tabla de Problemas virtualizada con 300 problemas', async () => {
+  sim.many = true
+  await page.getByTestId('module-refresh').click()
+  const rows = page.getByTestId('problem-row')
+  await expect(rows.first()).toContainText('P-M')
+
+  const visible = async (): Promise<string[]> =>
+    rows.evaluateAll((els) => els.map((el) => /P-M\d+/.exec(el.textContent ?? '')?.[0] ?? ''))
+  const before = await visible()
+  expect(before.length, 'filas en el DOM').toBeGreaterThan(0)
+  expect(before.length, 'menos filas en el DOM que problemas').toBeLessThan(300)
+
+  await page.getByTestId('problems-scroll').evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await expect.poll(async () => (await visible()).some((id) => !before.includes(id))).toBe(true)
+  expect((await visible()).length).toBeLessThan(300)
+
+  sim.many = false
+  await page.getByTestId('module-refresh').click()
+  await expect(rows).toHaveCount(3)
 })
 
 test('Problemas: filtros de estado y de texto', async () => {
@@ -570,6 +739,18 @@ test('exporta problemas a XLSX con su hoja Info, y a TXT alineado y con tabulado
   expect(infoText['Rango']).toBe('now-2h')
   expect(infoText['Desde']).toBeInstanceOf(Date)
   expect(infoText['Hasta']).toBeInstanceOf(Date)
+  expect(String(infoText['Nota'])).toContain('Problemas abiertos: sin fin')
+  const header = (data?.getRow(1).values as unknown[]).slice(1).map(String)
+  expect(header).toHaveLength(16)
+  // La fila de un problema abierto: fin vacío y duración en número.
+  let openRow: unknown[] = []
+  data?.eachRow((r, n) => {
+    if (n > 1 && String(r.getCell(1).value) === 'P-101') openRow = (r.values as unknown[]).slice(1)
+  })
+  expect(openRow[13] ?? null, 'endTime vacío si está abierto').toBeNull()
+  expect(typeof openRow[14], 'durationMinutes es número').toBe('number')
+  expect(String(openRow[5]), 'afectadas unidas con " | "').toBe('pagos | host-pagos-01')
+  expect(String(openRow[7])).toBe('SERVICE-AAA1 | HOST-AAA1')
 
   const txt = readFileSync(await exportTo('problems-table', 'export-txt'), 'utf8')
   expect(txt).toContain('P-101')

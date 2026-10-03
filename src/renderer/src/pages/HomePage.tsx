@@ -1,19 +1,25 @@
 import { useMemo, useRef, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { severityLevels, type ProblemSummary, type SeverityLevel } from '@shared/modules'
+import { severityLevels, type ProblemSummary } from '@shared/modules'
 import { ExportMenu } from '../components/ExportMenu'
 import { ModuleError, ModuleUnavailable, RefreshButton } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
 
-/** Peor severidad primero: el orden de la API (disponibilidad antes que rendimiento…). */
-const severityRank = (severity: SeverityLevel): number => severityLevels.indexOf(severity)
+/**
+ * Peor severidad primero: el orden de la API (disponibilidad antes que
+ * rendimiento…). Una severidad que la app no conoce va al final.
+ */
+function severityRank(severity: string): number {
+  const index = (severityLevels as readonly string[]).indexOf(severity)
+  return index === -1 ? severityLevels.length : index
+}
 
 interface ServiceHealth {
   id: string
   name: string
-  severity: SeverityLevel
+  severity: string
   problems: number
 }
 
@@ -210,7 +216,9 @@ export function HomePage(): JSX.Element {
                   <li key={service.id} className="flex justify-between gap-2">
                     <span className="truncate">{service.name}</span>
                     <span className="text-danger">
-                      {t(`problems.severity.${service.severity}`)}
+                      {i18n.exists(`problems.severity.${service.severity}`)
+                        ? t(`problems.severity.${service.severity}`)
+                        : service.severity}
                     </span>
                   </li>
                 ))}

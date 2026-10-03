@@ -16,6 +16,7 @@ import {
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
+  problemDetailOutputSchema,
   problemSummarySchema,
   resolutionSchema,
   savedQuerySchema,
@@ -184,9 +185,10 @@ export const ipcContract = {
       truncated: z.boolean()
     })
   },
+  /** Detalle con evidencias, impacto y comentarios recientes. */
   'problems:get': {
     input: z.object({ environmentId: z.uuid(), problemId: z.string().min(1).max(200) }),
-    output: problemSummarySchema
+    output: problemDetailOutputSchema
   },
   'metrics:query': {
     input: z.object({
@@ -236,6 +238,8 @@ export const ipcContract = {
         .max(MAX_EXPORT_ROWS),
       query: z.string().max(2000).optional(),
       timeRange: timeRangeSchema.optional(),
+      /** Nota para la hoja Info del XLSX, en el idioma de la interfaz. */
+      note: z.string().max(500).optional(),
       /** Etiquetas del XLSX en el idioma de la interfaz (solo con format xlsx). */
       xlsxLabels: xlsxLabelsSchema.optional()
     }),

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildProblemSelector,
+  problemDetailSchema,
   problemSchema,
   problemsPageSchema,
+  toProblemDetail,
   toProblemSummary
 } from './problems'
 
@@ -29,6 +31,7 @@ function problem(overrides: Record<string, unknown> = {}): Record<string, unknow
       { id: '1', name: 'Producción' },
       { id: '2', name: 'Pagos' }
     ],
+    problemFilters: [{ id: 'f-1', name: 'Filtro de alertas' }],
     ...overrides
   }
 }
@@ -91,7 +94,7 @@ describe('buildProblemSelector', () => {
 })
 
 describe('problemSchema y toProblemSummary', () => {
-  it('convierte un problema abierto: endTime -1 → null y zonas por nombre', () => {
+  it('convierte un problema abierto: endTime -1 → null, zonas por nombre y sin namespaces', () => {
     expect(toProblemSummary(problemSchema.parse(problem()))).toEqual({
       problemId: 'p-0001',
       displayId: 'P-1',
@@ -107,40 +110,80 @@ describe('problemSchema y toProblemSummary', () => {
       ],
       impactedEntities: [{ id: 'APPLICATION-1', type: 'APPLICATION', name: 'web' }],
       rootCause: { id: 'SERVICE-1', type: 'SERVICE', name: 'pagos' },
-      managementZones: ['Producción', 'Pagos']
+      managementZones: ['Producción', 'Pagos'],
+      namespaces: []
     })
   })
 
-  it('un problema cerrado conserva su endTime y puede no tener causa raíz', () => {
-    const summary = toProblemSummary(
-      problemSchema.parse(
-        problem({
-          status: 'CLOSED',
-          endTime: 1791053600000,
-          rootCauseEntity: undefined,
-          managementZones: []
-        })
+  it('un problema cerrado conserva su endTime; la causa raíz puede faltar o ser null', () => {
+    for (const rootCauseEntity of [undefined, null]) {
+      const summary = toProblemSummary(
+        problemSchema.parse(
+          problem({
+            status: 'CLOSED',
+            endTime: 1791053600000,
+            rootCauseEntity,
+            managementZones: []
+          })
+        )
       )
+      expect(summary).toMatchObject({
+        status: 'CLOSED',
+        endTime: 1791053600000,
+        rootCause: null,
+        managementZones: []
+      })
+    }
+  })
+
+  it('lee los namespaces de "k8s.namespace.name"', () => {
+    const summary = toProblemSummary(
+      problemSchema.parse(problem({ 'k8s.namespace.name': ['pagos-ns', 'comun-ns'] }))
     )
-    expect(summary).toMatchObject({
-      status: 'CLOSED',
-      endTime: 1791053600000,
-      rootCause: null,
-      managementZones: []
-    })
+    expect(summary.namespaces).toEqual(['pagos-ns', 'comun-ns'])
+  })
+
+  it.each([
+    'affectedEntities',
+    'displayId',
+    'endTime',
+    'impactLevel',
+    'impactedEntities',
+    'managementZones',
+    'problemFilters',
+    'problemId',
+    'severityLevel',
+    'startTime',
+    'status',
+    'title'
+  ])('sin el campo obligatorio %s no valida', (field) => {
+    const raw = problem()
+    delete raw[field]
+    expect(problemSchema.safeParse(raw).success).toBe(false)
   })
 
   it.each([
     ['status desconocido', { status: 'RESOLVED' }],
-    ['severidad desconocida', { severityLevel: 'CRITICAL' }],
-    ['impacto desconocido', { impactLevel: 'GALAXY' }],
     ['startTime no numérico', { startTime: 'ayer' }],
-    ['sin problemId', { problemId: undefined }]
+    ['namespaces que no son texto', { 'k8s.namespace.name': [1, 2] }]
   ])('rechaza %s', (_case, overrides) => {
     expect(problemSchema.safeParse(problem(overrides)).success).toBe(false)
   })
 
-  it('acepta todas las severidades e impactos de la API', () => {
+  it('acepta severidades e impactos desconocidos (son texto, no enum) y los conserva', () => {
+    const parsed = problemSchema.safeParse(
+      problem({ severityLevel: 'NUEVA_SEVERIDAD', impactLevel: 'NUEVO_IMPACTO' })
+    )
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(toProblemSummary(parsed.data)).toMatchObject({
+        severityLevel: 'NUEVA_SEVERIDAD',
+        impactLevel: 'NUEVO_IMPACTO'
+      })
+    }
+  })
+
+  it('acepta todas las severidades e impactos conocidos de la API', () => {
     for (const severityLevel of [
       'AVAILABILITY',
       'CUSTOM_ALERT',
@@ -155,6 +198,131 @@ describe('problemSchema y toProblemSummary', () => {
     for (const impactLevel of ['APPLICATION', 'ENVIRONMENT', 'INFRASTRUCTURE', 'SERVICES']) {
       expect(problemSchema.safeParse(problem({ impactLevel })).success, impactLevel).toBe(true)
     }
+  })
+
+  it('tolera campos desconocidos y problemFilters con cualquier forma de objeto', () => {
+    expect(
+      problemSchema.safeParse(
+        problem({ campoNuevo: { x: 1 }, problemFilters: [{ id: 'f', otro: true }, {}] })
+      ).success
+    ).toBe(true)
+  })
+})
+
+describe('problemDetailSchema y toProblemDetail', () => {
+  function detail(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      ...problem(),
+      entityTags: [
+        {
+          context: 'CONTEXTLESS',
+          key: 'equipo',
+          value: 'pagos',
+          stringRepresentation: 'equipo:pagos'
+        },
+        { context: 'CONTEXTLESS', key: 'critico' },
+        { context: 'CONTEXTLESS', key: 'zona', value: 'eu' }
+      ],
+      linkedProblemInfo: { displayId: 'P-0', problemId: 'p-0000' },
+      evidenceDetails: {
+        totalCount: 2,
+        details: [
+          {
+            evidenceType: 'EVENT',
+            displayName: 'Respuesta lenta',
+            entity: { entityId: { id: 'SERVICE-1', type: 'SERVICE' }, name: 'pagos' },
+            startTime: 1791050000000
+          },
+          {
+            evidenceType: 'TIPO_RARO_NUEVO',
+            displayName: 'Algo nuevo',
+            entity: { entityId: { id: 'HOST-1', type: 'HOST' } },
+            campoDesconocido: 1
+          }
+        ]
+      },
+      impactAnalysis: {
+        impacts: [
+          {
+            impactType: 'SERVICE',
+            impactedEntity: { entityId: { id: 'SERVICE-2', type: 'SERVICE' }, name: 'carrito' },
+            estimatedAffectedUsers: 12
+          },
+          { impactType: 'APPLICATION' }
+        ]
+      },
+      recentComments: {
+        totalCount: 2,
+        comments: [
+          { authorName: 'operador', content: 'Mirando', createdAtTimestamp: 1791051000000 },
+          { content: 'Sin autor ni fecha' }
+        ]
+      },
+      ...overrides
+    }
+  }
+
+  it('mapea el detalle completo', () => {
+    const result = toProblemDetail(problemDetailSchema.parse(detail()))
+    expect(result).toMatchObject({
+      problemId: 'p-0001',
+      displayId: 'P-1',
+      impactedEntities: [{ id: 'APPLICATION-1', type: 'APPLICATION', name: 'web' }],
+      entityTags: ['equipo:pagos', 'critico', 'zona:eu'],
+      linkedProblem: { displayId: 'P-0', problemId: 'p-0000' },
+      evidence: [
+        { type: 'EVENT', name: 'Respuesta lenta', entity: 'pagos', startTime: 1791050000000 },
+        { type: 'TIPO_RARO_NUEVO', name: 'Algo nuevo', entity: 'HOST-1', startTime: null }
+      ],
+      impacts: [
+        { type: 'SERVICE', entity: 'carrito', estimatedAffectedUsers: 12 },
+        { type: 'APPLICATION', entity: null, estimatedAffectedUsers: null }
+      ],
+      comments: [
+        { author: 'operador', content: 'Mirando', createdAt: 1791051000000 },
+        { author: null, content: 'Sin autor ni fecha', createdAt: null }
+      ]
+    })
+  })
+
+  it('sin las partes opcionales: listas vacías y linkedProblem null', () => {
+    const raw = detail()
+    for (const key of [
+      'entityTags',
+      'linkedProblemInfo',
+      'evidenceDetails',
+      'impactAnalysis',
+      'recentComments'
+    ]) {
+      delete raw[key]
+    }
+    expect(toProblemDetail(problemDetailSchema.parse(raw))).toMatchObject({
+      entityTags: [],
+      linkedProblem: null,
+      evidence: [],
+      impacts: [],
+      comments: []
+    })
+  })
+
+  it('partes anidadas vacías o a medias no rompen: listas vacías', () => {
+    const raw = detail({
+      evidenceDetails: {},
+      impactAnalysis: {},
+      recentComments: { totalCount: 0 }
+    })
+    expect(toProblemDetail(problemDetailSchema.parse(raw))).toMatchObject({
+      evidence: [],
+      impacts: [],
+      comments: []
+    })
+  })
+
+  it('el detalle también es un resumen válido (con namespaces)', () => {
+    const result = toProblemDetail(
+      problemDetailSchema.parse(detail({ 'k8s.namespace.name': ['ns-a'] }))
+    )
+    expect(result).toMatchObject({ status: 'OPEN', endTime: null, namespaces: ['ns-a'] })
   })
 })
 

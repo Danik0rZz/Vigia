@@ -44,7 +44,8 @@ function problem(id: string, status = 'OPEN'): Record<string, unknown> {
     endTime: status === 'OPEN' ? -1 : 1791053600000,
     affectedEntities: [{ entityId: { id: 'SERVICE-1', type: 'SERVICE' }, name: 'pagos' }],
     impactedEntities: [],
-    managementZones: []
+    managementZones: [],
+    problemFilters: []
   }
 }
 

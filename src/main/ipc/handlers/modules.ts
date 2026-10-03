@@ -6,7 +6,13 @@ import {
   toMetricInfo,
   toMetricSeries
 } from '../../modules/metrics'
-import { buildProblemSelector, problemSchema, toProblemSummary } from '../../modules/problems'
+import {
+  buildProblemSelector,
+  problemDetailSchema,
+  problemSchema,
+  toProblemDetail,
+  toProblemSummary
+} from '../../modules/problems'
 import type { SavedQueryStore } from '../../modules/saved-queries'
 import { slosPageSchema, toSloSummary } from '../../modules/slos'
 import type { TenantRepository } from '../../tenants/repository'
@@ -25,6 +31,8 @@ type ModuleChannels =
 /** Problemas: hasta 5 páginas de 100 (500); más allá se avisa de que la lista está truncada. */
 const PROBLEMS_PAGE_SIZE = 100
 const PROBLEMS_MAX_PAGES = 5
+/** Partes del detalle que no vienen por defecto en GET /problems/{id}. */
+const PROBLEM_DETAIL_FIELDS = 'evidenceDetails,impactAnalysis,recentComments'
 const METRIC_SEARCH_PAGE_SIZE = 50
 /** Máximo de /api/v2/slo con evaluate=true. */
 const SLO_PAGE_SIZE = 25
@@ -73,9 +81,10 @@ export function createModuleHandlers(
         envId: environmentId,
         api: 'classic',
         path: `/problems/${encodeURIComponent(problemId)}`,
-        schema: problemSchema
+        query: { fields: PROBLEM_DETAIL_FIELDS },
+        schema: problemDetailSchema
       })
-      return toProblemSummary(problem)
+      return toProblemDetail(problem)
     },
 
     'metrics:query': async ({ environmentId, timeRange, metricSelector, resolution }) => {

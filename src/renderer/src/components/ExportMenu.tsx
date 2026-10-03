@@ -17,6 +17,8 @@ export interface ExportTable {
   rows: ExportRow[]
   query?: string | undefined
   timeRange?: TimeRangeValue | undefined
+  /** Nota para la hoja Info del XLSX, ya traducida. */
+  note?: string | undefined
 }
 
 /** Etiquetas del XLSX (hojas e Info) en el idioma de la interfaz. */
@@ -32,7 +34,8 @@ function xlsxLabels(t: TFunction): XlsxLabels {
     'timeZone',
     'range',
     'from',
-    'to'
+    'to',
+    'note'
   ] as const
   return Object.fromEntries(keys.map((key) => [key, t(`export.xlsxLabels.${key}`)])) as XlsxLabels
 }
@@ -144,6 +147,7 @@ export function ExportMenu({
         rows: table.rows,
         ...(table.query === undefined ? {} : { query: table.query }),
         ...(table.timeRange === undefined ? {} : { timeRange: table.timeRange }),
+        ...(table.note === undefined ? {} : { note: table.note }),
         // Las etiquetas del XLSX las traduce la interfaz, como las cabeceras.
         ...(action === 'xlsx' ? { xlsxLabels: xlsxLabels(t) } : {})
       })
