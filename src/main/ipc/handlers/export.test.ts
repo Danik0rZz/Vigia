@@ -203,6 +203,74 @@ describe('export:table con VIGIA_EXPORT_DIR', () => {
     expect(info).toMatchObject({ Client: 'Cliente A', Environment: 'Producción', Range: 'now-24h' })
   })
 
+  /** Filas [etiqueta, valor] de la hoja Info del XLSX escrito. */
+  async function infoRows(): Promise<[string, unknown][]> {
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load([...written.values()][0] as unknown as ArrayBuffer)
+    const rows: [string, unknown][] = []
+    workbook.getWorksheet('Info')?.eachRow((row) => {
+      rows.push([String(row.getCell(1).value), row.getCell(2).value])
+    })
+    return rows
+  }
+
+  it('AUD-08: invalidCount > 0 → fila propia «Elementos descartados» con el número, antes de los Aviso', async () => {
+    await call(
+      build(dir),
+      'export:table',
+      table('xlsx', { invalidCount: 2, warnings: ['Aviso de la API'] })
+    )
+    const rows = await infoRows()
+    const invalid = rows.filter(([label]) => label === 'Elementos descartados')
+    expect(invalid).toEqual([['Elementos descartados', 2]])
+    expect(typeof invalid[0]?.[1]).toBe('number')
+    // Los Aviso son solo los de Dynatrace.
+    expect(rows.filter(([label]) => label === 'Aviso')).toEqual([['Aviso', 'Aviso de la API']])
+    const labels = rows.map(([label]) => label)
+    expect(labels.indexOf('Elementos descartados')).toBeLessThan(labels.indexOf('Aviso'))
+  })
+
+  it.each([
+    ['0', { invalidCount: 0 }],
+    ['ausente', {}]
+  ])('AUD-08: invalidCount %s → sin fila de descartados', async (_case, extra) => {
+    await call(build(dir), 'export:table', table('xlsx', extra))
+    expect((await infoRows()).some(([label]) => label === 'Elementos descartados')).toBe(false)
+  })
+
+  it('AUD-08: con xlsxLabels.invalidItems usa esa etiqueta', async () => {
+    const xlsxLabels = {
+      dataSheet: 'Data',
+      infoSheet: 'Info',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To',
+      invalidItems: 'Discarded items'
+    }
+    await call(build(dir), 'export:table', table('xlsx', { xlsxLabels, invalidCount: 3 }))
+    expect((await infoRows()).filter(([label]) => label === 'Discarded items')).toEqual([
+      ['Discarded items', 3]
+    ])
+  })
+
+  it.each([
+    ['negativo', -1],
+    ['con decimales', 1.5],
+    ['texto', '2']
+  ])('AUD-08: invalidCount %s → INVALID_INPUT', async (_case, invalidCount) => {
+    expect(await call(build(dir), 'export:table', table('xlsx', { invalidCount }))).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' }
+    })
+    expect(written.size).toBe(0)
+  })
+
   it('AUD-08: los warnings van a la hoja Info, una fila por aviso, con la etiqueta Aviso', async () => {
     await call(
       build(dir),
