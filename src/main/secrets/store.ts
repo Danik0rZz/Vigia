@@ -50,7 +50,9 @@ export function createSecretStore(db: AppDatabase, crypto: SecretCrypto): Secret
   const where = (environmentId: string, kind: SecretKind): SQL | undefined =>
     and(eq(secrets.environmentId, environmentId), eq(secrets.kind, kind))
 
-  // Marca en memoria: al reiniciar se pierde y el siguiente read la vuelve a poner.
+  // Marca en memoria, a propósito (no es un bug): al reiniciar la app se pierde y
+  // el secreto vuelve a verse "Configurado" hasta el primer read() que falle, que
+  // la pone otra vez. status() no descifra para comprobarlo.
   const unreadableKeys = new Set<string>()
   const markKey = (environmentId: string, kind: SecretKind): string => `${environmentId}:${kind}`
 
