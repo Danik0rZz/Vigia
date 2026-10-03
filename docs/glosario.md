@@ -15,6 +15,5 @@ Solo se escriben igual en español y en inglés los nombres propios de objetos o
 | Smartscape      | Sí               | Mapa de topología con las dependencias entre hosts, procesos y servicios  |
 | PurePath        | Sí               | Traza distribuida de una petición de extremo a extremo                    |
 | Monaco          | Sí               | Herramienta de Dynatrace para gestionar la configuración como código      |
-| Dynatrace Hub   | Sí               | Catálogo de extensiones, integraciones y aplicaciones de Dynatrace        |
 
 Solo se añaden términos que la app vaya a usar.

@@ -7,7 +7,7 @@ import {
 } from '@playwright/test'
 
 /**
- * Prueba de humo de la Fase 1 sobre la app compilada (`out/`): la ventana
+ * Prueba de humo sobre la app compilada (`out/`): la ventana
  * arranca, el canal IPC de ejemplo funciona de punta a punta y las barreras de
  * seguridad están activas.
  */
@@ -27,17 +27,41 @@ test.afterAll(async () => {
   await app.close()
 })
 
+/** Llama a un canal IPC desde la interfaz, como lo haría la app. */
+function invoke(channel: string, input?: unknown): Promise<unknown> {
+  return page.evaluate(
+    ([name, payload]) => {
+      const api = (
+        window as unknown as { vigia: { invoke: (...args: unknown[]) => Promise<unknown> } }
+      ).vigia
+      return payload === undefined ? api.invoke(name) : api.invoke(name, payload)
+    },
+    [channel, input] as const
+  )
+}
+
 test('la ventana carga la interfaz por el protocolo app://', async () => {
-  expect(page.url()).toBe('app://vigia/index.html')
+  expect(page.url()).toBe('app://vigia/index.html#/')
   await expect(page).toHaveTitle('Vigía')
-  await expect(page.getByRole('heading', { level: 1, name: 'Vigía' })).toBeVisible()
+  await expect(page.getByTestId('app-name')).toHaveText('Vigía')
 })
 
 test('app:getInfo devuelve los datos del runtime', async () => {
-  const info = page.getByTestId('app-info')
-  await expect(info).toContainText('Electron')
-  const version = await app.evaluate(({ app: electronApp }) => electronApp.getVersion())
-  await expect(info).toContainText(version)
+  const runtime = await app.evaluate(({ app: electronApp }) => ({
+    version: electronApp.getVersion(),
+    electron: process.versions.electron
+  }))
+  const result = await invoke('app:getInfo')
+
+  expect(result).toMatchObject({
+    ok: true,
+    data: {
+      name: 'Vigía',
+      version: runtime.version,
+      packaged: false,
+      versions: { electron: runtime.electron }
+    }
+  })
 })
 
 test('el User-Agent solo tiene caracteres ASCII', async () => {
@@ -47,9 +71,11 @@ test('el User-Agent solo tiene caracteres ASCII', async () => {
 })
 
 test('el canal de ejemplo app:ping responde desde main', async () => {
-  await page.getByLabel('Mensaje').fill('desde la prueba')
-  await page.getByRole('button', { name: 'Enviar a main' }).click()
-  await expect(page.getByTestId('ping-reply')).toContainText('pong: desde la prueba')
+  const result = await invoke('app:ping', { message: 'desde la prueba' })
+
+  expect(result).toMatchObject({ ok: true, data: { reply: 'pong: desde la prueba' } })
+  const receivedAt = (result as { data: { receivedAt: string } }).data.receivedAt
+  expect(Number.isNaN(Date.parse(receivedAt))).toBe(false)
 })
 
 test('el preload valida la entrada y rechaza canales fuera del contrato', async () => {
@@ -111,6 +137,10 @@ test('la navegación fuera de la app queda bloqueada', async () => {
   const url = await app.evaluate(
     ({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getURL() ?? null
   )
-  expect(url).toBe('app://vigia/index.html')
-  expect(await page.evaluate(() => document.querySelector('h1')?.textContent)).toBe('Vigía')
+  expect(url).toBe('app://vigia/index.html#/')
+  expect(
+    await page.evaluate(
+      () => document.querySelector('[data-testid="app-name"]')?.textContent ?? null
+    )
+  ).toBe('Vigía')
 })

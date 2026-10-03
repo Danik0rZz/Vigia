@@ -1,119 +1,125 @@
-/* Estilos provisionales de la Fase 1. La Fase 2 los sustituye por Tailwind y el tema cristal. */
+@import 'tailwindcss';
+
+/* El tema lo decide `data-theme` en <html> (ver src/renderer/src/app/theme.ts). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * Tokens de color y de movimiento. Los componentes solo usan estos tokens, nunca
+ * colores sueltos. Los fondos de `--background` deben coincidir con los de la
+ * barra de título nativa (src/main/theme.ts).
+ */
 :root {
-  color-scheme: dark;
-  --bg: #0f1115;
-  --panel: #171a21;
-  --border: #2a2f3a;
-  --text: #e6e8ec;
-  --muted: #9aa3b2;
-  --accent: #4c8dff;
-  --error: #ff7b72;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
+  color-scheme: light;
+  --background: #eef1f6;
+  --background-accent: #dfe6f3;
+  --foreground: #1b2130;
+  --muted-foreground: #5b6578;
+  --border: rgb(27 33 48 / 0.1);
+  --accent: #2f6fe4;
+  --accent-foreground: #ffffff;
+  --hover: rgb(27 33 48 / 0.06);
+  --active: rgb(47 111 228 / 0.12);
+  --ring: rgb(47 111 228 / 0.55);
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-border: rgb(255 255 255 / 0.7);
+  --glass-shadow: 0 1px 2px rgb(15 18 24 / 0.06), 0 8px 24px rgb(15 18 24 / 0.06);
+  --overlay: rgb(15 18 24 / 0.3);
+  --status-neutral: #8a93a6;
+
+  --motion-duration: 200ms;
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0f1218;
+  --background-accent: #172033;
+  --foreground: #e6e9ef;
+  --muted-foreground: #9aa3b4;
+  --border: rgb(255 255 255 / 0.08);
+  --accent: #5b93ff;
+  --accent-foreground: #0f1218;
+  --hover: rgb(255 255 255 / 0.06);
+  --active: rgb(91 147 255 / 0.16);
+  --ring: rgb(91 147 255 / 0.6);
+  --glass: rgb(28 33 44 / 0.55);
+  --glass-border: rgb(255 255 255 / 0.08);
+  --glass-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
+  --overlay: rgb(0 0 0 / 0.5);
+  --status-neutral: #6b7487;
+}
+
+/* Movimiento reducido: todas las transiciones y animaciones CSS pasan a casi 0. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0.01ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --color-status-neutral: var(--status-neutral);
+  --font-sans: var(--font-sans);
+}
+
+/* Panel de cristal translúcido. */
+@utility glass {
+  background-color: var(--glass);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Zonas de la barra de título propia: se arrastra la ventana, salvo en los controles. */
+@utility app-drag {
+  -webkit-app-region: drag;
+}
+@utility app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Deja libre el hueco de los botones nativos de la ventana (Window Controls Overlay). */
+@utility titlebar-inset {
+  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 12px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--foreground);
+  background:
+    radial-gradient(120% 80% at 0% 0%, var(--background-accent), transparent 60%),
+    radial-gradient(80% 60% at 100% 100%, var(--background-accent), transparent 55%),
+    var(--background);
 }
 
-.shell {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 32px 24px;
-  display: grid;
-  gap: 20px;
-}
-
-h1 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-h2 {
-  margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.muted {
-  margin: 0;
-  color: var(--muted);
-}
-
-.error {
-  margin: 12px 0 0;
-  color: var(--error);
-}
-
-.panel {
-  padding: 20px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-dl {
-  margin: 0;
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 6px 24px;
-}
-
-dt {
-  color: var(--muted);
-}
-
-dd {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-label {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--muted);
-}
-
-.row {
-  display: flex;
-  gap: 8px;
-}
-
-input {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font: inherit;
-}
-
-button {
-  padding: 8px 14px;
-  color: #fff;
-  background: var(--accent);
-  border: 0;
-  border-radius: 8px;
-  font: inherit;
-  cursor: pointer;
-}
-
-input:focus-visible,
-button:focus-visible {
-  outline: 2px solid var(--accent);
+:focus-visible {
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
-}
-
-[data-testid='ping-reply'] {
-  margin: 12px 0 0;
 }

@@ -1,0 +1,55 @@
+{
+  "nav": {
+    "aria": "Navegación principal",
+    "groups": {
+      "monitoring": "Monitorización",
+      "analysis": "Análisis",
+      "administration": "Administración"
+    },
+    "home": "Inicio",
+    "problems": "Problemas",
+    "topology": "Topología",
+    "metrics": "Métricas",
+    "logs": "Logs y DQL",
+    "slos": "SLOs",
+    "serviceFlows": "Service flows",
+    "businessView": "Vista de negocio",
+    "configuration": "Configuración",
+    "integrations": "Integraciones",
+    "settings": "Ajustes"
+  },
+  "sidebar": {
+    "collapse": "Plegar la barra lateral",
+    "expand": "Desplegar la barra lateral"
+  },
+  "topbar": {
+    "breadcrumb": "Ruta",
+    "search": "Buscar",
+    "shortcut": "Ctrl K",
+    "themeToLight": "Cambiar a tema claro",
+    "themeToDark": "Cambiar a tema oscuro",
+    "language": "Cambiar a inglés",
+    "languageShort": "ES"
+  },
+  "palette": {
+    "title": "Ir a una sección",
+    "placeholder": "Buscar una sección…",
+    "empty": "Sin resultados"
+  },
+  "envStatus": {
+    "label": "Estado del entorno",
+    "none": "Sin entorno configurado",
+    "connected": "Conectado",
+    "disconnected": "Sin conexión",
+    "oauthExpires": "El token OAuth caduca a las {{time}}"
+  },
+  "settings": {
+    "theme": "Tema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "themeSystem": "Sistema",
+    "language": "Idioma",
+    "languageEs": "Español",
+    "languageEn": "English"
+  }
+}

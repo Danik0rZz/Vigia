@@ -4,6 +4,7 @@ import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 import eslintPluginReact from 'eslint-plugin-react'
 import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import eslintPluginReactRefresh from 'eslint-plugin-react-refresh'
+import eslintPluginI18next from 'eslint-plugin-i18next'
 
 export default defineConfig(
   {
@@ -46,6 +47,15 @@ export default defineConfig(
           ]
         }
       ]
+    }
+  },
+  {
+    // Ningún texto de interfaz escrito en los componentes: todo pasa por i18next.
+    files: ['src/renderer/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    plugins: { i18next: eslintPluginI18next },
+    rules: {
+      'i18next/no-literal-string': 'error'
     }
   },
   eslintConfigPrettier
