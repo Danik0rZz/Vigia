@@ -604,6 +604,7 @@ describe('paginate', () => {
     expect([...sent(2).url.searchParams.entries()]).toEqual([['nextPageKey', 'k2']])
   })
 
+  // Los @ts-expect-error de estos tests los comprueba `npm run typecheck`, no Vitest.
   it('keepParams ya no existe en el tipo de paginate', () => {
     // Si alguien vuelve a añadir keepParams al tipo, esta línea deja de ser un error y tsc falla.
     const call = (): unknown =>
