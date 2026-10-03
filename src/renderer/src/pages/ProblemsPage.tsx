@@ -108,13 +108,10 @@ export function ProblemsPage(): JSX.Element {
   )
 
   // El rango del gráfico es el del momento en que llegaron los datos.
-  const range = timeRangeToDates(timeRange, new Date(query.dataUpdatedAt))
-  const buckets = useMemo(
-    () => timelineBuckets(problems, range.from, range.to),
-    // El rango se fija con los datos: no se recalcula en cada render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [problems, query.dataUpdatedAt]
-  )
+  const buckets = useMemo(() => {
+    const range = timeRangeToDates(timeRange, new Date(query.dataUpdatedAt))
+    return timelineBuckets(problems, range.from, range.to)
+  }, [problems, timeRange, query.dataUpdatedAt])
   const buildOption = useCallback(
     (colors: ChartColors): EChartsCoreOption => ({
       animation: false,
