@@ -248,6 +248,95 @@ test('guarda un token clásico: estado Configurado y el valor no vuelve nunca', 
   await expect(form).toBeHidden()
 })
 
+test('AUD-03: Enter en un secreto guarda ese secreto y el formulario sigue abierto', async () => {
+  await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+  const form = page.getByTestId('environment-form')
+  await expect(form).toBeVisible()
+  await expect(form.getByTestId('secret-status-oauthClientSecret')).toHaveText('Sin configurar')
+
+  const input = form.getByTestId('secret-input-oauthClientSecret')
+  await input.fill('dt0s02.FALSOAUD03.SECRETOENTER')
+  await input.press('Enter')
+
+  await expect(form.getByTestId('secret-status-oauthClientSecret')).toHaveText('Configurado')
+  await expect(input).toHaveValue('')
+  await expect(form).toBeVisible()
+  // Los otros secretos no cambian.
+  await expect(form.getByTestId('secret-status-classicToken')).toHaveText('Configurado')
+  await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Sin configurar')
+
+  // Enter con el campo vacío no hace nada.
+  await input.press('Enter')
+  await expect(form).toBeVisible()
+  await expect(form.getByTestId('secret-status-oauthClientSecret')).toHaveText('Configurado')
+
+  // Se deja como estaba para las pruebas siguientes.
+  await form.getByTestId('secret-delete-oauthClientSecret').click()
+  const confirm = page.getByTestId('confirm-dialog')
+  if (await confirm.isVisible().catch(() => false))
+    await confirm.getByTestId('confirm-accept').click()
+  await expect(form.getByTestId('secret-status-oauthClientSecret')).toHaveText('Sin configurar')
+  await form.getByTestId('form-cancel').click()
+  await expect(form).toBeHidden()
+  expect(await page.content()).not.toContain('SECRETOENTER')
+})
+
+test('AUD-03: un secreto escrito sin guardar pide confirmación al cerrar', async () => {
+  const form = page.getByTestId('environment-form')
+  const confirm = page.getByTestId('confirm-dialog')
+
+  for (const close of ['form-cancel', 'Escape'] as const) {
+    await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+    await expect(form).toBeVisible()
+    const input = form.getByTestId('secret-input-platformToken')
+    await input.fill('dt0s16.FALSOAUD03.SINGUARDAR')
+
+    const tryClose = async (): Promise<void> => {
+      if (close === 'Escape') await page.keyboard.press('Escape')
+      else await form.getByTestId('form-cancel').click()
+    }
+
+    // Cancelar la confirmación: el formulario sigue y el valor se conserva.
+    await tryClose()
+    await expect(confirm, close).toBeVisible()
+    await expect(confirm).toHaveAttribute('role', 'alertdialog')
+    await confirm.getByTestId('confirm-cancel').click()
+    await expect(confirm).toBeHidden()
+    await expect(form).toBeVisible()
+    await expect(input).toHaveValue('dt0s16.FALSOAUD03.SINGUARDAR')
+
+    // Aceptar: se cierra y el secreto NO se ha guardado.
+    await tryClose()
+    await confirm.getByTestId('confirm-accept').click()
+    await expect(form).toBeHidden()
+
+    await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+    await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Sin configurar')
+    await expect(form.getByTestId('secret-input-platformToken')).toHaveValue('')
+    await form.getByTestId('form-cancel').click()
+    // Sin nada escrito, cerrar no pide confirmación.
+    await expect(confirm).toHaveCount(0)
+    await expect(form).toBeHidden()
+  }
+  expect(await page.content()).not.toContain('SINGUARDAR')
+})
+
+test('AUD-03: Enter en un campo del entorno sigue guardando el entorno', async () => {
+  await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+  const form = page.getByTestId('environment-form')
+  await form.getByTestId('environment-tags').fill('core, aud03')
+  await form.getByTestId('environment-name').press('Enter')
+  await expect(form).toBeHidden()
+
+  const list = (await invoke('tenants:list')) as {
+    data: { environments: { name: string; tags: string[] }[] }
+  }
+  expect(list.data.environments.find((e) => e.name === 'Producción')?.tags).toEqual([
+    'core',
+    'aud03'
+  ])
+})
+
 test('elige el entorno en el selector: ruta Cliente › Entorno › Sección y distintivo de Producción', async () => {
   await page.getByTestId('env-selector').click()
   const option = page.getByRole('option', { name: 'Cliente A › Producción' })

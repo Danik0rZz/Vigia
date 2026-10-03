@@ -144,7 +144,9 @@
     "placeholder": "New value",
     "save": "Save",
     "delete": "Delete",
-    "unavailable": "System encryption is not available: credentials cannot be saved."
+    "unavailable": "System encryption is not available: credentials cannot be saved.",
+    "unsavedTitle": "Close without saving the credential?",
+    "unsavedBody": "A credential has been typed but not saved, and it will be lost. To save it, press Enter in its field or use its Save button."
   },
   "form": {
     "save": "Save",

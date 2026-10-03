@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react'
+import { useEffect, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { secretKinds, type EnvironmentView, type SecretKind } from '@shared/tenants'
 import { BUTTON_SECONDARY, INPUT } from '../components/styles'
@@ -12,11 +12,13 @@ function kindsFor(environment: EnvironmentView): readonly SecretKind[] {
 function SecretRow({
   environment,
   kind,
-  available
+  available,
+  onDirtyChange
 }: {
   environment: EnvironmentView
   kind: SecretKind
   available: boolean
+  onDirtyChange?: ((kind: SecretKind, dirty: boolean) => void) | undefined
 }): JSX.Element {
   const { t } = useTranslation()
   // El valor solo vive aquí hasta guardarlo; después se vacía y nunca vuelve de main.
@@ -26,8 +28,16 @@ function SecretRow({
   const remove = useTenantMutation('secrets:delete')
   const configured = environment.secrets[kind]
   const inputId = `secret-${environment.id}-${kind}`
+  const canSave = available && value.trim() !== '' && !save.isPending
+
+  // Quien abre el diálogo necesita saber si queda algo escrito sin guardar.
+  const dirty = value.trim() !== ''
+  useEffect(() => {
+    onDirtyChange?.(kind, dirty)
+  }, [onDirtyChange, kind, dirty])
 
   const onSave = async (): Promise<void> => {
+    if (!canSave) return
     setFailed(false)
     try {
       await save.mutateAsync([{ environmentId: environment.id, kind, value }])
@@ -37,8 +47,16 @@ function SecretRow({
     }
   }
 
+  // Formulario propio: Enter en el campo guarda este secreto y nada más.
   return (
-    <div className="grid gap-1.5 rounded-lg border border-border p-3">
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        void onSave()
+      }}
+      className="grid gap-1.5 rounded-lg border border-border p-3"
+    >
       <div className="flex items-center justify-between gap-2">
         <label htmlFor={inputId} className="text-sm font-medium">
           {t(`secrets.kinds.${kind}`)}
@@ -60,10 +78,9 @@ function SecretRow({
           className={INPUT}
         />
         <button
-          type="button"
+          type="submit"
           data-testid={`secret-save-${kind}`}
-          disabled={!available || value.trim() === '' || save.isPending}
-          onClick={() => void onSave()}
+          disabled={!canSave}
           className={BUTTON_SECONDARY}
         >
           {t('secrets.save')}
@@ -83,12 +100,22 @@ function SecretRow({
           {t('errors.generic')}
         </p>
       )}
-    </div>
+    </form>
   )
 }
 
-/** Credenciales de un entorno ya guardado: estado y alta o baja, nunca el valor. */
-export function SecretsPanel({ environment }: { environment: EnvironmentView }): JSX.Element {
+/**
+ * Credenciales de un entorno ya guardado: estado y alta o baja, nunca el valor.
+ * Va FUERA del formulario del entorno: cada secreto tiene el suyo.
+ */
+export function SecretsPanel({
+  environment,
+  onDirtyChange
+}: {
+  environment: EnvironmentView
+  /** Avisa de si queda un secreto escrito sin guardar. */
+  onDirtyChange?: (kind: SecretKind, dirty: boolean) => void
+}): JSX.Element {
   const { t } = useTranslation()
   const available = useSecretsAvailable()
 
@@ -104,7 +131,13 @@ export function SecretsPanel({ environment }: { environment: EnvironmentView }):
         </p>
       )}
       {kindsFor(environment).map((kind) => (
-        <SecretRow key={kind} environment={environment} kind={kind} available={available} />
+        <SecretRow
+          key={kind}
+          environment={environment}
+          kind={kind}
+          available={available}
+          onDirtyChange={onDirtyChange}
+        />
       ))}
     </section>
   )

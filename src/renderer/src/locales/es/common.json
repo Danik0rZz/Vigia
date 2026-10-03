@@ -144,7 +144,9 @@
     "placeholder": "Valor nuevo",
     "save": "Guardar",
     "delete": "Borrar",
-    "unavailable": "El cifrado del sistema no está disponible: no se pueden guardar credenciales."
+    "unavailable": "El cifrado del sistema no está disponible: no se pueden guardar credenciales.",
+    "unsavedTitle": "¿Cerrar sin guardar la credencial?",
+    "unsavedBody": "Hay una credencial escrita que no se ha guardado y se perderá. Para guardarla, pulsa Intro en su campo o su botón Guardar."
   },
   "form": {
     "save": "Guardar",
