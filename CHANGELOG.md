@@ -3,9 +3,25 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [0.6.0] - 2026-10-03
 
-Fase 6: primeras vistas core (en curso).
+Fase 6: primeras vistas core. Con ella se completa el alcance propuesto de la primera versión
+(fases 1, 2, 3, 4 y 6).
+
+### Añadido
+
+- Inicio: problemas abiertos, SLOs (estado, objetivo y presupuesto de error) y salud de servicios
+  derivada de los problemas abiertos.
+- Problemas: filtros de estado y texto, línea de tiempo con ECharts, tabla y detalle con las
+  entidades afectadas. Hasta 500 problemas, con aviso si la lista se trunca.
+- Métricas: búsqueda, consulta con resolución, gráfico de líneas y consultas guardadas por entorno
+  (también en `Ctrl+K`).
+- Rango temporal personalizado, de un año como máximo.
+- Exportación de toda tabla y gráfico a CSV (BOM, separador configurable, fórmulas
+  neutralizadas), XLSX (tipos reales, hoja Info con rango y fechas) y TXT, y capturas PNG a doble
+  resolución con pie opcional, al portapapeles o a fichero.
+- Sin auto-refresco: los datos se piden al entrar y con "Actualizar". Los módulos sin token
+  clásico o sin sus scopes aparecen desactivados con la explicación.
 
 ### Cambiado
 

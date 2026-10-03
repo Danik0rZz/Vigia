@@ -18,7 +18,8 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 - **Fase 2 (esqueleto de la interfaz): cerrada, versión 0.2.0.** Criterios automáticos cumplidos (check 54 tests, e2e 29 tests, en Windows); la aceptación manual está en la lista de pendientes.
 - **Fase 3 (datos locales y secretos): cerrada, versión 0.3.0.** Criterios automáticos cumplidos en Windows (check y e2e, con relanzamiento de la app); la aceptación manual está en la lista de pendientes.
 - **Fase 4 (cliente de Dynatrace): cerrada, versión 0.4.0.** Criterios automáticos cumplidos en Windows (unitarios, integración con un HTTPS simulado y e2e de certificados); la prueba contra un tenant real está en la lista de pendientes.
-- **Siguiente: Fase 6 (primeras vistas core).** La 5 (Monaco) está aparcada.
+- **Fase 6 (primeras vistas core): cerrada, versión 0.6.0.** Con ella se completa el alcance propuesto de la primera versión (fases 1, 2, 3, 4 y 6). Criterios automáticos cumplidos en Windows; la aceptación manual está en la lista de pendientes.
+- **Siguiente:** lo decide Dani (Monaco sigue aparcado).
 - **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
 - El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
@@ -54,6 +55,12 @@ Fase 4:
 - [ ] Detrás del proxy corporativo y con su CA: con el nivel "sistema" conecta sin tocar nada.
 - [ ] La tarjeta del pie muestra el estado real y la caducidad del token OAuth.
 - [ ] Arrancar el zip 0.4.0 sobre sus datos: aplica la migración 0001 sin perder clientes, entornos ni credenciales.
+
+Fase 6:
+
+- [ ] El XLSX se abre en Excel con los tipos correctos (fechas y números) y el CSV muestra bien los acentos.
+- [ ] Inicio, Problemas y Métricas contra un tenant real, con exportación y capturas.
+- [ ] El zip 0.6.0 sobre sus datos aplica la migración 0002 (consultas guardadas) sin perder nada.
 
 ## Primer paso al retomar
 
@@ -116,6 +123,8 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 - `Set-Content -Encoding utf8` de PowerShell 5.1 escribe BOM, y `Get-Content -Raw` sin `-Encoding utf8` lee los ficheros como ANSI y estropea las tildes al reescribirlos. Para editar ficheros, usar las herramientas de edición, `sed` o `node`.
 - Electron cachea el resultado de `setCertificateVerifyProc` y no hay forma de borrarlo: desde la PR #26517 (2020) volver a llamarlo ya no limpia la caché, y el issue #41448 (pedir esa API) sigue abierto. Por eso cada cambio de nivel o de huellas de un entorno crea una partición nueva en memoria `env-<id>-<generación>` (`src/main/dynatrace/network.ts`). Fuentes: https://www.electronjs.org/docs/latest/api/session, https://github.com/electron/electron/pull/26517 y https://github.com/electron/electron/issues/41448.
 - El verificador de certificados solo ve el nombre del host, sin puerto; las huellas se guardan con `URL.host` (con puerto) y se comparan por nombre.
+- Electron 44 cambió el portapapeles al estilo W3C: `clipboard` de main solo tiene `clear`, `has`, `read`, `readText`, `write` y `writeText` (asíncronos). Ya no hay `readImage` ni `writeImage`: una imagen se copia con `clipboard.write([new ClipboardItem({ "image/png": blob })])`.
+- Las vistas de datos no se refrescan solas (`staleTime: Infinity`, `refetchOnMount: false`): cada petición gasta cuota de la API. Solo "Actualizar" o una clave nueva (entorno, filtros, rango) piden datos.
 - Cambios hechos por IPC directo (`window.vigia.invoke`) no actualizan la interfaz: TanStack Query solo se entera de las mutaciones que hace el renderer. En los e2e, recargar tras preparar datos por IPC.
 - En producción no hay menú (`Menu.setApplicationMenu(null)`), así que tampoco hay atajos de recarga ni DevTools.
 - Las librerías solo del renderer van en devDependencies: Vite las empaqueta y electron-builder metería en el asar todo lo de dependencies.
@@ -123,6 +132,6 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 
 ## Versiones fijadas
 
-Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests). Node 22 o superior.
+Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main), ECharts 6.1.0. Node 22 o superior.
 
 Pendiente al subir electron-builder: `npm audit` marca 8 "high" (http-cache-semantics vía `@electron/get`), solo de empaquetado; `npm audit --omit=dev` = 0. No forzar overrides.
