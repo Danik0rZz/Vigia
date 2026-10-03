@@ -2,12 +2,14 @@ import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 import * as Tooltip from '@radix-ui/react-tooltip'
+import { useQuery } from '@tanstack/react-query'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { APP_NAME } from '@shared/app'
 import { AppIcon, NAV_GROUPS, NAV_SECTIONS, type NavSection } from '../app/navigation'
 import { usePreferences } from '../app/preferences'
 import { unavailableReason, useModuleAccess, type ModuleAccess } from '../data/modules'
 import { cn } from '../lib/cn'
+import { invoke } from '../lib/ipc'
 import { useEnvStatus } from './env-status'
 import { EnvStatusCard } from './EnvStatusCard'
 
@@ -79,6 +81,8 @@ export function Sidebar(): JSX.Element {
     metrics: useModuleAccess('metrics')
   }
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose
+  // Lo decide main (app.isPackaged): el renderer no lo deduce por su cuenta.
+  const appInfo = useQuery({ queryKey: ['appInfo'], queryFn: () => invoke('app:getInfo') })
 
   return (
     <aside
@@ -99,6 +103,15 @@ export function Sidebar(): JSX.Element {
         <span data-testid="app-name" className={cn('font-semibold', collapsed && 'sr-only')}>
           {APP_NAME}
         </span>
+        {!collapsed && appInfo.data?.packaged === false && (
+          // Sin empaquetar (npm run dev, e2e): datos en vigia-dev, no los del zip.
+          <span
+            data-testid="dev-badge"
+            className="rounded border border-border px-1 text-[10px] font-medium text-muted-foreground"
+          >
+            {t('app.dev')}
+          </span>
+        )}
       </div>
 
       <nav aria-label={t('nav.aria')} className="flex-1 overflow-y-auto px-2">

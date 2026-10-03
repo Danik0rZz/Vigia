@@ -352,5 +352,8 @@
     "configuration": "Mostrará la copia y la migración de la configuración entre entornos.",
     "integrations": "Mostrará conectores con herramientas externas.",
     "settings": "Clientes, entornos y credenciales, tema, idioma y exportación."
+  },
+  "app": {
+    "dev": "DEV"
   }
 }

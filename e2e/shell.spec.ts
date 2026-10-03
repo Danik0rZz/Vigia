@@ -177,6 +177,14 @@ test('arranca en Inicio (#/) en español', async () => {
   await expect(page).toHaveURL(`${ENTRY}#/`)
   await expect(page.locator('html')).toHaveAttribute('lang', 'es')
   await expect(page.getByTestId('app-name')).toHaveText('Vigía')
+  // Sin empaquetar (como corre el e2e) se ve la marca DEV junto al nombre.
+  await expect(page.getByTestId('dev-badge')).toHaveText('DEV')
+  const info = await page.evaluate(() =>
+    (
+      window as unknown as { vigia: { invoke: (channel: string) => Promise<unknown> } }
+    ).vigia.invoke('app:getInfo')
+  )
+  expect(info).toMatchObject({ ok: true, data: { packaged: false } })
   await expectPage('es', SECTIONS[0])
 })
 

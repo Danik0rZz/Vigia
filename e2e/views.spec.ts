@@ -388,6 +388,10 @@ test.beforeAll(async () => {
     env: { ...process.env, VIGIA_USER_DATA_DIR: userDataDir, VIGIA_EXPORT_DIR: exportDir }
   })
   page = await app.firstWindow()
+  // Nunca la carpeta real de datos: la temporal de esta prueba.
+  expect(await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))).toBe(
+    userDataDir
+  )
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text())
   })

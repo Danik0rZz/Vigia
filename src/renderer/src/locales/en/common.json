@@ -352,5 +352,8 @@
     "configuration": "Will show copying and migrating configuration between environments.",
     "integrations": "Will show connectors to external tools.",
     "settings": "Clients, environments and credentials, theme, language and export."
+  },
+  "app": {
+    "dev": "DEV"
   }
 }

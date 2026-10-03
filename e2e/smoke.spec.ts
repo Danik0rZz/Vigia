@@ -28,6 +28,10 @@ test.beforeAll(async () => {
     env: { ...process.env, VIGIA_USER_DATA_DIR: userDataDir }
   })
   page = await app.firstWindow()
+  // Nunca la carpeta real de datos: la temporal de esta prueba.
+  expect(await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))).toBe(
+    userDataDir
+  )
   await page.waitForLoadState('domcontentloaded')
 })
 

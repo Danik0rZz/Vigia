@@ -25,6 +25,14 @@ describe('resolveUserDataDir', () => {
     )
   })
 
+  it.each([undefined, '', '   ', override])(
+    'sin empaquetar NUNCA usa la carpeta real %APPDATA%/vigia (override %j)',
+    (value) => {
+      const result = resolveUserDataDir({ packaged: false, appData, override: value })
+      expect(result).not.toBe(join(appData, 'vigia'))
+    }
+  )
+
   it('sin empaquetar respeta VIGIA_USER_DATA_DIR', () => {
     expect(resolveUserDataDir({ packaged: false, appData, override })).toBe(override)
   })

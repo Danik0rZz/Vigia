@@ -178,6 +178,11 @@ describe('locales es y en', () => {
     }
   })
 
+  it('la marca de desarrollo es "DEV" en los dos idiomas (common)', () => {
+    expect(text('es', 'common', 'app.dev')).toBe('DEV')
+    expect(text('en', 'common', 'app.dev')).toBe('DEV')
+  })
+
   it('cada sección del menú tiene su ayuda en navHelp, distinta del nombre (common)', () => {
     const sections = [
       'home',
