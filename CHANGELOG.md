@@ -3,6 +3,48 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.7.0] - 2026-10-04
+
+Mejoras sobre la primera versión: Problemas completo, entornos más claros y pruebas en vivo.
+
+### Añadido
+
+- Problemas: tabla con impacto, severidad, entidades afectadas, causa raíz, namespace, inicio, fin
+  y duración. Las celdas con varios valores muestran el primero y "+N" con el resto en un
+  tooltip, lo que falta se muestra como N/A y los abiertos llevan "(en curso)". Fechas con
+  formato fijo (es `dd/mm/aaaa HH:mm`, en `yyyy-mm-dd HH:mm`). Desde 200 filas, la tabla se
+  virtualiza.
+- Detalle del problema: tipo e id de cada entidad afectada, evidencias, análisis de impacto,
+  comentarios recientes, management zones, entidades impactadas, etiquetas y problema
+  vinculado, con su propio menú de exportación.
+- Exportación de problemas con 16 columnas comunes a la tabla (valores múltiples unidos con
+  " | ", fin vacío si está abierto, duración en minutos) y una fila "Nota" en la hoja Info del
+  XLSX.
+- "Probar conexión" describe el token: nombre, estado, caducidad y scopes concedidos, que faltan
+  o sobran (token clásico y OAuth).
+- Ruta "Cliente › Entorno" con el tipo de entorno, entornos agrupados por cliente en el selector
+  y en `Ctrl+K`, tooltips del menú (también para las secciones no disponibles) y marca DEV fuera
+  de la app empaquetada.
+- Aviso al marcar "ignorar certificados" en el formulario y en la tarjeta de estado.
+- `npm run test:live`: pruebas de solo lectura contra un tenant de pruebas, con las credenciales
+  en `.env.live.local` (ignorado), y `npm run scan:tenant` para buscar restos del tenant antes de
+  cada push.
+
+### Cambiado
+
+- El rojo del tipo de entorno producción pasa de `#d4472f` a `#b42318` en el tema claro, para
+  cumplir el contraste AA.
+- Severidad e impacto de los problemas se aceptan como texto: un valor nuevo de Dynatrace se
+  muestra tal cual en lugar de dar error.
+- La paginación pide las páginas siguientes solo con `nextPageKey` (y `fields` donde la API lo
+  exige).
+- Cada modo usa su carpeta de datos: el zip `%APPDATA%\vigia`, `npm run dev` `vigia-dev` y los e2e
+  una carpeta temporal.
+
+### Corregido
+
+- El icono y el nombre de cada sección del menú vuelven a ir en la misma línea.
+
 ## [0.6.0] - 2026-10-03
 
 Fase 6: primeras vistas core. Con ella se completa el alcance propuesto de la primera versión

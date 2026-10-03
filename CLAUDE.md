@@ -12,13 +12,14 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 
 ## Estado actual
 
-Última actualización: 2026-10-03.
+Última actualización: 2026-10-04.
 
 - **Fase 1 (base del proyecto): aceptada, versión 0.1.0.** Criterios automáticos y manuales cumplidos; los manuales los comprobó Dani en Windows.
 - **Fase 2 (esqueleto de la interfaz): cerrada, versión 0.2.0.** Criterios automáticos cumplidos (check 54 tests, e2e 29 tests, en Windows); la aceptación manual está en la lista de pendientes.
 - **Fase 3 (datos locales y secretos): cerrada, versión 0.3.0.** Criterios automáticos cumplidos en Windows (check y e2e, con relanzamiento de la app); la aceptación manual está en la lista de pendientes.
 - **Fase 4 (cliente de Dynatrace): cerrada, versión 0.4.0.** Criterios automáticos cumplidos en Windows (unitarios, integración con un HTTPS simulado y e2e de certificados); la prueba contra un tenant real está en la lista de pendientes.
 - **Fase 6 (primeras vistas core): cerrada, versión 0.6.0.** Con ella se completa el alcance propuesto de la primera versión (fases 1, 2, 3, 4 y 6). Criterios automáticos cumplidos en Windows; la aceptación manual está en la lista de pendientes.
+- **v0.7.0 (mejoras sobre la primera versión): cerrada.** Problemas completo (tabla, detalle con `fields`, exportación común), descripción del token, entornos por tipo y cliente, tooltips del menú y pruebas en vivo (`npm run test:live`). Criterios automáticos cumplidos en Windows.
 - **Siguiente:** lo decide Dani (Monaco sigue aparcado).
 - **Alcance propuesto de la primera versión: fases 1, 2, 3, 4 y 6** (sin confirmar). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
@@ -84,6 +85,7 @@ Fase 6:
 - Solo lo decide Dani: force push, reescribir el historial publicado, borrar ramas remotas, tags, releases, publicar el zip, licencia y temas legales, y el qué de las funciones sin definir. El zip nunca se arranca en su perfil.
 - La API de cada módulo (v1, v2 o plataforma) se deduce de `..\API\` y de la documentación oficial; solo si no se puede deducir, se pregunta a Dani. La elección se anota.
 - El repositorio es público. Push automático: solo `git push origin main`, y solo después del visto bueno de senior y de test. Nunca `--force` ni `--force-with-lease`. Sin tags, releases ni subir el zip a GitHub (se escala a Dani). Antes de cada push, `npm run scan:tenant` (busca restos del tenant de pruebas sin mostrar sus valores) y revisar el contenido sensible: autor y committer noreply, sin `docs/especificacion.md`, sin nombres de clientes, secretos, URLs o IDs de tenants reales, logs ni `.env`.
+- Pruebas en vivo (`npm run test:live`): solo lectura, una petición detrás de otra, `pageSize` de 500 como máximo y pocas páginas. Nunca leer ni mostrar `.env.live.local` (solo lo carga el proceso de test); nada del tenant (nombres, IDs, URLs, valores) en el repositorio, en fixtures ni en mensajes entre sesiones. Los informes van a `live-reports/` (ignorado) y se resumen sin datos del tenant.
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
 - No inventar endpoints ni parámetros de Dynatrace o de Monaco: consultar `..\API\` y la documentación oficial.
 - Nunca escribir secretos, cabeceras `Authorization` ni cookies en logs, ficheros de configuración, mensajes de error ni en el repositorio.
@@ -95,14 +97,16 @@ Fase 6:
 
 ## Comandos
 
-| Comando            | Qué hace                                              |
-| ------------------ | ----------------------------------------------------- |
-| `npm run dev`      | App en desarrollo con recarga en caliente             |
-| `npm run check`    | Lint, tipos y tests unitarios                         |
-| `npm run test:e2e` | Compila y prueba la app de punta a punta (Playwright) |
-| `npm run build`    | Tipos y compilación a `out/`                          |
-| `npm run dist:win` | Zip de Windows en `dist/`                             |
-| `npm run format`   | Prettier                                              |
+| Comando               | Qué hace                                                |
+| --------------------- | ------------------------------------------------------- |
+| `npm run dev`         | App en desarrollo con recarga en caliente               |
+| `npm run check`       | Lint, tipos y tests unitarios                           |
+| `npm run test:e2e`    | Compila y prueba la app de punta a punta (Playwright)   |
+| `npm run build`       | Tipos y compilación a `out/`                            |
+| `npm run dist:win`    | Zip de Windows en `dist/`                               |
+| `npm run format`      | Prettier                                                |
+| `npm run test:live`   | Pruebas de solo lectura contra el tenant de pruebas     |
+| `npm run scan:tenant` | Busca restos del tenant de pruebas (antes de cada push) |
 
 Antes de dar una tarea por terminada: `npm run check`, `npm run test:e2e` y `npm run format:check`.
 
@@ -141,10 +145,12 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 - Cambios hechos por IPC directo (`window.vigia.invoke`) no actualizan la interfaz: TanStack Query solo se entera de las mutaciones que hace el renderer. En los e2e, recargar tras preparar datos por IPC.
 - En producción no hay menú (`Menu.setApplicationMenu(null)`), así que tampoco hay atajos de recarga ni DevTools.
 - Las librerías solo del renderer van en devDependencies: Vite las empaqueta y electron-builder metería en el asar todo lo de dependencies.
+- `useVirtualizer` de TanStack Virtual hace que el React Compiler se salte el componente (aviso `react-hooks/incompatible-library`): es lo esperado y se desactiva el aviso en esa línea con su motivo.
+- En PowerShell, `git commit -F -` con un here-string no lee el mensaje de la entrada: escribir el mensaje en un fichero y usar `git commit -F <fichero>`.
 - Si `npm run dist:win` falla en Windows con un error de enlaces simbólicos, hace falta el Modo de desarrollador de Windows o una terminal de administrador.
 
 ## Versiones fijadas
 
-Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main), ECharts 6.1.0. Node 22 o superior.
+Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, TanStack Virtual 3.14.13, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main), ECharts 6.1.0. Node 22 o superior.
 
 Pendiente al subir electron-builder: `npm audit` marca 8 "high" (http-cache-semantics vía `@electron/get`), solo de empaquetado; `npm audit --omit=dev` = 0. No forzar overrides.

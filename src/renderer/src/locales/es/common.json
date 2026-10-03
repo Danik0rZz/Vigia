@@ -46,7 +46,6 @@
     "placeholder": "Buscar una sección…",
     "empty": "Sin resultados",
     "sections": "Secciones",
-    "environments": "Entornos",
     "savedQueries": "Consultas guardadas"
   },
   "envStatus": {

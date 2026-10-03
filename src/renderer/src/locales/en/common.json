@@ -46,7 +46,6 @@
     "placeholder": "Search for a section…",
     "empty": "No results",
     "sections": "Sections",
-    "environments": "Environments",
     "savedQueries": "Saved queries"
   },
   "envStatus": {
