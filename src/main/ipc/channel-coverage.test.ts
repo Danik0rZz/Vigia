@@ -24,7 +24,9 @@ import { createTestDb } from '../../test/fixtures'
 const EXEMPT_CHANNELS: Record<string, string> = {
   'app:getInfo': 'Fase 1: nombre, versión y plataforma del runtime; sin datos de tenants',
   'app:ping': 'Fase 1: canal de ejemplo que devuelve el texto recibido',
-  'ui:setTheme': 'Fase 2: aplica el tema a nativeTheme; solo recibe light/dark/system'
+  'ui:setTheme': 'Fase 2: aplica el tema a nativeTheme; solo recibe light/dark/system',
+  'app:openExternal':
+    'v0.9.0: abre una URL http(s) validada en el navegador; devuelve { ok: true } sin datos (probado en handlers/app.test.ts)'
 }
 
 let db: AppDatabase

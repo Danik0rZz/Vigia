@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import type { ImpactLevel, SeverityLevel } from '@shared/modules'
+import { DEFAULT_PROBLEM_SORT, type ProblemSort } from '@shared/problem-sort'
+
+export { DEFAULT_PROBLEM_SORT, type ProblemSort }
 
 export type ProblemStatusFilter = 'all' | 'open' | 'closed'
 
@@ -14,6 +17,18 @@ export interface ProblemFilters {
   impact: ImpactLevel[]
 }
 
+/**
+ * Lo que la lista necesita recuperar al volver del detalle: la página se
+ * desmonta al ir a /problems/:id, así que vive aquí y no en la página.
+ */
+export interface ProblemListView {
+  sort: ProblemSort
+  /** Índice de la primera fila visible (no píxeles: la altura puede cambiar). */
+  scrollIndex: number
+  /** El último problema abierto, para devolverle el foco al volver. */
+  lastOpened: string | null
+}
+
 export const DEFAULT_PROBLEM_FILTERS: ProblemFilters = {
   status: 'all',
   text: '',
@@ -22,17 +37,26 @@ export const DEFAULT_PROBLEM_FILTERS: ProblemFilters = {
   impact: []
 }
 
+export const DEFAULT_PROBLEM_LIST_VIEW: ProblemListView = {
+  sort: DEFAULT_PROBLEM_SORT,
+  scrollIndex: 0,
+  lastOpened: null
+}
+
+type ProblemState = ProblemFilters & ProblemListView
+const DEFAULT_STATE: ProblemState = { ...DEFAULT_PROBLEM_FILTERS, ...DEFAULT_PROBLEM_LIST_VIEW }
+
 interface ProblemFiltersState {
-  /** Filtros de cada entorno: al volver a uno se recuperan los suyos. */
-  byEnv: Record<string, ProblemFilters>
-  update: (envId: string, change: Partial<ProblemFilters>) => void
+  /** Filtros y vista de cada entorno: al volver a uno se recuperan los suyos. */
+  byEnv: Record<string, ProblemState>
+  update: (envId: string, change: Partial<ProblemState>) => void
 }
 
 /**
- * Filtros de Problemas fuera de la página, para que no se pierdan al cambiar
- * de sección (la página se desmonta). Van por entorno: los clústeres o el
- * texto de un entorno no tienen sentido en otro. Es estado de trabajo: no se
- * guarda entre sesiones.
+ * Filtros y vista de Problemas fuera de la página, para que no se pierdan al
+ * cambiar de sección o al abrir un problema (la página se desmonta). Van por
+ * entorno: los clústeres o el texto de un entorno no tienen sentido en otro. Es
+ * estado de trabajo: no se guarda entre sesiones.
  */
 export const useProblemFiltersStore = create<ProblemFiltersState>()((set) => ({
   byEnv: {},
@@ -40,28 +64,34 @@ export const useProblemFiltersStore = create<ProblemFiltersState>()((set) => ({
     set((state) => ({
       byEnv: {
         ...state.byEnv,
-        [envId]: { ...(state.byEnv[envId] ?? DEFAULT_PROBLEM_FILTERS), ...change }
+        [envId]: { ...(state.byEnv[envId] ?? DEFAULT_STATE), ...change }
       }
     }))
 }))
 
-/** Filtros del entorno y sus setters (sin entorno, los de por defecto). */
-export function useProblemFilters(envId: string | null): ProblemFilters & {
+/** Filtros y vista del entorno, con sus setters (sin entorno, los de por defecto). */
+export function useProblemFilters(envId: string | null): ProblemState & {
   setStatus: (status: ProblemStatusFilter) => void
   setText: (text: string) => void
   setClusters: (clusters: string[]) => void
   setSeverity: (severity: SeverityLevel[]) => void
   setImpact: (impact: ImpactLevel[]) => void
+  setSort: (sort: ProblemSort) => void
+  setScrollIndex: (scrollIndex: number) => void
+  setLastOpened: (problemId: string) => void
 } {
   const key = envId ?? ''
-  const filters = useProblemFiltersStore((state) => state.byEnv[key]) ?? DEFAULT_PROBLEM_FILTERS
-  const update = useProblemFiltersStore((state) => state.update)
+  const state = useProblemFiltersStore((store) => store.byEnv[key]) ?? DEFAULT_STATE
+  const update = useProblemFiltersStore((store) => store.update)
   return {
-    ...filters,
+    ...state,
     setStatus: (status) => update(key, { status }),
     setText: (text) => update(key, { text }),
     setClusters: (clusters) => update(key, { clusters }),
     setSeverity: (severity) => update(key, { severity }),
-    setImpact: (impact) => update(key, { impact })
+    setImpact: (impact) => update(key, { impact }),
+    setSort: (sort) => update(key, { sort }),
+    setScrollIndex: (scrollIndex) => update(key, { scrollIndex }),
+    setLastOpened: (lastOpened) => update(key, { lastOpened })
   }
 }

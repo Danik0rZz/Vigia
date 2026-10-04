@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router'
 import type { EChartsCoreOption } from 'echarts/core'
 import {
   impactLevels,
@@ -25,7 +26,6 @@ import {
 import { PageHeader } from '../components/PageHeader'
 import { ClusterFilter } from '../components/ClusterFilter'
 import { MultiFilter } from '../components/MultiFilter'
-import { ProblemDetail } from '../components/ProblemDetail'
 import { ProblemsTable } from '../components/ProblemsTable'
 import { INPUT } from '../components/styles'
 import {
@@ -34,6 +34,7 @@ import {
   useProblems,
   type ProblemFilterValues
 } from '../data/modules'
+import type { ProblemDetailLocationState } from './ProblemDetailPage'
 
 const TEXT_DEBOUNCE_MS = 300
 const BUCKETS = 24
@@ -50,7 +51,7 @@ function timelineBuckets(problems: ProblemSummary[], from: Date, to: Date): [num
   return counts.map((count, index) => [from.getTime() + index * size, count])
 }
 
-/** Problemas del entorno activo en el rango global: filtros, línea de tiempo, tabla y detalle. */
+/** Problemas del entorno activo en el rango global: filtros, línea de tiempo y tabla. */
 export function ProblemsPage(): JSX.Element {
   const { t } = useTranslation()
   const access = useModuleAccess('problems')
@@ -68,16 +69,26 @@ export function ProblemsPage(): JSX.Element {
     severity,
     setSeverity,
     impact,
-    setImpact
+    setImpact,
+    scrollIndex,
+    setScrollIndex,
+    lastOpened,
+    setLastOpened
   } = useProblemFilters(envId)
+  const navigate = useNavigate()
   // Texto con retardo, ligado a su entorno: al cambiar de entorno (o al volver
   // a la sección) se aplica el texto guardado sin esperar.
   const [debounced, setDebounced] = useState({ envId, text: textInput.trim() })
   const text = debounced.envId === envId ? debounced.text : textInput.trim()
-  // El problema seleccionado es de un entorno: en otro no existe.
-  const [selection, setSelection] = useState<{ envId: string | null; id: string } | null>(null)
-  const selected = selection !== null && selection.envId === envId ? selection.id : null
-  const setSelected = (id: string): void => setSelection({ envId, id })
+  // Abrir un problema lleva a su página; al volver, la lista recupera su fila.
+  const open = useCallback(
+    (problemId: string): void => {
+      setLastOpened(problemId)
+      const state: ProblemDetailLocationState = { fromList: true }
+      void navigate(`/problems/${encodeURIComponent(problemId)}`, { state })
+    },
+    [navigate, setLastOpened]
+  )
   const chart = useRef<ChartHandle>(null)
   const tableRef = useRef<HTMLDivElement>(null)
 
@@ -99,8 +110,6 @@ export function ProblemsPage(): JSX.Element {
   const query = useProblems(envId, filters)
   const refresh = useModuleRefresh(envId, 'problems')
   const loaded = useMemo(() => query.data?.problems ?? [], [query.data])
-  // La fila elegida: el panel la muestra al instante mientras llega el detalle.
-  const selectedSummary = loaded.find((problem) => problem.problemId === selected)
 
   // Filtro de clúster LOCAL (problemSelector no lo admite): sobre lo cargado.
   const clusterOptions = useMemo(
@@ -292,9 +301,11 @@ export function ProblemsPage(): JSX.Element {
           )}
           <ProblemsTable
             rows={rows}
-            selected={selected}
-            onSelect={setSelected}
+            selected={lastOpened}
+            onSelect={open}
             scrollRef={tableRef}
+            initialIndex={scrollIndex}
+            onFirstVisibleChange={setScrollIndex}
           />
           {query.isSuccess && problems.length === 0 && (
             <p className="px-2 py-3 text-sm text-muted-foreground">{t('module.empty')}</p>
@@ -303,26 +314,6 @@ export function ProblemsPage(): JSX.Element {
             <p className="px-2 py-3 text-sm text-muted-foreground">{t('module.loading')}</p>
           )}
         </section>
-
-        {selectedSummary !== undefined && envId !== null && (
-          <ProblemDetail
-            envId={envId}
-            summary={selectedSummary}
-            timeRange={timeRange}
-            onClose={() => {
-              const id = selectedSummary.problemId
-              setSelection(null)
-              // El panel se desmonta al cerrarse: el foco vuelve al botón de su fila.
-              requestAnimationFrame(() => {
-                tableRef.current
-                  ?.querySelector<HTMLButtonElement>(
-                    `[data-problem-id="${CSS.escape(id)}"] [data-testid="problem-open"]`
-                  )
-                  ?.focus()
-              })
-            }}
-          />
-        )}
       </div>
     </>
   )

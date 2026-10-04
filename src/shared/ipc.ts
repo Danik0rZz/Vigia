@@ -72,6 +72,14 @@ export const ipcContract = {
     })
   },
   /**
+   * Abre una URL en el navegador del sistema. Main solo acepta http(s) con host
+   * y sin credenciales (isSafeExternalUrl); si no, INVALID_INPUT.
+   */
+  'app:openExternal': {
+    input: z.object({ url: z.string().max(2048) }),
+    output: z.object({ ok: z.literal(true) })
+  },
+  /**
    * Aplica la preferencia de tema a `nativeTheme`, para que los controles nativos
    * y la barra de título coincidan con la interfaz. El CSS lo resuelve el renderer.
    */

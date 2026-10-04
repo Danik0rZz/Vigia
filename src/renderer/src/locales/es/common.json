@@ -253,6 +253,7 @@
     "tokenDisabled": "El token está desactivado.",
     "tokenExpired": "El token ha caducado.",
     "connectionUnexpected": "Error inesperado al probar la conexión.",
+    "problemNotFound": "No existe un problema con ese ID en este entorno.",
     "clientMissing": "El cliente no existe.",
     "clientNameTaken": "Ya existe un cliente con ese nombre.",
     "environmentNameTaken": "Ya existe un entorno con ese nombre en el cliente.",
@@ -269,7 +270,8 @@
     "captureNotPng": "La captura tiene que ser un PNG.",
     "captureInvalidPng": "La captura no es un PNG válido.",
     "captureOutOfWindow": "La zona a capturar se sale de la ventana.",
-    "certificateNotObserved": "Esa huella no es la que se vio para ese host en la última prueba de conexión."
+    "certificateNotObserved": "Esa huella no es la que se vio para ese host en la última prueba de conexión.",
+    "externalUrlRejected": "Solo se abren enlaces http o https."
   },
   "customRange": {
     "title": "Rango personalizado",
@@ -359,7 +361,8 @@
     "linked": "Problema vinculado",
     "none": "Ninguno",
     "detailUnavailable": "No disponible: no se pudo cargar el detalle.",
-    "close": "Cerrar",
+    "back": "Volver a Problemas",
+    "notFoundBack": "Ir a la lista de problemas",
     "status": {
       "OPEN": "Abierto",
       "CLOSED": "Cerrado"

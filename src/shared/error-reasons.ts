@@ -31,6 +31,7 @@ export const errorReasonKeys = [
   'tokenDisabled',
   'tokenExpired',
   'connectionUnexpected',
+  'problemNotFound',
   // Datos locales
   'clientMissing',
   'clientNameTaken',
@@ -48,7 +49,8 @@ export const errorReasonKeys = [
   'captureNotPng',
   'captureInvalidPng',
   'captureOutOfWindow',
-  'certificateNotObserved'
+  'certificateNotObserved',
+  'externalUrlRejected'
 ] as const
 export type ErrorReasonKey = (typeof errorReasonKeys)[number]
 

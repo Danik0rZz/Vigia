@@ -1,8 +1,9 @@
 import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { Languages, Moon, Search, Sun } from 'lucide-react'
 import { NAV_SECTIONS } from '../app/navigation'
+import { usePageCrumb } from '../app/page-crumb'
 import { usePreferences } from '../app/preferences'
 import { useResolvedTheme } from '../app/theme'
 import { useActiveEnvironment } from '../data/tenants'
@@ -30,6 +31,15 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
 
   const active = useActiveEnvironment()
   const current = NAV_SECTIONS.find((section) => section.path === pathname)
+  // Una página dentro de una sección (/problems/:id): la sección es un enlace y
+  // el último tramo lo pone la página.
+  const parent =
+    current === undefined
+      ? NAV_SECTIONS.find(
+          (section) => section.path !== '/' && pathname.startsWith(`${section.path}/`)
+        )
+      : undefined
+  const detail = usePageCrumb((state) => state.detail)
   const ThemeIcon = theme === 'dark' ? Sun : Moon
 
   return (
@@ -51,6 +61,29 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
           <span className="font-medium" aria-current="page">
             {t(current.labelKey)}
           </span>
+        )}
+        {parent !== undefined && (
+          <>
+            <Link
+              to={parent.path}
+              data-testid="breadcrumb-section"
+              className="app-no-drag text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {t(parent.labelKey)}
+            </Link>
+            {detail !== null && (
+              <>
+                <span className="text-muted-foreground">{SEPARATOR}</span>
+                <span
+                  data-testid="breadcrumb-detail"
+                  className="font-medium tabular-nums"
+                  aria-current="page"
+                >
+                  {detail}
+                </span>
+              </>
+            )}
+          </>
         )}
       </nav>
 

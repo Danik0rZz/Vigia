@@ -1,4 +1,4 @@
-import { memo, useEffect, type JSX, type RefObject } from 'react'
+import { memo, useEffect, useRef, type JSX, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -149,13 +149,20 @@ export function ProblemsTable({
   rows,
   selected,
   onSelect,
-  scrollRef
+  scrollRef,
+  initialIndex = 0,
+  onFirstVisibleChange
 }: {
   rows: ProblemRow[]
+  /** El problema que se abrió el último: se marca y, al volver, recibe el foco. */
   selected: string | null
   onSelect: (problemId: string) => void
   /** Zona que se captura como imagen. */
   scrollRef: RefObject<HTMLDivElement | null>
+  /** Primera fila visible al montar (la que había al ir al detalle). */
+  initialIndex?: number
+  /** Índice de la primera fila visible cuando cambia con el scroll. */
+  onFirstVisibleChange?: (index: number) => void
 }): JSX.Element {
   const { t } = useTranslation()
   const virtual = rows.length >= VIRTUAL_FROM
@@ -186,6 +193,56 @@ export function ProblemsTable({
     }
   }, [rows])
 
+  // Al volver del detalle: la misma primera fila visible (por índice, no por
+  // píxeles) y el foco en el problema que se abrió. Una sola vez, con datos.
+  const restored = useRef(false)
+  useEffect(() => {
+    const container = scrollRef.current
+    if (restored.current || container === null || rows.length === 0) return
+    restored.current = true
+    const index = Math.min(initialIndex, rows.length - 1)
+    if (index > 0) {
+      if (virtual) {
+        virtualizer.scrollToIndex(index, { align: 'start' })
+      } else {
+        const row = container.querySelector<HTMLElement>(`tbody tr[data-index="${index}"]`)
+        const head = container.querySelector('thead')
+        if (row !== null) container.scrollTop = row.offsetTop - (head?.offsetHeight ?? 0)
+      }
+    }
+    // Solo si nada tiene el foco (se vuelve del detalle, no se llega desde el menú).
+    if (selected !== null && document.activeElement === document.body) {
+      requestAnimationFrame(() => {
+        container
+          .querySelector<HTMLElement>(
+            `[data-problem-id="${CSS.escape(selected)}"] [data-testid="problem-open"]`
+          )
+          ?.focus({ preventScroll: true })
+      })
+    }
+  }, [rows.length, initialIndex, virtual, virtualizer, scrollRef, selected])
+
+  // La primera fila visible, bajo la cabecera fija, cada vez que cambia.
+  const lastReported = useRef(initialIndex)
+  const frame = useRef(0)
+  const onScroll = (): void => {
+    if (onFirstVisibleChange === undefined) return
+    cancelAnimationFrame(frame.current)
+    frame.current = requestAnimationFrame(() => {
+      const container = scrollRef.current
+      if (container === null) return
+      const top = container.querySelector('thead')?.getBoundingClientRect().bottom ?? 0
+      const first = [...container.querySelectorAll<HTMLElement>('tbody tr[data-index]')].find(
+        (row) => row.getBoundingClientRect().bottom > top + 1
+      )
+      const index = first === undefined ? 0 : Number(first.dataset['index'])
+      if (index !== lastReported.current) {
+        lastReported.current = index
+        onFirstVisibleChange(index)
+      }
+    })
+  }
+
   const measure = virtual ? virtualizer.measureElement : undefined
   const renderRow = (row: ProblemRow, index: number): JSX.Element => (
     <ProblemRowView
@@ -203,7 +260,12 @@ export function ProblemsTable({
   const padBottom = virtual ? virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0) : 0
 
   return (
-    <div ref={scrollRef} data-testid="problems-scroll" className="max-h-[60vh] overflow-auto">
+    <div
+      ref={scrollRef}
+      data-testid="problems-scroll"
+      onScroll={onScroll}
+      className="max-h-[60vh] overflow-auto"
+    >
       <table data-testid="problems-table" className="w-full text-left text-sm">
         <thead className="sticky top-0 z-10 bg-background text-xs text-muted-foreground">
           <tr>

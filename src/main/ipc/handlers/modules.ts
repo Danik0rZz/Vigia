@@ -1,6 +1,7 @@
 import { DT_ENDPOINTS } from '@shared/dt-endpoints'
 import { timeRangeToDt } from '@shared/time-range'
 import type { DtClient } from '../../dynatrace/client'
+import { DtError } from '../../dynatrace/errors'
 import { parseItems } from '../../dynatrace/parse-items'
 import {
   metricDataSchema,
@@ -83,14 +84,27 @@ export function createModuleHandlers(
 
     'problems:get': async ({ environmentId, problemId }) => {
       repo.getEnvironment(environmentId)
-      const problem = await client.dtRequest({
-        envId: environmentId,
-        api: 'classic',
-        path: `/problems/${encodeURIComponent(problemId)}`,
-        query: { fields: PROBLEM_DETAIL_FIELDS },
-        schema: problemDetailSchema
-      })
-      return toProblemDetail(problem)
+      try {
+        const problem = await client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: `/problems/${encodeURIComponent(problemId)}`,
+          query: { fields: PROBLEM_DETAIL_FIELDS },
+          schema: problemDetailSchema
+        })
+        return toProblemDetail(problem)
+      } catch (error) {
+        // La página de detalle se abre por URL: un id que no existe es un caso normal.
+        if (error instanceof DtError && error.code === 'NOT_FOUND') {
+          throw new DtError(
+            'NOT_FOUND',
+            'No existe un problema con ese ID en este entorno.',
+            error.status,
+            { key: 'problemNotFound' }
+          )
+        }
+        throw error
+      }
     },
 
     'metrics:query': async ({ environmentId, timeRange, metricSelector, resolution }) => {

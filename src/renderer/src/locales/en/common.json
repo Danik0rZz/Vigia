@@ -253,6 +253,7 @@
     "tokenDisabled": "The token is disabled.",
     "tokenExpired": "The token has expired.",
     "connectionUnexpected": "Unexpected error while testing the connection.",
+    "problemNotFound": "There is no problem with that ID in this environment.",
     "clientMissing": "The client does not exist.",
     "clientNameTaken": "A client with that name already exists.",
     "environmentNameTaken": "The client already has an environment with that name.",
@@ -269,7 +270,8 @@
     "captureNotPng": "The capture must be a PNG.",
     "captureInvalidPng": "The capture is not a valid PNG.",
     "captureOutOfWindow": "The capture area goes beyond the window.",
-    "certificateNotObserved": "That fingerprint is not the one seen for that host in the last connection test."
+    "certificateNotObserved": "That fingerprint is not the one seen for that host in the last connection test.",
+    "externalUrlRejected": "Only http or https links are opened."
   },
   "customRange": {
     "title": "Custom range",
@@ -359,7 +361,8 @@
     "linked": "Linked problem",
     "none": "None",
     "detailUnavailable": "Not available: the details could not be loaded.",
-    "close": "Close",
+    "back": "Back to Problems",
+    "notFoundBack": "Go to the problem list",
     "status": {
       "OPEN": "Open",
       "CLOSED": "Closed"

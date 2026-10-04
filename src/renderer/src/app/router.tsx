@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { createHashRouter, Navigate, type RouteObject } from 'react-router'
 import { HomePage } from '../pages/HomePage'
 import { MetricsPage } from '../pages/MetricsPage'
+import { ProblemDetailPage } from '../pages/ProblemDetailPage'
 import { ProblemsPage } from '../pages/ProblemsPage'
 import { SectionPage } from '../pages/SectionPage'
 import { SettingsPage } from '../pages/SettingsPage'
@@ -27,6 +28,11 @@ export const router = createHashRouter([
   {
     path: '/',
     element: <Layout />,
-    children: [...sectionRoutes, { path: '*', element: <Navigate to="/" replace /> }]
+    children: [
+      ...sectionRoutes,
+      // Página dentro de Problemas, no una sección del menú (NAV_SECTIONS no cambia).
+      { path: 'problems/:problemId', element: <ProblemDetailPage /> },
+      { path: '*', element: <Navigate to="/" replace /> }
+    ]
   }
 ])

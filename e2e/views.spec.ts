@@ -124,6 +124,29 @@ const problemsB: FakeProblem[] = [
 ]
 
 /** 300 problemas sintéticos para la tabla virtualizada. */
+/**
+ * v0.9.0: un problema que no sale en la lista, solo en el detalle, con un id que
+ * empieza por '-' y lleva '_' (como los de Dynatrace): la ruta tiene que
+ * codificarlo y decodificarlo bien.
+ */
+const ODD_ID = '-1234567890123456789_1700000000000V2'
+const detailOnly: FakeProblem[] = [
+  {
+    problemId: ODD_ID,
+    displayId: 'P-777',
+    title: 'Problema solo del detalle',
+    status: 'CLOSED',
+    severityLevel: 'ERROR',
+    impactLevel: 'SERVICES',
+    startTime: NOW - 5 * HOUR,
+    endTime: NOW - 4 * HOUR,
+    affectedEntities: [{ entityId: { id: 'SERVICE-ODD1', type: 'SERVICE' }, name: 'raro' }],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: []
+  }
+]
+
 const manyProblems: FakeProblem[] = Array.from({ length: 300 }, (_, i) => ({
   problemId: `pm-${i + 1}`,
   displayId: `P-M${i + 1}`,
@@ -199,7 +222,7 @@ const defaultSim = () => ({
   problemsGate: null as Promise<void> | null,
   /** AUD-12: igual para /problems/{id} (detalle lento). */
   detailGate: null as Promise<void> | null,
-  /** AUD-12: el detalle falla (404). */
+  /** AUD-12: el detalle falla (400, un error que no es «no existe»). */
   detailFails: false,
   lastDetailQuery: new URLSearchParams(),
   lastProblemsQuery: new URLSearchParams(),
@@ -334,13 +357,14 @@ async function startServer(): Promise<void> {
       if (req.method === 'GET' && single !== null) {
         sim.lastDetailQuery = url.searchParams
         const respondDetail = (): void => {
-          // 404 y no 5xx: el cliente reintenta los 5xx y la prueba se alargaría.
+          // 400 y no 404 (un 404 es «no existe») ni 5xx (el cliente los reintenta).
           if (sim.detailFails) {
-            return send(404, {
-              error: { code: 404, message: 'Detalle no disponible en la prueba' }
+            return send(400, {
+              error: { code: 400, message: 'Detalle no disponible en la prueba' }
             })
           }
-          const found = problemsFor(token).find(
+          // Los de la lista (también los 300 masivos) y uno que solo existe en el detalle.
+          const found = [...problemsFor(token), ...manyProblems, ...detailOnly].find(
             (p) => p['problemId'] === decodeURIComponent(single[1] ?? '')
           )
           return found
@@ -546,6 +570,42 @@ async function openProblems(): Promise<void> {
   await expect(page.getByTestId('problem-row')).toHaveCount(3)
 }
 
+/** La ruta actual (el hash, sin '#'). */
+async function currentRoute(): Promise<string> {
+  return page.evaluate(() => window.location.hash.replace(/^#/, ''))
+}
+
+/** Entra por URL, como un enlace guardado (sin pasar por la lista). */
+async function goToRoute(route: string): Promise<void> {
+  await page.evaluate((hash) => {
+    window.location.hash = hash
+  }, route)
+}
+
+/** Abre un problema desde la lista con un clic en su ID y espera su página. */
+async function openProblem(displayId: string): Promise<Locator> {
+  await page
+    .getByTestId('problem-row')
+    .filter({ hasText: displayId })
+    .getByText(displayId, { exact: true })
+    .click()
+  const problemPage = page.getByTestId('problem-page')
+  await expect(problemPage).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(displayId)
+  return problemPage
+}
+
+/** data-index de la primera fila visible de la lista (su top ≥ el top del contenedor). */
+async function firstVisibleIndex(): Promise<number> {
+  return page.getByTestId('problems-scroll').evaluate((scroller) => {
+    const top = scroller.getBoundingClientRect().top
+    const rows = [...scroller.querySelectorAll<HTMLElement>('[data-testid="problem-row"]')]
+      .filter((row) => row.getBoundingClientRect().top >= top - 1)
+      .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+    return Number(rows[0]?.dataset['index'] ?? -1)
+  })
+}
+
 /** Va a Métricas, pone el selector y la resolución, consulta y espera el gráfico. */
 async function runMetric(selector = 'builtin:host.cpu.usage', resolution = '5m'): Promise<void> {
   await goTo('metrics')
@@ -721,7 +781,7 @@ test('sin entorno activo, las tres vistas dicen que no hay entorno', async () =>
   expect(sim.problemsRequests).toBe(before)
 })
 
-test('Problemas: tabla, línea de tiempo y detalle con las entidades afectadas', async () => {
+test('Problemas: tabla, línea de tiempo y página de detalle con las entidades afectadas', async () => {
   await openProblems()
   const rows = page.getByTestId('problem-row')
   for (const p of problemsA) {
@@ -733,9 +793,20 @@ test('Problemas: tabla, línea de tiempo y detalle con las entidades afectadas',
   // Sin rango personalizado, la petición va con el rango global (2 h por defecto).
   expect(sim.lastProblemsQuery.get('from')).toBe('now-2h')
 
-  await rows.filter({ hasText: 'P-101' }).click()
-  const detail = page.getByTestId('problem-detail')
-  await expect(detail).toBeVisible()
+  // v0.9.0: el detalle es una página propia, /problems/<problemId>.
+  const detail = await openProblem('P-101')
+  expect(await currentRoute()).toBe('/problems/pa-1')
+  // Al entrar, el foco va al título (los lectores de pantalla anuncian la página).
+  await expect(page.getByTestId('problem-page-title')).toBeFocused()
+  await expect(page.getByTestId('problem-page-title')).toContainText('Respuesta lenta en pagos')
+  // Barra superior: … › Problemas (enlace) › P-101 (página actual).
+  const crumbSection = page.getByTestId('breadcrumb-section')
+  await expect(crumbSection).toHaveText('Problemas')
+  await expect(page.getByTestId('breadcrumb-detail')).toHaveText('P-101')
+  await expect(page.getByTestId('breadcrumb-detail')).toHaveAttribute('aria-current', 'page')
+  // Resumen con lo de la fila: estado, severidad, impacto e inicio.
+  await expect(detail.getByTestId('detail-summary')).toContainText('Rendimiento')
+  await expect(detail.getByTestId('detail-root-cause')).toContainText('pagos')
   // Todas las entidades afectadas, con nombre, tipo e id.
   const entities = detail.getByTestId('problem-entity')
   await expect(entities).toHaveCount(2)
@@ -762,82 +833,68 @@ test('Problemas: tabla, línea de tiempo y detalle con las entidades afectadas',
   await expect(detail.getByTestId('detail-tags')).toContainText('equipo:pagos')
   await expect(detail.getByTestId('detail-linked')).toContainText('P-099')
   await expect(
-    page.locator('[data-testid="export-menu"][data-export-target="problem-detail"]')
+    page.locator('[data-testid="export-menu"][data-export-target="problem-page"]')
   ).toBeVisible()
+  // Ya no hay panel lateral.
+  await expect(page.getByTestId('problem-detail')).toHaveCount(0)
 
-  // AUD-12: el detalle es un panel lateral (diálogo) que no tapa toda la tabla.
-  await expect(detail).toHaveAttribute('role', 'dialog')
-  await expect(detail).toHaveAttribute('aria-label', 'Detalle del problema')
-  const box = await detail.boundingBox()
-  const viewport = await page.evaluate(() => window.innerWidth)
-  expect(box?.width ?? 0).toBeLessThanOrEqual(Math.min(560, viewport * 0.9) + 1)
-  expect(box?.x ?? 0, 'anclado a la derecha').toBeGreaterThan(0)
-  expect(Math.round((box?.x ?? 0) + (box?.width ?? 0))).toBeGreaterThanOrEqual(viewport - 1)
-  // La fila abierta se marca con data-selected, sin aria-selected.
+  // «Volver a Problemas» vuelve a la lista; la fila abierta queda marcada (data-selected,
+  // sin aria-selected).
+  await detail.getByTestId('problem-back').click()
+  await expect(rows).toHaveCount(3)
+  expect(await currentRoute()).toBe('/problems')
+  await expect(page.getByTestId('breadcrumb-detail')).toHaveCount(0)
   const p101 = rows.filter({ hasText: 'P-101' })
   await expect(p101).toHaveAttribute('data-selected', 'true')
   await expect(p101).not.toHaveAttribute('aria-selected', /.*/)
 
-  // El botón Cerrar lo cierra.
-  await detail.getByTestId('problem-detail-close').click()
-  await expect(detail).toBeHidden()
+  // El enlace «Problemas» de la barra superior también lleva a la lista.
+  await openProblem('P-102')
+  await crumbSection.click()
+  await expect(rows).toHaveCount(3)
+  expect(await currentRoute()).toBe('/problems')
 })
 
-test('AUD-12: mientras el detalle carga, el panel ya muestra los datos de la fila', async () => {
+test('AUD-12: mientras el detalle carga, la página ya muestra los datos de la fila', async () => {
   await openProblems()
-  const detail = page.getByTestId('problem-detail')
   let release = (): void => undefined
   sim.detailGate = new Promise<void>((resolve) => {
     release = resolve
   })
   try {
-    await page
-      .getByTestId('problem-row')
-      .filter({ hasText: 'P-103' })
-      .getByTestId('problem-open')
-      .click()
-    await expect(detail).toBeVisible()
+    const detail = await openProblem('P-103')
     // Lo de la fila, al instante: título, entidad afectada y severidad.
     await expect(detail).toContainText('errores')
     await expect(detail).toContainText('carrito')
-    await expect(detail).toContainText('NUEVA_SEVERIDAD')
+    await expect(detail.getByTestId('detail-summary')).toContainText('NUEVA_SEVERIDAD')
     // Lo que solo trae el detalle, cargando.
     await expect(detail.getByTestId('detail-loading').first()).toBeVisible()
   } finally {
     release()
     sim.detailGate = null
   }
+  const detail = page.getByTestId('problem-page')
   await expect(detail.getByTestId('detail-loading')).toHaveCount(0)
   await expect(detail).toContainText('carrito')
-  await page.keyboard.press('Escape')
-  await expect(detail).toBeHidden()
 })
 
-test('AUD-12: si el detalle falla, el error va dentro del panel y los datos de la fila se quedan', async () => {
+test('AUD-12: si el detalle falla, el error va dentro de la página y los datos de la fila se quedan', async () => {
   await openProblems()
-  const detail = page.getByTestId('problem-detail')
   sim.detailFails = true
-  try {
-    await page
-      .getByTestId('problem-row')
-      .filter({ hasText: 'P-102' })
-      .getByTestId('problem-open')
-      .click()
-    await expect(detail).toBeVisible()
-    await expect(detail.getByRole('alert').first()).toBeVisible()
-    await expect(detail).toContainText('Disco lleno')
-    await expect(detail).toContainText('host-bd-01')
-    // Con error, las secciones del detalle no se quedan en «Cargando…».
-    await expect(detail.getByTestId('detail-loading')).toHaveCount(0)
-  } finally {
-    sim.detailFails = false
-  }
-  await page.keyboard.press('Escape')
-  await expect(detail).toBeHidden()
+  const detail = await openProblem('P-102')
+  await expect(detail.getByRole('alert').first()).toBeVisible()
+  await expect(detail).toContainText('Detalle no disponible en la prueba')
+  await expect(detail).toContainText('Disco lleno')
+  await expect(detail).toContainText('host-bd-01')
+  // Con error, las secciones del detalle no se quedan en «Cargando…»: dicen que no están.
+  await expect(detail.getByTestId('detail-loading')).toHaveCount(0)
+  await expect(detail.getByText(es.problems.detailUnavailable).first()).toBeVisible()
+  // No es un 404: no sale «no existe».
+  await expect(page.getByTestId('problem-not-found')).toHaveCount(0)
 })
 
-test('AUD-12: el detalle se abre con el teclado, se cierra con Escape y el foco vuelve a la fila', async () => {
-  const detail = page.getByTestId('problem-detail')
+test('AUD-12: el detalle se abre con el teclado y, al volver, el foco vuelve a la fila', async () => {
+  const detail = page.getByTestId('problem-page')
   await openProblems()
 
   // Tab desde el filtro de texto hasta el primer botón problem-open.
@@ -857,34 +914,111 @@ test('AUD-12: el detalle se abre con el teclado, se cierra con Escape y el foco 
     .filter({ hasText: focusedId })
     .getByTestId('problem-open')
 
-  // Enter abre el panel con el foco dentro.
+  // Enter abre la página del problema, con el foco en su título.
   await page.keyboard.press('Enter')
   await expect(detail).toBeVisible()
-  await expect(detail).toContainText(focusedId)
-  await expect.poll(() => detail.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+  await expect(page.getByTestId('problem-page-title')).toContainText(focusedId)
+  await expect(page.getByTestId('problem-page-title')).toBeFocused()
 
-  // Escape cierra y el foco vuelve al botón de esa fila.
+  // «Volver» (con el teclado) vuelve a la lista con el foco en el botón de esa fila.
+  await page.getByTestId('problem-back').focus()
+  await page.keyboard.press('Enter')
+  await expect(detail).toHaveCount(0)
+  await expect(opener).toBeFocused()
+
+  // Escape ya no hace nada en la lista (no hay panel que cerrar).
   await page.keyboard.press('Escape')
-  await expect(detail).toBeHidden()
-  await expect(opener).toBeFocused()
+  expect(await currentRoute()).toBe('/problems')
 
-  // Espacio también abre; un click fuera del panel lo cierra.
-  await page.keyboard.press('Space')
-  await expect(detail).toBeVisible()
-  await page.mouse.click(10, Math.round((await page.evaluate(() => window.innerHeight)) / 2))
-  await expect(detail).toBeHidden()
-  await expect(opener).toBeFocused()
-
-  // Un click en cualquier parte de la fila sigue abriendo.
+  // Un clic en cualquier parte de la fila sigue abriendo.
   await page
     .getByTestId('problem-row')
     .filter({ hasText: 'P-102' })
     .getByText('Disco lleno')
     .click()
   await expect(detail).toBeVisible()
-  await expect(detail).toContainText('P-102')
-  await page.keyboard.press('Escape')
-  await expect(detail).toBeHidden()
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-102')
+})
+
+test('v0.9.0: volver del detalle conserva los filtros y la fila visible, con 300 filas virtualizadas', async () => {
+  sim.many = true
+  await goTo('problems')
+  const rows = page.getByTestId('problem-row')
+  await expect(rows.first()).toContainText('P-M')
+
+  // Un filtro (lo aplica Dynatrace: todos los masivos lo cumplen) y scroll hasta abajo.
+  await page.getByTestId('problems-filter-text').fill('masivo')
+  await expect.poll(() => sim.lastProblemsQuery.get('problemSelector') ?? '').toContain('masivo')
+  await page.getByTestId('problems-scroll').evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  await expect.poll(firstVisibleIndex).toBeGreaterThan(200)
+  const before = await firstVisibleIndex()
+
+  // Se abre una fila de las visibles y se vuelve con el botón.
+  const target = page.locator(`[data-testid="problem-row"][data-index="${before + 1}"]`)
+  const openedId = await target.getAttribute('data-problem-id')
+  expect(openedId).toMatch(/^pm-\d+$/)
+  await target.click()
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await page.getByTestId('problem-back').click()
+
+  // Mismo filtro, misma fila arriba (por índice, no por píxeles) y la abierta marcada.
+  await expect(page.getByTestId('problems-filter-text')).toHaveValue('masivo')
+  await expect.poll(firstVisibleIndex).toBe(before)
+  await expect(
+    page.locator(`[data-testid="problem-row"][data-problem-id="${openedId}"]`)
+  ).toHaveAttribute('data-selected', 'true')
+
+  // Lo mismo con la flecha atrás del historial (history.back).
+  await page.locator(`[data-testid="problem-row"][data-index="${before}"]`).click()
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await page.goBack()
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+  await expect(page.getByTestId('problems-filter-text')).toHaveValue('masivo')
+  await expect.poll(firstVisibleIndex).toBe(before)
+})
+
+test('v0.9.0: entrar por URL a un problema con un id raro (- y _) y volver a la lista', async () => {
+  // Desde Inicio, sin la lista en caché: la ruta lleva el problemId codificado.
+  await goToRoute(`/problems/${encodeURIComponent(ODD_ID)}`)
+  const detail = page.getByTestId('problem-page')
+  await expect(detail).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-777')
+  await expect(page.getByTestId('problem-page-title')).toContainText('Problema solo del detalle')
+  await expect(page.getByTestId('breadcrumb-detail')).toHaveText('P-777')
+  await expect(detail.getByTestId('detail-affected')).toContainText('raro')
+
+  // Sin venir de la lista, «Volver» va a la lista (reemplazando la entrada).
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+  expect(await currentRoute()).toBe('/problems')
+})
+
+test('v0.9.0: un problema que no existe da un 404 con enlace a la lista', async () => {
+  await goToRoute(`/problems/${encodeURIComponent('no-existe-en-este-entorno')}`)
+  const notFound = page.getByTestId('problem-not-found')
+  await expect(notFound).toBeVisible()
+  await expect(notFound).toContainText('No existe un problema con ese ID en este entorno.')
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+
+  await page.getByTestId('problem-not-found-back').click()
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+  expect(await currentRoute()).toBe('/problems')
+})
+
+test('v0.9.0: cambiar de entorno estando en el detalle lleva a la lista del entorno nuevo', async () => {
+  await openProblems()
+  await openProblem('P-101')
+  await page.getByTestId('env-selector').click()
+  await page.getByRole('option', { name: 'Cliente A › Desarrollo' }).click()
+
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+  const table = page.getByTestId('problems-table')
+  await expect(table).toContainText('P-900')
+  await expect(table).not.toContainText('P-101')
+  expect(await currentRoute()).toBe('/problems')
+  await expect(page.getByTestId('breadcrumb-detail')).toHaveCount(0)
 })
 
 test('AUD-12: filtros de severidad e impacto, en el servidor', async () => {
