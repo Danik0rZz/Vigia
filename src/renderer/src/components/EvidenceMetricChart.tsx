@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import type { EChartsCoreOption } from 'echarts/core'
 import {
   evidenceMetricRange,
@@ -23,11 +24,15 @@ import { ApiWarnings } from './ModuleState'
 /** Series que se dibujan como mucho. */
 const MAX_SERIES = 10
 
-/** Si el elemento ya se ha visto en pantalla (una vez visto, sigue en true). */
-function useSeen(): [React.RefObject<HTMLDivElement | null>, boolean] {
+/**
+ * Si el elemento ya se ha visto en pantalla (una vez visto, sigue en true).
+ * `already`: ya se vio en otra visita (hay datos de ese gráfico en la caché);
+ * entonces no espera a volver a verse para pedir un rango nuevo ("Actualizar").
+ */
+function useSeen(already: boolean): [React.RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement>(null)
   // Sin IntersectionObserver (no pasa en Electron), se carga directamente.
-  const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined')
+  const [seen, setSeen] = useState(() => already || typeof IntersectionObserver === 'undefined')
   useEffect(() => {
     const element = ref.current
     if (element === null || seen) return
@@ -63,7 +68,14 @@ export function EvidenceMetricChart({
   const access = useModuleAccess('problems')
   const envId = access.available ? access.envId : null
   const chart = useRef<ChartHandle>(null)
-  const [ref, seen] = useSeen()
+  const queryClient = useQueryClient()
+  // Ya visto en otra visita: hay datos de este selector en la caché del entorno.
+  const [already] = useState(() =>
+    queryClient
+      .getQueriesData({ queryKey: [envId ?? '', 'evidenceMetric', selector] })
+      .some(([, data]) => data !== undefined)
+  )
+  const [ref, seen] = useSeen(already)
   // "Ahora" es el del problema (useProblemClock): el rango, y con él la clave de
   // caché, no cambia al volver a la página; solo con "Actualizar".
   const range = useMemo(

@@ -406,11 +406,41 @@ detailOnly.push({
   }
 })
 
+/** v0.9.2: problema ABIERTO con una evidencia terminada y otra activa (el reloj del problema). */
+const SEL_DONE = 'builtin:service.response.time:avg:e2eterminada'
+const SEL_ACTIVE = 'builtin:service.response.time:avg:e2eactiva'
+const MIXED_ID = 'pd-mixed'
+detailOnly.push({
+  problemId: MIXED_ID,
+  displayId: 'P-782',
+  title: 'Problema abierto con una evidencia terminada',
+  status: 'OPEN',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 3 * HOUR,
+  endTime: -1,
+  affectedEntities: [{ entityId: { id: CHART_ENTITY, type: 'SERVICE' }, name: 'svc-graficos' }],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 2,
+    details: [
+      metricEvent('Evidencia terminada', SEL_DONE, {
+        startTime: NOW - 3 * HOUR,
+        endTime: NOW - 2 * HOUR
+      }),
+      metricEvent('Evidencia activa', SEL_ACTIVE, { startTime: NOW - HOUR, endTime: -1 })
+    ]
+  }
+})
+
 /** Si una consulta de /metrics/query es la de un mini gráfico (y no la vista Métricas). */
 function isEventSelector(selector: string): boolean {
   return (
-    [SEL_OK, SEL_BAD, SEL_FORBIDDEN, SEL_EMPTY, SEL_MANY].includes(selector) ||
-    /:e2elazy\d+$/.test(selector)
+    [SEL_OK, SEL_BAD, SEL_FORBIDDEN, SEL_EMPTY, SEL_MANY, SEL_DONE, SEL_ACTIVE].includes(
+      selector
+    ) || /:e2elazy\d+$/.test(selector)
   )
 }
 
@@ -2048,6 +2078,54 @@ test('v0.9.2: volver a un problema cerrado no repite las consultas de sus gráfi
   await expect(metricChart('Gráfico 1').getByTestId('evidence-metric')).toBeVisible()
   await page.waitForTimeout(500)
   expect(eventQueries(SEL_LAZY(1))).toHaveLength(1)
+})
+
+test('v0.9.2: volver a un problema ABIERTO (lista y vuelta) no pide ningún gráfico; Actualizar pide solo la evidencia activa', async () => {
+  await goToRoute(`/problems/${MIXED_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-782')
+  const done = metricChart('Evidencia terminada')
+  const active = metricChart('Evidencia activa')
+  await expect(done.getByTestId('evidence-metric')).toBeVisible()
+  await expect(active.getByTestId('evidence-metric')).toBeVisible()
+  expect(eventQueries(SEL_DONE)).toHaveLength(1)
+  expect(eventQueries(SEL_ACTIVE)).toHaveLength(1)
+  const activeFirst = eventQueries(SEL_ACTIVE)[0] as URLSearchParams
+  const doneFirst = eventQueries(SEL_DONE)[0] as URLSearchParams
+
+  // A la lista y de vuelta, pasado un rato: el «ahora» del problema se conserva → caché.
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+  expect(await currentRoute()).toBe('/problems')
+  await page.waitForTimeout(1100)
+  await goToRoute(`/problems/${MIXED_ID}`)
+  await expect(done.getByTestId('evidence-metric')).toBeVisible()
+  await expect(active.getByTestId('evidence-metric')).toBeVisible()
+  // Aserción negativa: un margen para que una consulta, si la hubiera, saliera.
+  await page.waitForTimeout(800)
+  expect(eventQueries(SEL_DONE)).toHaveLength(1)
+  expect(eventQueries(SEL_ACTIVE)).toHaveLength(1)
+
+  // Actualizar: el problema está abierto → solo la activa (su «to» es ahora) se pide otra vez.
+  await page.getByTestId('module-refresh').click()
+  await expect.poll(() => eventQueries(SEL_ACTIVE).length).toBe(2)
+  await page.waitForTimeout(800)
+  expect(eventQueries(SEL_DONE)).toHaveLength(1)
+  const activeSecond = eventQueries(SEL_ACTIVE)[1] as URLSearchParams
+  // El rango de la activa avanza (el nuevo «ahora»); el de la terminada no ha cambiado.
+  expect(Date.parse(activeSecond.get('to') ?? '')).toBeGreaterThan(
+    Date.parse(activeFirst.get('to') ?? '')
+  )
+  expect(doneFirst.get('to')).toBe(new Date(NOW - 2 * HOUR + 15 * 60_000).toISOString())
+  await expect(active.getByTestId('evidence-metric')).toBeVisible()
+  await expect(done.getByTestId('evidence-metric')).toBeVisible()
+
+  // Y volver otra vez tras Actualizar tampoco pide nada (el reloj nuevo se guarda).
+  await page.getByTestId('problem-back').click()
+  await goToRoute(`/problems/${MIXED_ID}`)
+  await expect(active.getByTestId('evidence-metric')).toBeVisible()
+  await page.waitForTimeout(800)
+  expect(eventQueries(SEL_ACTIVE)).toHaveLength(2)
+  expect(eventQueries(SEL_DONE)).toHaveLength(1)
 })
 
 test('v0.9.2: «Abrir en Métricas» del gráfico abre Métricas con ese selector y el rango del gráfico', async () => {
