@@ -10,6 +10,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
+import { hoverFresh, moveToNeutral } from './hover'
 import en from '../src/renderer/src/locales/en/common.json'
 import es from '../src/renderer/src/locales/es/common.json'
 
@@ -251,7 +252,7 @@ test('la barra lateral tiene los grupos y las secciones de la lista única', asy
 test('tooltips del menú: con el ratón, con el teclado, en las vistas no disponibles y con el menú plegado', async () => {
   const tooltip = page.getByRole('tooltip')
   const away = async (): Promise<void> => {
-    await page.mouse.move(0, 0)
+    await moveToNeutral(page)
     await page.keyboard.press('Escape')
     await expect(tooltip).toHaveCount(0)
   }
@@ -260,7 +261,7 @@ test('tooltips del menú: con el ratón, con el teclado, en las vistas no dispon
   const problems = page.getByTestId('nav-problems')
   await expect(problems).toHaveAttribute('data-unavailable', 'true')
   await expect(problems).toHaveText(new RegExp(t('es', 'nav.problems')))
-  await problems.hover()
+  await hoverFresh(page, problems)
   await expect(tooltip).toBeVisible()
   await expect(tooltip).toContainText('Sin entorno')
   await away()
@@ -276,7 +277,7 @@ test('tooltips del menú: con el ratón, con el teclado, en las vistas no dispon
 
   // Menú plegado: el tooltip empieza por el nombre de la sección.
   await page.getByTestId('sidebar-toggle').click()
-  await page.getByTestId('nav-metrics').hover()
+  await hoverFresh(page, page.getByTestId('nav-metrics'))
   await expect(tooltip).toBeVisible()
   await expect(tooltip).toHaveText(new RegExp(`^\\s*${t('es', 'nav.metrics')}`))
   await away()
@@ -387,9 +388,9 @@ test('maquetación del menú: icono y nombre en la misma fila, desplegado y pleg
 
   // El tooltip sigue saliendo plegado, con el ratón y con el foco.
   const tooltip = page.getByRole('tooltip')
-  await page.getByTestId('nav-problems').hover()
+  await hoverFresh(page, page.getByTestId('nav-problems'))
   await expect(tooltip).toBeVisible()
-  await page.mouse.move(0, 0)
+  await moveToNeutral(page)
   await page.keyboard.press('Escape')
   await expect(tooltip).toHaveCount(0)
   await page.getByTestId('nav-slos').focus()

@@ -13,6 +13,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
+import { hoverFresh, moveToNeutral } from './hover'
 import ExcelJS from 'exceljs'
 import { generate } from 'selfsigned'
 import en from '../src/renderer/src/locales/en/common.json'
@@ -2402,13 +2403,10 @@ test('grid de Problemas: ARIA, orden por columna, barra de estado y afectados', 
     })
   expect(await barContrast('P-101')).toBeGreaterThanOrEqual(3)
   expect(await barContrast('P-102')).toBeGreaterThanOrEqual(3)
-  // Tooltip de la barra con el estado. Para quitar el ratón se pasa por el filtro de
-  // texto: la esquina (0, 0) es la barra de título arrastrable y no recibe el ratón.
-  const away = async (): Promise<void> => {
-    const box = await page.getByTestId('problems-filter-text').boundingBox()
-    await page.mouse.move((box?.x ?? 0) + 10, (box?.y ?? 0) + 5, { steps: 10 })
-  }
-  await bar('P-102').hover()
+  // Tooltip de la barra con el estado. El ratón se quita llevándolo, en pasos, a un punto
+  // neutro del contenido: la esquina (0, 0) es la barra de título arrastrable.
+  const away = (): Promise<void> => moveToNeutral(page)
+  await hoverFresh(page, bar('P-102'))
   await expect(page.getByRole('tooltip')).toContainText('Cerrado')
   await away()
   await expect(page.getByRole('tooltip')).toHaveCount(0)
@@ -2416,7 +2414,7 @@ test('grid de Problemas: ARIA, orden por columna, barra de estado y afectados', 
   // Afectados: el número de únicos y un tooltip con sus nombres.
   await expect(row('P-101').getByTestId('affected-count')).toHaveText('2')
   await expect(row('P-102').getByTestId('affected-count')).toHaveText('1')
-  await row('P-101').getByTestId('affected-count').hover()
+  await hoverFresh(page, row('P-101').getByTestId('affected-count'))
   const tooltip = page.getByTestId('affected-tooltip')
   await expect(tooltip).toContainText('pagos')
   await expect(tooltip).toContainText('host-pagos-01')
@@ -3223,10 +3221,10 @@ test('Inicio: estado de cada SLO (con texto y color), sin evaluar y problemas re
   const hint = page.getByTestId('slo-related-problems-tooltip')
   const HINT = 'Lo calcula Dynatrace con el filtro de problemas del SLO'
   await expect(hint).toHaveCount(0)
-  await related.hover()
+  await hoverFresh(page, related)
   await expect(hint).toBeVisible()
   await expect(hint).toContainText(HINT)
-  await page.mouse.move(0, 0)
+  await moveToNeutral(page)
   await page.keyboard.press('Escape')
   await expect(hint).toHaveCount(0)
   await expect(related).toHaveAttribute('tabindex', '0')
