@@ -142,6 +142,23 @@ test('la CSP bloquea los scripts en línea', async () => {
   expect(ran).toBe(false)
 })
 
+test('VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco del sistema a quien usa el PC', async () => {
+  const state = await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0]
+    return { visible: window?.isVisible() ?? false, focused: window?.isFocused() ?? true }
+  })
+  expect(state).toEqual({ visible: true, focused: false })
+  // Aun así, el teclado de Playwright llega (va por CDP, no por el foco del sistema).
+  await page.keyboard.press('Control+K')
+  await expect(page.getByTestId('command-palette')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('command-palette')).toBeHidden()
+  // Y sigue sin el foco del sistema después de usar el teclado.
+  expect(
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isFocused())
+  ).toBe(false)
+})
+
 test('una segunda instancia no abre otra ventana', async () => {
   test.setTimeout(60_000)
   expect(app.windows()).toHaveLength(1)

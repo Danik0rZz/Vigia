@@ -1740,7 +1740,11 @@ test('sin auto-refresco: ni volver a la vista, ni el foco, ni la reconexión pid
     window.dispatchEvent(new Event('online'))
   })
   await page.evaluate(() => window.blur())
-  await page.bringToFront()
+  // Sin page.bringToFront(): activaría la ventana y le quitaría el foco a quien usa el PC
+  // (VIGIA_E2E). Los eventos de foco ya se simulan arriba.
+  expect(
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isFocused())
+  ).toBe(false)
   // Aserción negativa: no hay ninguna condición que esperar, solo un margen de tiempo.
   await page.waitForTimeout(1500)
   expect(sim.problemsRequests).toBe(before)
