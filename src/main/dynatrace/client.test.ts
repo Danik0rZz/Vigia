@@ -769,18 +769,25 @@ describe('paginate', () => {
   })
 
   // Los @ts-expect-error de estos tests los comprueba `npm run typecheck`, no Vitest.
-  it('keepParams ya no existe en el tipo de paginate', () => {
-    // Si alguien vuelve a añadir keepParams al tipo, esta línea deja de ser un error y tsc falla.
-    const call = (): unknown =>
-      client().paginate({
-        envId: ENV,
-        api: 'classic',
-        endpoint: X,
-        // @ts-expect-error keepParams se eliminó: la regla de páginas siguientes es fija.
-        keepParams: ['fields'],
-        schema: item
-      })
-    expect(typeof call).toBe('function')
+  it('keepParams ya no existe en el tipo de paginate, y en ejecución no se respeta', async () => {
+    // Tipo: si alguien vuelve a añadir keepParams, esta línea deja de ser un error y tsc falla.
+    // Ejecución (AUD-15): aunque llegue, la página 2 lleva SOLO nextPageKey (X no conserva nada).
+    responses.push(
+      json(200, { items: [{ id: 'a' }], nextPageKey: 'k1' }),
+      json(200, { items: [{ id: 'b' }] })
+    )
+    const page = await client().paginate({
+      envId: ENV,
+      api: 'classic',
+      endpoint: X,
+      query: { fields: '+x', from: 'now-2h', pageSize: 1 },
+      // @ts-expect-error keepParams se eliminó: la regla de páginas siguientes es fija.
+      keepParams: ['fields', 'from'],
+      schema: item
+    })
+    expect(page.items.map((i) => i.id)).toEqual(['a', 'b'])
+    expect(sent(0).url.searchParams.get('fields')).toBe('+x')
+    expect([...sent(1).url.searchParams.entries()]).toEqual([['nextPageKey', 'k1']])
   })
 
   it.each(['entities', 'slo', 'events'] as const)(

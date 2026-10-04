@@ -11,6 +11,7 @@ import {
   type Locator,
   type Page
 } from '@playwright/test'
+import { captureOnFailure } from './failure-capture'
 import ExcelJS from 'exceljs'
 import { generate } from 'selfsigned'
 import es from '../src/renderer/src/locales/es/common.json'
@@ -202,6 +203,7 @@ let port = 0
 let app: ElectronApplication
 let page: Page
 let userDataDir: string
+captureOnFailure(() => ({ page, userDataDir }))
 let exportDir: string
 const env: Record<string, string> = {}
 const consoleErrors: string[] = []
@@ -1515,8 +1517,11 @@ test('AUD-13: guardar con un nombre repetido dice que ya existe; cancelar limpia
 
   await saved.getByTestId('saved-query-delete').click()
   const confirm = page.getByTestId('confirm-dialog')
-  if (await confirm.isVisible().catch(() => false))
-    await confirm.getByTestId('confirm-accept').click()
+  // Siempre pide confirmación (AUD-15: aserción fija, no condicional).
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toHaveAttribute('role', 'alertdialog')
+  await confirm.getByTestId('confirm-accept').click()
+  await expect(confirm).toBeHidden()
   await expect(saved).toHaveCount(0)
 })
 
@@ -1542,8 +1547,11 @@ test('Métricas: guardar, cargar desde la lista y desde Ctrl+K, y borrar una con
 
   await saved.getByTestId('saved-query-delete').click()
   const confirm = page.getByTestId('confirm-dialog')
-  if (await confirm.isVisible().catch(() => false))
-    await confirm.getByTestId('confirm-accept').click()
+  // Siempre pide confirmación (AUD-15: aserción fija, no condicional).
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toHaveAttribute('role', 'alertdialog')
+  await confirm.getByTestId('confirm-accept').click()
+  await expect(confirm).toBeHidden()
   await expect(page.getByTestId('saved-query').filter({ hasText: 'CPU producción' })).toHaveCount(0)
 })
 

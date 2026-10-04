@@ -1,4 +1,6 @@
+import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -8,6 +10,7 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
+import { captureOnFailure } from './failure-capture'
 
 /**
  * Prueba de humo sobre la app compilada (`out/`): la ventana
@@ -17,6 +20,7 @@ import {
 let app: ElectronApplication
 let page: Page
 let userDataDir: string
+captureOnFailure(() => ({ page, userDataDir }))
 
 test.beforeAll(async () => {
   // Carpeta de datos propia: el bloqueo de instancia única va por carpeta, así
@@ -135,9 +139,57 @@ test('la CSP bloquea los scripts en línea', async () => {
 })
 
 test('una segunda instancia no abre otra ventana', async () => {
+  test.setTimeout(60_000)
   expect(app.windows()).toHaveLength(1)
   const locked = await app.evaluate(({ app: electronApp }) => electronApp.hasSingleInstanceLock())
   expect(locked).toBe(true)
+
+  // La primera cuenta los avisos de segunda instancia que recibe.
+  await app.evaluate(({ app: electronApp }) => {
+    const state = globalThis as unknown as { __secondInstances?: number }
+    state.__secondInstances = 0
+    electronApp.on('second-instance', () => {
+      state.__secondInstances = (state.__secondInstances ?? 0) + 1
+    })
+  })
+
+  // Se lanza DE VERDAD otra instancia con la misma carpeta de datos.
+  const electronPath = createRequire(join(process.cwd(), 'package.json'))(
+    'electron'
+  ) as unknown as string
+  const env: NodeJS.ProcessEnv = { ...process.env, VIGIA_USER_DATA_DIR: userDataDir }
+  delete env['ELECTRON_RUN_AS_NODE']
+  const second = spawn(
+    electronPath,
+    ['.', ...(process.env['VIGIA_E2E_NO_SANDBOX'] ? ['--no-sandbox'] : [])],
+    { env, stdio: 'ignore' }
+  )
+  const exitCode = await new Promise<number | null>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      second.kill()
+      reject(new Error('la segunda instancia no ha terminado sola en 30 s'))
+    }, 30_000)
+    second.on('exit', (code) => {
+      clearTimeout(timer)
+      resolve(code)
+    })
+    second.on('error', (error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+  })
+
+  // Termina sola y sin error, avisa a la primera, y sigue habiendo una sola ventana.
+  expect(exitCode).toBe(0)
+  await expect
+    .poll(() =>
+      app.evaluate(
+        () => (globalThis as unknown as { __secondInstances?: number }).__secondInstances ?? 0
+      )
+    )
+    .toBe(1)
+  expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
+  expect(app.windows()).toHaveLength(1)
 })
 
 test('la navegación fuera de la app queda bloqueada', async () => {

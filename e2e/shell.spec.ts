@@ -8,6 +8,7 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
+import { captureOnFailure } from './failure-capture'
 import en from '../src/renderer/src/locales/en/common.json'
 import es from '../src/renderer/src/locales/es/common.json'
 
@@ -65,6 +66,7 @@ const ENTRY = 'app://vigia/index.html'
 let app: ElectronApplication
 let page: Page
 let userDataDir: string
+captureOnFailure(() => ({ page, userDataDir }))
 const consoleErrors: string[] = []
 const remoteRequests: string[] = []
 

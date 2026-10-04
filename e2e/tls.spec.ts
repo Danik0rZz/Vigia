@@ -11,6 +11,7 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
+import { captureOnFailure } from './failure-capture'
 import { generate } from 'selfsigned'
 
 /**
@@ -30,6 +31,7 @@ const TOKEN = `dt0c01.PUBLICAPRUEBA0000000000A.${'SECRETOE2ETLS'.padEnd(64, 'X')
 let app: ElectronApplication
 let page: Page
 let userDataDir: string
+captureOnFailure(() => ({ page, userDataDir }))
 let server: Server | null = null
 let port = 0
 let host = ''

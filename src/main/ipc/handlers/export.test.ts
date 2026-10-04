@@ -107,7 +107,11 @@ beforeEach(() => {
   called = new Set()
 })
 
+/** Canales llamados en todo el fichero: `called` se reinicia en cada test y aquí se acumula. */
+const calledInFile = new Set<string>()
+
 afterEach(() => {
+  for (const channel of called) calledInFile.add(channel)
   db.$client.close()
 })
 
@@ -818,13 +822,19 @@ describe('AUD-14: loadedAt fija Desde y Hasta a cuando se cargaron los datos', (
 })
 
 describe('todos los canales de exportación', () => {
+  const CHANNELS = [
+    'capture:image',
+    'capture:region',
+    'export:getSettings',
+    'export:setSettings',
+    'export:table'
+  ]
   it('existen exactamente los 5 canales', () => {
-    expect(Object.keys(build(null)).sort()).toEqual([
-      'capture:image',
-      'capture:region',
-      'export:getSettings',
-      'export:setSettings',
-      'export:table'
-    ])
+    expect(Object.keys(build(null)).sort()).toEqual(CHANNELS)
+  })
+
+  it('cada canal se llama en algún test de este fichero', () => {
+    // AUD-15: un canal sin ninguna llamada en sus tests es un canal sin probar.
+    expect([...calledInFile].sort()).toEqual(CHANNELS)
   })
 })

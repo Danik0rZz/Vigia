@@ -11,8 +11,8 @@ export default defineConfig({
   retries: 0,
   // Un test.only olvidado haría pasar la suite con un solo test: se rechaza.
   forbidOnly: true,
-  // Traza y captura solo si falla. Ojo: los specs lanzan Electron con electron.launch,
-  // así que esto solo se aplica a las páginas de las fixtures de Playwright.
-  use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+  // Sin trace ni screenshot: los specs lanzan Electron con electron.launch y esas
+  // opciones solo valen para las fixtures de página. La captura y el log de un
+  // test que falla los adjunta e2e/failure-capture.ts.
   reporter: 'list'
 })

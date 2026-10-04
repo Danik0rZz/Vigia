@@ -9,6 +9,7 @@ import {
   type Locator,
   type Page
 } from '@playwright/test'
+import { captureOnFailure } from './failure-capture'
 import es from '../src/renderer/src/locales/es/common.json'
 
 /**
@@ -30,6 +31,7 @@ const FORBIDDEN =
 let app: ElectronApplication
 let page: Page
 let userDataDir: string
+captureOnFailure(() => ({ page, userDataDir }))
 const consoleErrors: string[] = []
 const remoteRequests: string[] = []
 
@@ -273,8 +275,11 @@ test('AUD-03: Enter en un secreto guarda ese secreto y el formulario sigue abier
   // Se deja como estaba para las pruebas siguientes.
   await form.getByTestId('secret-delete-oauthClientSecret').click()
   const confirm = page.getByTestId('confirm-dialog')
-  if (await confirm.isVisible().catch(() => false))
-    await confirm.getByTestId('confirm-accept').click()
+  // Siempre pide confirmación (AUD-15: aserción fija, no condicional).
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toHaveAttribute('role', 'alertdialog')
+  await confirm.getByTestId('confirm-accept').click()
+  await expect(confirm).toBeHidden()
   await expect(form.getByTestId('secret-status-oauthClientSecret')).toHaveText('Sin configurar')
   await form.getByTestId('form-cancel').click()
   await expect(form).toBeHidden()
