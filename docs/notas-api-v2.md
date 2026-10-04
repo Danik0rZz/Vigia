@@ -109,8 +109,9 @@ no la API en general.
 - **Orden (según la OpenAPI):** parámetro `sort`, lista separada por comas con prefijo `+`
   (ascendente, el de por defecto) o `-`: `status` (`+` abiertos primero), `startTime` (`-` los
   más recientes primero) y `relevance`, que solo vale junto a la búsqueda `text(…)`. Vigía pide
-  `sort=-startTime` desde la 0.9.0: si la lista se recorta, lo que falta es lo más antiguo. La
-  página 2 va solo con `nextPageKey`, que conserva el orden. No comprobado en vivo.
+  `sort=-startTime` desde la 0.9.0: si la lista se recorta, lo que falta es lo más antiguo.
+  _Observado (2026-10-04, `problems-detail.live.test.ts`):_ la página 1 llega ordenada, la página 2
+  pedida solo con `nextPageKey` sigue el mismo orden y un campo de orden que no existe da **400**.
 - **Respuesta:** `problems`, `totalCount` (número, también en la página 2), `pageSize`,
   `nextPageKey` y **`warnings`**, que la OpenAPI declara y Vigía todavía no muestra.
 - **Paginación:**
@@ -151,9 +152,16 @@ no la API en general.
 - Con `fields=evidenceDetails,impactAnalysis,recentComments` llegan las tres partes.
   `linkedProblemInfo` no aparece si no hay problema vinculado (es opcional en el esquema).
 - En la muestra, la evidencia era de tipo `EVENT`, `impactAnalysis.impacts` venía vacío y no había
-  comentarios: el detalle tiene que mostrar bien las partes vacías ("Ninguno").
+  comentarios. Desde la 0.9.0 la página de detalle no pinta las secciones vacías.
 - La respuesta valida con `problemDetailSchema`.
-- Un id inexistente da **404** (`NOT_FOUND`).
+- Un id inexistente da **404** (`NOT_FOUND`); la página lo dice con su propio mensaje.
+- _Observado en la 0.9.0 (2026-10-04, `problems-detail.live.test.ts`), uno abierto y uno
+  cerrado:_ los dos validan y `parseItems` no descarta ninguna evidencia, impacto ni comentario.
+  Pocas evidencias (menos de 10), todas `EVENT`; sin impactos ni comentarios, así que
+  `estimatedAffectedUsers` no se ha visto en vivo. Los `problemId` llevan `-` y `_`, y con
+  `encodeURIComponent` en la ruta funcionan. No había ningún problema con más de 50 evidencias
+  entre los primeros 6: el "Ver todas" y la exportación de cientos de evidencias solo se han
+  probado con el simulador de los e2e.
 
 ## b) Entities y entityTypes
 
