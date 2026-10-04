@@ -1,4 +1,5 @@
 import type { ConnectionReport, UntrustedCertificate } from '@shared/dynatrace'
+import { DomainError } from '../../errors'
 import type { PinStore } from '../../dynatrace/pins'
 import type { ConnectionStatusStore } from '../../dynatrace/status'
 import type { TenantRepository } from '../../tenants/repository'
@@ -18,6 +19,8 @@ export interface ConnectionHandlerDeps {
   status: ConnectionStatusStore
   pins: PinStore
   repo: TenantRepository
+  /** Si la última prueba ofreció esa huella para ese host (ver `EnvironmentNetwork.wasOffered`). */
+  wasOffered(envId: string, host: string, fingerprint: string): boolean
   /** Algo del entorno ha cambiado: token OAuth, estado y sesión de red se renuevan. */
   onChanged(envId: string): void
 }
@@ -47,6 +50,14 @@ export function createConnectionHandlers(
     },
     'certificates:pin': ({ environmentId, host, fingerprint }) => {
       const environment = repo.getEnvironment(environmentId)
+      // Solo una huella que el verificador vio para ese host: el renderer no
+      // puede fijar una cualquiera.
+      if (!deps.wasOffered(environmentId, host, fingerprint)) {
+        throw new DomainError(
+          'CONFLICT',
+          'CERTIFICATE_NOT_OBSERVED: esa huella no es la que se vio para ese host en la última prueba de conexión.'
+        )
+      }
       pins.pin(environmentId, host, fingerprint)
       // Aceptar una huella con el nivel "sistema" activa el nivel "huella fijada".
       if (environment.certificateLevel === 'system') {

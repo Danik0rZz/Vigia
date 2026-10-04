@@ -207,6 +207,7 @@
     "previous": "Accepted fingerprint",
     "current": "New fingerprint",
     "accept": "Accept this fingerprint",
+    "notObserved": "The fingerprint could not be accepted. Test the connection again.",
     "ignoreRisk": "Anyone on the network could impersonate this environment. Use it only if you cannot pin the fingerprint."
   },
   "dtErrors": {

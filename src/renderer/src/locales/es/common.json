@@ -207,6 +207,7 @@
     "previous": "Huella aceptada",
     "current": "Huella nueva",
     "accept": "Aceptar esta huella",
+    "notObserved": "No se ha podido aceptar la huella. Vuelve a probar la conexión.",
     "ignoreRisk": "Cualquiera en la red podría hacerse pasar por este entorno. Úsalo solo si no puedes fijar la huella."
   },
   "dtErrors": {

@@ -321,3 +321,74 @@ describe('clearFailures y reset', () => {
     expect(network.untrusted(OTHER)).toEqual([])
   })
 })
+
+describe('AUD-21 (P3-2): wasOffered, lo único que certificates:pin acepta', () => {
+  /** Una prueba con un certificado no confiable en `host`, ya ofrecido con untrusted(). */
+  async function offeredOnce(host = `${HOST}:443`): Promise<ReturnType<typeof build>> {
+    const network = build()
+    const proc = await verifierOf(network, ENV)
+    verify(proc, { errorCode: -202 })
+    network.tlsFailure(ENV, host)
+    expect(network.untrusted(ENV)).toEqual([
+      { host, fingerprint: FP, reason: 'untrusted', previousFingerprint: null }
+    ])
+    return network
+  }
+
+  it('true para el host (con puerto) y la huella que ofreció untrusted()', async () => {
+    const network = await offeredOnce()
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(true)
+  })
+
+  it('false con otra huella, otro host, otro puerto o el host sin puerto', async () => {
+    const network = await offeredOnce()
+    expect(network.wasOffered(ENV, `${HOST}:443`, OTHER_FP)).toBe(false)
+    expect(network.wasOffered(ENV, 'otro.example:443', FP)).toBe(false)
+    expect(network.wasOffered(ENV, `${HOST}:8443`, FP)).toBe(false)
+    expect(network.wasOffered(ENV, HOST, FP)).toBe(false)
+  })
+
+  it('false en otro entorno', async () => {
+    const network = await offeredOnce()
+    expect(network.wasOffered(OTHER, `${HOST}:443`, FP)).toBe(false)
+  })
+
+  it('false si untrusted() no se ha llamado: observar no es ofrecer', async () => {
+    const network = build()
+    const proc = await verifierOf(network, ENV)
+    verify(proc, { errorCode: -202 })
+    network.tlsFailure(ENV, `${HOST}:443`)
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(false)
+  })
+
+  it('false después de clearFailures (empieza otra prueba)', async () => {
+    const network = await offeredOnce()
+    network.clearFailures(ENV)
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(false)
+  })
+
+  it('sigue true después de reset (fijar otra huella renueva la sesión)', async () => {
+    const network = await offeredOnce()
+    network.reset(ENV)
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(true)
+  })
+
+  it('cuenta la ÚLTIMA llamada a untrusted(): si ya no lo lista, deja de estar ofrecido', async () => {
+    const network = await offeredOnce()
+    network.clearFailures(ENV)
+    expect(network.untrusted(ENV)).toEqual([])
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(false)
+  })
+
+  it('con huella fijada distinta (mismatch), lo ofrecido es la huella NUEVA', async () => {
+    level = 'pinned'
+    pins = [{ host: `${HOST}:443`, fingerprint: FP }]
+    const network = build()
+    const proc = await verifierOf(network, ENV)
+    verify(proc, { certificate: { fingerprint: OTHER_FP } })
+    network.tlsFailure(ENV, `${HOST}:443`)
+    network.untrusted(ENV)
+    expect(network.wasOffered(ENV, `${HOST}:443`, OTHER_FP)).toBe(true)
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(false)
+  })
+})

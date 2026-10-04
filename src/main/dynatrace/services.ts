@@ -111,6 +111,7 @@ export function createDynatraceServices(deps: {
       status,
       pins,
       repo,
+      wasOffered: (envId, host, fingerprint) => network.wasOffered(envId, host, fingerprint),
       onChanged: onEnvironmentChanged
     }
   }

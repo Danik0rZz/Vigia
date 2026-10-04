@@ -66,6 +66,14 @@ let deps: IpcHandlerDeps
 let handlers: ReturnType<typeof createConnectionHandlers>
 let outputs: string[]
 let called: Set<string>
+/** Lo que ofreció la última prueba (como network.untrusted → wasOffered en la app). */
+let offered: Set<string>
+const offerKey = (env: string, host: string, fingerprint: string): string =>
+  `${env}|${host}|${fingerprint}`
+/** Simula que una prueba de conexión ofreció ese certificado. */
+const offer = (host: string, fingerprint: string, env = envId): void => {
+  offered.add(offerKey(env, host, fingerprint))
+}
 
 beforeEach(() => {
   db = createTestDb()
@@ -121,9 +129,20 @@ beforeEach(() => {
   } as unknown as Parameters<typeof createDtClient>[0])
 
   onChanged = vi.fn()
+  offered = new Set()
+  const untrustedCertificates = [
+    {
+      host: 'abc12345.live.dynatrace.com',
+      fingerprint: FINGERPRINT,
+      reason: 'untrusted' as const,
+      previousFingerprint: null
+    }
+  ]
   handlers = createConnectionHandlers({
-    testConnection: async (id: string) => ({
-      ...(await testConnection(id, {
+    wasOffered: (env: string, host: string, fingerprint: string) =>
+      offered.has(offerKey(env, host, fingerprint)),
+    testConnection: async (id: string) => {
+      const report = await testConnection(id, {
         client: dtClient,
         oauth,
         getEnvironment: (envIdArg: string) => repo.getEnvironment(envIdArg),
@@ -132,16 +151,11 @@ beforeEach(() => {
           envIdArg: string,
           kind: 'classicToken' | 'oauthClientSecret' | 'platformToken'
         ) => secrets.read(envIdArg, kind)
-      } as unknown as Parameters<typeof testConnection>[1])),
-      untrustedCertificates: [
-        {
-          host: 'abc12345.live.dynatrace.com',
-          fingerprint: FINGERPRINT,
-          reason: 'untrusted',
-          previousFingerprint: null
-        }
-      ]
-    }),
+      } as unknown as Parameters<typeof testConnection>[1])
+      // Como network.untrusted(): lo que se ofrece al renderer reemplaza lo anterior.
+      offered = new Set(untrustedCertificates.map((c) => offerKey(id, c.host, c.fingerprint)))
+      return { ...report, untrustedCertificates }
+    },
     status: createConnectionStatusStore(),
     pins: createPinStore(db),
     repo,
@@ -261,6 +275,7 @@ describe('canales de conexión y certificados', () => {
     delete input['id']
     repo.updateEnvironment(envId, input as Parameters<typeof repo.updateEnvironment>[1])
 
+    offer('a.host', FINGERPRINT)
     await call('certificates:pin', {
       environmentId: envId,
       host: 'a.host',
@@ -270,12 +285,14 @@ describe('canales de conexión y certificados', () => {
   })
 
   it("con nivel 'pinned', fijar otra huella sustituye la del host", async () => {
+    offer('a.host', FINGERPRINT)
     await call('certificates:pin', {
       environmentId: envId,
       host: 'a.host',
       fingerprint: FINGERPRINT
     })
     const other = 'sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB='
+    offer('a.host', other)
     await call('certificates:pin', { environmentId: envId, host: 'a.host', fingerprint: other })
     expect(await call('certificates:list', { environmentId: envId })).toEqual({
       ok: true,
@@ -288,6 +305,66 @@ describe('canales de conexión y certificados', () => {
       await call('certificates:pin', {
         environmentId: '00000000-0000-4000-8000-000000000000',
         host: 'a.host',
+        fingerprint: FINGERPRINT
+      })
+    ).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } })
+  })
+})
+
+describe('AUD-21 (P3-2): certificates:pin solo acepta lo que ofreció la última prueba', () => {
+  const OTHER = 'sha256/CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC='
+
+  async function expectRejected(host: string, fingerprint: string): Promise<void> {
+    const result = (await call('certificates:pin', {
+      environmentId: envId,
+      host,
+      fingerprint
+    })) as { ok: boolean; error?: { code: string; message?: string } }
+    expect(result).toMatchObject({ ok: false, error: { code: 'CONFLICT' } })
+    expect(result.error?.message ?? '').toMatch(/^CERTIFICATE_NOT_OBSERVED/)
+    expect(await call('certificates:list', { environmentId: envId })).toEqual({
+      ok: true,
+      data: []
+    })
+    expect(repo.getEnvironment(envId).certificateLevel).toBe('system')
+    expect(onChanged).not.toHaveBeenCalled()
+  }
+
+  it('sin ninguna prueba: CONFLICT, sin pin, nivel system y sin onChanged', async () => {
+    await expectRejected('abc12345.live.dynatrace.com', FINGERPRINT)
+  })
+
+  it('tras la prueba, otra huella para ese host: CONFLICT', async () => {
+    await call('connection:test', { environmentId: envId })
+    onChanged.mockClear()
+    await expectRejected('abc12345.live.dynatrace.com', OTHER)
+  })
+
+  it('tras la prueba, la huella ofrecida para otro host: CONFLICT', async () => {
+    await call('connection:test', { environmentId: envId })
+    onChanged.mockClear()
+    await expectRejected('otro.example.com', FINGERPRINT)
+  })
+
+  it('la huella ofrecida: ok, queda fijada, nivel pinned y onChanged', async () => {
+    await call('connection:test', { environmentId: envId })
+    onChanged.mockClear()
+    expect(
+      await call('certificates:pin', {
+        environmentId: envId,
+        host: 'abc12345.live.dynatrace.com',
+        fingerprint: FINGERPRINT
+      })
+    ).toEqual({ ok: true, data: { ok: true } })
+    expect(repo.getEnvironment(envId).certificateLevel).toBe('pinned')
+    expect(onChanged).toHaveBeenCalledWith(envId)
+  })
+
+  it('un entorno que no existe sigue dando NOT_FOUND aunque la huella no se ofreciera', async () => {
+    expect(
+      await call('certificates:pin', {
+        environmentId: '00000000-0000-4000-8000-000000000000',
+        host: 'abc12345.live.dynatrace.com',
         fingerprint: FINGERPRINT
       })
     ).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } })

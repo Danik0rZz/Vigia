@@ -30,6 +30,11 @@ export interface EnvironmentNetwork {
   clearFailures(envId: string): void
   /** Certificados rechazados de los hosts que han fallado desde `clearFailures`. */
   untrusted(envId: string): UntrustedCertificate[]
+  /**
+   * Si el verificador rechazó esa huella para ese host en la última prueba
+   * (lo que `untrusted` ofreció). Lo único que `certificates:pin` acepta.
+   */
+  wasOffered(envId: string, host: string, fingerprint: string): boolean
 }
 
 const hostnameOf = (host: string): string => new URL(`https://${host}`).hostname
@@ -51,6 +56,12 @@ export function createEnvironmentNetwork(deps: {
   const observed = new Map<string, Map<string, Observed>>()
   /** Host con puerto de cada nombre de host que ha fallado, visto desde el cliente. */
   const failedHosts = new Map<string, Map<string, string>>()
+  /**
+   * Lo último que `untrusted` ofreció por entorno. Sobrevive a `reset` (fijar
+   * una huella renueva la sesión y no debe invalidar las demás ofrecidas) y se
+   * olvida al empezar otra prueba.
+   */
+  const offered = new Map<string, UntrustedCertificate[]>()
 
   function observedFor(envId: string): Map<string, Observed> {
     let map = observed.get(envId)
@@ -148,15 +159,24 @@ export function createEnvironmentNetwork(deps: {
       // Lo observado por el verificador se conserva mientras dure la sesión:
       // Chromium cachea el rechazo y no vuelve a llamar al verificador.
       failedHosts.delete(envId)
+      offered.delete(envId)
     },
 
     untrusted(envId) {
       const seen = observed.get(envId)
-      return [...(failedHosts.get(envId) ?? new Map<string, string>()).entries()].flatMap(
-        ([hostname, host]) => {
-          const entry = seen?.get(hostname)
-          return entry === undefined ? [] : [{ host, ...entry }]
-        }
+      const certificates = [
+        ...(failedHosts.get(envId) ?? new Map<string, string>()).entries()
+      ].flatMap(([hostname, host]) => {
+        const entry = seen?.get(hostname)
+        return entry === undefined ? [] : [{ host, ...entry }]
+      })
+      offered.set(envId, certificates)
+      return certificates
+    },
+
+    wasOffered(envId, host, fingerprint) {
+      return (offered.get(envId) ?? []).some(
+        (certificate) => certificate.host === host && certificate.fingerprint === fingerprint
       )
     }
   }

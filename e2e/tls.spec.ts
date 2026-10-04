@@ -257,6 +257,42 @@ test('nivel system: certificado no confiable, con su host y su huella', async ()
   expect(await invoke('certificates:list', { environmentId })).toEqual([])
 })
 
+test('AUD-21 (P3-2): aceptar una huella que ya no ofrece la última prueba da error y no fija nada', async () => {
+  await openEnvironmentForm()
+  const form = page.getByTestId('environment-form')
+  await form.getByTestId('connection-test').click()
+  const block = form.getByTestId('certificate-untrusted')
+  await expect(block).toHaveCount(1)
+  await expect(block.getByTestId('certificate-new-fingerprint')).toHaveText(fingerprints[0] ?? '')
+
+  // Por detrás (IPC directo: la interfaz no se entera), el entorno pasa a "ignorar" y
+  // se vuelve a probar. Esa prueba ya no ofrece ningún certificado.
+  const list = await invoke<{ environments: Record<string, unknown>[] }>('tenants:list')
+  const env = list.environments.find((e) => e['id'] === environmentId) ?? {}
+  const input: Record<string, unknown> = { ...env, certificateLevel: 'ignore' }
+  delete input['secrets']
+  delete input['unreadableSecrets']
+  await invoke('environments:update', input)
+  const report = await testConnection()
+  expect(report.untrustedCertificates).toEqual([])
+
+  // La interfaz todavía enseña el certificado de antes: aceptarlo falla.
+  await block.getByTestId('certificate-accept').click()
+  await expect(form.getByTestId('certificate-accept-error')).toHaveText(
+    'No se ha podido aceptar la huella. Vuelve a probar la conexión.'
+  )
+  expect(await invoke('certificates:list', { environmentId })).toEqual([])
+
+  // Se deja como estaba: nivel system, sin huellas y con la interfaz recargada.
+  await closeEnvironmentForm()
+  await setLevel('system')
+  const after = await invoke<{ environments: { id: string; certificateLevel: string }[] }>(
+    'tenants:list'
+  )
+  expect(after.environments.find((e) => e.id === environmentId)?.certificateLevel).toBe('system')
+  expect(await invoke('certificates:list', { environmentId })).toEqual([])
+})
+
 test('la interfaz muestra el fallo y el certificado; aceptarlo lo fija y pasa a pinned', async () => {
   await openEnvironmentForm()
   const form = page.getByTestId('environment-form')

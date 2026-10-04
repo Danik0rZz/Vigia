@@ -62,6 +62,11 @@ function CertificateBlock({
           {t('certificates.accept')}
         </button>
       </div>
+      {pin.isError && (
+        <p data-testid="certificate-accept-error" className="text-danger">
+          {t('certificates.notObserved')}
+        </p>
+      )}
     </div>
   )
 }
