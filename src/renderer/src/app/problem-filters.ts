@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { ImpactLevel, SeverityLevel } from '@shared/modules'
 
 export type ProblemStatusFilter = 'all' | 'open' | 'closed'
 
@@ -8,9 +9,18 @@ export interface ProblemFilters {
   text: string
   /** Clústeres del filtro local. */
   clusters: string[]
+  /** Severidades e impactos: estos filtran en Dynatrace (problemSelector). */
+  severity: SeverityLevel[]
+  impact: ImpactLevel[]
 }
 
-export const DEFAULT_PROBLEM_FILTERS: ProblemFilters = { status: 'all', text: '', clusters: [] }
+export const DEFAULT_PROBLEM_FILTERS: ProblemFilters = {
+  status: 'all',
+  text: '',
+  clusters: [],
+  severity: [],
+  impact: []
+}
 
 interface ProblemFiltersState {
   /** Filtros de cada entorno: al volver a uno se recuperan los suyos. */
@@ -40,6 +50,8 @@ export function useProblemFilters(envId: string | null): ProblemFilters & {
   setStatus: (status: ProblemStatusFilter) => void
   setText: (text: string) => void
   setClusters: (clusters: string[]) => void
+  setSeverity: (severity: SeverityLevel[]) => void
+  setImpact: (impact: ImpactLevel[]) => void
 } {
   const key = envId ?? ''
   const filters = useProblemFiltersStore((state) => state.byEnv[key]) ?? DEFAULT_PROBLEM_FILTERS
@@ -48,6 +60,8 @@ export function useProblemFilters(envId: string | null): ProblemFilters & {
     ...filters,
     setStatus: (status) => update(key, { status }),
     setText: (text) => update(key, { text }),
-    setClusters: (clusters) => update(key, { clusters })
+    setClusters: (clusters) => update(key, { clusters }),
+    setSeverity: (severity) => update(key, { severity }),
+    setImpact: (impact) => update(key, { impact })
   }
 }

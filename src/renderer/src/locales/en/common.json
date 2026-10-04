@@ -249,8 +249,9 @@
       "closed": "Closed",
       "text": "Search",
       "cluster": "Cluster",
-      "clusterAll": "All",
-      "clusterSome": "{{count}} selected",
+      "severity": "Severity",
+      "impact": "Impact",
+      "someSelected": "{{count}} selected",
       "clusterLocal": "Filters the problems already loaded; it does not search Dynatrace."
     },
     "columns": {
@@ -306,6 +307,7 @@
     "tags": "Tags",
     "linked": "Linked problem",
     "none": "None",
+    "detailUnavailable": "Not available: the details could not be loaded.",
     "close": "Close",
     "status": {
       "OPEN": "Open",

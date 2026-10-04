@@ -249,8 +249,9 @@
       "closed": "Cerrados",
       "text": "Buscar",
       "cluster": "Clúster",
-      "clusterAll": "Todos",
-      "clusterSome": "{{count}} seleccionados",
+      "severity": "Severidad",
+      "impact": "Impacto",
+      "someSelected": "{{count}} seleccionados",
       "clusterLocal": "Filtra los problemas ya cargados, no busca en Dynatrace."
     },
     "columns": {
@@ -306,6 +307,7 @@
     "tags": "Etiquetas",
     "linked": "Problema vinculado",
     "none": "Ninguno",
+    "detailUnavailable": "No disponible: no se pudo cargar el detalle.",
     "close": "Cerrar",
     "status": {
       "OPEN": "Abierto",

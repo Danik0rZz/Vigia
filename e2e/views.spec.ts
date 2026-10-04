@@ -182,6 +182,10 @@ const sim = {
   badRequest: false,
   /** Si no es null, /problems no responde hasta que se cumpla (para ver qué hay mientras carga). */
   problemsGate: null as Promise<void> | null,
+  /** AUD-12: igual para /problems/{id} (detalle lento). */
+  detailGate: null as Promise<void> | null,
+  /** AUD-12: el detalle falla (404). */
+  detailFails: false,
   lastDetailQuery: new URLSearchParams(),
   lastProblemsQuery: new URLSearchParams(),
   lastMetricsQuery: new URLSearchParams()
@@ -215,15 +219,25 @@ function problemsFor(token: string): FakeProblem[] {
   return token === TOKEN_B ? problemsB : problemsA
 }
 
-/** Aplica de forma aproximada status("…") y text("…") del problemSelector. */
+/** Valores de un criterio con lista, p. ej. severityLevel("A","B") → ['A', 'B']. */
+function selectorList(selector: string, name: string): string[] | undefined {
+  const inner = new RegExp(`${name}\\(([^)]*)\\)`).exec(selector)?.[1]
+  return inner === undefined ? undefined : [...inner.matchAll(/"([^"]*)"/g)].map((m) => m[1] ?? '')
+}
+
+/** Aplica de forma aproximada status, text, severityLevel e impactLevel del problemSelector. */
 function applySelector(problems: FakeProblem[], selector: string | null): FakeProblem[] {
   if (selector === null) return problems
   const status = /status\("(open|closed)"\)/.exec(selector)?.[1]
   const text = /text\("((?:[^"~]|~.)*)"\)/.exec(selector)?.[1]?.replace(/~(.)/g, '$1')
+  const severities = selectorList(selector, 'severityLevel')
+  const impacts = selectorList(selector, 'impactLevel')
   return problems.filter(
     (p) =>
       (status === undefined || p.status.toLowerCase() === status) &&
-      (text === undefined || p.title.toLowerCase().includes(text.toLowerCase()))
+      (text === undefined || p.title.toLowerCase().includes(text.toLowerCase())) &&
+      (severities === undefined || severities.includes(String(p['severityLevel']))) &&
+      (impacts === undefined || impacts.includes(String(p['impactLevel'])))
   )
 }
 
@@ -294,12 +308,25 @@ async function startServer(): Promise<void> {
       const single = /^\/api\/v2\/problems\/([^/]+)$/.exec(url.pathname)
       if (req.method === 'GET' && single !== null) {
         sim.lastDetailQuery = url.searchParams
-        const found = problemsFor(token).find(
-          (p) => p['problemId'] === decodeURIComponent(single[1] ?? '')
-        )
-        return found
-          ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
-          : send(404, { error: { code: 404, message: 'No existe' } })
+        const respondDetail = (): void => {
+          // 404 y no 5xx: el cliente reintenta los 5xx y la prueba se alargaría.
+          if (sim.detailFails) {
+            return send(404, {
+              error: { code: 404, message: 'Detalle no disponible en la prueba' }
+            })
+          }
+          const found = problemsFor(token).find(
+            (p) => p['problemId'] === decodeURIComponent(single[1] ?? '')
+          )
+          return found
+            ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
+            : send(404, { error: { code: 404, message: 'No existe' } })
+        }
+        if (sim.detailGate !== null) {
+          void sim.detailGate.then(respondDetail)
+          return
+        }
+        return respondDetail()
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/metrics') {
         return send(200, {
@@ -601,6 +628,185 @@ test('Problemas: tabla, línea de tiempo y detalle con las entidades afectadas',
   await expect(
     page.locator('[data-testid="export-menu"][data-export-target="problem-detail"]')
   ).toBeVisible()
+
+  // AUD-12: el detalle es un panel lateral (diálogo) que no tapa toda la tabla.
+  await expect(detail).toHaveAttribute('role', 'dialog')
+  await expect(detail).toHaveAttribute('aria-label', 'Detalle del problema')
+  const box = await detail.boundingBox()
+  const viewport = await page.evaluate(() => window.innerWidth)
+  expect(box?.width ?? 0).toBeLessThanOrEqual(Math.min(560, viewport * 0.9) + 1)
+  expect(box?.x ?? 0, 'anclado a la derecha').toBeGreaterThan(0)
+  expect(Math.round((box?.x ?? 0) + (box?.width ?? 0))).toBeGreaterThanOrEqual(viewport - 1)
+  // La fila abierta se marca con data-selected, sin aria-selected.
+  const p101 = rows.filter({ hasText: 'P-101' })
+  await expect(p101).toHaveAttribute('data-selected', 'true')
+  await expect(p101).not.toHaveAttribute('aria-selected', /.*/)
+
+  // El botón Cerrar lo cierra.
+  await detail.getByTestId('problem-detail-close').click()
+  await expect(detail).toBeHidden()
+})
+
+test('AUD-12: mientras el detalle carga, el panel ya muestra los datos de la fila', async () => {
+  const detail = page.getByTestId('problem-detail')
+  let release = (): void => undefined
+  sim.detailGate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  try {
+    await page
+      .getByTestId('problem-row')
+      .filter({ hasText: 'P-103' })
+      .getByTestId('problem-open')
+      .click()
+    await expect(detail).toBeVisible()
+    // Lo de la fila, al instante: título, entidad afectada y severidad.
+    await expect(detail).toContainText('errores')
+    await expect(detail).toContainText('carrito')
+    await expect(detail).toContainText('NUEVA_SEVERIDAD')
+    // Lo que solo trae el detalle, cargando.
+    await expect(detail.getByTestId('detail-loading').first()).toBeVisible()
+  } finally {
+    release()
+    sim.detailGate = null
+  }
+  await expect(detail.getByTestId('detail-loading')).toHaveCount(0)
+  await expect(detail).toContainText('carrito')
+  await page.keyboard.press('Escape')
+  await expect(detail).toBeHidden()
+})
+
+test('AUD-12: si el detalle falla, el error va dentro del panel y los datos de la fila se quedan', async () => {
+  const detail = page.getByTestId('problem-detail')
+  sim.detailFails = true
+  try {
+    await page
+      .getByTestId('problem-row')
+      .filter({ hasText: 'P-102' })
+      .getByTestId('problem-open')
+      .click()
+    await expect(detail).toBeVisible()
+    await expect(detail.getByRole('alert').first()).toBeVisible()
+    await expect(detail).toContainText('Disco lleno')
+    await expect(detail).toContainText('host-bd-01')
+    // Con error, las secciones del detalle no se quedan en «Cargando…».
+    await expect(detail.getByTestId('detail-loading')).toHaveCount(0)
+  } finally {
+    sim.detailFails = false
+  }
+  await page.keyboard.press('Escape')
+  await expect(detail).toBeHidden()
+})
+
+test('AUD-12: el detalle se abre con el teclado, se cierra con Escape y el foco vuelve a la fila', async () => {
+  const detail = page.getByTestId('problem-detail')
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+
+  // Tab desde el filtro de texto hasta el primer botón problem-open.
+  await page.getByTestId('problems-filter-text').focus()
+  let reached = false
+  for (let i = 0; i < 40 && !reached; i++) {
+    await page.keyboard.press('Tab')
+    reached = await page.evaluate(
+      () => document.activeElement?.getAttribute('data-testid') === 'problem-open'
+    )
+  }
+  expect(reached, 'Tab llega a un problem-open').toBe(true)
+  const focusedId = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? '')
+  expect(focusedId).toMatch(/^P-\d+$/)
+  const opener = page
+    .getByTestId('problem-row')
+    .filter({ hasText: focusedId })
+    .getByTestId('problem-open')
+
+  // Enter abre el panel con el foco dentro.
+  await page.keyboard.press('Enter')
+  await expect(detail).toBeVisible()
+  await expect(detail).toContainText(focusedId)
+  await expect.poll(() => detail.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+
+  // Escape cierra y el foco vuelve al botón de esa fila.
+  await page.keyboard.press('Escape')
+  await expect(detail).toBeHidden()
+  await expect(opener).toBeFocused()
+
+  // Espacio también abre; un click fuera del panel lo cierra.
+  await page.keyboard.press('Space')
+  await expect(detail).toBeVisible()
+  await page.mouse.click(10, Math.round((await page.evaluate(() => window.innerHeight)) / 2))
+  await expect(detail).toBeHidden()
+  await expect(opener).toBeFocused()
+
+  // Un click en cualquier parte de la fila sigue abriendo.
+  await page
+    .getByTestId('problem-row')
+    .filter({ hasText: 'P-102' })
+    .getByText('Disco lleno')
+    .click()
+  await expect(detail).toBeVisible()
+  await expect(detail).toContainText('P-102')
+  await page.keyboard.press('Escape')
+  await expect(detail).toBeHidden()
+})
+
+test('AUD-12: filtros de severidad e impacto, en el servidor', async () => {
+  const rows = page.getByTestId('problem-row')
+  const selectorParam = (): string => sim.lastProblemsQuery.get('problemSelector') ?? ''
+  const pick = async (filter: string, option: string, value: string): Promise<void> => {
+    await page.getByTestId(filter).click()
+    await page.locator(`[data-testid="${option}"][value="${value}"]`).click()
+    await page.keyboard.press('Escape')
+  }
+  await expect(rows).toHaveCount(3)
+
+  // Opciones con los valores de la API.
+  await page.getByTestId('problems-filter-severity').click()
+  const severityValues = await page
+    .getByTestId('severity-option')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('value')))
+  expect(severityValues).toEqual(
+    expect.arrayContaining(['AVAILABILITY', 'ERROR', 'PERFORMANCE', 'RESOURCE_CONTENTION'])
+  )
+  await page.keyboard.press('Escape')
+
+  await pick('problems-filter-severity', 'severity-option', 'PERFORMANCE')
+  await expect.poll(selectorParam).toMatch(/severityLevel\([^)]*"PERFORMANCE"[^)]*\)/)
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText('P-101')
+
+  // Dos severidades: las dos en el mismo criterio (OR).
+  await pick('problems-filter-severity', 'severity-option', 'RESOURCE_CONTENTION')
+  await expect.poll(selectorParam).toMatch(/severityLevel\([^)]*"RESOURCE_CONTENTION"[^)]*\)/)
+  expect(selectorParam()).toMatch(/severityLevel\([^)]*"PERFORMANCE"[^)]*\)/)
+  await expect(rows).toHaveCount(2)
+
+  // AVAILABILITY va como valor de la API.
+  await pick('problems-filter-severity', 'severity-option', 'AVAILABILITY')
+  await expect.poll(selectorParam).toMatch(/severityLevel\([^)]*"AVAILABILITY"[^)]*\)/)
+
+  // Se quitan las tres: vuelve la consulta sin severidad (ya en caché, sin petición nueva).
+  for (const value of ['PERFORMANCE', 'RESOURCE_CONTENTION', 'AVAILABILITY']) {
+    await pick('problems-filter-severity', 'severity-option', value)
+  }
+  await expect(rows).toHaveCount(3)
+
+  // Impacto.
+  await pick('problems-filter-impact', 'impact-option', 'INFRASTRUCTURE')
+  await expect.poll(selectorParam).toMatch(/impactLevel\([^)]*"INFRASTRUCTURE"[^)]*\)/)
+  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toContainText('P-102')
+
+  // Van por entorno, como los demás filtros: Desarrollo empieza sin ellos (con
+  // INFRASTRUCTURE, P-900, de impacto APPLICATION, no saldría).
+  await page.getByTestId('env-selector').click()
+  await page.getByRole('option', { name: 'Cliente A › Desarrollo' }).click()
+  await expect(page.getByTestId('problems-table')).toContainText('P-900')
+  await page.getByTestId('env-selector').click()
+  await page.getByRole('option', { name: 'Cliente A › Producción' }).click()
+  await expect(rows).toHaveCount(1)
+
+  await pick('problems-filter-impact', 'impact-option', 'INFRASTRUCTURE')
+  await expect(rows).toHaveCount(3)
 })
 
 test('tabla de Problemas: columnas, N/A, "+N" con tooltip, en curso y fechas propias', async () => {

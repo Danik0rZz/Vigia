@@ -117,13 +117,28 @@ export function ProblemsTable({
     <tr
       key={row.problemId}
       data-testid="problem-row"
+      data-problem-id={row.problemId}
       data-index={index}
       ref={virtual ? virtualizer.measureElement : undefined}
       onClick={() => onSelect(row.problemId)}
-      className="cursor-pointer border-t border-border hover:bg-hover aria-selected:bg-active"
-      aria-selected={selected === row.problemId}
+      // Sin role=grid, aria-selected no se anuncia: la selección es solo visual.
+      data-selected={selected === row.problemId ? 'true' : undefined}
+      className="cursor-pointer border-t border-border hover:bg-hover data-[selected=true]:bg-active"
     >
-      <td className="px-2 py-1.5 font-medium whitespace-nowrap">{row.displayId}</td>
+      <td className="px-2 py-1.5 font-medium whitespace-nowrap">
+        {/* El botón hace la fila accesible con teclado (Tab y Enter o Espacio). */}
+        <button
+          type="button"
+          data-testid="problem-open"
+          onClick={(event) => {
+            event.stopPropagation()
+            onSelect(row.problemId)
+          }}
+          className="rounded-sm font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+        >
+          {row.displayId}
+        </button>
+      </td>
       <td className="max-w-80 truncate px-2 py-1.5" title={row.title}>
         {row.title}
       </td>

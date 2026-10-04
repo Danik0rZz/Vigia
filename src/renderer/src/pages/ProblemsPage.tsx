@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { EChartsCoreOption } from 'echarts/core'
-import type { ExportColumn, ProblemSummary } from '@shared/modules'
+import {
+  impactLevels,
+  SEVERITY_ORDER,
+  type ExportColumn,
+  type ImpactLevel,
+  type ProblemSummary,
+  type SeverityLevel
+} from '@shared/modules'
 import { PROBLEM_EXPORT_COLUMNS, toProblemExport, toProblemRow } from '@shared/problem-row'
 import { timeRangeToDates } from '@shared/time-range'
 import { useProblemFilters } from '../app/problem-filters'
@@ -17,6 +24,7 @@ import {
 } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { ClusterFilter } from '../components/ClusterFilter'
+import { MultiFilter } from '../components/MultiFilter'
 import { ProblemDetail } from '../components/ProblemDetail'
 import { ProblemsTable } from '../components/ProblemsTable'
 import { INPUT } from '../components/styles'
@@ -56,7 +64,11 @@ export function ProblemsPage(): JSX.Element {
     text: textInput,
     setText: setTextInput,
     clusters: clusterSelection,
-    setClusters: setClusterSelection
+    setClusters: setClusterSelection,
+    severity,
+    setSeverity,
+    impact,
+    setImpact
   } = useProblemFilters(envId)
   // Texto con retardo, ligado a su entorno: al cambiar de entorno (o al volver
   // a la sección) se aplica el texto guardado sin esperar.
@@ -79,11 +91,16 @@ export function ProblemsPage(): JSX.Element {
 
   const filters: ProblemFilterValues = {
     ...(status === 'all' ? {} : { status }),
-    ...(text === '' ? {} : { text })
+    ...(text === '' ? {} : { text }),
+    // Severidad e impacto sí filtran en Dynatrace (problemSelector).
+    ...(severity.length === 0 ? {} : { severity }),
+    ...(impact.length === 0 ? {} : { impact })
   }
   const query = useProblems(envId, filters)
   const refresh = useModuleRefresh(envId, 'problems')
   const loaded = useMemo(() => query.data?.problems ?? [], [query.data])
+  // La fila elegida: el panel la muestra al instante mientras llega el detalle.
+  const selectedSummary = loaded.find((problem) => problem.problemId === selected)
 
   // Filtro de clúster LOCAL (problemSelector no lo admite): sobre lo cargado.
   const clusterOptions = useMemo(
@@ -180,6 +197,28 @@ export function ProblemsPage(): JSX.Element {
               className={`${INPUT} w-60`}
             />
           </label>
+          <MultiFilter
+            label={t('problems.filters.severity')}
+            testId="problems-filter-severity"
+            optionTestId="severity-option"
+            options={SEVERITY_ORDER.map((value) => ({
+              value,
+              label: t(`problems.severity.${value}`)
+            }))}
+            selected={severity}
+            onChange={(next) => setSeverity(next as SeverityLevel[])}
+          />
+          <MultiFilter
+            label={t('problems.filters.impact')}
+            testId="problems-filter-impact"
+            optionTestId="impact-option"
+            options={impactLevels.map((value) => ({
+              value,
+              label: t(`problems.impact.${value}`)
+            }))}
+            selected={impact}
+            onChange={(next) => setImpact(next as ImpactLevel[])}
+          />
           {clusterOptions.length > 0 && (
             <ClusterFilter
               options={clusterOptions}
@@ -263,8 +302,24 @@ export function ProblemsPage(): JSX.Element {
           )}
         </section>
 
-        {selected !== null && envId !== null && (
-          <ProblemDetail envId={envId} problemId={selected} timeRange={timeRange} />
+        {selectedSummary !== undefined && envId !== null && (
+          <ProblemDetail
+            envId={envId}
+            summary={selectedSummary}
+            timeRange={timeRange}
+            onClose={() => {
+              const id = selectedSummary.problemId
+              setSelection(null)
+              // El panel se desmonta al cerrarse: el foco vuelve al botón de su fila.
+              requestAnimationFrame(() => {
+                tableRef.current
+                  ?.querySelector<HTMLButtonElement>(
+                    `[data-problem-id="${CSS.escape(id)}"] [data-testid="problem-open"]`
+                  )
+                  ?.focus()
+              })
+            }}
+          />
         )}
       </div>
     </>
