@@ -52,6 +52,53 @@ function readColors(): ChartColors {
   }
 }
 
+/** Rango del eje x (min y max, si los fija la opción) y cuántas líneas verticales hay. */
+function optionFacts(option: echarts.EChartsCoreOption): {
+  from: string
+  to: string
+  markLines: number
+} {
+  const axis = (Array.isArray(option['xAxis']) ? option['xAxis'][0] : option['xAxis']) as
+    { min?: unknown; max?: unknown } | undefined
+  const series = (Array.isArray(option['series']) ? option['series'] : []) as {
+    markLine?: { data?: unknown[] }
+  }[]
+  const vertical = series.flatMap((item) =>
+    (item.markLine?.data ?? []).filter(
+      (entry) => typeof entry === 'object' && entry !== null && 'xAxis' in entry
+    )
+  )
+  return {
+    from: typeof axis?.min === 'number' ? String(axis.min) : '',
+    to: typeof axis?.max === 'number' ? String(axis.max) : '',
+    markLines: vertical.length
+  }
+}
+
+/** Textos que ECharts ha pintado en el eje x (API interna: si cambia, lista vacía). */
+function xAxisLabels(chart: echarts.ECharts): string[] {
+  try {
+    const model = (
+      chart as unknown as {
+        getModel: () => {
+          getComponent: (
+            type: string,
+            index: number
+          ) => { axis?: { getViewLabels: () => { formattedLabel: string }[] } } | undefined
+        }
+      }
+    ).getModel()
+    return (
+      model
+        .getComponent('xAxis', 0)
+        ?.axis?.getViewLabels()
+        .map((l) => l.formattedLabel) ?? []
+    )
+  } catch {
+    return []
+  }
+}
+
 export interface ChartHandle {
   /** PNG del gráfico a doble resolución y con fondo sólido (el del tema). */
   toPngDataUrl(): string | null
@@ -97,7 +144,24 @@ export const Chart = forwardRef<
   }, [locale])
 
   useEffect(() => {
-    instance.current?.setOption(buildOption(readColors()), { notMerge: true })
+    const chart = instance.current
+    const element = container.current
+    if (chart === null || element === null) return
+    const option = buildOption(readColors())
+    chart.setOption(option, { notMerge: true })
+    // El canvas no se puede leer: rango, líneas verticales y etiquetas del eje x
+    // van también en el DOM (para las pruebas y las herramientas de accesibilidad).
+    const facts = optionFacts(option)
+    element.dataset['rangeFrom'] = facts.from
+    element.dataset['rangeTo'] = facts.to
+    element.dataset['markLines'] = String(facts.markLines)
+    const onFinished = (): void => {
+      element.dataset['xLabels'] = JSON.stringify(xAxisLabels(chart))
+    }
+    chart.on('finished', onFinished)
+    return () => {
+      chart.off('finished', onFinished)
+    }
   }, [buildOption, theme, locale])
 
   useImperativeHandle(ref, () => ({

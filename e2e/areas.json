@@ -93,6 +93,7 @@
       "globs": [
         "src/renderer/src/pages/**",
         "src/renderer/src/components/Chart.tsx",
+        "src/renderer/src/components/chart-time.ts",
         "src/renderer/src/components/ExportMenu.tsx",
         "src/renderer/src/components/ModuleState.tsx",
         "src/renderer/src/components/ProblemsTable.tsx",

@@ -16,6 +16,7 @@ import { timeRangeToDates } from '@shared/time-range'
 import { useProblemFilters } from '../app/problem-filters'
 import { useTimeRangeValue } from '../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../components/Chart'
+import { axisTooltip, timeAxisLabel } from '../components/chart-time'
 import { ExportMenu } from '../components/ExportMenu'
 import { PanelBoundary } from '../components/PanelBoundary'
 import {
@@ -146,11 +147,14 @@ export function ProblemsPage(): JSX.Element {
     (colors: ChartColors): EChartsCoreOption => ({
       animation: false,
       grid: { left: 32, right: 16, top: 16, bottom: 28 },
-      tooltip: { trigger: 'axis' },
+      tooltip: axisTooltip(i18n.language, (value) =>
+        new Intl.NumberFormat(i18n.language).format(value)
+      ),
       xAxis: {
         type: 'time',
         axisLine: { lineStyle: { color: colors.border } },
-        axisLabel: { color: colors.muted }
+        // Hora local, por niveles (los tramos no van alineados a horas: sin resolución).
+        axisLabel: { color: colors.muted, ...timeAxisLabel(i18n.language, null) }
       },
       yAxis: {
         type: 'value',
@@ -158,9 +162,16 @@ export function ProblemsPage(): JSX.Element {
         splitLine: { lineStyle: { color: colors.border } },
         axisLabel: { color: colors.muted }
       },
-      series: [{ type: 'bar', data: buckets, itemStyle: { color: colors.accent } }]
+      series: [
+        {
+          type: 'bar',
+          name: t('problems.table'),
+          data: buckets,
+          itemStyle: { color: colors.accent }
+        }
+      ]
     }),
-    [buckets]
+    [buckets, i18n.language, t]
   )
 
   // Se ordena solo lo cargado: la API ya da los más recientes primero, así que

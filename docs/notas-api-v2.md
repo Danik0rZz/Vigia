@@ -302,6 +302,15 @@ Las consultas usan una métrica estándar (`builtin:host.cpu.usage`).
     admite consultas de este tamaño: es la interfaz la que tiene que limitar o avisar (ver
     Propuestas).
   - `1h` en 7 días → unos 170 puntos. `Inf` en 30 días → 1 punto.
+  - **Devuelta frente a pedida (0.10.2):** la interfaz formatea el eje con la `resolution` que
+    DEVUELVE la respuesta, no con la pedida: por la retención de Dynatrace, en rangos antiguos
+    puede llegar más gruesa. En la muestra en vivo (mini gráficos de evidencias de problemas
+    abiertos desde hace más de una semana, ventanas de unas 4 semanas y de 7 días) coincidió
+    siempre con la pedida (`6h` y `1h`).
+  - **Eje de tiempo:** en rangos de varias semanas, ECharts pone las marcas del eje a medianoche
+    aunque los puntos no lo estén (`6h`). Por eso una etiqueta con solo la hora sale "00:00" en
+    todas (el fallo de la 0.10.1); el eje se formatea por niveles (fecha en el cambio de día).
+    Fuente: `src/main/modules/problems-long-evidence.live.test.ts`.
 - **Errores:** una `resolution` no válida o un `metricSelector` mal formado dan **400**
   (`BAD_REQUEST`, con el mensaje de Dynatrace). Una métrica inexistente da **404**.
 - **Valores nulos:** ninguno en la muestra (las series de la métrica estándar estaban completas).

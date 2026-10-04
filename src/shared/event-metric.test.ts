@@ -8,6 +8,7 @@ import {
   eventMetricSchema,
   evidenceMetricRange,
   evidenceMetricState,
+  evidenceMetricWindow,
   parseLooseNumber,
   pickResolution,
   selectSeries
@@ -361,4 +362,139 @@ describe('evidenceMetricState', () => {
   ] as const)('error %j y %s series → %s', (error, count, expected) => {
     expect(evidenceMetricState(error, count)).toBe(expected)
   })
+})
+
+describe('evidenceMetricWindow (v0.10.2)', () => {
+  const D = DAY
+  const AFTER = 15 * MIN
+
+  it('abierta de 30 días con 7d: los últimos 7 días hasta ahora; el inicio queda fuera', () => {
+    const start = NOW - 30 * D
+    const result = evidenceMetricWindow(
+      { start, end: 'ACTIVE' },
+      { startTime: start, endTime: null },
+      NOW,
+      '7d'
+    )
+    expect(result).toMatchObject({
+      from: NOW - 7 * D,
+      to: NOW,
+      long: true,
+      clipped: { startOutside: true, endOutside: false },
+      evidenceDays: 30
+    })
+  })
+
+  it('la misma con 30d: el rango base (con su margen previo) no cabe en 30 d → los últimos 30 días', () => {
+    const start = NOW - 30 * D
+    const result = evidenceMetricWindow(
+      { start, end: 'ACTIVE' },
+      { startTime: start, endTime: null },
+      NOW,
+      '30d'
+    )
+    expect(result.to).toBe(NOW)
+    expect(result.from).toBe(NOW - 30 * D)
+    expect(result.clipped.startOutside).toBe(true)
+  })
+
+  it('con all: el rango base de siempre (evidenceMetricRange), sin recorte', () => {
+    const start = NOW - 30 * D
+    const evidence = { start, end: 'ACTIVE' as const }
+    const problem = { startTime: start, endTime: null }
+    const result = evidenceMetricWindow(evidence, problem, NOW, 'all')
+    const base = evidenceMetricRange(evidence, problem, NOW)
+    expect({ from: result.from, to: result.to }).toEqual(base)
+    expect(result.clipped.startOutside).toBe(false)
+    expect(result.long).toBe(true)
+  })
+
+  it('de 3 días y cerrada: el rango base, sin recorte y no es larga (sin selector)', () => {
+    const start = NOW - 5 * D
+    const end = start + 3 * D
+    const evidence = { start, end }
+    const problem = { startTime: start, endTime: end }
+    const result = evidenceMetricWindow(evidence, problem, NOW, '7d')
+    expect({ from: result.from, to: result.to }).toEqual(
+      evidenceMetricRange(evidence, problem, NOW)
+    )
+    expect(result).toMatchObject({
+      long: false,
+      clipped: { startOutside: false, endOutside: false },
+      evidenceDays: 3
+    })
+  })
+
+  it('cerrada hace 45 días tras durar 10: con 7d, los 7 días hasta fin + 15 min', () => {
+    const end = NOW - 45 * D
+    const start = end - 10 * D
+    const result = evidenceMetricWindow(
+      { start, end },
+      { startTime: start, endTime: end },
+      NOW,
+      '7d'
+    )
+    expect(result).toMatchObject({
+      from: end + AFTER - 7 * D,
+      to: end + AFTER,
+      long: true,
+      clipped: { startOutside: true, endOutside: false },
+      evidenceDays: 10
+    })
+  })
+
+  it('evidencia corta en un problema largo (> 7 d): long, pero si cabe, sin recorte', () => {
+    const problemStart = NOW - 20 * D
+    const start = NOW - 2 * HOUR
+    const result = evidenceMetricWindow(
+      { start, end: 'ACTIVE' },
+      { startTime: problemStart, endTime: null },
+      NOW,
+      '7d'
+    )
+    expect(result.long).toBe(true)
+    expect(result.clipped.startOutside).toBe(false)
+    expect(result.evidenceDays).toBe(1)
+  })
+
+  it('sin inicio de la evidencia: el del problema decide si queda fuera', () => {
+    const problemStart = NOW - 15 * D
+    const result = evidenceMetricWindow(
+      { start: null, end: 'ACTIVE' },
+      { startTime: problemStart, endTime: null },
+      NOW,
+      '7d'
+    )
+    expect(result.from).toBe(NOW - 7 * D)
+    expect(result.clipped.startOutside).toBe(true)
+  })
+
+  it('el «ahora» manda: mismo now, misma ventana (el reloj fijo del problema)', () => {
+    const start = NOW - 30 * D
+    const call = (now: number): ReturnType<typeof evidenceMetricWindow> =>
+      evidenceMetricWindow({ start, end: 'ACTIVE' }, { startTime: start, endTime: null }, now, '7d')
+    expect(call(NOW)).toEqual(call(NOW))
+    expect(call(NOW + HOUR).to).toBe(NOW + HOUR)
+  })
+
+  it.each(['7d', '30d', 'all'] as const)(
+    '%s: siempre un rango válido para Métricas (from < to ≤ ahora, como mucho un año)',
+    (choice) => {
+      for (const [start, end] of [
+        [NOW - 400 * D, 'ACTIVE' as const],
+        [NOW - 60 * D, NOW - 50 * D],
+        [NOW - HOUR, 'ACTIVE' as const]
+      ] as const) {
+        const { from, to } = evidenceMetricWindow(
+          { start, end },
+          { startTime: start, endTime: end === 'ACTIVE' ? null : end },
+          NOW,
+          choice
+        )
+        expect(from).toBeLessThan(to)
+        expect(to).toBeLessThanOrEqual(NOW)
+        expect(to - from).toBeLessThanOrEqual(MAX_CUSTOM_RANGE_MS)
+      }
+    }
+  )
 })

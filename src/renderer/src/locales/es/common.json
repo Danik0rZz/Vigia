@@ -431,6 +431,14 @@
     "metricTooLong": "Selector demasiado largo para mostrarlo.",
     "metricSeriesShown": "Mostrando {{shown}} de {{total}} series.",
     "metricSeries": "Serie",
+    "metricWindow": {
+      "label": "Periodo del gráfico",
+      "7d": "7 d",
+      "30d": "30 d",
+      "all": "Todo",
+      "note": "Mostrando los últimos {{shown}} días de una evidencia de {{days}} días; el inicio queda antes.",
+      "visibleRange": "Rango visible: {{from}} – {{to}} (de una evidencia de {{days}} días)."
+    },
     "metricState": {
       "incompatible": "Selector no compatible con la API v2: no se puede dibujar.",
       "forbidden": "Falta un permiso para leer esta métrica (metrics.read).",

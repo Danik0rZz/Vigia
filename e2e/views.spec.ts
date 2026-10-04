@@ -460,13 +460,63 @@ detailOnly.push({
   }
 })
 
+/**
+ * v0.10.2: problema ABIERTO hace 45 días con un EVENT igual de largo y un gráfico (el caso
+ * real de Dani: un mes abierto, rango de días). Regresión del eje «00:00».
+ */
+const SEL_LONG = 'builtin:service.response.time:avg:e2elargo'
+const LONG_ID = 'pd-long'
+const LONG_DAYS = 45
+const DAY_MS = 24 * HOUR
+detailOnly.push({
+  problemId: LONG_ID,
+  displayId: 'P-784',
+  title: 'Problema abierto desde hace mes y medio',
+  status: 'OPEN',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: NOW - LONG_DAYS * DAY_MS,
+  endTime: -1,
+  affectedEntities: [{ entityId: { id: CHART_ENTITY, type: 'SERVICE' }, name: 'svc-graficos' }],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 1,
+    details: [
+      metricEvent(
+        'Evento largo',
+        SEL_LONG,
+        { startTime: NOW - LONG_DAYS * DAY_MS, endTime: -1 },
+        '50'
+      )
+    ]
+  }
+})
+
 /** Si una consulta de /metrics/query es la de un mini gráfico (y no la vista Métricas). */
 function isEventSelector(selector: string): boolean {
   return (
-    [SEL_OK, SEL_BAD, SEL_FORBIDDEN, SEL_EMPTY, SEL_MANY, SEL_DONE, SEL_ACTIVE].includes(
+    [SEL_OK, SEL_BAD, SEL_FORBIDDEN, SEL_EMPTY, SEL_MANY, SEL_DONE, SEL_ACTIVE, SEL_LONG].includes(
       selector
     ) || /:e2elazy\d+$/.test(selector)
   )
+}
+
+/**
+ * v0.10.2: puntos repartidos por todo el rango pedido, con la resolución que devolvería la
+ * API: en rangos de más de 30 días, la diaria aunque se pida una más fina.
+ */
+function spreadSeries(query: URLSearchParams): { resolution: string; timestamps: number[] } {
+  const from = Date.parse(query.get('from') ?? '')
+  const to = Date.parse(query.get('to') ?? '') || Date.now()
+  const span = to - from
+  const resolution = span > 30 * DAY_MS ? '1d' : (query.get('resolution') ?? '1h')
+  const count = 24
+  return {
+    resolution,
+    timestamps: Array.from({ length: count }, (_, i) => from + Math.round((span * i) / (count - 1)))
+  }
 }
 
 /** Respuesta del simulador a la consulta de un mini gráfico, según su selector. */
@@ -480,6 +530,29 @@ function eventMetricResponse(query: URLSearchParams): [number, unknown] {
   }
   if (selector === SEL_FORBIDDEN) {
     return [403, { error: { code: 403, message: 'Token is missing required scope' } }]
+  }
+  if (selector === SEL_LONG) {
+    const spread = spreadSeries(query)
+    return [
+      200,
+      {
+        resolution: spread.resolution,
+        totalCount: 1,
+        result: [
+          {
+            metricId: selector,
+            data: [
+              {
+                dimensionMap: { 'dt.entity.service': CHART_ENTITY },
+                dimensions: [CHART_ENTITY],
+                timestamps: spread.timestamps,
+                values: spread.timestamps.map((_, i) => 40 + (i % 7) * 3)
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
   const from = Date.parse(query.get('from') ?? '')
   const timestamps = [0, 1, 2, 3, 4].map((i) => from + i * 10 * 60_000)
@@ -728,6 +801,8 @@ const defaultSim = () => ({
   eventMetricInFlight: 0,
   eventMetricMaxInFlight: 0,
   eventMetricDelayMs: 150,
+  /** v0.10.2: Métricas devuelve puntos por todo el rango pedido (eje de días). */
+  metricsSpread: false,
   /** v0.9.1: peticiones a /problems/{id}/comments y la última query. */
   commentsRequests: 0,
   lastCommentsQuery: new URLSearchParams(),
@@ -921,11 +996,20 @@ async function startServer(): Promise<void> {
           }, sim.eventMetricDelayMs)
           return
         }
-        const timestamps = [0, 1, 2, 3, 4].map((i) => NOW - (4 - i) * 60_000)
+        // v0.10.2: con metricsSpread, puntos por todo el rango (now-7d o ISO), para el eje de días.
+        const relative = /^now-(\d+)([mhd])$/.exec(url.searchParams.get('from') ?? '')
+        const spreadQuery = new URLSearchParams(url.searchParams)
+        if (relative !== null) {
+          const unit = { m: 60_000, h: HOUR, d: DAY_MS }[relative[2] as 'm' | 'h' | 'd']
+          spreadQuery.set('from', new Date(Date.now() - Number(relative[1]) * unit).toISOString())
+          spreadQuery.set('to', new Date().toISOString())
+        }
+        const spread = sim.metricsSpread ? spreadSeries(spreadQuery) : null
+        const timestamps = spread?.timestamps ?? [0, 1, 2, 3, 4].map((i) => NOW - (4 - i) * 60_000)
         // Varias métricas separadas por comas: un resultado por métrica.
         const selectors = (url.searchParams.get('metricSelector') ?? 'x').split(',')
         return send(200, {
-          resolution: url.searchParams.get('resolution') ?? '1m',
+          resolution: spread?.resolution ?? url.searchParams.get('resolution') ?? '1m',
           totalCount: selectors.length,
           ...(sim.metricWarnings.length > 0 ? { warnings: sim.metricWarnings } : {}),
           result: selectors.map((metricId) => ({
@@ -935,7 +1019,10 @@ async function startServer(): Promise<void> {
               {
                 dimensionMap: { 'dt.entity.host': 'HOST-AAA1' },
                 timestamps,
-                values: [10, 20, null, 15, 30]
+                values:
+                  spread === null
+                    ? [10, 20, null, 15, 30]
+                    : timestamps.map((_, i) => 10 + (i % 5) * 4)
               }
             ]
           }))
@@ -2685,6 +2772,178 @@ test('v0.9.2: exportar las series del mini gráfico (CSV con hora, serie y valor
   const png = await pngInfo(await save('capture-save'))
   expect(png.width).toBeGreaterThan(0)
   expect(png.cornerAlpha).toBe(255)
+})
+
+/** v0.10.2: lo que el gráfico expone tras pintarse (etiquetas del eje, rango y markLines). */
+async function axisOf(chart: Locator): Promise<{
+  labels: string[]
+  from: number
+  to: number
+  markLines: number
+}> {
+  await expect(chart).toHaveAttribute('data-x-labels', /\[.+\]/)
+  return {
+    labels: JSON.parse((await chart.getAttribute('data-x-labels')) ?? '[]') as string[],
+    from: Number(await chart.getAttribute('data-range-from')),
+    to: Number(await chart.getAttribute('data-range-to')),
+    markLines: Number(await chart.getAttribute('data-mark-lines'))
+  }
+}
+
+/** Fecha corta del eje en español (dd/MM). */
+const ES_DAY = /^\d\d\/\d\d$/
+
+test('v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio', async () => {
+  await goToRoute(`/problems/${LONG_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-784')
+  const container = await openChart('Evento largo')
+  const drawn = container.getByTestId('evidence-metric')
+  await expect(drawn.locator('canvas').first()).toBeVisible()
+
+  // Ventana de 7 días por defecto, con su selector y la nota de recorte.
+  const window7 = container.getByTestId('evidence-metric-window-7d')
+  await expect(container.getByTestId('evidence-metric-window')).toHaveAttribute('role', 'group')
+  await expect(window7).toHaveAttribute('aria-pressed', 'true')
+  await expect(container.getByTestId('evidence-metric-window-all')).toHaveAttribute(
+    'aria-pressed',
+    'false'
+  )
+  const note = container.getByTestId('evidence-metric-window-note')
+  await expect(note).toContainText('7 días')
+  await expect(note).toContainText(String(LONG_DAYS))
+
+  // La consulta: 7 días hasta ahora.
+  const first = eventQueries(SEL_LONG).at(-1) as URLSearchParams
+  const span = Date.parse(first.get('to') ?? '') - Date.parse(first.get('from') ?? '')
+  expect(span).toBe(7 * DAY_MS)
+
+  // El eje: varias etiquetas, distintas, alguna con la fecha del idioma, y nunca todas «00:00».
+  const axis = await axisOf(drawn)
+  expect(axis.to - axis.from).toBe(7 * DAY_MS)
+  expect(axis.labels.length).toBeGreaterThan(2)
+  expect(new Set(axis.labels).size).toBeGreaterThan(1)
+  expect(axis.labels.every((label) => label === '00:00')).toBe(false)
+  expect(axis.labels.some((label) => ES_DAY.test(label))).toBe(true)
+  // El inicio del problema (hace 45 días) queda fuera: sin línea vertical de inicio.
+  expect(axis.markLines).toBe(0)
+
+  // Tooltip con fecha y hora completas.
+  const box = await drawn.locator('canvas').first().boundingBox()
+  await page.mouse.move(
+    (box?.x ?? 0) + (box?.width ?? 0) * 0.6,
+    (box?.y ?? 0) + (box?.height ?? 0) / 2,
+    {
+      steps: 10
+    }
+  )
+  const tooltip = page.locator('.vigia-chart-tooltip').filter({ visible: true }).first()
+  await expect(tooltip).toContainText(/\d\d\/\d\d\/\d{4} \d\d:\d\d/)
+  await moveToNeutral(page)
+
+  // «Todo»: otra consulta con el rango completo (más de 45 días), sin nota y con la línea.
+  const before = eventQueries(SEL_LONG).length
+  await container.getByTestId('evidence-metric-window-all').click()
+  await expect.poll(() => eventQueries(SEL_LONG).length).toBe(before + 1)
+  const all = eventQueries(SEL_LONG).at(-1) as URLSearchParams
+  expect(Date.parse(all.get('to') ?? '') - Date.parse(all.get('from') ?? '')).toBeGreaterThan(
+    LONG_DAYS * DAY_MS
+  )
+  await expect(container.getByTestId('evidence-metric-window-note')).toHaveCount(0)
+  // El gráfico se repinta con el rango nuevo.
+  await expect(drawn).toHaveAttribute('data-range-from', String(Date.parse(all.get('from') ?? '')))
+  const wide = await axisOf(drawn)
+  expect(wide.to - wide.from).toBeGreaterThan(LONG_DAYS * DAY_MS)
+  // Con resolución diaria (la devuelta), solo fechas: ninguna hora.
+  expect(wide.labels.every((label) => ES_DAY.test(label) || /^\d{4}$/.test(label))).toBe(true)
+  expect(new Set(wide.labels).size).toBeGreaterThan(1)
+  expect(wide.markLines).toBe(1)
+
+  // 30 días: el rango cambia y vuelve la nota.
+  await container.getByTestId('evidence-metric-window-30d').click()
+  await expect(container.getByTestId('evidence-metric-window-note')).toContainText('30 días')
+  await expect
+    .poll(async () => {
+      const current = await axisOf(drawn)
+      return current.to - current.from
+    })
+    .toBe(30 * DAY_MS)
+  // El inicio (hace 45 días) vuelve a quedar fuera: sin línea de inicio.
+  expect((await axisOf(drawn)).markLines).toBe(0)
+})
+
+test('v0.10.2: «Abrir en Métricas» y la exportación del mini gráfico usan el rango visible (7 días)', async () => {
+  await goToRoute(`/problems/${LONG_ID}`)
+  const container = await openChart('Evento largo')
+  const drawn = container.getByTestId('evidence-metric')
+  const axis = await axisOf(drawn)
+  expect(axis.to - axis.from).toBe(7 * DAY_MS)
+
+  // Exportación: Info dice el rango visible y la duración de la evidencia.
+  const menu = container.locator(
+    '[data-testid="export-menu"][data-export-target="evidence-metric"]'
+  )
+  const before = new Set(readdirSync(exportDir))
+  await menu.click()
+  await page.getByTestId('export-xlsx').click()
+  let created = ''
+  await expect
+    .poll(() => {
+      created = readdirSync(exportDir).find((name) => !before.has(name)) ?? ''
+      return created
+    })
+    .not.toBe('')
+  const book = new ExcelJS.Workbook()
+  await book.xlsx.load(readFileSync(join(exportDir, created)) as unknown as ArrayBuffer)
+  const info: string[] = []
+  book.getWorksheet('Info')?.eachRow((row) => {
+    info.push(((row.values as unknown[] | undefined) ?? []).map(String).join('|'))
+  })
+  const infoText = info.join('\n')
+  expect(infoText).toContain('Rango visible')
+  expect(infoText).toContain(`${LONG_DAYS} días`)
+  // Los puntos exportados, dentro del rango visible.
+  const data = book.worksheets[0]
+  const times: number[] = []
+  data?.eachRow((row, n) => {
+    const value = row.getCell(1).value
+    if (n > 1 && value instanceof Date) times.push(value.getTime())
+  })
+  expect(times.length).toBeGreaterThan(0)
+  expect(Math.min(...times)).toBeGreaterThanOrEqual(axis.from - 60_000)
+  expect(Math.max(...times)).toBeLessThanOrEqual(axis.to + 60_000)
+
+  // Abrir en Métricas: el mismo rango visible.
+  await container.getByTestId('evidence-metric-open').click()
+  await expect.poll(currentRoute).toBe('/metrics')
+  await expect(page.getByTestId('metric-selector')).toHaveValue(SEL_LONG)
+  const metricsQuery = sim.eventMetricQueries.at(-1) as URLSearchParams
+  expect(Date.parse(metricsQuery.get('from') ?? '')).toBe(axis.from)
+  expect(Date.parse(metricsQuery.get('to') ?? '')).toBe(axis.to)
+})
+
+test('v0.10.2: Métricas con 7 días: etiquetas del eje variadas con fechas (no todas iguales) y tooltip con fecha y hora', async () => {
+  sim.metricsSpread = true
+  await goTo('metrics')
+  await page.getByTestId('time-range-7d').click()
+  await runMetric('builtin:host.cpu.usage', '1h')
+  const chart = page.getByTestId('metric-chart')
+  const axis = await axisOf(chart)
+  expect(axis.labels.length).toBeGreaterThan(2)
+  expect(new Set(axis.labels).size).toBeGreaterThan(1)
+  expect(axis.labels.some((label) => ES_DAY.test(label))).toBe(true)
+  const box = await chart.locator('canvas').first().boundingBox()
+  await page.mouse.move(
+    (box?.x ?? 0) + (box?.width ?? 0) * 0.5,
+    (box?.y ?? 0) + (box?.height ?? 0) / 2,
+    {
+      steps: 10
+    }
+  )
+  await expect(
+    page.locator('.vigia-chart-tooltip').filter({ visible: true }).first()
+  ).toContainText(/\d\d\/\d\d\/\d{4} \d\d:\d\d/)
+  await moveToNeutral(page)
+  await page.getByTestId('time-range-2h').click()
 })
 
 test('v0.10.1: «Copiar detalles» de la pantalla de error: el portapapeles lleva los detalles enmascarados (sin rutas de usuario)', async () => {

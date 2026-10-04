@@ -80,6 +80,59 @@ export function evidenceMetricRange(
   return { from, to }
 }
 
+const DAY = 24 * 60 * MINUTE
+
+/** Ventana del mini gráfico en evidencias largas. */
+export type EvidenceWindowChoice = '7d' | '30d' | 'all'
+export const EVIDENCE_WINDOW_CHOICES: readonly EvidenceWindowChoice[] = ['7d', '30d', 'all']
+const WINDOW_MS: Record<Exclude<EvidenceWindowChoice, 'all'>, number> = {
+  '7d': 7 * DAY,
+  '30d': 30 * DAY
+}
+/** Desde aquí, una evidencia (o su problema) es larga: el gráfico empieza con 7 días. */
+const LONG_MS = 7 * DAY
+
+export interface EvidenceMetricWindow {
+  from: number
+  to: number
+  /** La evidencia o el problema duran más de 7 días: se ofrece elegir ventana. */
+  long: boolean
+  clipped: { startOutside: boolean; endOutside: boolean }
+  /** Duración de la evidencia en días (redondeada, como mínimo 1), para la nota. */
+  evidenceDays: number
+}
+
+/**
+ * Rango visible del mini gráfico. Con 'all', o si el rango de siempre
+ * (evidenceMetricRange) cabe, ese rango; si no, los últimos 7 o 30 días hasta
+ * el fin (más 15 min) o hasta `now` (el del reloj del problema: no se desplaza
+ * en cada render). Dice si el inicio queda fuera, para no pintar su línea.
+ */
+export function evidenceMetricWindow(
+  evidence: { start: number | null; end: number | 'ACTIVE' },
+  problem: { startTime: number; endTime: number | null },
+  now: number,
+  choice: EvidenceWindowChoice
+): EvidenceMetricWindow {
+  const base = evidenceMetricRange(evidence, problem, now)
+  const start = evidence.start ?? problem.startTime
+  const end = evidence.end === 'ACTIVE' ? now : evidence.end
+  const evidenceSpan = Math.max(0, end - start)
+  const problemSpan = Math.max(0, (problem.endTime ?? now) - problem.startTime)
+  const long = evidenceSpan > LONG_MS || problemSpan > LONG_MS
+  const limit = choice === 'all' ? null : WINDOW_MS[choice]
+  const clips = limit !== null && base.to - base.from > limit
+  const from = clips ? base.to - limit : base.from
+  return {
+    from,
+    to: base.to,
+    long,
+    // Recortando, un inicio justo en el borde también cuenta como fuera (su línea no aporta).
+    clipped: { startOutside: clips ? start <= from : start < from, endOutside: end > base.to },
+    evidenceDays: Math.max(1, Math.round(evidenceSpan / DAY))
+  }
+}
+
 /** Intervalos que puede usar el mini gráfico, de menor a mayor. */
 export const CHART_RESOLUTIONS = ['1m', '5m', '10m', '30m', '1h', '6h', '1d'] as const
 /** Puntos por serie que se buscan: unos 150 (nunca más de 200). */

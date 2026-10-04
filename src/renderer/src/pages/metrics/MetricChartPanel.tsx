@@ -5,6 +5,7 @@ import type { MetricResult } from '@shared/modules'
 import { seriesName } from '@shared/metric-points'
 import type { TimeRangeValue } from '@shared/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../../components/Chart'
+import { axisTooltip, timeAxisLabel } from '../../components/chart-time'
 import { ExportMenu } from '../../components/ExportMenu'
 import { ApiWarnings } from '../../components/ModuleState'
 import { PanelBoundary } from '../../components/PanelBoundary'
@@ -33,7 +34,7 @@ export function MetricChartPanel({
   /** Cuándo llegaron los datos (dataUpdatedAt), para el rango de la hoja Info. */
   loadedAt: number
 }): JSX.Element {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const chart = useRef<ChartHandle>(null)
   const series = useMemo(() => result?.series ?? [], [result])
   const names = useMemo(() => {
@@ -41,16 +42,21 @@ export function MetricChartPanel({
     return series.map((item) => seriesName(item, multipleMetrics))
   }, [series])
 
+  // Etiquetas según la resolución que devuelve la API, no la pedida.
+  const resolution = result?.resolution ?? null
   const buildOption = useCallback(
     (colors: ChartColors): EChartsCoreOption => ({
       animation: false,
       grid: { left: 48, right: 16, top: 24, bottom: 28 },
-      tooltip: { trigger: 'axis' },
+      tooltip: axisTooltip(i18n.language, (value) =>
+        new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 3 }).format(value)
+      ),
       legend: { show: series.length > 1, textStyle: { color: colors.muted }, top: 0 },
       xAxis: {
         type: 'time',
         axisLine: { lineStyle: { color: colors.border } },
-        axisLabel: { color: colors.muted }
+        // Hora local, por niveles: la fecha en el cambio de día (y solo la fecha con puntos diarios).
+        axisLabel: { color: colors.muted, ...timeAxisLabel(i18n.language, resolution) }
       },
       yAxis: {
         type: 'value',
@@ -67,7 +73,7 @@ export function MetricChartPanel({
           : {})
       }))
     }),
-    [series, names]
+    [series, names, resolution, i18n.language]
   )
 
   // Se calcula una vez por resultado, no en cada render (AUD-21: exportRows).
