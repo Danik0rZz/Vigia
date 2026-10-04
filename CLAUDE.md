@@ -99,6 +99,11 @@ v0.10.1, pruebas a mano (pantallas de error). Para verlas en desarrollo: `$env:V
 - [x] Editar un fichero con `npm run dev` abierto: si sale una pantalla, es la de "El código ha cambiado mientras Vigía estaba abierta" con Recargar, no la de React Router.
 - [x] Arrancar el zip 0.10.1 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
+v0.10.2, pruebas a mano (eje de tiempo; con el zip 0.10.2):
+
+- [ ] Abrir de nuevo el problema del "00:00" y desplegar la evidencia con mini gráfico: el eje enseña horas y, en el cambio de día, la fecha; por defecto los últimos 7 días, con la nota si el inicio queda antes, y "Todo" amplía. Métricas con 7 días y la línea de tiempo de Problemas también enseñan fechas y horas. (Cierra también la casilla del mini gráfico de la 0.10.0.)
+- [ ] Arrancar el zip 0.10.2 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+
 Fase 2:
 
 - [x] Se navega por todas las secciones (vacías) en ambos idiomas y temas.

@@ -3,6 +3,25 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.10.2] - 2026-10-04
+
+Arreglo del eje de tiempo de los gráficos, visto por Dani en un problema real. Sin migraciones
+nuevas.
+
+### Corregido
+
+- El eje de tiempo de los gráficos mostraba 00:00 en rangos de varios días. Ahora, en los tres
+  gráficos (mini gráfico de las evidencias, Métricas y la línea de tiempo de Problemas), el eje sale
+  en hora local con la fecha en el cambio de día y la hora en el resto, y solo la fecha cuando los
+  puntos son diarios (según la resolución que devuelve Dynatrace). El tooltip enseña la fecha y la
+  hora completas.
+
+### Añadido
+
+- Mini gráfico de una evidencia de más de 7 días: por defecto enseña los últimos 7 días, con un
+  selector «7 d · 30 d · Todo». Si el inicio queda fuera, lo dice con una nota y no pinta su línea.
+  «Abrir en Métricas» y la exportación llevan el rango que se ve (la hoja Info lo indica).
+
 ## [0.10.1] - 2026-10-04
 
 Pantallas de error propias en lugar de la de React Router, a petición de Dani. Sin migraciones
