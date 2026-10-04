@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
@@ -8,6 +8,8 @@ import type { IpcOutput } from '@shared/ipc'
 import type { ProblemDetail, ProblemSummary } from '@shared/modules'
 import { usePageCrumb } from '../app/page-crumb'
 import { useTimeRangeValue } from '../app/time-range'
+import { CommentsSection } from '../components/CommentsSection'
+import { EvidenceSection } from '../components/EvidenceSection'
 import { ExportMenu } from '../components/ExportMenu'
 import { ApiWarnings, ModuleError, ModuleUnavailable } from '../components/ModuleState'
 import { BUTTON_SECONDARY } from '../components/styles'
@@ -20,9 +22,6 @@ import { problemWorkbook } from '../lib/problem-workbook'
 export interface ProblemDetailLocationState {
   fromList?: boolean
 }
-
-/** Evidencias que se ven antes de pulsar "Ver todas". */
-const EVIDENCE_PREVIEW = 50
 
 function Part({
   testId,
@@ -149,7 +148,6 @@ export function ProblemDetailPage(): JSX.Element {
     else void navigate('/problems', { replace: true })
   }
 
-  const [showAllEvidence, setShowAllEvidence] = useState(false)
   // Exportación por secciones (todas las evidencias, no solo las que se ven).
   const workbook = useMemo(
     () => (detail === undefined ? null : problemWorkbook(detail, new Date(dataUpdatedAt), t)),
@@ -320,66 +318,7 @@ export function ProblemDetailPage(): JSX.Element {
             failed={error !== null}
             empty={(d) => d.evidence.length === 0}
           >
-            {(d) => (
-              <>
-                {/* Con cientos de evidencias, las primeras 50: la página no se congela. */}
-                <ul className="grid gap-1 text-sm">
-                  {(showAllEvidence ? d.evidence : d.evidence.slice(0, EVIDENCE_PREVIEW)).map(
-                    (item, index) => (
-                      <li
-                        key={index}
-                        data-testid="evidence-item"
-                        className="flex flex-wrap gap-x-3"
-                      >
-                        <span>{item.name}</span>
-                        {item.entity !== null && (
-                          <span className="text-muted-foreground">{item.entity}</span>
-                        )}
-                        <span className="text-xs text-muted-foreground">{item.type}</span>
-                        {item.startTime !== null && (
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {formatDateTime(item.startTime, lang)}
-                          </span>
-                        )}
-                      </li>
-                    )
-                  )}
-                </ul>
-                {!showAllEvidence && d.evidence.length > EVIDENCE_PREVIEW && (
-                  <button
-                    type="button"
-                    data-testid="evidence-show-all"
-                    onClick={() => setShowAllEvidence(true)}
-                    className={`${BUTTON_SECONDARY} justify-self-start`}
-                  >
-                    {t('problems.showAllEvidence', { count: d.evidence.length })}
-                  </button>
-                )}
-              </>
-            )}
-          </DetailPart>
-
-          <DetailPart
-            testId="detail-impacts"
-            title={t('problems.impacts')}
-            detail={detail}
-            failed={error !== null}
-            empty={(d) => d.impacts.length === 0}
-          >
-            {(d) => (
-              <ul className="grid gap-1 text-sm">
-                {d.impacts.map((item, index) => (
-                  <li key={index} className="flex flex-wrap gap-x-3">
-                    <span>{item.entity ?? item.type}</span>
-                    {item.estimatedAffectedUsers !== null && (
-                      <span className="text-muted-foreground">
-                        {t('problems.affectedUsers', { count: item.estimatedAffectedUsers })}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {(d) => <EvidenceSection detail={d} />}
           </DetailPart>
 
           <DetailPart
@@ -389,24 +328,7 @@ export function ProblemDetailPage(): JSX.Element {
             failed={error !== null}
             empty={(d) => d.comments.length === 0}
           >
-            {(d) => (
-              <ul className="grid gap-2 text-sm">
-                {d.comments.map((comment, index) => (
-                  <li key={index} className="grid gap-0.5">
-                    <span className="text-xs text-muted-foreground">
-                      {[
-                        comment.author,
-                        comment.createdAt === null ? null : formatDateTime(comment.createdAt, lang)
-                      ]
-                        .filter((part) => part !== null)
-                        .join(' · ')}
-                    </span>
-                    {/* Siempre como texto: un comentario nunca se interpreta como HTML. */}
-                    <span className="whitespace-pre-wrap">{comment.content}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {(d) => <CommentsSection envId={envId ?? ''} detail={d} />}
           </DetailPart>
 
           <Part

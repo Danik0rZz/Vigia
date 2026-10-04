@@ -1,4 +1,4 @@
-import { DT_ENDPOINTS } from '@shared/dt-endpoints'
+import { DT_ENDPOINTS, problemCommentsEndpoint } from '@shared/dt-endpoints'
 import { timeRangeToDt } from '@shared/time-range'
 import type { DtClient } from '../../dynatrace/client'
 import { DtError } from '../../dynatrace/errors'
@@ -12,8 +12,10 @@ import {
 } from '../../modules/metrics'
 import {
   buildProblemSelector,
+  commentItemSchema,
   problemDetailSchema,
   problemSchema,
+  toProblemComment,
   toProblemDetail,
   toProblemSummary
 } from '../../modules/problems'
@@ -25,6 +27,7 @@ import type { IpcImplementations } from '../handler'
 type ModuleChannels =
   | 'problems:list'
   | 'problems:get'
+  | 'problems:comments'
   | 'metrics:query'
   | 'metrics:search'
   | 'slos:list'
@@ -36,7 +39,10 @@ type ModuleChannels =
 const PROBLEMS_PAGE_SIZE = 100
 const PROBLEMS_MAX_PAGES = 5
 /** Partes del detalle que no vienen por defecto en GET /problems/{id}. */
-const PROBLEM_DETAIL_FIELDS = 'evidenceDetails,impactAnalysis,recentComments'
+const PROBLEM_DETAIL_FIELDS = 'evidenceDetails,recentComments'
+/** "Ver todos" los comentarios: hasta 4 páginas de 500 (el máximo de la API). */
+const COMMENTS_PAGE_SIZE = 500
+const COMMENTS_MAX_PAGES = 4
 const METRIC_SEARCH_PAGE_SIZE = 50
 /** Máximo de /api/v2/slo con evaluate=true (es caro): hasta 4 páginas, 100 SLO. */
 const SLO_PAGE_SIZE = 25
@@ -107,6 +113,24 @@ export function createModuleHandlers(
           )
         }
         throw error
+      }
+    },
+
+    'problems:comments': async ({ environmentId, problemId }) => {
+      repo.getEnvironment(environmentId)
+      const page = await client.paginate({
+        envId: environmentId,
+        api: 'classic',
+        endpoint: problemCommentsEndpoint(problemId),
+        query: { pageSize: COMMENTS_PAGE_SIZE },
+        schema: commentItemSchema,
+        maxPages: COMMENTS_MAX_PAGES
+      })
+      return {
+        comments: page.items.map(toProblemComment),
+        totalCount: page.totalCount,
+        truncated: page.truncated,
+        invalid: page.invalid
       }
     },
 

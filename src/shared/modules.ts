@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { evidenceWireSchema } from './problem-evidence'
 
 /** Datos de los módulos tal como los ve la interfaz (salida de los canales IPC). */
 
@@ -68,35 +69,32 @@ export const problemSummarySchema = z.object({
 })
 export type ProblemSummary = z.output<typeof problemSummarySchema>
 
+/** Comentario de un problema: solo la fecha es obligatoria (OpenAPI). */
+export const problemCommentSchema = z.object({
+  author: z.string().nullable(),
+  content: z.string(),
+  context: z.string().nullable(),
+  createdAt: z.number()
+})
+export type ProblemComment = z.output<typeof problemCommentSchema>
+
 /** Detalle de un problema: el resumen más lo que llega con `fields`. */
 export const problemDetailOutputSchema = problemSummarySchema.extend({
   entityTags: z.array(z.string()),
   linkedProblem: z
     .object({ displayId: z.string().nullable(), problemId: z.string().nullable() })
     .nullable(),
-  evidence: z.array(
-    z.object({
-      type: z.string(),
-      name: z.string(),
-      entity: z.string().nullable(),
-      startTime: z.number().nullable()
-    })
-  ),
-  impacts: z.array(
-    z.object({
-      type: z.string(),
-      entity: z.string().nullable(),
-      estimatedAffectedUsers: z.number().nullable()
-    })
-  ),
-  comments: z.array(
-    z.object({
-      author: z.string().nullable(),
-      content: z.string(),
-      createdAt: z.number().nullable()
-    })
-  ),
-  /** Evidencias, impactos y comentarios descartados por no cumplir el esquema. */
+  evidence: z.array(evidenceWireSchema),
+  /** totalCount de evidenceDetails: si es mayor que lo recibido, la API ha recortado. */
+  evidenceTotal: z.number().int().min(0).nullable(),
+  /** Evidencias que mandó la API, también las ilegibles: el recorte se mide con esto. */
+  evidenceReceived: z.number().int().min(0),
+  comments: z.array(problemCommentSchema),
+  /** totalCount de recentComments: los recientes son solo una parte. */
+  commentTotal: z.number().int().min(0).nullable(),
+  /** Comentarios que mandó la API, también los ilegibles. */
+  commentReceived: z.number().int().min(0),
+  /** Evidencias y comentarios descartados por no cumplir el esquema. */
   invalid: z.number().int().min(0)
 })
 export type ProblemDetail = z.output<typeof problemDetailOutputSchema>

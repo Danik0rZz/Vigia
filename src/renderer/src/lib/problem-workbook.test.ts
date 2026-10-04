@@ -1,14 +1,15 @@
 import type { TFunction } from 'i18next'
 import { describe, expect, it } from 'vitest'
 import { MAX_EXPORT_ROWS, type ProblemDetail } from '@shared/modules'
+import type { EvidenceWire } from '@shared/problem-evidence'
 import { PROBLEM_EXPORT_COLUMNS } from '@shared/problem-row'
 import { problemWorkbook } from './problem-workbook'
 
 /**
- * v0.9.0: hojas de la exportación del detalle de un problema. Resumen y
- * Entidades siempre (son las principales); Evidencias, Impacto y Comentarios
- * solo con filas. La columna de usuarios afectados, solo si algún impacto la
- * trae. Las evidencias van todas, salvo el límite global, con un aviso.
+ * Hojas de la exportación del detalle de un problema. v0.9.1: Resumen y
+ * Entidades siempre (son las principales); Evidencias y Comentarios solo con
+ * filas; sin hoja Impacto. Las evidencias van todas, salvo el límite global,
+ * y lo que la API no ha mandado (totalCount) se avisa en Info.
  */
 
 /** t falso: devuelve la clave (y los parámetros, si los hay) para ver qué se pidió. */
@@ -16,6 +17,25 @@ const t = ((key: string, options?: Record<string, unknown>) =>
   options === undefined ? key : `${key}${JSON.stringify(options)}`) as unknown as TFunction
 
 const LOADED = new Date('2026-10-04T10:00:00.000Z')
+
+function evidence(overrides: Partial<EvidenceWire> = {}): EvidenceWire {
+  return {
+    evidenceType: 'EVENT',
+    displayName: 'Lento',
+    entity: { id: 'SERVICE-1', name: 'pagos', type: 'SERVICE' },
+    groupingEntity: null,
+    rootCauseRelevant: false,
+    startTime: 1,
+    endTime: 2,
+    eventType: null,
+    properties: [],
+    metricId: null,
+    unit: null,
+    valueBefore: null,
+    valueAfter: null,
+    ...overrides
+  }
+}
 
 function detail(overrides: Partial<ProblemDetail> = {}): ProblemDetail {
   return {
@@ -39,8 +59,9 @@ function detail(overrides: Partial<ProblemDetail> = {}): ProblemDetail {
     entityTags: [],
     linkedProblem: null,
     evidence: [],
-    impacts: [],
+    evidenceTotal: null,
     comments: [],
+    commentTotal: null,
     invalid: 0,
     ...overrides
   } as ProblemDetail
@@ -49,11 +70,17 @@ function detail(overrides: Partial<ProblemDetail> = {}): ProblemDetail {
 const names = (result: ReturnType<typeof problemWorkbook>): string[] =>
   result.sheets.map((sheet) => sheet.name)
 
+const sheet = (
+  result: ReturnType<typeof problemWorkbook>,
+  name: string
+): ReturnType<typeof problemWorkbook>['sheets'][number] | undefined =>
+  result.sheets.find((item) => item.name === `problems.sheets.${name}`)
+
 describe('problemWorkbook', () => {
-  it('sin evidencias, impactos ni comentarios: solo Resumen y Entidades (las dos primary)', () => {
+  it('sin evidencias ni comentarios: solo Resumen y Entidades (las dos primary)', () => {
     const result = problemWorkbook(detail(), LOADED, t)
     expect(names(result)).toEqual(['problems.sheets.summary', 'problems.sheets.entities'])
-    expect(result.sheets.every((sheet) => sheet.primary)).toBe(true)
+    expect(result.sheets.every((item) => item.primary)).toBe(true)
     expect(result.warnings).toEqual([])
   })
 
@@ -80,12 +107,11 @@ describe('problemWorkbook', () => {
     ])
   })
 
-  it('con todo: el orden es Resumen, Entidades, Evidencias, Impacto y Comentarios', () => {
+  it('v0.9.1: con todo, el orden es Resumen, Entidades, Evidencias y Comentarios; sin Impacto', () => {
     const result = problemWorkbook(
       detail({
-        evidence: [{ type: 'EVENT', name: 'Lento', entity: 'pagos', startTime: 1 }],
-        impacts: [{ type: 'SERVICE', entity: 'carrito', estimatedAffectedUsers: null }],
-        comments: [{ author: 'op', content: 'Mirando', createdAt: 2 }]
+        evidence: [evidence()],
+        comments: [{ author: 'op', content: 'Mirando', context: null, createdAt: 2 }]
       }),
       LOADED,
       t
@@ -94,19 +120,129 @@ describe('problemWorkbook', () => {
       'problems.sheets.summary',
       'problems.sheets.entities',
       'problems.sheets.evidence',
-      'problems.sheets.impact',
       'problems.sheets.comments'
     ])
-    expect(result.sheets.slice(2).every((sheet) => !sheet.primary)).toBe(true)
-    // Fechas con su tipo.
-    const evidence = result.sheets[2]
-    expect(evidence?.columns.find((c) => c.key === 'start')?.type).toBe('date')
-    expect(result.sheets[4]?.columns.find((c) => c.key === 'date')?.type).toBe('date')
+    expect(names(result).some((name) => name.includes('impact'))).toBe(false)
+    expect(result.sheets.slice(2).every((item) => !item.primary)).toBe(true)
   })
 
-  it('una hoja secundaria sin filas no se envía (solo comentarios → sin Evidencias ni Impacto)', () => {
+  it('Evidencias: columnas, tipos (fechas y números) y una fila METRIC completa', () => {
     const result = problemWorkbook(
-      detail({ comments: [{ author: null, content: 'x', createdAt: null }] }),
+      detail({
+        evidence: [
+          evidence({
+            evidenceType: 'METRIC',
+            displayName: 'Tiempo de respuesta',
+            entity: { id: 'SERVICE-1', name: null, type: 'SERVICE' },
+            rootCauseRelevant: true,
+            startTime: 1000,
+            endTime: 5000,
+            metricId: 'builtin:service.response.time',
+            unit: 'MicroSecond',
+            valueBefore: 1200.5,
+            valueAfter: 9800
+          })
+        ]
+      }),
+      LOADED,
+      t
+    )
+    const evidenceSheet = sheet(result, 'evidence')
+    expect(evidenceSheet?.columns.map((c) => [c.key, c.type])).toEqual([
+      ['type', 'string'],
+      ['name', 'string'],
+      ['entity', 'string'],
+      ['rootCause', 'string'],
+      ['start', 'date'],
+      ['end', 'date'],
+      ['before', 'number'],
+      ['after', 'number'],
+      ['unit', 'string'],
+      ['metricId', 'string'],
+      ['eventType', 'string']
+    ])
+    expect(evidenceSheet?.columns.map((c) => c.header)).toEqual(
+      evidenceSheet?.columns.map((c) => `problems.evidenceColumns.${c.key}`)
+    )
+    expect(evidenceSheet?.rows).toEqual([
+      {
+        type: 'METRIC',
+        name: 'Tiempo de respuesta',
+        // Sin nombre: la etiqueta es el id.
+        entity: 'SERVICE-1',
+        rootCause: 'problems.yes',
+        start: 1000,
+        end: 5000,
+        // Los valores tal cual (número, sin formatear ni escalar).
+        before: 1200.5,
+        after: 9800,
+        unit: 'MicroSecond',
+        metricId: 'builtin:service.response.time',
+        eventType: null
+      }
+    ])
+  })
+
+  it.each([
+    ['-1', -1],
+    ['null', null]
+  ])('Evidencias: endTime %s → "activa" traducido; causa raíz no → "no"', (_label, endTime) => {
+    const row = sheet(
+      problemWorkbook(detail({ evidence: [evidence({ endTime })] }), LOADED, t),
+      'evidence'
+    )?.rows[0]
+    expect(row?.['end']).toBe('problems.evidenceActive')
+    expect(row?.['rootCause']).toBe('problems.no')
+  })
+
+  it('Evidencias: EVENT con su eventType; sin entidad, entity null; sin valores, null', () => {
+    const row = sheet(
+      problemWorkbook(
+        detail({ evidence: [evidence({ eventType: 'PROCESS_RESTART', entity: null })] }),
+        LOADED,
+        t
+      ),
+      'evidence'
+    )?.rows[0]
+    expect(row).toMatchObject({
+      eventType: 'PROCESS_RESTART',
+      entity: null,
+      before: null,
+      after: null,
+      unit: null,
+      metricId: null
+    })
+  })
+
+  it('Comentarios: autor, fecha, contexto y contenido (sin autor ni contexto → null)', () => {
+    const comments = sheet(
+      problemWorkbook(
+        detail({
+          comments: [
+            { author: 'op', content: 'Mirando', context: 'ui', createdAt: 2 },
+            { author: null, content: '', context: null, createdAt: 3 }
+          ]
+        }),
+        LOADED,
+        t
+      ),
+      'comments'
+    )
+    expect(comments?.columns.map((c) => [c.key, c.type])).toEqual([
+      ['author', 'string'],
+      ['date', 'date'],
+      ['context', 'string'],
+      ['content', 'string']
+    ])
+    expect(comments?.rows).toEqual([
+      { author: 'op', date: 2, context: 'ui', content: 'Mirando' },
+      { author: null, date: 3, context: null, content: '' }
+    ])
+  })
+
+  it('una hoja secundaria sin filas no se envía (solo comentarios → sin Evidencias)', () => {
+    const result = problemWorkbook(
+      detail({ comments: [{ author: null, content: 'x', context: null, createdAt: 1 }] }),
       LOADED,
       t
     )
@@ -117,66 +253,74 @@ describe('problemWorkbook', () => {
     ])
   })
 
-  it('Impacto: la columna de usuarios afectados solo si algún impacto la trae', () => {
-    const without = problemWorkbook(
-      detail({ impacts: [{ type: 'SERVICE', entity: 'a', estimatedAffectedUsers: null }] }),
-      LOADED,
-      t
-    ).sheets.find((s) => s.name === 'problems.sheets.impact')
-    expect(without?.columns.map((c) => c.key)).toEqual(['entity', 'type'])
-    expect(without?.rows[0]).not.toHaveProperty('users')
-
-    const withUsers = problemWorkbook(
+  it('v0.9.1: la API recortó evidencias y comentarios (totalCount mayor) → avisos en Info', () => {
+    const result = problemWorkbook(
       detail({
-        impacts: [
-          { type: 'SERVICE', entity: 'a', estimatedAffectedUsers: null },
-          { type: 'APPLICATION', entity: 'b', estimatedAffectedUsers: 42 }
-        ]
+        evidence: [evidence(), evidence()],
+        evidenceTotal: 250,
+        comments: [{ author: null, content: 'x', context: null, createdAt: 1 }],
+        commentTotal: 40
       }),
       LOADED,
       t
-    ).sheets.find((s) => s.name === 'problems.sheets.impact')
-    expect(withUsers?.columns.map((c) => c.key)).toEqual(['entity', 'type', 'users'])
-    expect(withUsers?.columns.find((c) => c.key === 'users')?.type).toBe('number')
-    expect(withUsers?.rows.map((r) => r['users'])).toEqual([null, 42])
+    )
+    expect(result.warnings).toEqual([
+      `problems.apiTruncatedEvidence${JSON.stringify({ shown: 2, total: 250 })}`,
+      `problems.apiTruncatedComments${JSON.stringify({ shown: 1, total: 40 })}`
+    ])
+  })
+
+  it.each([
+    ['null', null],
+    ['igual a lo recibido', 2],
+    ['menor que lo recibido', 1]
+  ])('totalCount %s → sin aviso de la API', (_label, total) => {
+    const result = problemWorkbook(
+      detail({
+        evidence: [evidence(), evidence()],
+        evidenceTotal: total,
+        comments: [
+          { author: null, content: 'a', context: null, createdAt: 1 },
+          { author: null, content: 'b', context: null, createdAt: 2 }
+        ],
+        commentTotal: total
+      }),
+      LOADED,
+      t
+    )
+    expect(result.warnings).toEqual([])
   })
 
   it('las evidencias van TODAS (no solo las 50 de la página)', () => {
-    const evidence = Array.from({ length: 300 }, (_, i) => ({
-      type: 'EVENT',
-      name: `ev-${i}`,
-      entity: null,
-      startTime: null
-    }))
-    const sheet = problemWorkbook(detail({ evidence }), LOADED, t).sheets.find(
-      (s) => s.name === 'problems.sheets.evidence'
-    )
-    expect(sheet?.rows).toHaveLength(300)
+    const items = Array.from({ length: 300 }, (_, i) => evidence({ displayName: `ev-${i}` }))
+    expect(
+      sheet(problemWorkbook(detail({ evidence: items }), LOADED, t), 'evidence')?.rows
+    ).toHaveLength(300)
   })
 
   it('si las evidencias pasan del límite global, se recortan y se avisa con shown y total', () => {
     const total = MAX_EXPORT_ROWS + 5
-    const evidence = Array.from({ length: total }, () => ({
-      type: 'EVENT',
-      name: 'x',
-      entity: null,
-      startTime: null
-    }))
-    const result = problemWorkbook(detail({ evidence }), LOADED, t)
-    const rows = result.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0)
-    expect(rows).toBe(MAX_EXPORT_ROWS)
-    // Resumen (1) + Entidades (3): quedan MAX - 4 para las evidencias.
-    const shown = MAX_EXPORT_ROWS - 4
-    expect(result.sheets.find((s) => s.name === 'problems.sheets.evidence')?.rows).toHaveLength(
-      shown
+    const items = Array.from({ length: total }, () => evidence())
+    const result = problemWorkbook(
+      detail({
+        evidence: items,
+        comments: [{ author: null, content: 'x', context: null, createdAt: 1 }]
+      }),
+      LOADED,
+      t
     )
+    const rows = result.sheets.reduce((sum, item) => sum + item.rows.length, 0)
+    expect(rows).toBe(MAX_EXPORT_ROWS)
+    // Resumen (1) + Entidades (3) + Comentarios (1): quedan MAX - 5 para las evidencias.
+    const shown = MAX_EXPORT_ROWS - 5
+    expect(sheet(result, 'evidence')?.rows).toHaveLength(shown)
     expect(result.warnings).toEqual([
       `problems.evidenceTruncated${JSON.stringify({ shown, total })}`
     ])
   })
 
   it('no muta el detalle de entrada', () => {
-    const input = detail({ evidence: [{ type: 'EVENT', name: 'a', entity: null, startTime: 1 }] })
+    const input = detail({ evidence: [evidence({ endTime: -1 })], evidenceTotal: 9 })
     const copy = structuredClone(input)
     problemWorkbook(input, LOADED, t)
     expect(input).toEqual(copy)

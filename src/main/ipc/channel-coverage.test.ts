@@ -133,6 +133,7 @@ describe('cobertura de los canales IPC', () => {
     expect([...(byFactory['modules'] ?? [])].sort()).toEqual([
       'metrics:query',
       'metrics:search',
+      'problems:comments',
       'problems:get',
       'problems:list',
       'savedQueries:delete',

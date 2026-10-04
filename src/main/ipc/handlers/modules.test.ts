@@ -378,6 +378,108 @@ describe('problems:get', () => {
     expect(result).toMatchObject({ ok: true, data: { problemId: 'abc/123' } })
     expect(requests[0]?.pathname).toBe('/api/v2/problems/abc%2F123')
   })
+
+  it('v0.9.1: pide exactamente fields=evidenceDetails,recentComments (sin impactAnalysis)', async () => {
+    await call('problems:get', { environmentId: envId, problemId: 'p-1' })
+    expect(requests[0]?.searchParams.get('fields')).toBe('evidenceDetails,recentComments')
+  })
+})
+
+describe('problems:comments (v0.9.1: "Ver todos")', () => {
+  const comment = (i: number, extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+    id: `c-${i}`,
+    authorName: `autor-${i}`,
+    content: `contenido ${i}`,
+    context: 'ui',
+    createdAtTimestamp: 1791050000000 + i,
+    ...extra
+  })
+
+  it('pide /problems/{id}/comments con pageSize 500 y el id codificado; mapea los comentarios', async () => {
+    routes['/problems/abc%2F1/comments'] = () =>
+      json(200, { totalCount: 2, pageSize: 500, comments: [comment(1), comment(2)] })
+    const result = await call('problems:comments', { environmentId: envId, problemId: 'abc/1' })
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        comments: [
+          { author: 'autor-1', content: 'contenido 1', context: 'ui', createdAt: 1791050000001 },
+          { author: 'autor-2', content: 'contenido 2', context: 'ui', createdAt: 1791050000002 }
+        ],
+        totalCount: 2,
+        truncated: false,
+        invalid: 0
+      }
+    })
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.pathname).toBe('/api/v2/problems/abc%2F1/comments')
+    expect(Object.fromEntries(requests[0]?.searchParams ?? [])).toEqual({ pageSize: '500' })
+  })
+
+  it('la página 2 solo lleva nextPageKey (el endpoint no tiene fields)', async () => {
+    routes['/problems/p-1/comments'] = (url) =>
+      url.searchParams.get('nextPageKey') === null
+        ? json(200, { totalCount: 3, nextPageKey: 'k2', comments: [comment(1), comment(2)] })
+        : json(200, { totalCount: 3, comments: [comment(3)] })
+    const result = await call('problems:comments', { environmentId: envId, problemId: 'p-1' })
+    expect(result).toMatchObject({ ok: true, data: { totalCount: 3, truncated: false } })
+    expect((result.data as { comments: unknown[] }).comments).toHaveLength(3)
+    expect(requests).toHaveLength(2)
+    expect(Object.fromEntries(requests[1]?.searchParams ?? [])).toEqual({ nextPageKey: 'k2' })
+  })
+
+  it('como mucho 4 páginas: después, truncated', async () => {
+    let page = 0
+    routes['/problems/p-1/comments'] = () => {
+      page += 1
+      return json(200, { totalCount: 9999, nextPageKey: `k${page + 1}`, comments: [comment(page)] })
+    }
+    const result = await call('problems:comments', { environmentId: envId, problemId: 'p-1' })
+    expect(requests).toHaveLength(4)
+    expect(result).toMatchObject({ ok: true, data: { totalCount: 9999, truncated: true } })
+  })
+
+  it('los comentarios sin fecha (o que no son objeto) cuentan como invalid', async () => {
+    routes['/problems/p-1/comments'] = () =>
+      json(200, {
+        totalCount: 4,
+        comments: [
+          comment(1),
+          { authorName: 'sin fecha', content: 'x' },
+          null,
+          { createdAtTimestamp: 5 }
+        ]
+      })
+    const result = await call('problems:comments', { environmentId: envId, problemId: 'p-1' })
+    expect(result).toMatchObject({ ok: true, data: { invalid: 2 } })
+    expect((result.data as { comments: unknown[] }).comments).toEqual([
+      { author: 'autor-1', content: 'contenido 1', context: 'ui', createdAt: 1791050000001 },
+      { author: null, content: '', context: null, createdAt: 5 }
+    ])
+  })
+
+  it('un entorno que no existe da NOT_FOUND sin pedir nada', async () => {
+    const result = await call('problems:comments', {
+      environmentId: UNKNOWN_ID,
+      problemId: 'p-1'
+    })
+    expect(result).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } })
+    expect(requests).toEqual([])
+  })
+
+  it.each([
+    ['problemId vacío', { problemId: '' }],
+    ['problemId de más de 200', { problemId: 'x'.repeat(201) }],
+    ['environmentId que no es uuid', { environmentId: 'no-uuid' }]
+  ])('entrada inválida (%s) → INVALID_INPUT sin pedir nada', async (_label, override) => {
+    const result = await call('problems:comments', {
+      environmentId: envId,
+      problemId: 'p-1',
+      ...override
+    })
+    expect(result).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+    expect(requests).toEqual([])
+  })
 })
 
 describe('metrics:query y metrics:search', () => {
@@ -618,6 +720,7 @@ describe('todos los canales de módulos', () => {
   it('se han llamado y ninguna salida contiene el token', async () => {
     await call('problems:list', { environmentId: envId, timeRange: '2h' })
     await call('problems:get', { environmentId: envId, problemId: '1' })
+    await call('problems:comments', { environmentId: envId, problemId: '1' })
     await call('metrics:query', { environmentId: envId, timeRange: '2h', metricSelector: 'm' })
     await call('metrics:search', { environmentId: envId, text: 'cpu' })
     await call('slos:list', { environmentId: envId })

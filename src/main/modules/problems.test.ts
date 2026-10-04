@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { problemDetailOutputSchema } from '@shared/modules'
+import { evidenceWireSchema, type EvidenceWire } from '@shared/problem-evidence'
 import {
   buildProblemSelector,
   problemDetailSchema,
@@ -242,28 +244,39 @@ describe('problemDetailSchema y toProblemDetail', () => {
           }
         ]
       },
-      impactAnalysis: {
-        impacts: [
-          {
-            impactType: 'SERVICE',
-            impactedEntity: { entityId: { id: 'SERVICE-2', type: 'SERVICE' }, name: 'carrito' },
-            estimatedAffectedUsers: 12
-          },
-          { impactType: 'APPLICATION' }
-        ]
-      },
       recentComments: {
         totalCount: 2,
         comments: [
-          { authorName: 'operador', content: 'Mirando', createdAtTimestamp: 1791051000000 },
-          { content: 'Sin autor ni fecha' }
+          {
+            id: 'c-1',
+            authorName: 'operador',
+            content: 'Mirando',
+            context: 'dynatrace-problem-ui',
+            createdAtTimestamp: 1791051000000
+          },
+          { createdAtTimestamp: 1791052000000 }
         ]
       },
       ...overrides
     }
   }
 
-  it('mapea el detalle completo', () => {
+  /** Evidencia normalizada con todos los campos a su valor vacío. */
+  const emptyWire = {
+    entity: null,
+    groupingEntity: null,
+    rootCauseRelevant: false,
+    startTime: null,
+    endTime: null,
+    eventType: null,
+    properties: [],
+    metricId: null,
+    unit: null,
+    valueBefore: null,
+    valueAfter: null
+  }
+
+  it('mapea el detalle completo (v0.9.1: sin impactos, con totales)', () => {
     const result = toProblemDetail(problemDetailSchema.parse(detail()))
     expect(result).toMatchObject({
       problemId: 'p-0001',
@@ -271,52 +284,93 @@ describe('problemDetailSchema y toProblemDetail', () => {
       impactedEntities: [{ id: 'APPLICATION-1', type: 'APPLICATION', name: 'web' }],
       entityTags: ['equipo:pagos', 'critico', 'zona:eu'],
       linkedProblem: { displayId: 'P-0', problemId: 'p-0000' },
-      evidence: [
-        { type: 'EVENT', name: 'Respuesta lenta', entity: 'pagos', startTime: 1791050000000 },
-        { type: 'TIPO_RARO_NUEVO', name: 'Algo nuevo', entity: 'HOST-1', startTime: null }
-      ],
-      impacts: [
-        { type: 'SERVICE', entity: 'carrito', estimatedAffectedUsers: 12 },
-        { type: 'APPLICATION', entity: null, estimatedAffectedUsers: null }
-      ],
-      comments: [
-        { author: 'operador', content: 'Mirando', createdAt: 1791051000000 },
-        { author: null, content: 'Sin autor ni fecha', createdAt: null }
-      ]
+      evidenceTotal: 2,
+      commentTotal: 2,
+      invalid: 0
     })
+    expect(result.evidence).toEqual([
+      {
+        ...emptyWire,
+        evidenceType: 'EVENT',
+        displayName: 'Respuesta lenta',
+        entity: { id: 'SERVICE-1', name: 'pagos', type: 'SERVICE' },
+        startTime: 1791050000000
+      },
+      {
+        ...emptyWire,
+        evidenceType: 'TIPO_RARO_NUEVO',
+        displayName: 'Algo nuevo',
+        entity: { id: 'HOST-1', name: null, type: 'HOST' }
+      }
+    ])
+    expect(result.comments).toEqual([
+      {
+        author: 'operador',
+        content: 'Mirando',
+        context: 'dynatrace-problem-ui',
+        createdAt: 1791051000000
+      },
+      { author: null, content: '', context: null, createdAt: 1791052000000 }
+    ])
+    expect(result).not.toHaveProperty('impacts')
+    // La salida cumple el contrato del IPC.
+    expect(problemDetailOutputSchema.safeParse(result).success).toBe(true)
   })
 
-  it('sin las partes opcionales: listas vacías y linkedProblem null', () => {
+  it('v0.9.1: impactAnalysis, si llegara, se ignora (no sale en el detalle)', () => {
+    const result = toProblemDetail(
+      problemDetailSchema.parse(
+        detail({ impactAnalysis: { impacts: [{ impactType: 'SERVICE', secreto: 'x' }] } })
+      )
+    )
+    expect(result).not.toHaveProperty('impacts')
+    expect(result).not.toHaveProperty('impactAnalysis')
+    expect(JSON.stringify(result)).not.toContain('secreto')
+  })
+
+  it('sin las partes opcionales: listas vacías, totales null y linkedProblem null', () => {
     const raw = detail()
-    for (const key of [
-      'entityTags',
-      'linkedProblemInfo',
-      'evidenceDetails',
-      'impactAnalysis',
-      'recentComments'
-    ]) {
+    for (const key of ['entityTags', 'linkedProblemInfo', 'evidenceDetails', 'recentComments']) {
       delete raw[key]
     }
     expect(toProblemDetail(problemDetailSchema.parse(raw))).toMatchObject({
       entityTags: [],
       linkedProblem: null,
       evidence: [],
-      impacts: [],
-      comments: []
+      evidenceTotal: null,
+      comments: [],
+      commentTotal: null
     })
   })
 
   it('partes anidadas vacías o a medias no rompen: listas vacías', () => {
     const raw = detail({
       evidenceDetails: {},
-      impactAnalysis: {},
       recentComments: { totalCount: 0 }
     })
     expect(toProblemDetail(problemDetailSchema.parse(raw))).toMatchObject({
       evidence: [],
-      impacts: [],
-      comments: []
+      evidenceTotal: null,
+      comments: [],
+      commentTotal: 0
     })
+  })
+
+  it('v0.9.1: totalCount mayor que lo recibido se conserva (la vista avisa del recorte)', () => {
+    const result = toProblemDetail(
+      problemDetailSchema.parse(
+        detail({
+          evidenceDetails: {
+            totalCount: 250,
+            details: [{ evidenceType: 'EVENT', displayName: 'una' }]
+          },
+          recentComments: { totalCount: 40, comments: [{ createdAtTimestamp: 1 }] }
+        })
+      )
+    )
+    expect(result).toMatchObject({ evidenceTotal: 250, commentTotal: 40 })
+    expect(result.evidence).toHaveLength(1)
+    expect(result.comments).toHaveLength(1)
   })
 
   it('v0.9.0: sin elementos raros, invalid = 0', () => {
@@ -346,20 +400,59 @@ describe('problemDetailSchema y toProblemDetail', () => {
       'evidence'
     ],
     [
-      'un impacto con estimatedAffectedUsers de texto',
+      'una evidencia sin displayName',
       {
-        impactAnalysis: {
-          impacts: [
-            { impactType: 'SERVICE', estimatedAffectedUsers: 'muchos' },
-            { impactType: 'APPLICATION' }
+        evidenceDetails: {
+          details: [{ evidenceType: 'EVENT' }, { evidenceType: 'EVENT', displayName: 'Buena' }]
+        }
+      },
+      'evidence'
+    ],
+    [
+      'una evidencia sin evidenceType',
+      {
+        evidenceDetails: {
+          details: [{ displayName: 'Sin tipo' }, { evidenceType: 'METRIC', displayName: 'Buena' }]
+        }
+      },
+      'evidence'
+    ],
+    [
+      'una evidencia con evidenceType numérico',
+      {
+        evidenceDetails: {
+          details: [
+            { evidenceType: 3, displayName: 'Mala' },
+            { evidenceType: 'EVENT', displayName: 'Buena' }
           ]
         }
       },
-      'impacts'
+      'evidence'
+    ],
+    [
+      'una evidencia con valueBeforeChangePoint de texto',
+      {
+        evidenceDetails: {
+          details: [
+            { evidenceType: 'METRIC', displayName: 'Mala', valueBeforeChangePoint: '10' },
+            { evidenceType: 'METRIC', displayName: 'Buena' }
+          ]
+        }
+      },
+      'evidence'
     ],
     [
       'un comentario null',
-      { recentComments: { comments: [null, { content: 'Bueno' }] } },
+      { recentComments: { comments: [null, { content: 'Bueno', createdAtTimestamp: 1 }] } },
+      'comments'
+    ],
+    [
+      'un comentario sin fecha (createdAtTimestamp es obligatorio)',
+      {
+        recentComments: {
+          comments: [{ authorName: 'a', content: 'Sin fecha' }, { createdAtTimestamp: 1 }]
+        }
+      },
       'comments'
     ]
   ] as const)(
@@ -375,20 +468,32 @@ describe('problemDetailSchema y toProblemDetail', () => {
     }
   )
 
-  it('v0.9.0: los descartes de evidencias, impactos y comentarios se suman', () => {
+  it('v0.9.1: los descartes de evidencias y comentarios se suman', () => {
     const result = toProblemDetail(
       problemDetailSchema.parse(
         detail({
           evidenceDetails: { details: [42, 'x'] },
-          impactAnalysis: { impacts: [null] },
           recentComments: { comments: [{ createdAtTimestamp: 'hoy' }] }
         })
       )
     )
-    expect(result.invalid).toBe(4)
+    expect(result.invalid).toBe(3)
     expect(result.evidence).toEqual([])
-    expect(result.impacts).toEqual([])
     expect(result.comments).toEqual([])
+  })
+
+  it('v0.9.1: un tipo de evidencia desconocido se conserva tal cual y no cuenta como invalid', () => {
+    const result = toProblemDetail(
+      problemDetailSchema.parse(
+        detail({
+          evidenceDetails: {
+            details: [{ evidenceType: 'TIPO_FUTURO', displayName: 'Nueva', otroCampo: [1, 2] }]
+          }
+        })
+      )
+    )
+    expect(result.invalid).toBe(0)
+    expect(result.evidence[0]?.evidenceType).toBe('TIPO_FUTURO')
   })
 
   it('el detalle también es un resumen válido (con namespaces)', () => {
@@ -396,6 +501,132 @@ describe('problemDetailSchema y toProblemDetail', () => {
       problemDetailSchema.parse(detail({ 'k8s.namespace.name': ['ns-a'] }))
     )
     expect(result).toMatchObject({ status: 'OPEN', endTime: null, namespaces: ['ns-a'] })
+  })
+})
+
+describe('toEvidenceWire (v0.9.1)', () => {
+  /** Pasa una evidencia cruda por el esquema del detalle y devuelve la normalizada. */
+  function normalize(raw: Record<string, unknown>): EvidenceWire | undefined {
+    const parsed = problemDetailSchema.parse({ ...problem(), evidenceDetails: { details: [raw] } })
+    return toProblemDetail(parsed).evidence[0]
+  }
+
+  it('METRIC: entidad, agrupación, unidad, métrica y valores antes y después', () => {
+    const result = normalize({
+      evidenceType: 'METRIC',
+      displayName: 'Tiempo de respuesta',
+      entity: { entityId: { id: 'SERVICE-1', type: 'SERVICE' }, name: 'pagos' },
+      groupingEntity: { entityId: { id: 'PROCESS_GROUP-1', type: 'PROCESS_GROUP' } },
+      rootCauseRelevant: true,
+      startTime: 100,
+      endTime: -1,
+      metricId: 'builtin:service.response.time',
+      unit: 'MicroSecond',
+      valueBeforeChangePoint: 1200.5,
+      valueAfterChangePoint: 9800
+    })
+    expect(result).toEqual({
+      evidenceType: 'METRIC',
+      displayName: 'Tiempo de respuesta',
+      entity: { id: 'SERVICE-1', name: 'pagos', type: 'SERVICE' },
+      groupingEntity: { id: 'PROCESS_GROUP-1', name: null, type: 'PROCESS_GROUP' },
+      rootCauseRelevant: true,
+      startTime: 100,
+      endTime: -1,
+      eventType: null,
+      properties: [],
+      metricId: 'builtin:service.response.time',
+      unit: 'MicroSecond',
+      valueBefore: 1200.5,
+      valueAfter: 9800
+    })
+  })
+
+  it('endTime -1 y null pasan tal cual; ausente → null', () => {
+    const base = { evidenceType: 'EVENT', displayName: 'e' }
+    expect(normalize({ ...base, endTime: -1 })?.endTime).toBe(-1)
+    expect(normalize({ ...base, endTime: null })?.endTime).toBeNull()
+    expect(normalize(base)?.endTime).toBeNull()
+  })
+
+  it('rootCauseRelevant ausente → false', () => {
+    expect(normalize({ evidenceType: 'EVENT', displayName: 'e' })?.rootCauseRelevant).toBe(false)
+  })
+
+  it('una entidad sin entityId.id (o null) → null, sin descartar la evidencia', () => {
+    const result = normalize({
+      evidenceType: 'EVENT',
+      displayName: 'e',
+      entity: { entityId: { type: 'HOST' }, name: 'sin id' },
+      groupingEntity: null
+    })
+    expect(result?.entity).toBeNull()
+    expect(result?.groupingEntity).toBeNull()
+    expect(normalize({ evidenceType: 'EVENT', displayName: 'e', entity: {} })?.entity).toBeNull()
+  })
+
+  it('EVENT: las 8 primeras propiedades con clave, como texto y recortadas a 300', () => {
+    const properties = [
+      { value: 'sin clave' },
+      { key: 'texto', value: 'hola' },
+      { key: 'numero', value: 42 },
+      { key: 'booleano', value: false },
+      { key: 'objeto', value: { a: 1 } },
+      { key: 'nulo', value: null },
+      { key: 'largo', value: 'x'.repeat(1000) },
+      { key: 'sin-valor' },
+      { key: 'p8', value: '8' },
+      { key: 'p9', value: '9' }
+    ]
+    const result = normalize({
+      evidenceType: 'EVENT',
+      displayName: 'Reinicio',
+      eventType: 'PROCESS_RESTART',
+      data: { properties, otroCampo: true }
+    })
+    expect(result?.eventType).toBe('PROCESS_RESTART')
+    expect(result?.properties.map((p) => p.key)).toEqual([
+      'texto',
+      'numero',
+      'booleano',
+      'objeto',
+      'nulo',
+      'largo',
+      'sin-valor',
+      'p8'
+    ])
+    const value = (key: string): string | undefined =>
+      result?.properties.find((p) => p.key === key)?.text
+    expect(value('texto')).toBe('hola')
+    expect(value('numero')).toBe('42')
+    expect(value('booleano')).toBe('false')
+    expect(value('objeto')).toBe('{"a":1}')
+    expect(value('nulo')).toBe('null')
+    expect(value('largo')).toHaveLength(300)
+    expect(value('sin-valor')).toBe('')
+    // Cumple el máximo del contrato del IPC.
+    expect(evidenceWireSchema.safeParse(result).success).toBe(true)
+  })
+
+  it('data null o sin properties: lista vacía', () => {
+    expect(normalize({ evidenceType: 'EVENT', displayName: 'e', data: null })?.properties).toEqual(
+      []
+    )
+    expect(normalize({ evidenceType: 'EVENT', displayName: 'e', data: {} })?.properties).toEqual([])
+  })
+
+  it('valores antes y después null se quedan null', () => {
+    const result = normalize({
+      evidenceType: 'TRANSACTIONAL',
+      displayName: 't',
+      valueBeforeChangePoint: null,
+      valueAfterChangePoint: null
+    })
+    expect(result).toMatchObject({ valueBefore: null, valueAfter: null, unit: null })
+  })
+
+  it('sin startTime → null', () => {
+    expect(normalize({ evidenceType: 'EVENT', displayName: 'e' })?.startTime).toBeNull()
   })
 })
 

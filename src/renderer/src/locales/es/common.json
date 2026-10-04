@@ -353,8 +353,6 @@
     "entityType": "Tipo",
     "entityId": "ID",
     "evidence": "Evidencias",
-    "impacts": "Análisis de impacto",
-    "affectedUsers": "Usuarios afectados (estimado): {{count}}",
     "comments": "Comentarios recientes",
     "zones": "Management zones",
     "tags": "Etiquetas",
@@ -367,12 +365,32 @@
     "clusterLabel": "Clúster",
     "namespaceLabel": "Namespace",
     "showAllEvidence": "Ver todas ({{count}})",
+    "noEntity": "Sin entidad",
+    "evidenceFilter": "Filtrar evidencias por tipo",
+    "evidenceTypes": {
+      "EVENT": "Evento",
+      "METRIC": "Métrica",
+      "TRANSACTIONAL": "Transaccional",
+      "AVAILABILITY_EVIDENCE": "Disponibilidad",
+      "MAINTENANCE_WINDOW": "Mantenimiento"
+    },
+    "changeSentence": "{{name}} en {{entity}}:",
+    "changeHint": "Valor antes del inicio del problema → valor después, según Dynatrace. La flecha indica si sube o baja.",
+    "changeDirection": {
+      "up": "sube",
+      "down": "baja",
+      "same": "sin cambio"
+    },
+    "moreDetails": "Más detalles",
+    "lessDetails": "Menos detalles",
+    "openInMetrics": "Abrir en Métricas",
+    "recentComments": "Se ven los {{shown}} más recientes de {{total}} comentarios.",
+    "showAllComments": "Ver todos ({{count}})",
     "evidenceTruncated": "Evidencias recortadas a {{shown}} de {{total}} por el límite de exportación.",
     "sheets": {
       "summary": "Resumen",
       "entities": "Entidades",
       "evidence": "Evidencias",
-      "impact": "Impacto",
       "comments": "Comentarios"
     },
     "entityColumns": {
@@ -389,18 +407,26 @@
       "type": "Tipo",
       "name": "Nombre",
       "entity": "Entidad",
-      "start": "Inicio"
-    },
-    "impactColumns": {
-      "entity": "Entidad",
-      "type": "Tipo de impacto",
-      "users": "Usuarios afectados (estimado)"
+      "rootCause": "Causa raíz",
+      "start": "Inicio",
+      "end": "Fin",
+      "before": "Antes",
+      "after": "Después",
+      "unit": "Unidad",
+      "metricId": "Métrica",
+      "eventType": "Tipo de evento"
     },
     "commentColumns": {
       "author": "Autor",
       "date": "Fecha",
+      "context": "Contexto",
       "content": "Comentario"
     },
+    "yes": "Sí",
+    "no": "No",
+    "evidenceActive": "Activa",
+    "apiTruncatedEvidence": "La API ha devuelto {{shown}} de {{total}} evidencias.",
+    "apiTruncatedComments": "La API ha devuelto {{shown}} de {{total}} comentarios.",
     "status": {
       "OPEN": "Abierto",
       "CLOSED": "Cerrado"

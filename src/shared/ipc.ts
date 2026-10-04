@@ -17,6 +17,7 @@ import {
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
+  problemCommentSchema,
   problemDetailOutputSchema,
   problemSummarySchema,
   resolutionSchema,
@@ -226,6 +227,16 @@ export const ipcContract = {
   'problems:get': {
     input: z.object({ environmentId: z.uuid(), problemId: z.string().min(1).max(200) }),
     output: problemDetailOutputSchema
+  },
+  /** Todos los comentarios de un problema ("Ver todos"); el detalle solo trae los recientes. */
+  'problems:comments': {
+    input: z.object({ environmentId: z.uuid(), problemId: z.string().min(1).max(200) }),
+    output: z.object({
+      comments: z.array(problemCommentSchema),
+      totalCount: z.number().int().min(0).nullable(),
+      truncated: z.boolean(),
+      invalid: z.number().int().min(0)
+    })
   },
   'metrics:query': {
     input: z.object({

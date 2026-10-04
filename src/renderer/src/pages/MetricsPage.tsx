@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SavedQuery } from '@shared/modules'
 import { timeRangeToDates } from '@shared/time-range'
-import { useTimeRangeValue } from '../app/time-range'
+import { useTimeRange, useTimeRangeValue } from '../app/time-range'
 import { ModuleError, ModuleUnavailable } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import {
@@ -15,6 +15,7 @@ import {
   type MetricQueryParams
 } from '../data/modules'
 import { invoke } from '../lib/ipc'
+import { parseMetricsSearch } from '../lib/metrics-link'
 import { MetricChartPanel } from './metrics/MetricChartPanel'
 import { MetricQueryForm } from './metrics/MetricQueryForm'
 import { MetricSearch } from './metrics/MetricSearch'
@@ -75,6 +76,24 @@ export function MetricsPage(): JSX.Element {
     if (found !== undefined) load(found)
     setSearchParams({}, { replace: true })
   }, [savedId, saved.data, load, setSearchParams])
+
+  // Abrir una métrica desde la evidencia de un problema (#/metrics?selector=&from=&to=):
+  // la métrica, el rango del problema como rango personalizado, y se consulta.
+  const setCustomRange = useTimeRange((state) => state.setCustom)
+  const linked = parseMetricsSearch(searchParams)
+  const linkedKey = linked === null ? null : searchParams.toString()
+  useEffect(() => {
+    if (linkedKey === null) return
+    const request = parseMetricsSearch(new URLSearchParams(linkedKey))
+    if (request === null) return
+    setCustomRange(request.range)
+    // Sincroniza con la navegación (estado externo): consulta lo que pide la URL.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelector(request.selector)
+    setResolution('')
+    setParams({ metricSelector: request.selector, resolution: undefined })
+    setSearchParams({}, { replace: true })
+  }, [linkedKey, setCustomRange, setSearchParams])
 
   // Duración del rango activo, para estimar los puntos antes de consultar.
   const range = timeRangeToDates(timeRange, new Date())

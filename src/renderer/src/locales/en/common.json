@@ -353,8 +353,6 @@
     "entityType": "Type",
     "entityId": "ID",
     "evidence": "Evidence",
-    "impacts": "Impact analysis",
-    "affectedUsers": "Affected users (estimated): {{count}}",
     "comments": "Recent comments",
     "zones": "Management zones",
     "tags": "Tags",
@@ -367,12 +365,32 @@
     "clusterLabel": "Cluster",
     "namespaceLabel": "Namespace",
     "showAllEvidence": "Show all ({{count}})",
+    "noEntity": "No entity",
+    "evidenceFilter": "Filter evidence by type",
+    "evidenceTypes": {
+      "EVENT": "Event",
+      "METRIC": "Metric",
+      "TRANSACTIONAL": "Transactional",
+      "AVAILABILITY_EVIDENCE": "Availability",
+      "MAINTENANCE_WINDOW": "Maintenance"
+    },
+    "changeSentence": "{{name}} on {{entity}}:",
+    "changeHint": "Value before the problem started → value after, according to Dynatrace. The arrow shows whether it went up or down.",
+    "changeDirection": {
+      "up": "up",
+      "down": "down",
+      "same": "no change"
+    },
+    "moreDetails": "More details",
+    "lessDetails": "Fewer details",
+    "openInMetrics": "Open in Metrics",
+    "recentComments": "Showing the {{shown}} most recent of {{total}} comments.",
+    "showAllComments": "Show all ({{count}})",
     "evidenceTruncated": "Evidence cut to {{shown}} of {{total}} by the export limit.",
     "sheets": {
       "summary": "Summary",
       "entities": "Entities",
       "evidence": "Evidence",
-      "impact": "Impact",
       "comments": "Comments"
     },
     "entityColumns": {
@@ -389,18 +407,26 @@
       "type": "Type",
       "name": "Name",
       "entity": "Entity",
-      "start": "Start"
-    },
-    "impactColumns": {
-      "entity": "Entity",
-      "type": "Impact type",
-      "users": "Affected users (estimated)"
+      "rootCause": "Root cause",
+      "start": "Start",
+      "end": "End",
+      "before": "Before",
+      "after": "After",
+      "unit": "Unit",
+      "metricId": "Metric",
+      "eventType": "Event type"
     },
     "commentColumns": {
       "author": "Author",
       "date": "Date",
+      "context": "Context",
       "content": "Comment"
     },
+    "yes": "Yes",
+    "no": "No",
+    "evidenceActive": "Active",
+    "apiTruncatedEvidence": "The API returned {{shown}} of {{total}} evidence items.",
+    "apiTruncatedComments": "The API returned {{shown}} of {{total}} comments.",
     "status": {
       "OPEN": "Open",
       "CLOSED": "Closed"

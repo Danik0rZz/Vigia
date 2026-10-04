@@ -184,23 +184,149 @@ detailOnly.push({
       'esto no es una evidencia'
     ]
   },
-  impactAnalysis: {
-    impacts: [
-      {
-        impactType: 'APPLICATION',
-        impactedEntity: {
-          entityId: { id: 'APPLICATION-BIG1', type: 'APPLICATION' },
-          name: 'tienda'
-        },
-        estimatedAffectedUsers: 1500
-      }
-    ]
-  },
   recentComments: {
     totalCount: 1,
     comments: [{ authorName: 'operador', content: HOSTILE_COMMENT, createdAtTimestamp: NOW - HOUR }]
   }
 })
+
+/**
+ * v0.9.1: problema con evidencias de los 5 tipos de la OpenAPI y uno desconocido,
+ * la API recortada (8 de 12) y 2 comentarios recientes de 7. Causa raíz: el
+ * reinicio (EVENT) y el host no disponible. Grupos, en este orden: pagos-ev (3),
+ * host-ev (2, uno por su groupingEntity) y sin entidad (1).
+ */
+const EV_ID = 'pd-evid'
+const EV_START = NOW - 3 * HOUR
+const MIN = 60_000
+const EV_METRIC = 'builtin:service.response.time'
+const EV_PROPERTY = '<b>reinicio</b> manual'
+const evEntity = (id: string, type: string, name: string): Record<string, unknown> => ({
+  entityId: { id, type },
+  name
+})
+const EV_SERVICE = evEntity('SERVICE-EV1', 'SERVICE', 'pagos-ev')
+const EV_HOST = evEntity('HOST-EV1', 'HOST', 'host-ev')
+detailOnly.push({
+  problemId: EV_ID,
+  displayId: 'P-779',
+  title: 'Problema con evidencias variadas',
+  status: 'OPEN',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: EV_START,
+  endTime: -1,
+  affectedEntities: [EV_SERVICE],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 12,
+    details: [
+      {
+        evidenceType: 'EVENT',
+        displayName: 'Reinicio del proceso',
+        entity: evEntity('PROCESS_GROUP_INSTANCE-EV1', 'PROCESS_GROUP_INSTANCE', 'proc-ev'),
+        rootCauseRelevant: true,
+        startTime: EV_START,
+        endTime: EV_START + HOUR,
+        eventType: 'PROCESS_RESTART',
+        data: {
+          properties: [
+            { key: 'dt.event.description', value: EV_PROPERTY },
+            { key: 'exit.code', value: 137 }
+          ]
+        }
+      },
+      {
+        evidenceType: 'METRIC',
+        displayName: 'Tiempo de respuesta',
+        entity: EV_SERVICE,
+        rootCauseRelevant: false,
+        startTime: NOW - 170 * MIN,
+        endTime: -1,
+        metricId: EV_METRIC,
+        unit: 'MicroSecond',
+        valueBeforeChangePoint: 200_000,
+        valueAfterChangePoint: 1_500_000
+      },
+      {
+        evidenceType: 'TRANSACTIONAL',
+        displayName: 'Tasa de fallos',
+        entity: EV_SERVICE,
+        startTime: NOW - 160 * MIN,
+        unit: 'Percent',
+        valueBeforeChangePoint: 0,
+        valueAfterChangePoint: 12.5
+      },
+      {
+        evidenceType: 'METRIC',
+        displayName: 'Uso de CPU',
+        entity: EV_HOST,
+        startTime: NOW - 150 * MIN,
+        metricId: 'builtin:host.cpu.usage',
+        unit: 'Percent'
+      },
+      {
+        evidenceType: 'AVAILABILITY_EVIDENCE',
+        displayName: 'Host no disponible',
+        entity: EV_HOST,
+        // Segunda causa raíz: va arriba y no en el grupo de host-ev.
+        rootCauseRelevant: true,
+        startTime: NOW - 140 * MIN,
+        endTime: NOW - 130 * MIN
+      },
+      {
+        evidenceType: 'MAINTENANCE_WINDOW',
+        displayName: 'Ventana de mantenimiento',
+        startTime: NOW - 120 * MIN
+      },
+      {
+        evidenceType: 'TIPO_NUEVO_E2E',
+        displayName: 'Algo nuevo',
+        // groupingEntity distinta de la entidad: el grupo es el de host-ev, no proc-nuevo.
+        entity: evEntity('PROCESS_GROUP_INSTANCE-EV2', 'PROCESS_GROUP_INSTANCE', 'proc-nuevo'),
+        groupingEntity: EV_HOST,
+        startTime: NOW - 100 * MIN
+      },
+      {
+        evidenceType: 'EVENT',
+        displayName: 'Despliegue',
+        entity: EV_SERVICE,
+        startTime: NOW - 180 * MIN,
+        eventType: 'CUSTOM_DEPLOYMENT'
+      }
+    ]
+  },
+  recentComments: {
+    totalCount: 7,
+    comments: [
+      {
+        authorName: 'ana',
+        content: 'Último comentario',
+        context: 'dynatrace-problem-ui',
+        createdAtTimestamp: NOW - 10 * MIN
+      },
+      { content: HOSTILE_COMMENT, createdAtTimestamp: NOW - 20 * MIN }
+    ]
+  }
+})
+
+/** v0.9.1: los 7 comentarios de P-779 (GET /problems/{id}/comments). */
+const EV_ALL_COMMENTS = [
+  {
+    authorName: 'ana',
+    content: 'Último comentario',
+    context: 'dynatrace-problem-ui',
+    createdAtTimestamp: NOW - 10 * MIN
+  },
+  { content: HOSTILE_COMMENT, createdAtTimestamp: NOW - 20 * MIN },
+  { authorName: 'luis', content: 'Escalado a red', createdAtTimestamp: NOW - 30 * MIN },
+  { authorName: 'luis', createdAtTimestamp: NOW - 40 * MIN },
+  { authorName: 'ana', content: 'Mirando', context: 'api', createdAtTimestamp: NOW - 50 * MIN },
+  { authorName: 'bot', content: 'Abierto', createdAtTimestamp: NOW - 60 * MIN },
+  { authorName: 'bot', content: 'Primer comentario', createdAtTimestamp: NOW - 70 * MIN }
+]
 
 const manyProblems: FakeProblem[] = Array.from({ length: 300 }, (_, i) => ({
   problemId: `pm-${i + 1}`,
@@ -234,15 +360,6 @@ const detailExtras = {
         entity: { entityId: { id: 'SERVICE-AAA1', type: 'SERVICE' }, name: 'pagos' },
         rootCauseRelevant: true,
         startTime: NOW - HOUR
-      }
-    ]
-  },
-  impactAnalysis: {
-    impacts: [
-      {
-        impactType: 'APPLICATION',
-        impactedEntity: { entityId: { id: 'APPLICATION-AAA1', type: 'APPLICATION' }, name: 'web' },
-        estimatedAffectedUsers: 42
       }
     ]
   },
@@ -280,6 +397,9 @@ const defaultSim = () => ({
   /** AUD-12: el detalle falla (400, un error que no es «no existe»). */
   detailFails: false,
   lastDetailQuery: new URLSearchParams(),
+  /** v0.9.1: peticiones a /problems/{id}/comments y la última query. */
+  commentsRequests: 0,
+  lastCommentsQuery: new URLSearchParams(),
   lastProblemsQuery: new URLSearchParams(),
   lastMetricsQuery: new URLSearchParams(),
   /** AUD-13: peticiones a /metrics/query. */
@@ -431,6 +551,18 @@ async function startServer(): Promise<void> {
           return
         }
         return respondDetail()
+      }
+      const comments = /^\/api\/v2\/problems\/([^/]+)\/comments$/.exec(url.pathname)
+      if (req.method === 'GET' && comments !== null) {
+        sim.commentsRequests += 1
+        sim.lastCommentsQuery = url.searchParams
+        return decodeURIComponent(comments[1] ?? '') === EV_ID
+          ? send(200, {
+              totalCount: EV_ALL_COMMENTS.length,
+              pageSize: 500,
+              comments: EV_ALL_COMMENTS
+            })
+          : send(404, { error: { code: 404, message: 'No existe' } })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/metrics') {
         // Filtra por text (AUD-13: «Sin resultados» con un texto que no casa).
@@ -884,12 +1016,10 @@ test('Problemas: tabla, línea de tiempo y página de detalle con las entidades 
   await expect(byId('HOST-AAA1').getByTestId('entity-type')).toHaveText(/HOST/)
 
   // El detalle se pide con fields y muestra cada parte que llega.
-  await expect.poll(() => sim.lastDetailQuery.get('fields') ?? '').toContain('evidenceDetails')
-  for (const part of ['evidenceDetails', 'impactAnalysis', 'recentComments']) {
-    expect(sim.lastDetailQuery.get('fields') ?? '').toContain(part)
-  }
+  // v0.9.1: sin impactAnalysis.
+  await expect.poll(() => sim.lastDetailQuery.get('fields')).toBe('evidenceDetails,recentComments')
   await expect(detail.getByTestId('detail-evidence')).toContainText('Tiempo de respuesta degradado')
-  await expect(detail.getByTestId('detail-impacts')).toContainText('42')
+  await expect(detail.getByTestId('detail-impacts')).toHaveCount(0)
   await expect(detail.getByTestId('detail-comments')).toContainText(
     'Revisando el pool de conexiones'
   )
@@ -1161,6 +1291,15 @@ test('v0.9.0: 300 evidencias: se ven 50 y «Ver todas (300)»; la vista responde
   await expect(showAll).toHaveText('Ver todas (300)')
   // La evidencia ilegible no sale y se avisa.
   await expect(detail.getByTestId('api-warnings')).toContainText('1 elemento')
+  // v0.9.1: la API mandó las 301 (totalCount 301): la ilegible no es un recorte de la API.
+  await expect(detail.getByTestId('evidence-api-truncated')).toHaveCount(0)
+  // Un solo grupo (la entidad grande), con su contador y abierto.
+  const group = detail.getByTestId('evidence-group')
+  await expect(group).toHaveCount(1)
+  await expect(group).toHaveAttribute('data-entity-id', 'SERVICE-BIG1')
+  await expect(group.getByTestId('evidence-group-toggle')).toHaveAttribute('aria-expanded', 'true')
+  await expect(group.getByTestId('evidence-group-toggle')).toContainText('(300)')
+  await expect(detail.getByTestId('evidence-filter')).toHaveText(['Evento 300'])
 
   // La vista sigue respondiendo con todo pintado: se mide un clic y un scroll.
   const started = Date.now()
@@ -1170,6 +1309,14 @@ test('v0.9.0: 300 evidencias: se ven 50 y «Ver todas (300)»; la vista responde
   await items.last().scrollIntoViewIfNeeded()
   await expect(items.last()).toContainText('Evidencia 300')
   expect(Date.now() - started, 'mostrar 300 evidencias').toBeLessThan(5000)
+  // Plegar el grupo de 300 también responde, y desplegarlo las vuelve a enseñar.
+  const toggle = group.getByTestId('evidence-group-toggle')
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(items).toHaveCount(0)
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(items.first()).toContainText('Evidencia 1')
   await page.getByTestId('problem-back').click()
   await expect(page.getByTestId('problem-page')).toHaveCount(0)
 })
@@ -1217,11 +1364,11 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
     ((sheet?.getRow(1).values as unknown[] | undefined) ?? []).slice(1).map(String)
 
   const es1 = await workbook()
+  // v0.9.1: sin hoja Impacto.
   expect(es1.worksheets.map((s) => s.name)).toEqual([
     'Resumen',
     'Entidades',
     'Evidencias',
-    'Impacto',
     'Comentarios',
     'Info'
   ])
@@ -1236,12 +1383,26 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
   // TODAS las evidencias (la página enseña 50), con la fecha como fecha.
   const evidence = es1.getWorksheet('Evidencias')
   expect(evidence?.actualRowCount).toBe(301)
-  expect(evidence?.getRow(2).getCell(4).value).toBeInstanceOf(Date)
-  // Impacto con la columna de usuarios, porque Dynatrace la da.
-  expect(header(es1.getWorksheet('Impacto'))).toContain('Usuarios afectados (estimado)')
-  expect(es1.getWorksheet('Impacto')?.getRow(2).getCell(3).value).toBe(1500)
-  // Comentario como texto (ni fórmula ni HTML interpretado).
-  expect(String(es1.getWorksheet('Comentarios')?.getRow(2).getCell(3).value)).toBe(HOSTILE_COMMENT)
+  expect(header(evidence)).toEqual([
+    'Tipo',
+    'Nombre',
+    'Entidad',
+    'Causa raíz',
+    'Inicio',
+    'Fin',
+    'Antes',
+    'Después',
+    'Unidad',
+    'Métrica',
+    'Tipo de evento'
+  ])
+  expect(evidence?.getRow(2).getCell(5).value).toBeInstanceOf(Date)
+  // Sin endTime: "Activa" (texto en una columna de fecha).
+  expect(evidence?.getRow(2).getCell(6).value).toBe('Activa')
+  // Comentario como texto (ni fórmula ni HTML interpretado); columnas Autor, Fecha, Contexto, Comentario.
+  const commentSheet = es1.getWorksheet('Comentarios')
+  expect(header(commentSheet)).toEqual(['Autor', 'Fecha', 'Contexto', 'Comentario'])
+  expect(String(commentSheet?.getRow(2).getCell(4).value)).toBe(HOSTILE_COMMENT)
   // Info con el contexto y la nota de siempre.
   const info: Record<string, unknown> = {}
   es1.getWorksheet('Info')?.eachRow((row) => {
@@ -1268,11 +1429,306 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
     'Summary',
     'Entities',
     'Evidence',
-    'Impact',
     'Comments',
     'Info'
   ])
-  expect(header(en1.getWorksheet('Impact'))).toContain('Affected users (estimated)')
+  expect(en1.getWorksheet('Evidence')?.getRow(2).getCell(6).value).toBe('Active')
+})
+
+/** v0.9.1: abre P-779 (evidencias variadas) por URL y espera a que se pinten. */
+async function openEvidenceProblem(): Promise<Locator> {
+  await goToRoute(`/problems/${EV_ID}`)
+  const detail = page.getByTestId('problem-page')
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-779')
+  await expect(detail.getByTestId('evidence-item').first()).toBeVisible()
+  return detail
+}
+
+test('v0.9.1: evidencias: aviso de la API, chips con contador, causa raíz y grupos por entidad', async () => {
+  const detail = await openEvidenceProblem()
+  const section = detail.getByTestId('detail-evidence')
+  const items = section.getByTestId('evidence-item')
+
+  // La API mandó 8 de 12: se dice (y no es el "Ver todas" de la vista).
+  await expect(section.getByTestId('evidence-api-truncated')).toHaveText(
+    'La API ha devuelto 8 de 12 evidencias.'
+  )
+  await expect(section.getByTestId('evidence-api-truncated')).toHaveAttribute('role', 'status')
+
+  // Chips: un tipo cada uno, con la etiqueta traducida (el desconocido, tal cual) y el contador.
+  const chips = section.getByTestId('evidence-filter')
+  const chip = (type: string): Locator => chips.and(page.locator(`[data-type="${type}"]`))
+  await expect(chips).toHaveCount(6)
+  for (const [type, text] of [
+    ['EVENT', 'Evento 2'],
+    ['METRIC', 'Métrica 2'],
+    ['TRANSACTIONAL', 'Transaccional 1'],
+    ['AVAILABILITY_EVIDENCE', 'Disponibilidad 1'],
+    ['MAINTENANCE_WINDOW', 'Mantenimiento 1'],
+    ['TIPO_NUEVO_E2E', 'TIPO_NUEVO_E2E 1']
+  ] as const) {
+    await expect(chip(type), type).toHaveText(text)
+    await expect(chip(type), type).toHaveAttribute('aria-pressed', 'false')
+  }
+  await expect(items).toHaveCount(8)
+
+  // Causa raíz arriba, con las dos rootCauseRelevant en orden cronológico.
+  const root = section.getByTestId('evidence-root-cause')
+  await expect(root.locator('h3')).toHaveText('Causa raíz')
+  await expect(root.getByTestId('evidence-item')).toHaveCount(2)
+  await expect(root.getByTestId('evidence-item').nth(0)).toContainText('Reinicio del proceso')
+  await expect(root.getByTestId('evidence-item').nth(1)).toContainText('Host no disponible')
+  // La causa raíz va antes que los grupos.
+  const rootBox = await root.boundingBox()
+  const firstGroupBox = await section.getByTestId('evidence-group').first().boundingBox()
+  expect(rootBox!.y).toBeLessThan(firstGroupBox!.y)
+
+  // Grupos por entidad: por su primera evidencia; el de groupingEntity, por ella.
+  const groups = section.getByTestId('evidence-group')
+  await expect(groups).toHaveCount(3)
+  expect(
+    await groups.evaluateAll((all) => all.map((g) => g.getAttribute('data-entity-id')))
+  ).toEqual(['SERVICE-EV1', 'HOST-EV1', ''])
+  const service = groups.nth(0)
+  const host = groups.nth(1)
+  const loose = groups.nth(2)
+  await expect(service.getByTestId('evidence-group-toggle')).toContainText('pagos-ev')
+  await expect(service.getByTestId('evidence-group-toggle')).toContainText('SERVICE')
+  await expect(service.getByTestId('evidence-group-toggle')).toContainText('(3)')
+  await expect(service.getByTestId('evidence-item')).toHaveText([
+    /Despliegue/,
+    /Tiempo de respuesta/,
+    /Tasa de fallos/
+  ])
+  // host-ev: Uso de CPU y "Algo nuevo", que va por su groupingEntity (no por proc-nuevo).
+  // "Host no disponible" es causa raíz: no se repite aquí.
+  await expect(host.getByTestId('evidence-group-toggle')).toContainText('(2)')
+  await expect(host.getByTestId('evidence-item')).toHaveText([/Uso de CPU/, /Algo nuevo/])
+  await expect(section.locator('[data-entity-id="PROCESS_GROUP_INSTANCE-EV2"]')).toHaveCount(0)
+  await expect(section.getByText('Host no disponible')).toHaveCount(1)
+  await expect(loose.getByTestId('evidence-group-toggle')).toContainText('Sin entidad')
+  await expect(loose.getByTestId('evidence-item')).toHaveText([/Ventana de mantenimiento/])
+  // Tipos sin tarjeta propia: nombre, etiqueta del tipo y fechas ("Activa" si sigue).
+  await expect(loose.getByTestId('evidence-item')).toContainText('Mantenimiento')
+  await expect(loose.getByTestId('evidence-item')).toContainText('Activa')
+  await expect(host.getByTestId('evidence-item').nth(1)).toContainText('TIPO_NUEVO_E2E')
+
+  // Filtro: un chip deja solo su tipo (y la causa raíz, si no es de ese tipo, se va).
+  await chip('METRIC').click()
+  await expect(chip('METRIC')).toHaveAttribute('aria-pressed', 'true')
+  await expect(items).toHaveCount(2)
+  await expect(section.getByTestId('evidence-root-cause')).toHaveCount(0)
+  for (const item of await items.all()) await expect(item).toHaveAttribute('data-type', 'METRIC')
+  // Con dos, la unión; los contadores no cambian (son sobre todas).
+  await chip('TRANSACTIONAL').click()
+  await expect(items).toHaveCount(3)
+  await expect(chip('METRIC')).toHaveText('Métrica 2')
+  await chip('AVAILABILITY_EVIDENCE').click()
+  await expect(section.getByTestId('evidence-root-cause').getByTestId('evidence-item')).toHaveText([
+    /Host no disponible/
+  ])
+  // Sin ninguno pulsado, todo otra vez.
+  for (const type of ['METRIC', 'TRANSACTIONAL', 'AVAILABILITY_EVIDENCE']) await chip(type).click()
+  await expect(items).toHaveCount(8)
+
+  // Grupo plegable: plegado no enseña sus evidencias, pero sí su cabecera y contador.
+  const toggle = service.getByTestId('evidence-group-toggle')
+  await toggle.click()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(service.getByTestId('evidence-item')).toHaveCount(0)
+  await expect(toggle).toContainText('(3)')
+  await toggle.click()
+  await expect(service.getByTestId('evidence-item')).toHaveCount(3)
+})
+
+test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y «Más detalles» de un EVENT', async () => {
+  const detail = await openEvidenceProblem()
+  const section = detail.getByTestId('detail-evidence')
+  const item = (name: string): Locator =>
+    section.getByTestId('evidence-item').filter({ hasText: name })
+
+  // METRIC: antes → después con la unidad formateada (µs → ms y s), flecha y variación.
+  const metric = item('Tiempo de respuesta')
+  await expect(metric).toHaveAttribute('data-type', 'METRIC')
+  const change = metric.getByTestId('evidence-change')
+  await expect(change).toContainText('Tiempo de respuesta en pagos-ev:')
+  await expect(change).toContainText('200 ms → 1,5 s')
+  const variation = change.getByTestId('evidence-variation')
+  // 200 ms → 1500 ms: ×7,5 → +650 %; la flecha es un svg y la dirección va en sr-only.
+  await expect(variation).toContainText('+650 %')
+  await expect(variation.locator('.sr-only')).toHaveText('sube')
+  await expect(variation.locator('svg')).toHaveCount(1)
+  await expect(variation).toHaveClass(/text-danger/)
+  await expect(change.getByTestId('evidence-metric-id')).toHaveText(EV_METRIC)
+  await expect(change.getByTestId('evidence-open-metrics')).toHaveText('Abrir en Métricas')
+  // Sin fin: "Activa".
+  await expect(metric).toContainText('Activa')
+
+  // TRANSACTIONAL: antes 0 → sin cociente, con la diferencia y su unidad; sin métrica.
+  const transactional = item('Tasa de fallos')
+  await expect(transactional).toHaveAttribute('data-type', 'TRANSACTIONAL')
+  await expect(transactional.getByTestId('evidence-change')).toContainText('0 % → 12,5 %')
+  await expect(transactional.getByTestId('evidence-variation')).toContainText('+12,5 %')
+  await expect(transactional.getByTestId('evidence-variation').locator('.sr-only')).toHaveText(
+    'sube'
+  )
+  await expect(transactional.getByTestId('evidence-metric-id')).toHaveCount(0)
+  await expect(transactional.getByTestId('evidence-open-metrics')).toHaveCount(0)
+
+  // METRIC sin valores: N/A (antes, después y variación), sin romper la tarjeta.
+  const empty = item('Uso de CPU')
+  await expect(empty.getByTestId('evidence-change')).toContainText('N/A → N/A')
+  await expect(empty.getByTestId('evidence-variation')).toContainText('N/A')
+  await expect(empty.getByTestId('evidence-metric-id')).toHaveText('builtin:host.cpu.usage')
+
+  // EVENT con propiedades: "Más detalles" las despliega, como texto (el <b> no es HTML).
+  const event = item('Reinicio del proceso')
+  await expect(event).toContainText('PROCESS_RESTART')
+  const more = event.getByTestId('evidence-more')
+  await expect(more).toHaveText('Más detalles')
+  await expect(more).toHaveAttribute('aria-expanded', 'false')
+  await expect(event.getByTestId('evidence-properties')).toHaveCount(0)
+  await more.click()
+  await expect(more).toHaveText('Menos detalles')
+  await expect(more).toHaveAttribute('aria-expanded', 'true')
+  const properties = event.getByTestId('evidence-properties')
+  await expect(properties.locator('dt')).toHaveText(['dt.event.description', 'exit.code'])
+  await expect(properties.locator('dd')).toHaveText([EV_PROPERTY, '137'])
+  await expect(properties.locator('b')).toHaveCount(0)
+  await more.click()
+  await expect(event.getByTestId('evidence-properties')).toHaveCount(0)
+  // EVENT sin propiedades: sin "Más detalles".
+  await expect(item('Despliegue').getByTestId('evidence-more')).toHaveCount(0)
+  await expect(item('Despliegue')).toContainText('CUSTOM_DEPLOYMENT')
+})
+
+test('v0.9.1: «Abrir en Métricas» lleva a Métricas con la métrica, el rango del problema y la consulta hecha', async () => {
+  const detail = await openEvidenceProblem()
+  const before = sim.metricsQueries
+  const clickedAt = Date.now()
+  await detail
+    .getByTestId('evidence-item')
+    .filter({ hasText: 'Tiempo de respuesta' })
+    .getByTestId('evidence-open-metrics')
+    .click()
+
+  // Consulta hecha, con la métrica y el rango personalizado: inicio − 30 min hasta ahora
+  // (el problema sigue abierto). Sin filtro por entidad.
+  await expect.poll(() => sim.metricsQueries).toBe(before + 1)
+  expect(sim.lastMetricsQuery.get('metricSelector')).toBe(EV_METRIC)
+  expect(sim.lastMetricsQuery.get('from')).toBe(new Date(EV_START - 30 * MIN).toISOString())
+  const to = Date.parse(sim.lastMetricsQuery.get('to') ?? '')
+  expect(to).toBeGreaterThanOrEqual(clickedAt - 1000)
+  expect(to).toBeLessThanOrEqual(Date.now())
+  // En la página: el selector en el formulario y la URL limpia (sin ?selector=).
+  await expect(page.getByTestId('metric-selector')).toHaveValue(EV_METRIC)
+  await expect.poll(currentRoute).toBe('/metrics')
+  // Volver no repite la consulta (la URL ya no la lleva).
+  await page.getByTestId('module-refresh').waitFor()
+  expect(sim.metricsQueries).toBe(before + 1)
+})
+
+test('v0.9.1: Métricas por URL: con basura no hace nada', async () => {
+  const before = sim.metricsQueries
+  await goToRoute('/metrics?selector=&from=ayer&to=2026-10-04T10:00:00.000Z')
+  await expect(page.getByTestId('metric-selector')).toBeVisible()
+  await expect(page.getByTestId('metric-selector')).toHaveValue('')
+  // Aserción negativa: un margen para que una consulta, si la hubiera, saliera.
+  await page.waitForTimeout(500)
+  expect(sim.metricsQueries).toBe(before)
+})
+
+test('v0.9.1: comentarios: aviso de recientes, «Ver todos (7)», contexto y HTML literal', async () => {
+  const dialogs: string[] = []
+  const onDialog = (dialog: { message: () => string; dismiss: () => Promise<void> }): void => {
+    dialogs.push(dialog.message())
+    void dialog.dismiss()
+  }
+  page.on('dialog', onDialog)
+  try {
+    const detail = await openEvidenceProblem()
+    const section = detail.getByTestId('detail-comments')
+    const comments = section.getByTestId('problem-comment')
+    await expect(comments).toHaveCount(2)
+    await expect(section.getByTestId('comments-api-truncated')).toHaveText(
+      'Se ven los 2 más recientes de 7 comentarios.'
+    )
+    const showAll = section.getByTestId('comments-show-all')
+    await expect(showAll).toHaveText('Ver todos (7)')
+    // No se piden hasta pulsar.
+    expect(sim.commentsRequests).toBe(0)
+    // El contexto, como etiqueta; sin autor → N/A.
+    await expect(comments.nth(0).getByTestId('comment-context')).toHaveText('dynatrace-problem-ui')
+    await expect(comments.nth(1).getByTestId('comment-context')).toHaveCount(0)
+    await expect(comments.nth(1)).toContainText('N/A')
+
+    await showAll.click()
+    await expect(comments).toHaveCount(7)
+    expect(sim.commentsRequests).toBe(1)
+    expect(Object.fromEntries(sim.lastCommentsQuery)).toEqual({ pageSize: '500' })
+    await expect(section.getByTestId('comments-api-truncated')).toHaveCount(0)
+    await expect(showAll).toHaveCount(0)
+    await expect(section.getByTestId('comments-all-truncated')).toHaveCount(0)
+    await expect(section.getByTestId('comment-context')).toHaveText(['dynatrace-problem-ui', 'api'])
+    await expect(section).toContainText('Primer comentario')
+    // El que viene sin contenido no rompe nada.
+    await expect(comments.nth(3)).toContainText('luis')
+
+    // HTML literal: el texto tal cual, sin elementos ni ejecución.
+    await expect(section).toContainText('<script>window.__xss = "script"</script>')
+    await expect(section.locator('script, img')).toHaveCount(0)
+    await page.waitForTimeout(300)
+    expect(await page.evaluate(() => (window as { __xss?: unknown }).__xss ?? null)).toBeNull()
+    expect(dialogs).toEqual([])
+  } finally {
+    page.off('dialog', onDialog)
+  }
+})
+
+test('v0.9.1: XLSX de evidencias variadas: números, "Activa", causa raíz y avisos de la API en Info', async () => {
+  await openEvidenceProblem()
+  const book = new ExcelJS.Workbook()
+  await book.xlsx.load(
+    readFileSync(await exportTo('problem-page', 'export-xlsx')) as unknown as ArrayBuffer
+  )
+  expect(book.worksheets.map((s) => s.name)).toEqual([
+    'Resumen',
+    'Entidades',
+    'Evidencias',
+    'Comentarios',
+    'Info'
+  ])
+  const evidence = book.getWorksheet('Evidencias')
+  const rows = new Map<string, ExcelJS.Row>()
+  evidence?.eachRow((row, n) => {
+    if (n > 1) rows.set(String(row.getCell(2).value), row)
+  })
+  expect(rows.size).toBe(8)
+  const metric = rows.get('Tiempo de respuesta')
+  // Antes y después como números, sin formatear ni escalar; la unidad aparte.
+  expect(metric?.getCell(7).value).toBe(200_000)
+  expect(metric?.getCell(8).value).toBe(1_500_000)
+  expect(metric?.getCell(9).value).toBe('MicroSecond')
+  expect(metric?.getCell(10).value).toBe(EV_METRIC)
+  expect(metric?.getCell(6).value).toBe('Activa')
+  expect(metric?.getCell(4).value).toBe('No')
+  const root = rows.get('Reinicio del proceso')
+  expect(root?.getCell(4).value).toBe('Sí')
+  expect(root?.getCell(5).value).toBeInstanceOf(Date)
+  expect(root?.getCell(6).value).toBeInstanceOf(Date)
+  expect(root?.getCell(11).value).toBe('PROCESS_RESTART')
+  // Sin entidad: celda vacía. Tipo desconocido, tal cual.
+  expect(rows.get('Ventana de mantenimiento')?.getCell(3).value ?? null).toBeNull()
+  expect(rows.get('Algo nuevo')?.getCell(1).value).toBe('TIPO_NUEVO_E2E')
+  // Comentarios: los 2 recientes del detalle.
+  expect(book.getWorksheet('Comentarios')?.actualRowCount).toBe(3)
+  // Info: los dos recortes de la API.
+  const info: string[] = []
+  book.getWorksheet('Info')?.eachRow((row) => {
+    info.push(row.values ? (row.values as unknown[]).map(String).join('|') : '')
+  })
+  expect(info.join('\n')).toContain('La API ha devuelto 8 de 12 evidencias.')
+  expect(info.join('\n')).toContain('La API ha devuelto 2 de 7 comentarios.')
 })
 
 test('v0.9.0: cambiar de entorno estando en el detalle lleva a la lista del entorno nuevo', async () => {

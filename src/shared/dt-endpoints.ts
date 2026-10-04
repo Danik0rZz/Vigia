@@ -23,6 +23,20 @@ export const DT_ENDPOINTS = {
   metrics: { path: '/metrics', itemsKey: 'metrics', keepOnNextPage: [] }
 } as const satisfies Record<string, DtListEndpoint>
 
+/**
+ * Comentarios de un problema (el path lleva su id). keepOnNextPage es [] A
+ * PROPÓSITO: este endpoint no tiene parámetro `fields` (APIv2.json solo da
+ * nextPageKey y pageSize). El texto de nextPageKey ("except the optional fields
+ * parameter") es el genérico de todos los endpoints; no lo "corrijas".
+ */
+export function problemCommentsEndpoint(problemId: string): DtListEndpoint {
+  return {
+    path: `/problems/${encodeURIComponent(problemId)}/comments`,
+    itemsKey: 'comments',
+    keepOnNextPage: []
+  }
+}
+
 export type DtQueryValue = string | number | boolean | readonly string[] | undefined
 
 /** Parámetros de la página siguiente: `nextPageKey` y lo que el endpoint permite repetir. */

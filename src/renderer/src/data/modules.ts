@@ -110,6 +110,20 @@ export function useProblem(
   })
 }
 
+/** Todos los comentarios de un problema, solo cuando se piden ("Ver todos"). */
+export function useProblemComments(
+  envId: string | null,
+  problemId: string,
+  enabled: boolean
+): UseQueryResult<IpcOutput<'problems:comments'>> {
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'problems', { problemId, comments: 'all' }),
+    queryFn: () => invoke('problems:comments', { environmentId: envId ?? '', problemId }),
+    enabled: enabled && envId !== null,
+    ...MANUAL
+  })
+}
+
 export function useSlos(envId: string | null): UseQueryResult<IpcOutput<'slos:list'>> {
   return useQuery({
     queryKey: moduleKey(envId ?? '', 'home', 'slos'),
