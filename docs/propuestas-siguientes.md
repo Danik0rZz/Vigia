@@ -70,8 +70,9 @@ canales y pruebas nuevas, o una pieza de infraestructura).
 
 - **Qué aporta al usuario:** ver los problemas agrupados por clúster de Kubernetes, con el número
   de cada grupo, en lugar de solo la columna "Clúster" y el filtro que hay hoy.
-- **API y endpoints:** ninguno nuevo. Se agrupa en local sobre lo ya cargado: el clúster sale de las
-  entidades afectadas e impactadas (`k8s.cluster.*`), como en la columna actual.
+- **API y endpoints:** ninguno nuevo. Se agrupa en local sobre lo ya cargado: el clúster sale del
+  campo `k8s.cluster.name` del propio problema (no declarado en la OpenAPI, observado en vivo), como
+  la columna actual.
   - `problemSelector` no puede filtrar por clúster (400, observado), así que el grupo no se puede
     pedir a la API.
 - **Scopes:** los de Problemas: `problems.read` / `environment-api:problems:read`.
