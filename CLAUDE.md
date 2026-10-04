@@ -86,17 +86,18 @@ v0.9.2, pruebas a mano (mini gráfico; se pueden hacer con el zip 0.9.2 en vez d
 
 v0.10.0, pruebas a mano (tabla de evidencias; se pueden hacer con el zip 0.10.0 en vez del 0.9.2):
 
-- [ ] En un problema real, las evidencias salen en tabla con los abiertos arriba, y se ve de un vistazo qué eventos siguen abiertos (también en un problema cerrado, si tiene alguno). Los contadores Todos/Abiertos/Cerrados cuadran y filtran.
-- [ ] Desplegar un evento con el ratón y con el teclado (Enter, Tab dentro, Escape): propiedades, zonas, etiquetas y, si lo tiene, el mini gráfico. El resumen de la causa raíz salta a su fila.
-- [ ] Con un filtro puesto, exportar el XLSX: la hoja Evidencias trae solo lo filtrado, en el orden de la tabla, y la hoja Info lo dice. Volver a la lista y entrar otra vez al problema deja la tabla como estaba.
-- [ ] Arrancar el zip 0.10.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+- [x] En un problema real, las evidencias salen en tabla con los abiertos arriba, y se ve de un vistazo qué eventos siguen abiertos (también en un problema cerrado, si tiene alguno). Los contadores Todos/Abiertos/Cerrados cuadran y filtran.
+- [x] Desplegar un evento con el ratón y con el teclado (Enter, Tab dentro, Escape): propiedades, zonas y etiquetas. El resumen de la causa raíz salta a su fila.
+- [ ] El mini gráfico de una evidencia con métrica, al desplegarla: pendiente del arreglo del eje de tiempo de la 0.10.2 (ponía "00:00" en todas las marcas en rangos de varios días).
+- [x] Con un filtro puesto, exportar el XLSX: la hoja Evidencias trae solo lo filtrado, en el orden de la tabla, y la hoja Info lo dice. Volver a la lista y entrar otra vez al problema deja la tabla como estaba.
+- [x] Arrancar el zip 0.10.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
 v0.10.1, pruebas a mano (pantallas de error). Para verlas en desarrollo: `$env:VIGIA_E2E='1'; npm run dev` y, como la app no tiene barra de direcciones, desde la consola de DevTools (Ctrl+Mayús+I en dev): `location.hash = '#/__errors/unexpected'` (y `chunk`, `panel`, `fatal`). Con `VIGIA_E2E` la ventana se abre sin tomar el foco.
 
-- [ ] Cada variante se ve bien en claro y en oscuro: inesperado (Reintentar, Inicio, Recargar), actualizada (cuenta atrás que se puede cancelar), 404 (`#/esto-no-existe`), panel compacto y la de último recurso (`fatal`). El faro se mueve y, con "Reducir animaciones" de Windows, se queda quieto.
-- [ ] "Detalles técnicos" → "Copiar detalles": lo pegado no lleva tu usuario en las rutas (sale `<usuario>`).
-- [ ] Editar un fichero con `npm run dev` abierto: si sale una pantalla, es la de "El código ha cambiado mientras Vigía estaba abierta" con Recargar, no la de React Router.
-- [ ] Arrancar el zip 0.10.1 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+- [x] Cada variante se ve bien en claro y en oscuro: inesperado (Reintentar, Inicio, Recargar), actualizada (cuenta atrás que se puede cancelar), 404 (`#/esto-no-existe`), panel compacto y la de último recurso (`fatal`). El faro se mueve y, con "Reducir animaciones" de Windows, se queda quieto.
+- [x] "Detalles técnicos" → "Copiar detalles": lo pegado no lleva tu usuario en las rutas (sale `<usuario>`).
+- [x] Editar un fichero con `npm run dev` abierto: si sale una pantalla, es la de "El código ha cambiado mientras Vigía estaba abierta" con Recargar, no la de React Router.
+- [x] Arrancar el zip 0.10.1 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
 Fase 2:
 
