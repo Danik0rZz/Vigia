@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:https'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -11,6 +11,7 @@ import {
   type Locator,
   type Page
 } from '@playwright/test'
+import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 import ExcelJS from 'exceljs'
 import { generate } from 'selfsigned'
@@ -585,6 +586,16 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
+  try {
+    await restoreClipboardAndClose()
+  } finally {
+    // Aunque falle el cierre, las carpetas temporales no se quedan en disco.
+    removeDir(userDataDir)
+    removeDir(exportDir)
+  }
+})
+
+async function restoreClipboardAndClose(): Promise<void> {
   await app
     ?.evaluate(async ({ clipboard, ClipboardItem }, key) => {
       const cb = clipboard as unknown as ElectronClipboard
@@ -609,11 +620,12 @@ test.afterAll(async () => {
       }
     }, SAVED_CLIPBOARD)
     .catch(() => undefined)
-  await app?.close()
-  await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()))
-  rmSync(userDataDir, { recursive: true, force: true })
-  rmSync(exportDir, { recursive: true, force: true })
-})
+  try {
+    await app?.close()
+  } finally {
+    await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()))
+  }
+}
 
 test('sin entorno activo, las tres vistas dicen que no hay entorno', async () => {
   for (const id of ['home', 'problems', 'metrics']) {

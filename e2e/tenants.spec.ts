@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -9,6 +9,7 @@ import {
   type Locator,
   type Page
 } from '@playwright/test'
+import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 import es from '../src/renderer/src/locales/es/common.json'
 
@@ -62,8 +63,11 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await app?.close()
-  rmSync(userDataDir, { recursive: true, force: true })
+  try {
+    await app?.close()
+  } finally {
+    removeDir(userDataDir)
+  }
 })
 
 /** Llama a un canal IPC desde la interfaz, como lo haría la app. */

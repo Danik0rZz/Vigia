@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -8,6 +8,7 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
+import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 import en from '../src/renderer/src/locales/en/common.json'
 import es from '../src/renderer/src/locales/es/common.json'
@@ -96,8 +97,11 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await app?.close()
-  rmSync(userDataDir, { recursive: true, force: true })
+  try {
+    await app?.close()
+  } finally {
+    removeDir(userDataDir)
+  }
 })
 
 async function goTo(id: string): Promise<void> {

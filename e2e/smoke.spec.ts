@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -10,6 +10,7 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
+import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 
 /**
@@ -40,8 +41,11 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await app?.close()
-  rmSync(userDataDir, { recursive: true, force: true })
+  try {
+    await app?.close()
+  } finally {
+    removeDir(userDataDir)
+  }
 })
 
 /** Llama a un canal IPC desde la interfaz, como lo haría la app. */

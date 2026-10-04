@@ -1,5 +1,5 @@
 import { constants as cryptoConstants, createHash, X509Certificate } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { createServer, type Server } from 'node:https'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -11,6 +11,7 @@ import {
   type ElectronApplication,
   type Page
 } from '@playwright/test'
+import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 import { generate } from 'selfsigned'
 
@@ -248,12 +249,16 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await app?.close()
-  ssoServer?.closeAllConnections()
-  await new Promise<void>((resolve) => (ssoServer ? ssoServer.close(() => resolve()) : resolve()))
-  server?.closeAllConnections()
-  await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()))
-  rmSync(userDataDir, { recursive: true, force: true })
+  try {
+    await app?.close()
+  } finally {
+    // Aunque falle el cierre, los servidores se paran y la carpeta temporal se borra.
+    ssoServer?.closeAllConnections()
+    await new Promise<void>((resolve) => (ssoServer ? ssoServer.close(() => resolve()) : resolve()))
+    server?.closeAllConnections()
+    await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()))
+    removeDir(userDataDir)
+  }
 })
 
 test('nivel system: certificado no confiable, con su host y su huella', async () => {
