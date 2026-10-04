@@ -23,6 +23,22 @@ export function shouldAutoReload(
   }
 }
 
+/**
+ * Solo lectura (para decidir qué pantalla enseñar): si una recarga automática
+ * se podría hacer ahora. La marca la deja shouldAutoReload cuando se enseña la
+ * cuenta atrás; así decidir varias veces (React repite el render que falla) no
+ * la gasta.
+ */
+export function canAutoReload(storage: Pick<Storage, 'getItem'> | null, now: number): boolean {
+  if (storage === null) return false
+  try {
+    const stored = Number(storage.getItem(KEY))
+    return !(Number.isFinite(stored) && stored > 0 && now - stored < WINDOW_MS)
+  } catch {
+    return false
+  }
+}
+
 /** sessionStorage, o null si no se puede usar. */
 export function sessionStore(): Storage | null {
   try {

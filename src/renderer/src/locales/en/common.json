@@ -611,5 +611,35 @@
   },
   "app": {
     "dev": "DEV"
+  },
+  "errorScreen": {
+    "unexpected": {
+      "title": "Something broke",
+      "body": "Vigía hit an unexpected error. Try again; if it happens again, copy the details and let us know."
+    },
+    "updated": {
+      "title": "Vigía has been updated",
+      "body": "Part of the interface is missing, usually because there is a new version. Reload to continue.",
+      "countdown": "Reloading in {{count}} s",
+      "cancel": "Cancel"
+    },
+    "hot": {
+      "title": "The code changed while Vigía was open",
+      "body": "The development hot reload left the interface half-updated. Reload to continue."
+    },
+    "notFound": {
+      "title": "Nothing here",
+      "body": "The page you are looking for does not exist or has moved."
+    },
+    "panel": {
+      "title": "This panel failed. The rest of the page still works."
+    },
+    "retry": "Try again",
+    "home": "Go to Home",
+    "reload": "Reload",
+    "details": "Technical details",
+    "copy": "Copy details",
+    "copied": "Copied",
+    "copyFailed": "Could not copy"
   }
 }

@@ -7,6 +7,7 @@ import type { TimeRangeValue } from '@shared/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../../components/Chart'
 import { ExportMenu } from '../../components/ExportMenu'
 import { ApiWarnings } from '../../components/ModuleState'
+import { PanelBoundary } from '../../components/PanelBoundary'
 
 /** Porcentaje entero de un ratio (0,5 → 50). */
 const percent = (ratio: number): number => Math.round(ratio * 100)
@@ -126,13 +127,15 @@ export function MetricChartPanel({
           }}
         />
       </div>
-      <Chart
-        ref={chart}
-        testId="metric-chart"
-        label={t('metrics.chart')}
-        buildOption={buildOption}
-        seriesNames={names}
-      />
+      <PanelBoundary>
+        <Chart
+          ref={chart}
+          testId="metric-chart"
+          label={t('metrics.chart')}
+          buildOption={buildOption}
+          seriesNames={names}
+        />
+      </PanelBoundary>
       {isEmpty && <p className="text-sm text-muted-foreground">{t('metrics.noSeries')}</p>}
       {result !== undefined && (
         <p data-testid="metric-resolution-applied" className="text-xs text-muted-foreground">

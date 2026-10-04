@@ -99,6 +99,7 @@
         "src/renderer/src/components/DataGrid.tsx",
         "src/renderer/src/components/EvidenceSection.tsx",
         "src/renderer/src/components/EvidenceMetricChart.tsx",
+        "src/renderer/src/components/PanelBoundary.tsx",
         "src/renderer/src/app/evidence-table.ts",
         "src/renderer/src/components/TopBar.tsx",
         "src/renderer/src/app/problem-filters.ts",
@@ -127,6 +128,19 @@
         "src/shared/error-reasons.ts"
       ],
       "specs": ["e2e/views.spec.ts"]
+    },
+    "errors": {
+      "globs": [
+        "src/renderer/src/components/ErrorScreen.tsx",
+        "src/renderer/src/components/PanelBoundary.tsx",
+        "src/renderer/src/components/Lighthouse.tsx",
+        "src/renderer/src/app/RouteError.tsx",
+        "src/renderer/src/app/AppErrorBoundary.tsx",
+        "src/renderer/src/app/ErrorTrigger.tsx",
+        "src/shared/error-report.ts",
+        "src/shared/mask.ts"
+      ],
+      "specs": ["e2e/errors.spec.ts"]
     },
     "shell": {
       "globs": [

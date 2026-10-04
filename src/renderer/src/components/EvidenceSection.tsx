@@ -51,6 +51,7 @@ import {
   type RowStatus
 } from './DataGrid'
 import { EvidenceMetricChart } from './EvidenceMetricChart'
+import { PanelBoundary } from './PanelBoundary'
 import { BUTTON_SECONDARY, INPUT } from './styles'
 
 /** Lo que las evidencias necesitan del problema: sus fechas y el "ahora" de sus gráficos. */
@@ -252,12 +253,14 @@ function EventDetail({
       )}
       {/* Eventos con dt.event.metric_selector: el mini gráfico de esa métrica. */}
       {metric?.status === 'ok' && (
-        <EvidenceMetricChart
-          view={view}
-          selector={metric.selector}
-          threshold={metric.threshold}
-          problem={problem}
-        />
+        <PanelBoundary>
+          <EvidenceMetricChart
+            view={view}
+            selector={metric.selector}
+            threshold={metric.threshold}
+            problem={problem}
+          />
+        </PanelBoundary>
       )}
       {metric?.status === 'tooLong' && (
         <p data-testid="evidence-metric-too-long" className="text-xs text-muted-foreground">
@@ -845,32 +848,34 @@ export function EvidenceSection({
           </button>
         </div>
       ) : (
-        <DataGrid
-          items={rows}
-          getId={evidenceId}
-          columns={columns}
-          gridTemplate={GRID_COLUMNS}
-          className={GRID_MIN_WIDTH}
-          sort={sort}
-          // Solo ordenan las columnas con `sortable`, todas con clave de EvidenceSortKey.
-          onSortChange={(next) => update(key, { sort: next as EvidenceSort })}
-          status={status}
-          onActivate={(view) => toggleExpanded(key, view.id)}
-          selected={null}
-          rowTestId="evidence-row"
-          rowData={evidenceRowData}
-          gridTestId="evidence-grid"
-          scrollTestId="evidence-scroll"
-          ariaLabel={t('problems.eventTable.label')}
-          scrollRef={scrollRef}
-          handleRef={gridRef}
-          detail={{
-            expanded,
-            testId: 'evidence-detail',
-            onCollapse: (view) => toggleExpanded(key, view.id),
-            render: (view) => <EvidenceDetail view={view} problem={problem} />
-          }}
-        />
+        <PanelBoundary>
+          <DataGrid
+            items={rows}
+            getId={evidenceId}
+            columns={columns}
+            gridTemplate={GRID_COLUMNS}
+            className={GRID_MIN_WIDTH}
+            sort={sort}
+            // Solo ordenan las columnas con `sortable`, todas con clave de EvidenceSortKey.
+            onSortChange={(next) => update(key, { sort: next as EvidenceSort })}
+            status={status}
+            onActivate={(view) => toggleExpanded(key, view.id)}
+            selected={null}
+            rowTestId="evidence-row"
+            rowData={evidenceRowData}
+            gridTestId="evidence-grid"
+            scrollTestId="evidence-scroll"
+            ariaLabel={t('problems.eventTable.label')}
+            scrollRef={scrollRef}
+            handleRef={gridRef}
+            detail={{
+              expanded,
+              testId: 'evidence-detail',
+              onCollapse: (view) => toggleExpanded(key, view.id),
+              render: (view) => <EvidenceDetail view={view} problem={problem} />
+            }}
+          />
+        </PanelBoundary>
       )}
     </div>
   )

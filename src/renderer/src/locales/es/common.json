@@ -611,5 +611,35 @@
   },
   "app": {
     "dev": "DEV"
+  },
+  "errorScreen": {
+    "unexpected": {
+      "title": "Algo se ha roto",
+      "body": "Vigía ha encontrado un error inesperado. Reintenta; si se repite, copia los detalles y avísanos."
+    },
+    "updated": {
+      "title": "Vigía se ha actualizado",
+      "body": "Falta una parte de la interfaz, normalmente porque hay una versión nueva. Recarga para seguir.",
+      "countdown": "Recargando en {{count}} s",
+      "cancel": "Cancelar"
+    },
+    "hot": {
+      "title": "El código ha cambiado mientras Vigía estaba abierta",
+      "body": "La recarga en caliente de desarrollo ha dejado la interfaz a medias. Recarga para seguir."
+    },
+    "notFound": {
+      "title": "Aquí no hay nada",
+      "body": "La página que buscas no existe o se ha movido."
+    },
+    "panel": {
+      "title": "Este panel ha fallado. El resto de la página sigue funcionando."
+    },
+    "retry": "Reintentar",
+    "home": "Ir a Inicio",
+    "reload": "Recargar",
+    "details": "Detalles técnicos",
+    "copy": "Copiar detalles",
+    "copied": "Copiado",
+    "copyFailed": "No se pudo copiar"
   }
 }

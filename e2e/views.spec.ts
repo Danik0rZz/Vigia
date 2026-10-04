@@ -2687,6 +2687,34 @@ test('v0.9.2: exportar las series del mini gráfico (CSV con hora, serie y valor
   expect(png.cornerAlpha).toBe(255)
 })
 
+test('v0.10.1: «Copiar detalles» de la pantalla de error: el portapapeles lleva los detalles enmascarados (sin rutas de usuario)', async () => {
+  // Va en views porque es el spec que guarda y restaura el portapapeles de quien usa el PC.
+  await goToRoute('/__errors/unexpected')
+  const screen = page.getByTestId('error-screen')
+  await expect(screen).toBeVisible()
+  await page.getByTestId('error-details').locator('summary').click()
+  const shown = (await page.getByTestId('error-details-text').innerText()).trim()
+  expect(shown).toContain('/__errors/unexpected')
+  await app.evaluate(({ clipboard }) => (clipboard as unknown as ElectronClipboard).clear())
+  await page.getByTestId('error-copy').click()
+  await expect(page.getByTestId('error-copy-status')).toHaveText(es.errorScreen.copied)
+  const copied = await app.evaluate(({ clipboard }) =>
+    (clipboard as unknown as { readText: () => Promise<string> | string }).readText()
+  )
+  // Lo mismo que se ve, ya enmascarado: el usuario de las rutas, nunca.
+  expect(copied.trim()).toBe(shown)
+  expect(copied).toContain('/__errors/unexpected')
+  expect(copied).not.toMatch(/[A-Za-z]:[\\/]Users[\\/](?!<usuario>)/i)
+  expect(copied).not.toMatch(/\/home\/(?!<usuario>)/)
+  // El disparador mete una ruta de usuario inventada en el mensaje: sale tapada.
+  expect(copied).not.toContain('persona-prueba')
+  expect(copied).toContain('<usuario>')
+  // El error provocado lo escriben en consola React y React Router: es el
+  // esperado y se quita; cualquier otro sigue haciendo fallar el afterEach.
+  const others = consoleErrors.filter((line) => !line.includes('Error de prueba del disparador'))
+  consoleErrors.splice(0, consoleErrors.length, ...others)
+})
+
 test('v0.9.0: cambiar de entorno estando en el detalle lleva a la lista del entorno nuevo', async () => {
   await openProblems()
   await openProblem('P-101')

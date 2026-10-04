@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { createHashRouter, Navigate, type RouteObject } from 'react-router'
+import { createHashRouter, type RouteObject } from 'react-router'
 import { HomePage } from '../pages/HomePage'
 import { MetricsPage } from '../pages/MetricsPage'
 import { ProblemDetailPage } from '../pages/ProblemDetailPage'
@@ -9,6 +9,7 @@ import { SettingsPage } from '../pages/SettingsPage'
 import { ErrorTrigger } from './ErrorTrigger'
 import { Layout } from './Layout'
 import { NAV_SECTIONS } from './navigation'
+import { NotFound, RouteError } from './RouteError'
 
 /** Secciones con página propia; el resto muestra la página vacía genérica. */
 const PAGES: Partial<Record<string, ComponentType>> = {
@@ -18,10 +19,14 @@ const PAGES: Partial<Record<string, ComponentType>> = {
   settings: SettingsPage
 }
 
+// Cada ruta con su errorElement: el error ocupa el área de contenido y el menú sigue.
 const sectionRoutes: RouteObject[] = NAV_SECTIONS.map((section) => {
   const Page = PAGES[section.id]
   const element = Page !== undefined ? <Page /> : <SectionPage section={section} />
-  return section.path === '/' ? { index: true, element } : { path: section.path.slice(1), element }
+  const errorElement = <RouteError />
+  return section.path === '/'
+    ? { index: true, element, errorElement }
+    : { path: section.path.slice(1), element, errorElement }
 })
 
 /**
@@ -34,12 +39,20 @@ export function buildRoutes({ errorTrigger }: { errorTrigger: boolean }): RouteO
     {
       path: '/',
       element: <Layout />,
+      // Si falla el propio layout: pantalla completa.
+      errorElement: <RouteError />,
       children: [
         ...sectionRoutes,
         // Página dentro de Problemas, no una sección del menú (NAV_SECTIONS no cambia).
-        { path: 'problems/:problemId', element: <ProblemDetailPage /> },
-        ...(errorTrigger ? [{ path: '__errors/:variant', element: <ErrorTrigger /> }] : []),
-        { path: '*', element: <Navigate to="/" replace /> }
+        {
+          path: 'problems/:problemId',
+          element: <ProblemDetailPage />,
+          errorElement: <RouteError />
+        },
+        ...(errorTrigger
+          ? [{ path: '__errors/:variant', element: <ErrorTrigger />, errorElement: <RouteError /> }]
+          : []),
+        { path: '*', element: <NotFound /> }
       ]
     }
   ]

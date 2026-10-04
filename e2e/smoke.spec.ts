@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -157,6 +157,24 @@ test('VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco del sis
   expect(
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isFocused())
   ).toBe(false)
+})
+
+test('v0.10.1: el código de desarrollo (recarga en caliente de Vite) no está en el bundle de producción', async () => {
+  // out/ es la build de producción con la que corren estos e2e (sin el servidor de Vite).
+  const assets = join(process.cwd(), 'out', 'renderer', 'assets')
+  const bundle = readdirSync(assets)
+    .filter((name) => name.endsWith('.js'))
+    .map((name) => readFileSync(join(assets, name), 'utf8'))
+    .join('\n')
+  expect(bundle.length).toBeGreaterThan(0)
+  for (const devOnly of [
+    'vite:afterUpdate',
+    'vite:beforeUpdate',
+    'import.meta.hot',
+    '/@vite/client'
+  ]) {
+    expect(bundle, devOnly).not.toContain(devOnly)
+  }
 })
 
 test('una segunda instancia no abre otra ventana', async () => {

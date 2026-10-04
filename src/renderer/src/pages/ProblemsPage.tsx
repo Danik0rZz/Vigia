@@ -17,6 +17,7 @@ import { useProblemFilters } from '../app/problem-filters'
 import { useTimeRangeValue } from '../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../components/Chart'
 import { ExportMenu } from '../components/ExportMenu'
+import { PanelBoundary } from '../components/PanelBoundary'
 import {
   ApiWarnings,
   ModuleError,
@@ -286,13 +287,15 @@ export function ProblemsPage(): JSX.Element {
               }}
             />
           </div>
-          <Chart
-            ref={chart}
-            testId="problems-timeline"
-            label={t('problems.timeline')}
-            buildOption={buildOption}
-            height={180}
-          />
+          <PanelBoundary>
+            <Chart
+              ref={chart}
+              testId="problems-timeline"
+              label={t('problems.timeline')}
+              buildOption={buildOption}
+              height={180}
+            />
+          </PanelBoundary>
         </section>
 
         <section className="glass grid gap-2 rounded-xl p-4" aria-label={t('problems.table')}>
@@ -325,16 +328,18 @@ export function ProblemsPage(): JSX.Element {
               filtered={filtered}
             />
           )}
-          <ProblemsTable
-            items={items}
-            selected={lastOpened}
-            onSelect={open}
-            scrollRef={tableRef}
-            sort={sort}
-            onSortChange={setSort}
-            initialIndex={scrollIndex}
-            onFirstVisibleChange={setScrollIndex}
-          />
+          <PanelBoundary>
+            <ProblemsTable
+              items={items}
+              selected={lastOpened}
+              onSelect={open}
+              scrollRef={tableRef}
+              sort={sort}
+              onSortChange={setSort}
+              initialIndex={scrollIndex}
+              onFirstVisibleChange={setScrollIndex}
+            />
+          </PanelBoundary>
           {query.isSuccess && problems.length === 0 && (
             <p className="px-2 py-3 text-sm text-muted-foreground">{t('module.empty')}</p>
           )}

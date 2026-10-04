@@ -9,7 +9,13 @@ export function setErrorLogVersion(version: string): void {
   appVersion = version.slice(0, ERROR_REPORT_LIMITS.version)
 }
 
-function describe(error: unknown): { message: string; stack: string | null } {
+/** La versión que va en el log y en los detalles técnicos ('' si aún no ha llegado). */
+export function errorLogVersion(): string {
+  return appVersion
+}
+
+/** Mensaje y stack de cualquier cosa que se haya lanzado. */
+export function describeError(error: unknown): { message: string; stack: string | null } {
   if (error instanceof Error) return { message: error.message, stack: error.stack ?? null }
   if (typeof error === 'string') return { message: error, stack: null }
   try {
@@ -26,7 +32,7 @@ function describe(error: unknown): { message: string; stack: string | null } {
  */
 export function reportError(error: unknown, route: string): void {
   try {
-    const { message, stack } = describe(error)
+    const { message, stack } = describeError(error)
     const payload = {
       message: message.slice(0, ERROR_REPORT_LIMITS.message),
       stack: stack === null ? null : stack.slice(0, ERROR_REPORT_LIMITS.stack),
