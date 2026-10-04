@@ -56,6 +56,8 @@ export function EnvironmentForm({
   const formId = useId()
   const [dirtySecrets, setDirtySecrets] = useState<ReadonlySet<SecretKind>>(new Set())
   const [confirmClose, setConfirmClose] = useState(false)
+  // Sube con cada credencial guardada o borrada: reinicia "Probar conexión".
+  const [credentialsVersion, setCredentialsVersion] = useState(0)
   const onSecretDirty = useCallback((kind: SecretKind, dirty: boolean) => {
     setDirtySecrets((current) => {
       if (current.has(kind) === dirty) return current
@@ -70,19 +72,52 @@ export function EnvironmentForm({
     else onClose()
   }
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  // Al pasar de SaaS a Managed, los secretos de plataforma quedarían huérfanos
+  // (Managed no tiene plataforma). Main los borra en la misma transacción que
+  // el cambio, pero solo con dropPlatformSecrets, que se manda tras confirmarlo.
+  const [pendingManaged, setPendingManaged] = useState<{
+    values: EnvironmentFormValues
+    kinds: SecretKind[]
+  } | null>(null)
+
+  const save = async (
+    values: EnvironmentFormValues,
+    dropPlatformSecrets = false
+  ): Promise<void> => {
     const input = formToEnvironmentInput(values, clientId)
     try {
       if (environment === null) await create.mutateAsync([input])
-      else await update.mutateAsync([{ id: environment.id, ...input }])
+      else {
+        await update.mutateAsync([
+          { id: environment.id, ...input, ...(dropPlatformSecrets ? { dropPlatformSecrets } : {}) }
+        ])
+      }
       requestClose()
     } catch (error) {
-      if (error instanceof IpcError && error.code === 'CONFLICT') {
+      // CONFLICT por secretos de plataforma (la vista estaba desfasada): no es el nombre.
+      const platform =
+        error instanceof IpcError && error.message.startsWith('PLATFORM_SECRETS_PRESENT')
+      if (error instanceof IpcError && error.code === 'CONFLICT' && !platform) {
         form.setError('name', { message: 'errors.nameTaken' })
       } else {
         form.setError('root', { message: 'errors.generic' })
       }
     }
+  }
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    const platformKinds: SecretKind[] =
+      environment !== null && environment.deployment === 'saas' && values.deployment === 'managed'
+        ? (['oauthClientSecret', 'platformToken'] as const).filter(
+            (kind) => environment.secrets[kind]
+          )
+        : []
+    if (platformKinds.length > 0) {
+      // Nada se guarda hasta que se confirma.
+      setPendingManaged({ values, kinds: platformKinds })
+      return
+    }
+    await save(values)
   })
 
   return (
@@ -239,8 +274,15 @@ export function EnvironmentForm({
           <p className="text-xs text-muted-foreground">{t('environmentForm.saveFirst')}</p>
         ) : (
           <>
-            <SecretsPanel environment={environment} onDirtyChange={onSecretDirty} />
-            <ConnectionPanel environment={environment} />
+            <SecretsPanel
+              environment={environment}
+              onDirtyChange={onSecretDirty}
+              onChanged={() => setCredentialsVersion((version) => version + 1)}
+            />
+            {/* Al guardar o borrar una credencial, el resultado anterior ya no vale
+                (aunque el estado siga en "Configurado": el token puede ser otro).
+                Se monta de nuevo y el último "Probar conexión" se olvida. */}
+            <ConnectionPanel key={credentialsVersion} environment={environment} />
           </>
         )}
 
@@ -264,6 +306,19 @@ export function EnvironmentForm({
           </button>
         </div>
       </div>
+      <ConfirmDialog
+        open={pendingManaged !== null}
+        title={t('environmentForm.toManagedTitle')}
+        description={t('environmentForm.toManagedBody', {
+          kinds: (pendingManaged?.kinds ?? []).map((kind) => t(`secrets.kinds.${kind}`)).join(', ')
+        })}
+        onCancel={() => setPendingManaged(null)}
+        onConfirm={() => {
+          const pending = pendingManaged
+          setPendingManaged(null)
+          if (pending !== null) void save(pending.values, true)
+        }}
+      />
       <ConfirmDialog
         open={confirmClose}
         title={t('secrets.unsavedTitle')}

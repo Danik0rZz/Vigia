@@ -115,7 +115,9 @@
     "readOnly": "Read-only (no write actions)",
     "credentials": "Credentials",
     "credentialsHint": "They are stored encrypted and never shown again.",
-    "saveFirst": "Save the environment to add its credentials."
+    "saveFirst": "Save the environment to add its credentials.",
+    "toManagedTitle": "Switch the environment to Managed?",
+    "toManagedBody": "Managed has no platform, so these saved credentials will be deleted: {{kinds}}. The classic token is kept."
   },
   "environmentTypes": {
     "production": "Production",
@@ -146,6 +148,8 @@
     "save": "Save",
     "delete": "Delete",
     "unavailable": "System encryption is not available: credentials cannot be saved.",
+    "deleteConfirm": "Delete the {{kind}}?",
+    "deleteBody": "The credential saved for this environment is deleted. To use it again, it will have to be entered again.",
     "unsavedTitle": "Close without saving the credential?",
     "unsavedBody": "A credential has been typed but not saved, and it will be lost. To save it, press Enter in its field or use its Save button."
   },

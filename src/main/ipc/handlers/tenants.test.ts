@@ -308,6 +308,210 @@ describe('aceptación de la Fase 3: ningún canal devuelve secretos', () => {
   })
 })
 
+describe('AUD-18: pasar de SaaS a Managed con secretos de plataforma', () => {
+  /** Handlers con transacción real de SQLite y, opcional, un SecretStore que falla al borrar. */
+  function build(options: { failDeleteOf?: string } = {}): ReturnType<typeof createTenantHandlers> {
+    const store = createSecretStore(db, fakeCrypto({ available: true }))
+    const secrets = {
+      ...store,
+      delete: (environmentId: string, kind: Parameters<typeof store.delete>[1]) => {
+        if (kind === options.failDeleteOf) throw new Error('fallo inyectado al borrar')
+        store.delete(environmentId, kind)
+      }
+    }
+    return createTenantHandlers({
+      repo: createTenantRepository(db),
+      secrets,
+      transaction: (fn) => db.$client.transaction(fn)(),
+      dialogs: { chooseSaveFile: async () => null, chooseOpenFile: async () => null },
+      statFile: async () => ({ size: 0 }),
+      readFile: async () => '',
+      writeFile: async () => undefined,
+      onEnvironmentChanged: environmentChanged
+    })
+  }
+
+  /** Crea el entorno en `deployment` con los secretos dados y devuelve sus ids. */
+  async function setup(
+    handlers: ReturnType<typeof createTenantHandlers>,
+    kinds: string[],
+    deployment: 'saas' | 'managed' = 'saas'
+  ): Promise<{ clientId: string; environmentId: string }> {
+    const client = await call(handlers, 'clients:create', { name: 'Cliente A', color: '#111111' })
+    const clientId = (client.data as { id: string }).id
+    const fields =
+      deployment === 'saas' ? environmentFields : { ...environmentFields, ...managedFields }
+    const env = await call(handlers, 'environments:create', { clientId, ...fields })
+    const environmentId = (env.data as { id: string }).id
+    for (const kind of kinds) {
+      await call(handlers, 'secrets:set', { environmentId, kind, value: `${SECRET}.${kind}` })
+    }
+    return { clientId, environmentId }
+  }
+
+  /** Managed no tiene plataforma: sin sus campos. */
+  const managedFields = {
+    deployment: 'managed',
+    platformUrl: null,
+    oauthClientId: null,
+    oauthScopes: [],
+    accountUuid: null
+  }
+
+  async function state(
+    handlers: ReturnType<typeof createTenantHandlers>,
+    environmentId: string
+  ): Promise<{ deployment: string; secrets: Record<string, boolean> } | undefined> {
+    const list = await call(handlers, 'tenants:list')
+    return (
+      list.data as {
+        environments: { id: string; deployment: string; secrets: Record<string, boolean> }[]
+      }
+    ).environments.find((e) => e.id === environmentId)
+  }
+
+  const ALL = ['classicToken', 'oauthClientSecret', 'platformToken']
+
+  it('sin dropPlatformSecrets → CONFLICT PLATFORM_SECRETS_PRESENT y nada cambia', async () => {
+    const handlers = build()
+    const { clientId, environmentId } = await setup(handlers, ALL)
+    const result = await call(handlers, 'environments:update', {
+      id: environmentId,
+      clientId,
+      ...environmentFields,
+      ...managedFields
+    })
+    expect(result).toMatchObject({ ok: false, error: { code: 'CONFLICT' } })
+    expect(result.error?.message).toMatch(/^PLATFORM_SECRETS_PRESENT/)
+    expect(await state(handlers, environmentId)).toMatchObject({
+      deployment: 'saas',
+      secrets: { classicToken: true, oauthClientSecret: true, platformToken: true }
+    })
+  })
+
+  it('con dropPlatformSecrets: true → Managed, sin secretos de plataforma y con el clásico', async () => {
+    const handlers = build()
+    const { clientId, environmentId } = await setup(handlers, ALL)
+    environmentChanged.mockClear()
+    const result = await call(handlers, 'environments:update', {
+      id: environmentId,
+      clientId,
+      ...environmentFields,
+      ...managedFields,
+      dropPlatformSecrets: true
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      data: {
+        deployment: 'managed',
+        secrets: { classicToken: true, oauthClientSecret: false, platformToken: false }
+      }
+    })
+    expect(environmentChanged).toHaveBeenCalledWith(environmentId)
+  })
+
+  it('con solo uno de los dos secretos de plataforma también hace falta el permiso', async () => {
+    const handlers = build()
+    const { clientId, environmentId } = await setup(handlers, ['platformToken'])
+    expect(
+      await call(handlers, 'environments:update', {
+        id: environmentId,
+        clientId,
+        ...environmentFields,
+        ...managedFields
+      })
+    ).toMatchObject({ ok: false, error: { code: 'CONFLICT' } })
+  })
+
+  it('sin secretos de plataforma no hace falta el permiso (y el clásico sigue)', async () => {
+    const handlers = build()
+    const { clientId, environmentId } = await setup(handlers, ['classicToken'])
+    expect(
+      await call(handlers, 'environments:update', {
+        id: environmentId,
+        clientId,
+        ...environmentFields,
+        ...managedFields
+      })
+    ).toMatchObject({
+      ok: true,
+      data: { deployment: 'managed', secrets: { classicToken: true } }
+    })
+  })
+
+  it('de Managed a SaaS: nada especial, y el permiso no borra nada', async () => {
+    const handlers = build()
+    const { clientId, environmentId } = await setup(handlers, ['classicToken'], 'managed')
+    expect(
+      await call(handlers, 'environments:update', {
+        id: environmentId,
+        clientId,
+        ...environmentFields,
+        dropPlatformSecrets: true
+      })
+    ).toMatchObject({ ok: true, data: { deployment: 'saas', secrets: { classicToken: true } } })
+  })
+
+  it('SaaS → SaaS con el permiso: no borra los secretos de plataforma', async () => {
+    const handlers = build()
+    const { clientId, environmentId } = await setup(handlers, ALL)
+    expect(
+      await call(handlers, 'environments:update', {
+        id: environmentId,
+        clientId,
+        ...environmentFields,
+        tags: ['x'],
+        dropPlatformSecrets: true
+      })
+    ).toMatchObject({
+      ok: true,
+      data: { secrets: { classicToken: true, oauthClientSecret: true, platformToken: true } }
+    })
+  })
+
+  it.each([false, 'true', 1])(
+    'dropPlatformSecrets %j (no es el literal true) → INVALID_INPUT',
+    async (flag) => {
+      const handlers = build()
+      const { clientId, environmentId } = await setup(handlers, ALL)
+      expect(
+        await call(handlers, 'environments:update', {
+          id: environmentId,
+          clientId,
+          ...environmentFields,
+          ...managedFields,
+          dropPlatformSecrets: flag
+        })
+      ).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+      expect(await state(handlers, environmentId)).toMatchObject({ deployment: 'saas' })
+    }
+  )
+
+  it.each(['oauthClientSecret', 'platformToken'])(
+    'si borrar %s falla, la transacción se revierte: sigue en SaaS con todos sus secretos',
+    async (failing) => {
+      const handlers = build({ failDeleteOf: failing })
+      const { clientId, environmentId } = await setup(handlers, ALL)
+      environmentChanged.mockClear()
+      const result = await call(handlers, 'environments:update', {
+        id: environmentId,
+        clientId,
+        ...environmentFields,
+        ...managedFields,
+        dropPlatformSecrets: true
+      })
+      expect(result.ok).toBe(false)
+      expect(await state(handlers, environmentId)).toMatchObject({
+        deployment: 'saas',
+        secrets: { classicToken: true, oauthClientSecret: true, platformToken: true }
+      })
+      // Sin cambio, sin aviso de entorno cambiado.
+      expect(environmentChanged).not.toHaveBeenCalled()
+      expect(loggedText(deps)).not.toContain(SECRET)
+    }
+  )
+})
+
 describe('onEnvironmentChanged', () => {
   it('se avisa al cambiar un entorno o sus secretos, con su id', async () => {
     const handlers = buildHandlers(true)

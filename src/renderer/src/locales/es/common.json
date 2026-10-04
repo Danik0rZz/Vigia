@@ -115,7 +115,9 @@
     "readOnly": "Solo lectura (sin acciones de escritura)",
     "credentials": "Credenciales",
     "credentialsHint": "Se guardan cifradas y no se vuelven a mostrar.",
-    "saveFirst": "Guarda el entorno para añadir sus credenciales."
+    "saveFirst": "Guarda el entorno para añadir sus credenciales.",
+    "toManagedTitle": "¿Pasar el entorno a Managed?",
+    "toManagedBody": "Managed no tiene plataforma, así que se borrarán estas credenciales guardadas: {{kinds}}. El token clásico se conserva."
   },
   "environmentTypes": {
     "production": "Producción",
@@ -146,6 +148,8 @@
     "save": "Guardar",
     "delete": "Borrar",
     "unavailable": "El cifrado del sistema no está disponible: no se pueden guardar credenciales.",
+    "deleteConfirm": "¿Borrar el {{kind}}?",
+    "deleteBody": "Se borra la credencial guardada de este entorno. Para volver a usarla habrá que introducirla de nuevo.",
     "unsavedTitle": "¿Cerrar sin guardar la credencial?",
     "unsavedBody": "Hay una credencial escrita que no se ha guardado y se perderá. Para guardarla, pulsa Intro en su campo o su botón Guardar."
   },

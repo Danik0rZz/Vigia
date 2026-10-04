@@ -95,8 +95,15 @@ export const ipcContract = {
     output: z.object({ ok: z.literal(true) })
   },
   'environments:create': { input: environmentInputSchema, output: environmentViewSchema },
+  /**
+   * Al pasar de SaaS a Managed con secretos de plataforma, exige
+   * dropPlatformSecrets (confirmado en la interfaz); si no, CONFLICT.
+   */
   'environments:update': {
-    input: z.intersection(z.object({ id: z.uuid() }), environmentInputSchema),
+    input: z.intersection(
+      z.object({ id: z.uuid(), dropPlatformSecrets: z.literal(true).optional() }),
+      environmentInputSchema
+    ),
     output: environmentViewSchema
   },
   /** Borra el entorno y sus secretos. */

@@ -56,6 +56,8 @@ export function openLocalData(logger: {
   const filters = [{ name: 'JSON', extensions: ['json'] }]
 
   const tenantDeps: TenantHandlerDeps = {
+    // Transacción de better-sqlite3: el repositorio y los secretos usan la misma conexión.
+    transaction: (fn) => db.$client.transaction(fn)(),
     repo,
     secrets,
     onEnvironmentChanged: dynatrace.onEnvironmentChanged,

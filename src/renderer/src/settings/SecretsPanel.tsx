@@ -1,6 +1,7 @@
 import { useEffect, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { secretKinds, type EnvironmentView, type SecretKind } from '@shared/tenants'
+import { ConfirmDialog } from '../components/dialogs'
 import { BUTTON_SECONDARY, INPUT } from '../components/styles'
 import { useSecretsAvailable, useTenantMutation } from '../data/tenants'
 
@@ -13,17 +14,21 @@ function SecretRow({
   environment,
   kind,
   available,
-  onDirtyChange
+  onDirtyChange,
+  onChanged
 }: {
   environment: EnvironmentView
   kind: SecretKind
   available: boolean
   onDirtyChange?: ((kind: SecretKind, dirty: boolean) => void) | undefined
+  /** Se ha guardado o borrado: lo que dependía de la credencial anterior ya no vale. */
+  onChanged?: (() => void) | undefined
 }): JSX.Element {
   const { t } = useTranslation()
   // El valor solo vive aquí hasta guardarlo; después se vacía y nunca vuelve de main.
   const [value, setValue] = useState('')
   const [failed, setFailed] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const save = useTenantMutation('secrets:set')
   const remove = useTenantMutation('secrets:delete')
   const configured = environment.secrets[kind]
@@ -48,8 +53,13 @@ function SecretRow({
     try {
       await save.mutateAsync([{ environmentId: environment.id, kind, value }])
       setValue('')
+      onChanged?.()
     } catch {
       setFailed(true)
+    } finally {
+      // La mutación guarda sus variables (el valor del secreto) hasta que se
+      // recoge: se limpia ya, guardado o no.
+      save.reset()
     }
   }
 
@@ -105,7 +115,7 @@ function SecretRow({
           type="button"
           data-testid={`secret-delete-${kind}`}
           disabled={!configured || remove.isPending}
-          onClick={() => remove.mutate([{ environmentId: environment.id, kind }])}
+          onClick={() => setConfirmDelete(true)}
           className={BUTTON_SECONDARY}
         >
           {t('secrets.delete')}
@@ -116,6 +126,19 @@ function SecretRow({
           {t('errors.generic')}
         </p>
       )}
+      {/* Borrar no se puede deshacer: se confirma, como clientes, entornos y consultas. */}
+      <ConfirmDialog
+        open={confirmDelete}
+        title={t('secrets.deleteConfirm', { kind: t(`secrets.kinds.${kind}`) })}
+        description={t('secrets.deleteBody')}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false)
+          remove.mutate([{ environmentId: environment.id, kind }], {
+            onSuccess: () => onChanged?.()
+          })
+        }}
+      />
     </form>
   )
 }
@@ -126,11 +149,14 @@ function SecretRow({
  */
 export function SecretsPanel({
   environment,
-  onDirtyChange
+  onDirtyChange,
+  onChanged
 }: {
   environment: EnvironmentView
   /** Avisa de si queda un secreto escrito sin guardar. */
   onDirtyChange?: (kind: SecretKind, dirty: boolean) => void
+  /** Se ha guardado o borrado una credencial (aunque su estado siga igual). */
+  onChanged?: () => void
 }): JSX.Element {
   const { t } = useTranslation()
   const available = useSecretsAvailable()
@@ -153,6 +179,7 @@ export function SecretsPanel({
           kind={kind}
           available={available}
           onDirtyChange={onDirtyChange}
+          onChanged={onChanged}
         />
       ))}
     </section>

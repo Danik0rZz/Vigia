@@ -1,4 +1,4 @@
-import type { EnvironmentView } from '@shared/tenants'
+import type { EnvironmentView, SecretKind } from '@shared/tenants'
 import { DomainError } from '../../errors'
 import type { SecretStore } from '../../secrets/store'
 import {
@@ -26,9 +26,17 @@ type TenantChannels =
   | 'config:export'
   | 'config:import'
 
+/** Secretos que solo existen en SaaS (Managed no tiene plataforma). */
+const PLATFORM_SECRETS: readonly SecretKind[] = ['oauthClientSecret', 'platformToken']
+
 export interface TenantHandlerDeps {
   repo: TenantRepository
   secrets: SecretStore
+  /**
+   * Ejecuta `fn` en una transacción de la base (todo o nada). Por defecto, sin
+   * transacción (solo en tests que no la necesitan).
+   */
+  transaction?: <T>(fn: () => T) => T
   /** Diálogos de fichero de main; `null` si el usuario cancela. */
   dialogs: {
     chooseSaveFile(defaultName: string): Promise<string | null>
@@ -51,6 +59,7 @@ export function createTenantHandlers(
 ): Pick<IpcImplementations, TenantChannels> {
   const { repo, secrets } = deps
   const now = deps.now ?? (() => new Date())
+  const transaction = deps.transaction ?? (<T>(fn: () => T): T => fn())
   const changed = (envId: string): void => deps.onEnvironmentChanged?.(envId)
 
   const view = (id: string): EnvironmentView => ({
@@ -107,8 +116,24 @@ export function createTenantHandlers(
       return { ok: true }
     },
     'environments:create': (input) => view(repo.createEnvironment(input).id),
-    'environments:update': ({ id, ...input }) => {
-      repo.updateEnvironment(id, input)
+    'environments:update': ({ id, dropPlatformSecrets, ...input }) => {
+      transaction(() => {
+        // Managed no tiene plataforma: sus secretos quedarían huérfanos. Solo se
+        // borran con el permiso explícito de la interfaz (confirmado por el
+        // usuario), y en la misma transacción que el cambio.
+        const before = repo.getEnvironment(id)
+        const status = secrets.status(id)
+        const orphans = PLATFORM_SECRETS.filter((kind) => status[kind])
+        const toManaged = before.deployment === 'saas' && input.deployment === 'managed'
+        if (toManaged && orphans.length > 0 && dropPlatformSecrets !== true) {
+          throw new DomainError(
+            'CONFLICT',
+            'PLATFORM_SECRETS_PRESENT: el entorno tiene credenciales de plataforma; confirma que se borren al pasar a Managed.'
+          )
+        }
+        repo.updateEnvironment(id, input)
+        if (toManaged) for (const kind of orphans) secrets.delete(id, kind)
+      })
       changed(id)
       return view(id)
     },

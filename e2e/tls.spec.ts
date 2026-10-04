@@ -318,6 +318,42 @@ test('con la huella fijada conecta, sin scopes que falten', async () => {
   expect(report.untrustedCertificates).toEqual([])
 })
 
+test('AUD-18: el resultado de «Probar conexión» se borra al cambiar las credenciales', async () => {
+  await openEnvironmentForm()
+  const form = page.getByTestId('environment-form')
+  const result = form.getByTestId('connection-result-classic')
+  const confirm = page.getByTestId('confirm-dialog')
+
+  // Un secreto de plataforma guardado y una prueba con resultado.
+  await form.getByTestId('secret-input-platformToken').fill('dt0s16.FALSOAUD18.RESET')
+  await form.getByTestId('secret-save-platformToken').click()
+  await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Configurado')
+  await form.getByTestId('connection-test').click()
+  await expect(result).toContainText('Conectado')
+
+  // Borrar el secreto (confirmando): el resultado anterior ya no vale y desaparece.
+  await form.getByTestId('secret-delete-platformToken').click()
+  await confirm.getByTestId('confirm-accept').click()
+  await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Sin configurar')
+  await expect(result).toHaveCount(0)
+
+  // Guardar un secreto también lo reinicia.
+  await form.getByTestId('connection-test').click()
+  await expect(result).toContainText('Conectado')
+  await form.getByTestId('secret-input-classicToken').fill(TOKEN)
+  await form.getByTestId('secret-save-classicToken').click()
+  await expect(result).toHaveCount(0)
+
+  // Cancelar la confirmación de borrado no lo reinicia.
+  await form.getByTestId('connection-test').click()
+  await expect(result).toContainText('Conectado')
+  await form.getByTestId('secret-delete-classicToken').click()
+  await confirm.getByTestId('confirm-cancel').click()
+  await expect(form.getByTestId('secret-status-classicToken')).toHaveText('Configurado')
+  await expect(result).toContainText('Conectado')
+  await closeEnvironmentForm()
+})
+
 test('si el servidor cambia de certificado: TLS_PIN_MISMATCH y el pin NO cambia solo', async () => {
   await startServer()
   const report = await testConnection()

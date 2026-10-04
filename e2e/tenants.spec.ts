@@ -281,6 +281,135 @@ test('AUD-03: Enter en un secreto guarda ese secreto y el formulario sigue abier
   expect(await page.content()).not.toContain('SECRETOENTER')
 })
 
+test('AUD-18: borrar un secreto pide confirmación; el valor guardado no queda en la página', async () => {
+  const VALUE = 'dt0s02.FALSOAUD18.BORRARCONFIRMA'
+  await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+  const form = page.getByTestId('environment-form')
+  const status = form.getByTestId('secret-status-oauthClientSecret')
+  const confirm = page.getByTestId('confirm-dialog')
+
+  await form.getByTestId('secret-input-oauthClientSecret').fill(VALUE)
+  await form.getByTestId('secret-save-oauthClientSecret').click()
+  await expect(status).toHaveText('Configurado')
+  // Tras guardar, el valor no está en el DOM ni en ningún campo (save.reset()).
+  expect(await page.content()).not.toContain('BORRARCONFIRMA')
+  const inputs = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('input, textarea')).map(
+      (el) => (el as HTMLInputElement).value
+    )
+  )
+  expect(inputs.filter((value) => value.includes('BORRARCONFIRMA'))).toEqual([])
+
+  // Cancelar: no se borra.
+  await form.getByTestId('secret-delete-oauthClientSecret').click()
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toHaveAttribute('role', 'alertdialog')
+  await expect(confirm).toContainText('¿Borrar el Client secret de OAuth?')
+  await confirm.getByTestId('confirm-cancel').click()
+  await expect(confirm).toBeHidden()
+  await expect(status).toHaveText('Configurado')
+  await expect(form).toBeVisible()
+
+  // Aceptar: se borra.
+  await form.getByTestId('secret-delete-oauthClientSecret').click()
+  await confirm.getByTestId('confirm-accept').click()
+  await expect(confirm).toBeHidden()
+  await expect(status).toHaveText('Sin configurar')
+  await expect(form).toBeVisible()
+  // El token clásico no se toca.
+  await expect(form.getByTestId('secret-status-classicToken')).toHaveText('Configurado')
+
+  await form.getByTestId('form-cancel').click()
+  await expect(form).toBeHidden()
+})
+
+test('AUD-18: pasar de SaaS a Managed con secretos de plataforma pide confirmación y los borra', async () => {
+  type Listed = {
+    data: {
+      environments: {
+        name: string
+        deployment: string
+        secrets: Record<'classicToken' | 'oauthClientSecret' | 'platformToken', boolean>
+      }[]
+    }
+  }
+  const production = async (): Promise<Listed['data']['environments'][number] | undefined> =>
+    ((await invoke('tenants:list')) as Listed).data.environments.find(
+      (e) => e.name === 'Producción'
+    )
+  const form = page.getByTestId('environment-form')
+  const confirm = page.getByTestId('confirm-dialog')
+  const deployment = form.getByTestId('environment-deployment')
+  const openForm = async (): Promise<void> => {
+    await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+    await expect(form).toBeVisible()
+  }
+
+  // Producción en SaaS con los tres secretos.
+  await openForm()
+  for (const kind of ['oauthClientSecret', 'platformToken']) {
+    await form.getByTestId(`secret-input-${kind}`).fill(`dt0s.FALSOAUD18.${kind}`)
+    await form.getByTestId(`secret-save-${kind}`).click()
+    await expect(form.getByTestId(`secret-status-${kind}`)).toHaveText('Configurado')
+  }
+  expect(await production()).toMatchObject({
+    deployment: 'saas',
+    secrets: { classicToken: true, oauthClientSecret: true, platformToken: true }
+  })
+
+  // A Managed: form-save no guarda y pregunta.
+  await deployment.selectOption('managed')
+  await form.getByTestId('form-save').click()
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toContainText('¿Pasar el entorno a Managed?')
+  await expect(confirm).toContainText(
+    'se borrarán estas credenciales guardadas: Client secret de OAuth, Platform token. El token clásico se conserva.'
+  )
+
+  // Cancelar: nada cambia.
+  await confirm.getByTestId('confirm-cancel').click()
+  await expect(confirm).toBeHidden()
+  expect(await production()).toMatchObject({
+    deployment: 'saas',
+    secrets: { classicToken: true, oauthClientSecret: true, platformToken: true }
+  })
+
+  // Aceptar: Managed y sin los secretos de plataforma; el clásico se conserva.
+  if (!(await form.isVisible())) await openForm()
+  await deployment.selectOption('managed')
+  await form.getByTestId('form-save').click()
+  await confirm.getByTestId('confirm-accept').click()
+  await expect(form).toBeHidden()
+  await expect.poll(production).toMatchObject({
+    deployment: 'managed',
+    secrets: { classicToken: true, oauthClientSecret: false, platformToken: false }
+  })
+
+  // De Managed a SaaS: sin confirmación.
+  await openForm()
+  await deployment.selectOption('saas')
+  await form.getByTestId('form-save').click()
+  await expect(form).toBeHidden()
+  await expect(confirm).toHaveCount(0)
+  await expect.poll(async () => (await production())?.deployment).toBe('saas')
+
+  // De SaaS a Managed sin secretos de plataforma: tampoco.
+  await openForm()
+  await deployment.selectOption('managed')
+  await form.getByTestId('form-save').click()
+  await expect(form).toBeHidden()
+  await expect(confirm).toHaveCount(0)
+  await expect.poll(async () => (await production())?.deployment).toBe('managed')
+
+  // Se deja en SaaS para las pruebas siguientes.
+  await openForm()
+  await deployment.selectOption('saas')
+  await form.getByTestId('form-save').click()
+  await expect(form).toBeHidden()
+  await expect.poll(async () => (await production())?.deployment).toBe('saas')
+  expect(await page.content()).not.toContain('FALSOAUD18')
+})
+
 test('AUD-03: un secreto escrito sin guardar pide confirmación al cerrar', async () => {
   const form = page.getByTestId('environment-form')
   const confirm = page.getByTestId('confirm-dialog')
