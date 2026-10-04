@@ -374,8 +374,12 @@
     "sloStatus": {
       "SUCCESS": "Correcto",
       "WARNING": "Aviso",
-      "FAILURE": "Fallo"
-    }
+      "FAILURE": "Fallo",
+      "UNEVALUATED": "Sin evaluar"
+    },
+    "relatedOpenProblems_one": "{{count}} problema abierto",
+    "relatedOpenProblems_other": "{{count}} problemas abiertos",
+    "relatedOpenProblemsColumn": "Problemas abiertos relacionados"
   },
   "export": {
     "menu": "Exportar o capturar",

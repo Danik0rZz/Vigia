@@ -374,8 +374,12 @@
     "sloStatus": {
       "SUCCESS": "Success",
       "WARNING": "Warning",
-      "FAILURE": "Failure"
-    }
+      "FAILURE": "Failure",
+      "UNEVALUATED": "Not evaluated"
+    },
+    "relatedOpenProblems_one": "{{count}} open problem",
+    "relatedOpenProblems_other": "{{count}} open problems",
+    "relatedOpenProblemsColumn": "Related open problems"
   },
   "export": {
     "menu": "Export or capture",

@@ -1,6 +1,7 @@
 import { useMemo, useRef, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
+import { sloDisplayStatus } from '@shared/modules'
 import { serviceHealth } from '@shared/service-health'
 import { ExportMenu } from '../components/ExportMenu'
 import {
@@ -12,6 +13,14 @@ import {
 } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
+
+/** Color de cada estado de SLO (tokens de estado, no los de tipo de entorno). */
+const SLO_STATUS_CLASS: Record<ReturnType<typeof sloDisplayStatus>, string> = {
+  SUCCESS: 'text-muted-foreground',
+  WARNING: 'text-status-warning',
+  FAILURE: 'text-danger',
+  UNEVALUATED: 'text-muted-foreground'
+}
 
 /** Tarjeta con entrada escalonada (Motion respeta el movimiento reducido). */
 function Card({
@@ -116,14 +125,20 @@ export function HomePage(): JSX.Element {
                     { key: 'status', header: t('problems.columns.status'), type: 'string' },
                     { key: 'value', header: t('home.value'), type: 'number' },
                     { key: 'target', header: t('home.target'), type: 'number' },
-                    { key: 'errorBudget', header: t('home.budget'), type: 'number' }
+                    { key: 'errorBudget', header: t('home.budget'), type: 'number' },
+                    {
+                      key: 'relatedOpenProblems',
+                      header: t('home.relatedOpenProblemsColumn'),
+                      type: 'number'
+                    }
                   ],
                   rows: sloList.map((slo) => ({
                     name: slo.name,
-                    status: slo.status,
+                    status: sloDisplayStatus(slo),
                     value: slo.evaluatedPercentage,
                     target: slo.target,
-                    errorBudget: slo.errorBudget
+                    errorBudget: slo.errorBudget,
+                    relatedOpenProblems: slo.relatedOpenProblems
                   })),
                   invalidCount: slos.data?.invalid
                 }}
@@ -139,23 +154,32 @@ export function HomePage(): JSX.Element {
                 <TruncatedNotice shown={sloList.length} total={slos.data.totalCount} />
               )}
               <ul className="grid gap-1.5 text-sm">
-                {sloList.map((slo) => (
-                  <li key={slo.id} className="grid gap-0.5">
-                    <span className="flex justify-between gap-2">
-                      <span className="truncate font-medium">{slo.name}</span>
-                      <span
-                        className={
-                          slo.status === 'SUCCESS' ? 'text-muted-foreground' : 'text-danger'
-                        }
-                      >
-                        {t(`home.sloStatus.${slo.status}`)}
+                {sloList.map((slo) => {
+                  const status = sloDisplayStatus(slo)
+                  return (
+                    <li key={slo.id} className="grid gap-0.5">
+                      <span className="flex justify-between gap-2">
+                        <span className="truncate font-medium">{slo.name}</span>
+                        {/* El texto del estado va siempre: el color no es la única señal. */}
+                        <span
+                          data-testid="slo-status"
+                          data-status={status}
+                          className={SLO_STATUS_CLASS[status]}
+                        >
+                          {t(`home.sloStatus.${status}`)}
+                        </span>
                       </span>
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {`${t('home.value')} ${percent(slo.evaluatedPercentage)} · ${t('home.target')} ${percent(slo.target)} · ${t('home.budget')} ${percent(slo.errorBudget)}`}
-                    </span>
-                  </li>
-                ))}
+                      <span className="text-xs text-muted-foreground">
+                        {`${t('home.value')} ${percent(slo.evaluatedPercentage)} · ${t('home.target')} ${percent(slo.target)} · ${t('home.budget')} ${percent(slo.errorBudget)}`}
+                      </span>
+                      {slo.relatedOpenProblems !== null && slo.relatedOpenProblems > 0 && (
+                        <span data-testid="slo-related-problems" className="text-xs text-danger">
+                          {t('home.relatedOpenProblems', { count: slo.relatedOpenProblems })}
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           </Card>

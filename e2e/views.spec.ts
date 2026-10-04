@@ -370,7 +370,7 @@ async function startServer(): Promise<void> {
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/slo') {
         return send(200, {
-          totalCount: 2,
+          totalCount: 4,
           nextPageKey: null,
           slo: [
             {
@@ -382,7 +382,8 @@ async function startServer(): Promise<void> {
               warning: 99.8,
               evaluatedPercentage: 99.9,
               errorBudget: 80,
-              error: 'NONE'
+              error: 'NONE',
+              relatedOpenProblems: 0
             },
             {
               id: 'slo-2',
@@ -393,6 +394,32 @@ async function startServer(): Promise<void> {
               warning: 97,
               evaluatedPercentage: 90.1,
               errorBudget: -20,
+              error: 'NONE',
+              relatedOpenProblems: 2
+            },
+            {
+              // Entre target y warning: la API dice WARNING.
+              id: 'slo-3',
+              name: 'Errores de login',
+              enabled: true,
+              status: 'WARNING',
+              target: 99,
+              warning: 99.5,
+              evaluatedPercentage: 99.2,
+              errorBudget: 20,
+              error: 'NONE',
+              relatedOpenProblems: 0
+            },
+            {
+              // Sin evaluar: la API da -1 y SUCCESS; la tarjeta no puede decir «Correcto».
+              id: 'slo-4',
+              name: 'Búsqueda sin datos',
+              enabled: true,
+              status: 'SUCCESS',
+              target: 98,
+              warning: 99,
+              evaluatedPercentage: -1,
+              errorBudget: -1,
               error: 'NONE'
             }
           ]
@@ -1567,6 +1594,56 @@ test('Inicio: problemas abiertos, SLOs y salud de servicios', async () => {
   await expect(health).toContainText('carrito')
   // Los servicios de problemas cerrados y las entidades que no son servicios no salen.
   await expect(health).not.toContainText('host-pagos-01')
+})
+
+test('Inicio: estado de cada SLO (con texto y color), sin evaluar y problemas relacionados', async () => {
+  await goTo('home')
+  const card = page.getByTestId('kpi-slos')
+  const item = (name: string): Locator => card.locator('li').filter({ hasText: name })
+  const status = (name: string): Locator => item(name).getByTestId('slo-status')
+
+  const expected = [
+    ['Disponibilidad pagos', 'SUCCESS', 'text-muted-foreground'],
+    ['Latencia carrito', 'FAILURE', 'text-danger'],
+    ['Errores de login', 'WARNING', 'text-status-warning'],
+    ['Búsqueda sin datos', 'UNEVALUATED', 'text-muted-foreground']
+  ] as const
+  for (const [name, value, cls] of expected) {
+    await expect(status(name), name).toHaveAttribute('data-status', value)
+    await expect(status(name), name).toHaveClass(new RegExp(`\\b${cls}\\b`))
+    // El color nunca es la única señal: siempre hay texto.
+    expect((await status(name).textContent())?.trim(), name).not.toBe('')
+  }
+  // WARNING no se pinta como FAILURE, ni con su color.
+  await expect(status('Errores de login')).not.toHaveClass(/\btext-danger\b/)
+
+  // Sin evaluar: «Sin evaluar», nunca «Correcto», y los valores con «—».
+  await expect(status('Búsqueda sin datos')).toHaveText('Sin evaluar')
+  await expect(item('Búsqueda sin datos')).not.toContainText('Correcto')
+  await expect(item('Búsqueda sin datos')).toContainText('—')
+
+  // Problemas abiertos relacionados: solo donde hay más de 0, con plural.
+  await expect(card.getByTestId('slo-related-problems')).toHaveCount(1)
+  await expect(item('Latencia carrito').getByTestId('slo-related-problems')).toHaveText(
+    '2 problemas abiertos'
+  )
+
+  // La exportación lleva la columna, vacía si no hay dato.
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(
+    readFileSync(await exportTo('kpi-slos', 'export-xlsx')) as unknown as ArrayBuffer
+  )
+  const sheet = workbook.getWorksheet('Datos')
+  const header = (sheet?.getRow(1).values as unknown[]).slice(1).map(String)
+  const column = header.indexOf('Problemas abiertos relacionados') + 1
+  expect(column, `cabeceras: ${header.join(' | ')}`).toBeGreaterThan(0)
+  const byName = new Map<string, unknown>()
+  sheet?.eachRow((row, n) => {
+    if (n > 1) byName.set(String(row.getCell(1).value), row.getCell(column).value)
+  })
+  expect(byName.get('Latencia carrito')).toBe(2)
+  expect(byName.get('Disponibilidad pagos')).toBe(0)
+  expect(byName.get('Búsqueda sin datos') ?? null).toBeNull()
 })
 
 test('rango personalizado: valida las fechas y se usa en las peticiones', async () => {

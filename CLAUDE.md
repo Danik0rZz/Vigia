@@ -90,6 +90,7 @@ Fase 6:
 - Niveles de prueba. Durante el desarrollo: `npm run check` y `npm run test:e2e:affected` (mientras se itera, `vitest related <ficheros>` o `--changed`).
 - Si el cambio es transversal (lo decide `e2e/areas.json`): e2e completo. `scripts/**` está en ignore porque solo contiene herramientas de desarrollo; un script que intervenga en el build o el empaquetado va a `build/` o se saca del ignore.
 - Al cerrar una versión: e2e completo tres veces y `npm run dist:win`.
+- Cambios en la instalación o el empaquetado (dependencias, scripts de npm, `package*.json`, electron-builder): la validación incluye siempre un clon limpio (en el scratchpad) con la instalación del README, `npm run check`, `npm run test:e2e` completo y `npm run dist:win`. Comprobarlo en el árbol de trabajo no basta: ahí ya está todo instalado.
 - test valida el hash que le pasa dev en un worktree propio (en su scratchpad); dev no espera a que termine y sigue en su árbol.
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
 - No inventar endpoints ni parámetros de Dynatrace o de Monaco: consultar `..\API\` y la documentación oficial.

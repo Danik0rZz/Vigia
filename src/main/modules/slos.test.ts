@@ -28,7 +28,22 @@ describe('sloSchema y toSloSummary', () => {
       warning: 99.8,
       evaluatedPercentage: 99.91,
       errorBudget: 82.3,
-      error: null
+      error: null,
+      relatedOpenProblems: null
+    })
+  })
+
+  describe('relatedOpenProblems (solo llega evaluando)', () => {
+    it.each([
+      ['presente', { relatedOpenProblems: 2 }, 2],
+      ['0', { relatedOpenProblems: 0 }, 0],
+      ['ausente', {}, null]
+    ])('%s → %s', (_case, extra, expected) => {
+      expect(toSloSummary(sloSchema.parse(slo(extra))).relatedOpenProblems).toBe(expected)
+    })
+
+    it('si no es un número, el SLO no vale (no se cuela texto en la tarjeta)', () => {
+      expect(sloSchema.safeParse(slo({ relatedOpenProblems: '2' })).success).toBe(false)
     })
   })
 

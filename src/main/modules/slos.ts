@@ -10,7 +10,9 @@ export const sloSchema = z.object({
   warning: z.number(),
   evaluatedPercentage: z.number(),
   errorBudget: z.number(),
-  error: z.string()
+  error: z.string(),
+  /** Solo llega con evaluate=true (observado en vivo, bloque d). */
+  relatedOpenProblems: z.number().optional()
 })
 
 export const slosPageSchema = z.object({
@@ -29,6 +31,7 @@ export function toSloSummary(slo: z.output<typeof sloSchema>): SloSummary {
     warning: slo.warning,
     evaluatedPercentage: slo.evaluatedPercentage === -1 ? null : slo.evaluatedPercentage,
     errorBudget: slo.errorBudget === -1 ? null : slo.errorBudget,
-    error: slo.error === 'NONE' ? null : slo.error
+    error: slo.error === 'NONE' ? null : slo.error,
+    relatedOpenProblems: slo.relatedOpenProblems ?? null
   }
 }

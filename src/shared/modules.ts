@@ -140,9 +140,22 @@ export const sloSummarySchema = z.object({
   /** null si no se ha evaluado o hubo un error de cálculo. */
   evaluatedPercentage: z.number().nullable(),
   errorBudget: z.number().nullable(),
-  error: z.string().nullable()
+  error: z.string().nullable(),
+  /** Problemas abiertos relacionados con el SLO; null si la API no lo da (sin evaluar). */
+  relatedOpenProblems: z.number().nullable()
 })
 export type SloSummary = z.output<typeof sloSummarySchema>
+
+/**
+ * Estado que se muestra de un SLO. Sin evaluar (la API da -1, que se guarda
+ * como null) el `status` no significa nada: llega SUCCESS aunque no se haya
+ * calculado (observado en vivo). Entonces es UNEVALUATED, nunca SUCCESS.
+ */
+export function sloDisplayStatus(
+  slo: Pick<SloSummary, 'status' | 'evaluatedPercentage'>
+): SloSummary['status'] | 'UNEVALUATED' {
+  return slo.evaluatedPercentage === null ? 'UNEVALUATED' : slo.status
+}
 
 export const savedQuerySchema = z.object({
   id: z.uuid(),

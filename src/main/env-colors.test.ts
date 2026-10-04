@@ -62,6 +62,11 @@ describe('AUD-21: botón de peligro', () => {
   it('--color-danger-foreground expone el token a Tailwind', () => {
     expect(css).toMatch(/--color-danger-foreground:\s*var\(--danger-foreground\);/)
   })
+
+  it('SLO: --color-status-warning y su foreground exponen los tokens a Tailwind', () => {
+    expect(css).toMatch(/--color-status-warning:\s*var\(--status-warning\);/)
+    expect(css).toMatch(/--color-status-warning-foreground:\s*var\(--status-warning-foreground\);/)
+  })
 })
 
 describe.each(THEMES)('tema %s', (_name, selector) => {
@@ -92,6 +97,27 @@ describe.each(THEMES)('tema %s', (_name, selector) => {
     expect(danger, `--danger en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
     expect(foreground, `--danger-foreground en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
     expect(contrast(foreground ?? '#000000', danger ?? '#000000')).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('SLO: --status-warning sobre --background contrasta ≥ 4.5 (texto de aviso)', () => {
+    const warning = cssToken(selector, '--status-warning')
+    expect(warning, `--status-warning en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(contrast(warning ?? '#000000', background)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('SLO: --status-warning-foreground sobre --status-warning contrasta ≥ 4.5 (pastilla)', () => {
+    const warning = cssToken(selector, '--status-warning')
+    const foreground = cssToken(selector, '--status-warning-foreground')
+    expect(foreground, `--status-warning-foreground en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(contrast(foreground ?? '#000000', warning ?? '#000000')).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('SLO: --status-warning no comparte valor con ningún tipo de entorno', () => {
+    const warning = cssToken(selector, '--status-warning')?.toLowerCase()
+    const envColors = TYPES.map((type) => cssToken(selector, `--env-${type}`)?.toLowerCase())
+    expect(envColors).not.toContain(warning)
+    // Y no es un alias de uno de ellos.
+    expect(warning).not.toMatch(/var\(--env-/)
   })
 
   it('cada tipo tiene un color distinto', () => {

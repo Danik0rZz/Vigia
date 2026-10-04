@@ -28,6 +28,10 @@
   --danger: #c93a3a;
   /* Texto sobre --danger (botón de peligro): contraste AA ≥ 4,5. */
   --danger-foreground: #ffffff;
+  /* Estado de aviso (SLO en WARNING). Token de ESTADO, aparte de los de tipo de
+     entorno aunque se parezcan: si cambia uno, no tiene que cambiar el otro. */
+  --status-warning: #8a4a00;
+  --status-warning-foreground: #ffffff;
   /* Color por tipo de entorno (texto del tipo y distintivo). Contraste AA (≥ 4,5)
      frente a --background, comprobado en src/main/env-colors.test.ts. Producción
      es un color fijo: no cambia con el cliente. */
@@ -62,6 +66,8 @@
   --danger: #ff6b6b;
   /* Blanco sobre #ff6b6b daba 2,78:1: en oscuro, texto oscuro. */
   --danger-foreground: #1a0505;
+  --status-warning: #fcd34d;
+  --status-warning-foreground: #1a1200;
   --env-production: #ff6a4d;
   --env-preproduction: #fbbf24;
   --env-integration: #c4b5fd;
@@ -99,6 +105,8 @@
   --color-status-neutral: var(--status-neutral);
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-foreground: var(--status-warning-foreground);
   --color-production: var(--production);
   --color-env-production: var(--env-production);
   --color-env-preproduction: var(--env-preproduction);
