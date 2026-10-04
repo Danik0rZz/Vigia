@@ -168,7 +168,6 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
     ['src/renderer/src/app/router.tsx'],
     ['src/renderer/src/app/navigation.ts'],
     ['src/renderer/src/main.tsx'],
-    ['src/renderer/src/assets/main.css'],
     ['package.json'],
     ['package-lock.json'],
     ['electron.vite.config.ts'],
@@ -194,7 +193,11 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
     ['src/main/ipc/handlers/modules.ts', 'e2e/views.spec.ts'],
     ['src/shared/problem-row.ts', 'e2e/views.spec.ts'],
     ['src/renderer/src/components/Sidebar.tsx', 'e2e/shell.spec.ts'],
-    ['src/renderer/src/components/TopBar.tsx', 'e2e/shell.spec.ts']
+    ['src/renderer/src/components/TopBar.tsx', 'e2e/shell.spec.ts'],
+    ['src/renderer/src/components/TopBar.tsx', 'e2e/views.spec.ts'],
+    ['src/renderer/src/app/problem-filters.ts', 'e2e/views.spec.ts'],
+    ['src/renderer/src/app/page-crumb.ts', 'e2e/views.spec.ts'],
+    ['src/shared/problem-sort.ts', 'e2e/views.spec.ts']
   ])('%s → incluye %s y smoke', (file, spec) => {
     const d = specsFor(file)
     expect(['some', 'all']).toContain(d.mode)
@@ -204,14 +207,24 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
     }
   })
 
-  it('cambiar los textos (locales) ejecuta todos los specs que comprueban textos', () => {
-    const d = specsFor('src/renderer/src/locales/es/common.json')
-    if (d.mode === 'some') {
-      for (const spec of ['tenants', 'tls', 'views', 'shell'])
-        expect(d.specs).toContain(`e2e/${spec}.spec.ts`)
-    } else {
-      expect(d.mode).toBe('all')
+  // Los locales los cubre el test de paridad y main.css el de contraste (los dos
+  // en check): solos, disparan shell; con un fichero de un módulo, también el suyo.
+  it.each(['src/renderer/src/locales/es/common.json', 'src/renderer/src/assets/main.css'])(
+    '%s solo → some con shell y smoke, nada más',
+    (file) => {
+      const d = specsFor(file)
+      expect(d.mode).toBe('some')
+      expect(d.specs).toEqual([SMOKE, 'e2e/shell.spec.ts'].sort())
     }
+  )
+
+  it('locales junto a una página de un módulo → shell y el spec de ese módulo', () => {
+    const d = decide(
+      ['src/renderer/src/locales/en/common.json', 'src/renderer/src/pages/ProblemsPage.tsx'],
+      real
+    )
+    expect(d.mode).toBe('some')
+    expect(d.specs).toEqual([SMOKE, 'e2e/shell.spec.ts', 'e2e/views.spec.ts'].sort())
   })
 
   it.each([

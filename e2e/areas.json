@@ -41,7 +41,6 @@
     "src/renderer/src/app/navigation.ts",
     "src/renderer/src/main.tsx",
     "src/renderer/src/App.tsx",
-    "src/renderer/src/assets/**",
     "package.json",
     "package-lock.json",
     "electron.vite.config.ts",
@@ -73,8 +72,7 @@
         "src/renderer/src/components/CommandPalette.tsx",
         "src/renderer/src/components/dialogs.tsx",
         "src/renderer/src/components/Field.tsx",
-        "src/renderer/src/pages/SettingsPage.tsx",
-        "src/renderer/src/locales/**"
+        "src/renderer/src/pages/SettingsPage.tsx"
       ],
       "specs": ["e2e/tenants.spec.ts"]
     },
@@ -87,7 +85,7 @@
         "src/renderer/src/settings/SecretsPanel.tsx",
         "src/renderer/src/settings/EnvironmentForm.tsx",
         "src/renderer/src/components/EnvStatusCard.tsx",
-        "src/renderer/src/locales/**"
+        "src/shared/error-reasons.ts"
       ],
       "specs": ["e2e/tls.spec.ts"]
     },
@@ -97,8 +95,10 @@
         "src/renderer/src/components/Chart.tsx",
         "src/renderer/src/components/ExportMenu.tsx",
         "src/renderer/src/components/ModuleState.tsx",
-        "src/renderer/src/components/ProblemDetail.tsx",
         "src/renderer/src/components/ProblemsTable.tsx",
+        "src/renderer/src/components/TopBar.tsx",
+        "src/renderer/src/app/problem-filters.ts",
+        "src/renderer/src/app/page-crumb.ts",
         "src/renderer/src/components/PageHeader.tsx",
         "src/renderer/src/components/TimeRangeSelector.tsx",
         "src/renderer/src/components/CommandPalette.tsx",
@@ -116,7 +116,8 @@
         "src/shared/format-date.ts",
         "src/shared/time-range.ts",
         "src/shared/dt-endpoints.ts",
-        "src/renderer/src/locales/**"
+        "src/shared/problem-sort.ts",
+        "src/shared/error-reasons.ts"
       ],
       "specs": ["e2e/views.spec.ts"]
     },
@@ -138,7 +139,8 @@
         "src/renderer/src/pages/SettingsPage.tsx",
         "src/main/theme.ts",
         "src/main/ipc/handlers/ui.ts",
-        "src/renderer/src/locales/**"
+        "src/renderer/src/locales/**",
+        "src/renderer/src/assets/**"
       ],
       "specs": ["e2e/shell.spec.ts"]
     }
