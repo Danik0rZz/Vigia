@@ -9,6 +9,7 @@ import {
   type ProblemSummary,
   type SeverityLevel
 } from '@shared/modules'
+import { eventMetricInfo } from '@shared/event-metric'
 import type { EvidenceEntity, EvidenceWire } from '@shared/problem-evidence'
 
 /** Máximo de caracteres de `text()` en el problemSelector (Environment API v2). */
@@ -183,7 +184,9 @@ export function toEvidenceWire(item: z.output<typeof evidenceItemSchema>): Evide
     metricId: item.metricId ?? null,
     unit: item.unit ?? null,
     valueBefore: item.valueBeforeChangePoint ?? null,
-    valueAfter: item.valueAfterChangePoint ?? null
+    valueAfter: item.valueAfterChangePoint ?? null,
+    // Sobre las propiedades EN CRUDO: el selector no cabe en el recorte de arriba.
+    eventMetric: item.evidenceType === 'EVENT' ? eventMetricInfo(item.data?.properties ?? []) : null
   }
 }
 

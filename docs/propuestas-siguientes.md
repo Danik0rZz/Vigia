@@ -111,11 +111,28 @@ canales y pruebas nuevas, o una pieza de infraestructura).
   - Encaja con dos cosas aplazadas a esta fase: las exportaciones grandes en streaming (con
     progreso y cancelación) y el aviso de filas de Excel en CSV (1.048.576 por hoja), que con el
     límite actual del IPC no se puede alcanzar.
+  - Nota (0.9.2): las evidencias de evento con `dt.event.dql_query` (alertas basadas en DQL)
+    podrían pintarse con DQL. Hoy no tienen gráfico: sin `dt.event.metric_selector` no hay nada
+    que pedir a la API v2.
 - **Decisiones que necesita de Dani:**
   - Los límites por defecto (GiB de escaneo y registros) y si cada entorno puede cambiarlos.
   - Si entra el streaming de exportaciones en la misma fase o después.
   - Con qué entorno de plataforma se hace la aceptación manual (una consulta real escanea bytes y
     tiene coste).
+
+## 4 bis. Gráfico de las evidencias de métrica (METRIC)
+
+- **Qué aporta al usuario:** el mismo mini gráfico que tienen desde la 0.9.2 los eventos con
+  `dt.event.metric_selector`, pero en las evidencias `METRIC`, que hoy enseñan "antes → después".
+- **API y endpoints:** `GET /metrics/query` con el `metricId` de la evidencia y el rango del
+  problema (el mismo canal `metrics:query`).
+- **Scopes:** `metrics.read` / `environment-api:metrics:read`, como Métricas.
+- **Esfuerzo: S** si se acepta la serie sin filtrar; **M** si hay que filtrar por la entidad.
+- **Riesgos y dependencias:** la evidencia trae `metricId` y la entidad, pero no la clave de
+  dimensión de la entidad: sin ella, el gráfico mezcla todas las series de la métrica. En vivo no
+  ha llegado todavía ninguna evidencia `METRIC`.
+- **Decisiones que necesita de Dani:** si vale un gráfico sin filtrar por entidad (con "Mostrando
+  10 de N") o se espera a saber la dimensión.
 
 ## 5. CI en GitHub Actions
 
@@ -160,14 +177,15 @@ canales y pruebas nuevas, o una pieza de infraestructura).
 
 ## Resumen
 
-| Propuesta                        | Esfuerzo | Coste o riesgo principal                                        | Dependencia                                    |
-| -------------------------------- | -------- | --------------------------------------------------------------- | ---------------------------------------------- |
-| 1. Vista de Entidades            | L        | Muchos tipos personalizados y `properties` sin forma fija       | `entities.read` en el token                    |
-| 2. Eventos en el detalle         | S        | El enlace por `evidenceDetails` no está comprobado en vivo      | Una prueba en vivo de solo lectura             |
-| 3. Agrupar Problemas por clúster | S        | Problemas con varios clústeres y números de una lista recortada | Reabrir la decisión de "sin agrupar"           |
-| 4. Fase 8: DQL y Logs            | L        | Coste por GiB escaneado en Grail                                | Credenciales de plataforma (no hay en Managed) |
-| 5. CI en GitHub Actions          | S        | Minutos de Actions y logs públicos                              | Confirmar los minutos de la cuenta             |
-| 6. Fusible del asar              | S        | Un zip que no arranca si se configura mal                       | Un perfil o una máquina virtual de prueba      |
+| Propuesta                           | Esfuerzo | Coste o riesgo principal                                        | Dependencia                                    |
+| ----------------------------------- | -------- | --------------------------------------------------------------- | ---------------------------------------------- |
+| 1. Vista de Entidades               | L        | Muchos tipos personalizados y `properties` sin forma fija       | `entities.read` en el token                    |
+| 2. Eventos en el detalle            | S        | El enlace por `evidenceDetails` no está comprobado en vivo      | Una prueba en vivo de solo lectura             |
+| 3. Agrupar Problemas por clúster    | S        | Problemas con varios clústeres y números de una lista recortada | Reabrir la decisión de "sin agrupar"           |
+| 4. Fase 8: DQL y Logs               | L        | Coste por GiB escaneado en Grail                                | Credenciales de plataforma (no hay en Managed) |
+| 4 bis. Gráfico de evidencias METRIC | S o M    | Sin la dimensión de la entidad se mezclan todas las series      | Ver una evidencia METRIC en vivo               |
+| 5. CI en GitHub Actions             | S        | Minutos de Actions y logs públicos                              | Confirmar los minutos de la cuenta             |
+| 6. Fusible del asar                 | S        | Un zip que no arranca si se configura mal                       | Un perfil o una máquina virtual de prueba      |
 
 Orden sugerido (es una sugerencia, decide Dani): primero el CI, que protege todo lo demás y es
 pequeño; después los eventos del detalle y la agrupación por clúster, que usan datos que ya llegan;

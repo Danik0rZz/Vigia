@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { eventMetricSchema, type EventMetric } from './event-metric'
 
 /** Valor que se muestra cuando un dato no está o no es un número. */
 export const NOT_AVAILABLE = 'N/A'
@@ -35,7 +36,9 @@ export const evidenceWireSchema = z.object({
   metricId: z.string().nullable(),
   unit: z.string().nullable(),
   valueBefore: z.number().nullable(),
-  valueAfter: z.number().nullable()
+  valueAfter: z.number().nullable(),
+  /** Solo en EVENT: el selector de métrica (extraído en main, entero) y su umbral. */
+  eventMetric: eventMetricSchema.nullable()
 })
 export type EvidenceWire = z.output<typeof evidenceWireSchema>
 
@@ -68,7 +71,12 @@ export interface EvidenceView {
   after: number | null
   /** Variación entre antes y después (METRIC y TRANSACTIONAL); null sin los dos valores. */
   change: ChangeView | null
-  event: { eventType: string | null; properties: { key: string; text: string }[] } | null
+  event: {
+    eventType: string | null
+    properties: { key: string; text: string }[]
+    /** Métrica del evento (dt.event.metric_selector), si la trae. */
+    metric: EventMetric | null
+  } | null
   metricId: string | null
   unit: string | null
 }
@@ -109,7 +117,11 @@ export function toEvidenceView(evidence: EvidenceWire): EvidenceView {
     change: isChange ? changeOf(evidence.valueBefore, evidence.valueAfter) : null,
     event:
       evidence.evidenceType === 'EVENT'
-        ? { eventType: evidence.eventType, properties: evidence.properties }
+        ? {
+            eventType: evidence.eventType,
+            properties: evidence.properties,
+            metric: evidence.eventMetric
+          }
         : null,
     metricId: evidence.metricId,
     unit: evidence.unit

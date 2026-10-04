@@ -273,7 +273,8 @@ describe('problemDetailSchema y toProblemDetail', () => {
     metricId: null,
     unit: null,
     valueBefore: null,
-    valueAfter: null
+    valueAfter: null,
+    eventMetric: null
   }
 
   it('mapea el detalle completo (v0.9.1: sin impactos, con totales)', () => {
@@ -576,8 +577,80 @@ describe('toEvidenceWire (v0.9.1)', () => {
       metricId: 'builtin:service.response.time',
       unit: 'MicroSecond',
       valueBefore: 1200.5,
-      valueAfter: 9800
+      valueAfter: 9800,
+      eventMetric: null
     })
+  })
+
+  describe('v0.9.2: eventMetric (dt.event.metric_selector), sobre las propiedades EN CRUDO', () => {
+    const SELECTOR = 'builtin:service.response.time:filter(eq("dt.entity.service","SERVICE-1")):avg'
+    const event = (
+      properties: unknown[],
+      extra: Record<string, unknown> = {}
+    ): Record<string, unknown> => ({
+      evidenceType: 'EVENT',
+      displayName: 'Respuesta lenta',
+      eventType: 'CUSTOM_ALERT',
+      data: { properties },
+      ...extra
+    })
+
+    it('ok: selector y umbral (los values llegan como texto)', () => {
+      const result = normalize(
+        event([
+          { key: 'dt.event.title', value: 'Respuesta lenta' },
+          { key: 'dt.event.metric_selector', value: SELECTOR },
+          { key: 'dt.event.metric_threshold', value: '850' }
+        ])
+      )
+      expect(result?.eventMetric).toEqual({ status: 'ok', selector: SELECTOR, threshold: 850 })
+    })
+
+    it('sin selector → null; sin umbral → threshold null', () => {
+      expect(normalize(event([{ key: 'dt.event.title', value: 't' }]))?.eventMetric).toBeNull()
+      expect(normalize(event([]))?.eventMetric).toBeNull()
+      expect(normalize({ evidenceType: 'EVENT', displayName: 'sin data' })?.eventMetric).toBeNull()
+      expect(
+        normalize(event([{ key: 'dt.event.metric_selector', value: SELECTOR }]))?.eventMetric
+      ).toEqual({ status: 'ok', selector: SELECTOR, threshold: null })
+    })
+
+    it('un selector de 600 caracteres llega ENTERO aunque properties[].text vaya recortado a 300', () => {
+      const long = `builtin:host.cpu.usage:filter(${'x'.repeat(560)}):avg`
+      expect(long.length).toBeGreaterThan(300)
+      const result = normalize(event([{ key: 'dt.event.metric_selector', value: long }]))
+      expect(result?.eventMetric).toMatchObject({ status: 'ok', selector: long })
+      expect(result?.properties[0]?.text).toHaveLength(300)
+    })
+
+    it('un selector que pasa de las 8 propiedades que se muestran también se encuentra', () => {
+      const others = Array.from({ length: 10 }, (_, i) => ({ key: `p${i}`, value: 'v' }))
+      const result = normalize(
+        event([...others, { key: 'dt.event.metric_selector', value: SELECTOR }])
+      )
+      expect(result?.properties).toHaveLength(8)
+      expect(result?.eventMetric).toMatchObject({ status: 'ok', selector: SELECTOR })
+    })
+
+    it('de más de 2000 caracteres → tooLong, sin el selector ni recortado', () => {
+      const result = normalize(
+        event([{ key: 'dt.event.metric_selector', value: 'm'.repeat(2001) }])
+      )
+      expect(result?.eventMetric).toEqual({ status: 'tooLong' })
+      // Lo que cruza el IPC lo admite el contrato.
+      expect(evidenceWireSchema.safeParse(result).success).toBe(true)
+    })
+
+    it.each(['METRIC', 'TRANSACTIONAL', 'AVAILABILITY_EVIDENCE', 'MAINTENANCE_WINDOW', 'OTRO'])(
+      '%s con la misma propiedad: eventMetric null (solo EVENT)',
+      (type) => {
+        expect(
+          normalize(
+            event([{ key: 'dt.event.metric_selector', value: SELECTOR }], { evidenceType: type })
+          )?.eventMetric
+        ).toBeNull()
+      }
+    )
   })
 
   it('endTime -1 y null pasan tal cual; ausente → null', () => {

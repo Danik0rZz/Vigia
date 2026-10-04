@@ -2,6 +2,7 @@ import { z, type ZodType } from 'zod'
 import { nextPageQuery, type DtListEndpoint } from '@shared/dt-endpoints'
 import type { Environment, SecretKind } from '@shared/tenants'
 import { DtError } from './errors'
+import { redactQueryEcho } from './log-redact'
 import { issuePath, parseItems } from './parse-items'
 import type { OAuthTokenManager } from './oauth'
 import { parseRetryAfter } from './retry-after'
@@ -370,7 +371,10 @@ export function createDtClient(deps: DtClientDeps): DtClient {
                   ? 'SERVER_ERROR'
                   : 'INVALID_RESPONSE'
         const error = new DtError(code, message, response.status)
-        deps.logger.error(`Dynatrace ${response.status} en ${method} ${path}: ${error.message}`)
+        // El log no lleva valores largos de la query que Dynatrace repita (el selector).
+        deps.logger.error(
+          `Dynatrace ${response.status} en ${method} ${path}: ${redactQueryEcho(error.message, options.query)}`
+        )
         throw error
       }
 

@@ -712,6 +712,51 @@ describe('AUD-08 y BAD_REQUEST', () => {
     expect(fetchSpy).toHaveBeenCalledOnce()
   })
 
+  it('v0.9.2: un 400 que repite el metricSelector: el log no lo lleva; el error al renderer, sí', async () => {
+    const SELECTOR = 'builtin:service.response.time:filter(eq("dt.entity.service","SERVICE-1")):avg'
+    responses.push(dtError(400, `Constraints violated: metricSelector ${SELECTOR} not supported`))
+    const error = await expectDtError(
+      client().dtRequest({
+        envId: ENV,
+        api: 'classic',
+        path: '/metrics/query',
+        query: { metricSelector: SELECTOR, resolution: '1m' },
+        schema: anyObject
+      }),
+      'BAD_REQUEST'
+    )
+    // Al renderer llega el mensaje original: es el selector del propio usuario.
+    expect(error.message).toContain(SELECTOR)
+    const logged = [...logger.error.mock.calls, ...logger.warn.mock.calls]
+      .map((call) => JSON.stringify(call))
+      .join('\n')
+    expect(logger.error).toHaveBeenCalled()
+    expect(logged).not.toContain(SELECTOR)
+    expect(logged).not.toContain('SERVICE-1')
+    expect(logged).toContain(`metricSelector (${SELECTOR.length} caracteres)`)
+    expect(logged).toContain('/metrics/query')
+  })
+
+  it('v0.9.2: un 403 o un 5xx en /metrics/query tampoco ponen el selector en el log', async () => {
+    const SELECTOR = 'builtin:host.cpu.usage:filter(eq("dt.entity.host","HOST-1")):avg'
+    for (const status of [403, 404]) {
+      responses.push(dtError(status, `Error con ${SELECTOR}`))
+      await client()
+        .dtRequest({
+          envId: ENV,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector: SELECTOR },
+          schema: anyObject
+        })
+        .catch(() => undefined)
+    }
+    const logged = [...logger.error.mock.calls, ...logger.warn.mock.calls]
+      .map((call) => JSON.stringify(call))
+      .join('\n')
+    expect(logged).not.toContain(SELECTOR)
+  })
+
   it('INVALID_RESPONSE registra con logger.error las rutas de Zod, sin valores', async () => {
     const SENSITIVE = 'valor-secreto-del-tenant'
     responses.push(json(200, { totalCount: SENSITIVE, problems: [{ title: SENSITIVE }] }))

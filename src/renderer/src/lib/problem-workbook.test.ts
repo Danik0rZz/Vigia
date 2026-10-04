@@ -33,6 +33,7 @@ function evidence(overrides: Partial<EvidenceWire> = {}): EvidenceWire {
     unit: null,
     valueBefore: null,
     valueAfter: null,
+    eventMetric: null,
     ...overrides
   }
 }
