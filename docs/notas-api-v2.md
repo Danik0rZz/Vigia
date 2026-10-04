@@ -258,15 +258,66 @@ con `evaluate=true` y `pageSize` 5). Los SLO son del cliente: aquí solo va su f
 
 ## e) Events y eventTypes
 
-_OpenAPI._ Pendiente de la prueba en vivo.
+_Observado (2026-10-04)._ Prueba: `src/main/modules/events-explore.live.test.ts` (6 lecturas). Ni
+títulos, ni propiedades, ni entidades de los eventos: son datos del cliente.
 
 ### `GET /eventTypes`
 
+- **Respuesta:** `eventTypeInfos` (no `eventTypes`), `totalCount` y `pageSize`. Cada tipo trae
+  `type`, `displayName`, `description` y `severityLevel`.
+- Es el catálogo de Dynatrace: todos los tipos de la muestra son estándar (de `AVAILABILITY_EVENT`,
+  `ERROR_EVENT`, `PERFORMANCE_EVENT`, `RESOURCE_CONTENTION_EVENT`, `CUSTOM_ALERT`, `CUSTOM_INFO`…
+  a los de infraestructura: `OSI_*`, `PGI_*`, `ESXI_*`, `RDS_*`, `HTTP_CHECK_*`, `SYNTHETIC_*`).
+- **Paginación:** según la OpenAPI (`DT_ENDPOINTS.eventTypes`), solo `nextPageKey`. No comprobado
+  en vivo.
+
 ### `GET /events`
+
+- **Parámetros por defecto:** `from` = `now-2h` y `pageSize` = 100 (máximo 1000, según la
+  OpenAPI; `test:live` no pasa de 500). La prueba manda `from=now-24h` y `pageSize=100`.
+- **Respuesta:** `events`, `totalCount`, `pageSize`, `nextPageKey` y `warnings`.
+- **Cada evento:** `eventId`, `eventType`, `title`, `status` (`OPEN` o `CLOSED`), `startTime`,
+  `endTime` (-1 en los abiertos), `entityId` (objeto `{ entityId, name }`; `name` no siempre
+  llega), `entityTags`, `managementZones`, `properties` (lista de `{ key, value }`),
+  `correlationId`, `frequentEvent`, `suppressAlert`, `suppressProblem` y `underMaintenance`.
+- **Paginación (confirmada en vivo):** página 2 solo con `nextPageKey` → OK; con `nextPageKey` y
+  `from` → **400** (`DT_ENDPOINTS.events.keepOnNextPage = []`).
+- **Relación con los problemas (observado):** todos los eventos de la muestra traen
+  `correlationId`, pero **no coincide con el `problemId`** de ningún problema de las mismas 24 h.
+  No es un enlace directo al problema. Según la OpenAPI (sin comprobar en vivo), el enlace va al
+  revés: las evidencias del detalle del problema (`evidenceDetails`, de tipo `EVENT`) y el filtro
+  `eventSelector=correlationId(…)`.
+- **Errores:** un `eventSelector` mal formado da **400**.
+- **Tiempos:** mediana de unos 330 ms y máximo por debajo de 0,5 s.
 
 ## f) Settings 2.0 (solo lectura)
 
-_OpenAPI._ Solo si sobra tiempo.
+_Observado (2026-10-04)._ Prueba: `src/main/modules/settings-explore.live.test.ts` (6 lecturas,
+solo GET). Los objetos pueden llevar valores sensibles (webhooks, credenciales, cabeceras): aquí
+no va ningún `value`, y la prueba pide `fields=objectId,schemaId,scope` salvo en una petición de un
+solo objeto, de la que solo mira el tipo de `value`.
+
+### `GET /settings/schemas`
+
+- **Respuesta:** `items` y `totalCount`, sin paginar (llegan todos). Cada esquema trae
+  `schemaId`, `displayName` y `latestSchemaVersion` (la OpenAPI declara más campos, como
+  `multiObject` u `ordered`, que no llegaron).
+- **Con un token clásico con `settings.read`, la lista es reducida:** solo aparecen esquemas
+  `builtin:` de health-experience y de openpipeline. Los clásicos (`builtin:anomaly-detection.*`,
+  `builtin:management-zones`, `builtin:host.monitoring`…) no aparecen. Es probable que dependa de
+  los permisos del token sobre cada esquema (sin confirmar). Una función de Settings tendría que
+  partir de lo que este listado devuelve, no de una lista fija.
+
+### `GET /settings/objects`
+
+- **Sin `schemaIds` ni `scopes` → 400**, como dice la OpenAPI.
+- **Respuesta:** `items`, `totalCount`, `pageSize` y `nextPageKey`.
+- **`fields`:** con `fields=objectId,schemaId,scope` llegan exactamente esos tres y **no llega
+  `value`**. Es la forma de listar objetos sin traer secretos por la red.
+- **`value`:** es un objeto (tipo de nivel superior); su forma depende del esquema.
+- **Paginación (confirmada en vivo):** página 2 solo con `nextPageKey` → OK; con `nextPageKey` y
+  `fields` → **400**. Igual que el resto de endpoints salvo `/problems`.
+- **Tiempos:** mediana de unos 400 ms; `/settings/schemas` es la más lenta (por debajo de 1 s).
 
 ## Propuestas
 
@@ -286,6 +337,12 @@ nueva sin su visto bueno.
   distinguir el estado `WARNING` (la API lo da: valor entre `warning` y `target`). Hoy Inicio pinta
   `WARNING` con el mismo color que `FAILURE`. Y, si se pide algún día la lista sin evaluar (por
   ejemplo, para un listado barato), no mostrar su `status`.
+- **Eventos de un problema (bloque e).** En el detalle de Problemas, una sección con los eventos
+  del problema (los de `evidenceDetails` de tipo `EVENT`, o `eventSelector` con su
+  `correlationId`), sin interfaz nueva de Events. Se decide con Dani.
+- **Settings 2.0 (bloque f).** Con este token solo se ven unos pocos esquemas: antes de cualquier
+  función de Settings hay que saber qué permisos necesita el token para ver los clásicos. Los
+  listados, siempre con `fields` sin `value`.
 - **Vista de Entidades (bloque b).** Un explorador por tipo (lista de tipos estándar y, aparte, los
   personalizados), con la tabla de entidades del tipo elegido, su `properties` y sus relaciones
   navegables (de un servicio a su host o a su process group). Necesita `entities.read`. No se
