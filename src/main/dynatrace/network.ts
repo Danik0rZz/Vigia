@@ -32,7 +32,8 @@ export interface EnvironmentNetwork {
   untrusted(envId: string): UntrustedCertificate[]
   /**
    * Si el verificador rechazó esa huella para ese host en la última prueba
-   * (lo que `untrusted` ofreció). Lo único que `certificates:pin` acepta.
+   * (lo que `untrusted` ofreció) y el host sigue siendo del entorno. Lo único
+   * que `certificates:pin` acepta.
    */
   wasOffered(envId: string, host: string, fingerprint: string): boolean
 }
@@ -175,6 +176,8 @@ export function createEnvironmentNetwork(deps: {
     },
 
     wasOffered(envId, host, fingerprint) {
+      // Si la URL del entorno ha cambiado, lo ofrecido para el host anterior caduca.
+      if (!deps.environmentHosts(envId).includes(hostnameOf(host))) return false
       return (offered.get(envId) ?? []).some(
         (certificate) => certificate.host === host && certificate.fingerprint === fingerprint
       )

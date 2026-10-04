@@ -380,6 +380,47 @@ describe('AUD-21 (P3-2): wasOffered, lo único que certificates:pin acepta', () 
     expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(false)
   })
 
+  it('si la URL del entorno cambia a otro host, lo ofrecido caduca; si vuelve, revive', async () => {
+    const network = await offeredOnce()
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(true)
+
+    hosts = ['otro.example']
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(false)
+
+    hosts = [HOST]
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(true)
+  })
+
+  it('basta con que el host siga en alguna de las URL (clásica o de plataforma)', async () => {
+    const network = await offeredOnce()
+    hosts = ['plataforma.example', HOST]
+    expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(true)
+  })
+
+  it('el puerto no cuenta para ese control (environmentHosts son nombres sin puerto)', async () => {
+    const network = await offeredOnce(`${HOST}:9443`)
+    hosts = [HOST]
+    expect(network.wasOffered(ENV, `${HOST}:9443`, FP)).toBe(true)
+  })
+
+  it('si environmentHosts lanza (entorno borrado), nunca da true', async () => {
+    const network = createEnvironmentNetwork({
+      certificateLevel: () => level,
+      environmentHosts: () => {
+        throw new Error('NOT_FOUND')
+      },
+      pins: { list: () => [], pin: () => undefined, unpin: () => undefined, forHost: () => [] }
+    })
+    // Puede lanzar (el handler ya da NOT_FOUND antes con getEnvironment) o dar false.
+    let result: boolean | 'lanza'
+    try {
+      result = network.wasOffered(ENV, `${HOST}:443`, FP)
+    } catch {
+      result = 'lanza'
+    }
+    expect(result).not.toBe(true)
+  })
+
   it('con huella fijada distinta (mismatch), lo ofrecido es la huella NUEVA', async () => {
     level = 'pinned'
     pins = [{ host: `${HOST}:443`, fingerprint: FP }]
