@@ -1,5 +1,6 @@
-import { BrowserWindow, nativeTheme } from 'electron'
+import { app, BrowserWindow, nativeTheme } from 'electron'
 import { APP_ENTRY_URL, APP_NAME } from '@shared/app'
+import { E2E_ENV, isE2eMode } from './e2e-mode'
 import { preloadPath } from './paths'
 import { titleBarColors } from './theme'
 
@@ -9,12 +10,27 @@ export function getMainWindow(): BrowserWindow | null {
   return mainWindow
 }
 
+const e2eMode = (): boolean => isE2eMode({ packaged: app.isPackaged, value: process.env[E2E_ENV] })
+
+/**
+ * Muestra la ventana. En modo e2e, sin activarla: las pruebas no le quitan el
+ * foco a quien usa el PC ni reciben sus teclas.
+ */
+export function showWindow(
+  window: Pick<BrowserWindow, 'show' | 'showInactive'>,
+  e2e: boolean
+): void {
+  if (e2e) window.showInactive()
+  else window.show()
+}
+
 /** Trae la ventana al frente; se usa cuando se intenta abrir una segunda instancia. */
 export function focusMainWindow(): void {
   if (mainWindow === null) return
   if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
+  const e2e = e2eMode()
+  showWindow(mainWindow, e2e)
+  if (!e2e) mainWindow.focus()
 }
 
 /**
@@ -53,7 +69,7 @@ export function createMainWindow(devServerUrl: string | undefined): BrowserWindo
   }
   nativeTheme.on('updated', applyTheme)
 
-  window.once('ready-to-show', () => window.show())
+  window.once('ready-to-show', () => showWindow(window, e2eMode()))
   window.on('closed', () => {
     nativeTheme.off('updated', applyTheme)
     if (mainWindow === window) mainWindow = null

@@ -78,7 +78,7 @@ test.beforeAll(async () => {
   app = await electron.launch({
     // VIGIA_E2E_NO_SANDBOX solo hace falta en contenedores Linux que ejecutan como root.
     args: ['.', ...(process.env['VIGIA_E2E_NO_SANDBOX'] ? ['--no-sandbox'] : [])],
-    env: { ...process.env, VIGIA_USER_DATA_DIR: userDataDir }
+    env: { ...process.env, VIGIA_USER_DATA_DIR: userDataDir, VIGIA_E2E: '1' }
   })
   page = await app.firstWindow()
 
