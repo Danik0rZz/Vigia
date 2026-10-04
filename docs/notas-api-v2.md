@@ -228,9 +228,33 @@ Las consultas usan una métrica estándar (`builtin:host.cpu.usage`).
 
 ## d) SLOs
 
-_OpenAPI._ Pendiente de la prueba en vivo.
+_Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2
+con `evaluate=true` y `pageSize` 5). Los SLO son del cliente: aquí solo va su forma.
 
 ### `GET /slo`
+
+- **Respuesta:** `slo`, `totalCount` y `pageSize`; `nextPageKey` solo si hay más páginas.
+- **Cada SLO:** `id`, `name`, `status`, `target`, `warning`, `evaluatedPercentage`, `errorBudget`,
+  `error`, `enabled`, `evaluationType`, `timeframe`, `filter`, `metricExpression`, `metricKey`,
+  `metricName`, `metricNumerator`, `metricDenominator`, `metricRate`, `useRateMetric`,
+  `numeratorValue`, `denominatorValue`, `burnRateMetricKey`, `errorBudgetMetricKey`,
+  `normalizedErrorBudgetMetricKey` y `errorBudgetBurnRate` (objeto). Con `evaluate=true` llegan
+  además **`relatedOpenProblems`** y **`relatedTotalProblems`**.
+- **Sin evaluar (`evaluate=false`) el estado no vale nada:** todos llegan con `status: SUCCESS`,
+  `evaluatedPercentage` y `errorBudget` a -1, y a veces con un `error` distinto de `NONE`. Una
+  interfaz nunca debe mostrar ese `status`. Inicio pide la lista evaluada, así que no le afecta.
+- **Evaluados (`CURRENT` o `GTF` con `from`/`to`):** valores reales, `status` `SUCCESS` o
+  `FAILURE` y `error` = `NONE`. `evaluationType` observado: `AGGREGATE`. Todos validan con
+  `sloSchema`.
+- **Límites:**
+  - `evaluate=true` con `pageSize` 26 → **400**, como dice la OpenAPI (máximo 25). Vigía pide 25
+    por página y como mucho 4 páginas.
+  - Un `timeFrame` no válido da **404** (no 400): Vigía siempre manda `CURRENT` o `GTF`.
+- **Paginación:** según la OpenAPI (`DT_ENDPOINTS.slo`), la página 2 se pide solo con
+  `nextPageKey`. No comprobado en vivo.
+- **`GET /slo/{id}`:** misma forma que un elemento de la lista evaluada (con `timeFrame`, `from` y
+  `to`).
+- **Tiempos:** mediana de unos 380 ms; las evaluadas, por debajo de 0,5 s con 5 SLO.
 
 ## e) Events y eventTypes
 
@@ -257,6 +281,11 @@ nueva sin su visto bueno.
   aplicada, los `warnings` (con ApiWarnings) y los `dataPointCountRatio` y `dimensionCountRatio`
   cuando son menores que 1 (resultado recortado). Y, como la API no rebaja la resolución, avisar o
   proponer una más gruesa cuando una consulta pase de unos miles de puntos por serie.
+- **SLOs en Inicio (mejora del módulo existente).** Mostrar `relatedOpenProblems` (problemas
+  abiertos relacionados con el SLO, que ya llega con la evaluación, sin peticiones nuevas) y
+  distinguir el estado `WARNING` (la API lo da: valor entre `warning` y `target`). Hoy Inicio pinta
+  `WARNING` con el mismo color que `FAILURE`. Y, si se pide algún día la lista sin evaluar (por
+  ejemplo, para un listado barato), no mostrar su `status`.
 - **Vista de Entidades (bloque b).** Un explorador por tipo (lista de tipos estándar y, aparte, los
   personalizados), con la tabla de entidades del tipo elegido, su `properties` y sus relaciones
   navegables (de un servicio a su host o a su process group). Necesita `entities.read`. No se
