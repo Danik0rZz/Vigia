@@ -28,11 +28,17 @@ import es from '../src/renderer/src/locales/es/common.json'
  * lo prueba tls.spec). Las exportaciones van a una carpeta temporal
  * (VIGIA_EXPORT_DIR). El portapapeles del sistema se guarda y se restaura.
  *
- * Deuda conocida (para después de la primera versión): las pruebas dependen del
- * orden, porque cada una parte del estado que dejó la anterior. Lo ideal es que
- * cada prueba prepare su propio estado.
+ * Cada test es independiente: `beforeEach` (resetState) deja el simulador, los
+ * ajustes de exportación y las consultas guardadas como al principio, activa
+ * Producción, pone la interfaz en español y la recarga en Inicio (sin caché ni
+ * filtros en memoria). Así se pueden ejecutar en cualquier orden o sueltos con
+ * --grep. La app se lanza una sola vez por worker (beforeAll): relanzarla por
+ * test sería mucho más lento.
+ *
+ * Sin modo serie: el único recurso compartido es el portapapeles del sistema, y
+ * los tests de un mismo fichero ya corren de uno en uno en su worker (sin
+ * fullyParallel); ningún otro spec lo usa (ver CLAUDE.md).
  */
-test.describe.configure({ mode: 'serial' })
 
 const tok = (name: string): string => `dt0c01.PUBLICAPRUEBA0000000000A.${name.padEnd(64, 'X')}`
 const TOKEN_A = tok('SECRETOVISTASA')
@@ -174,8 +180,14 @@ const detailExtras = {
   }
 }
 
-/** Estado y registro del Dynatrace simulado. */
-const sim = {
+/**
+ * Estado y registro del Dynatrace simulado. Cada test parte de estos valores
+ * (`resetState` los restaura); los contadores solo se comparan con un «antes»
+ * tomado dentro del propio test.
+ */
+// El tipo del simulador es el de este objeto: escribirlo aparte solo lo duplicaría.
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+const defaultSim = () => ({
   problemsRequests: 0,
   truncate: false,
   many: false,
@@ -200,7 +212,8 @@ const sim = {
   metricWarnings: [] as string[],
   /** SLOs: «Errores de login» con relatedOpenProblems -1 (no calculado) o 0. */
   sloRelatedFailed: true
-}
+})
+const sim = defaultSim()
 
 let server: Server
 let port = 0
@@ -495,6 +508,53 @@ async function goTo(id: string): Promise<void> {
   await page.getByTestId(`nav-${id}`).click()
 }
 
+/**
+ * Estado de partida de cada test (ver la cabecera). Restaura el simulador, los
+ * ajustes de exportación y las consultas guardadas, activa el entorno pedido,
+ * pone las preferencias por defecto (español) y recarga la interfaz en Inicio:
+ * la caché de datos, los filtros y el rango de tiempo viven en memoria del
+ * renderer y se pierden con la recarga.
+ */
+async function resetState(active: string | null = 'Producción'): Promise<void> {
+  Object.assign(sim, defaultSim())
+  await invoke('export:setSettings', { csvSeparator: ';', captureFooter: true })
+  for (const environmentId of Object.values(env)) {
+    const saved = await invoke<{ id: string }[]>('savedQueries:list', { environmentId })
+    for (const query of saved) await invoke('savedQueries:delete', { id: query.id })
+  }
+  await invoke('environments:setActive', {
+    environmentId: active === null ? null : env[active]
+  })
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'vigia.preferences',
+      JSON.stringify({
+        state: { theme: 'system', language: 'es', sidebarCollapsed: false },
+        version: 1
+      })
+    )
+    window.location.hash = '#/'
+  })
+  await reloadUi()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'es')
+  await expect(page.getByTestId('nav-home')).toBeVisible()
+}
+
+/** Va a Problemas y espera a que lleguen los 3 problemas de Producción. */
+async function openProblems(): Promise<void> {
+  await goTo('problems')
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+}
+
+/** Va a Métricas, pone el selector y la resolución, consulta y espera el gráfico. */
+async function runMetric(selector = 'builtin:host.cpu.usage', resolution = '5m'): Promise<void> {
+  await goTo('metrics')
+  await page.getByTestId('metric-selector').fill(selector)
+  await page.getByTestId('metric-resolution').selectOption(resolution)
+  await page.getByTestId('metric-run').click()
+  await expect(page.getByTestId('metric-chart').locator('canvas').first()).toBeVisible()
+}
+
 function exportMenu(target: string): Locator {
   return page.locator(`[data-testid="export-menu"][data-export-target="${target}"]`)
 }
@@ -585,6 +645,30 @@ test.beforeAll(async () => {
   await reloadUi()
 })
 
+test.beforeEach(async () => {
+  await resetState()
+})
+
+/**
+ * Comprobaciones de seguridad después de CADA test (antes era un test final que
+ * dependía de ir el último): sin secretos en las respuestas IPC ni en la página,
+ * sin errores de consola y sin peticiones remotas del renderer.
+ */
+test.afterEach(async () => {
+  const outputs = ipcOutputs.splice(0)
+  const errors = consoleErrors.splice(0)
+  const remote = rendererRemote.splice(0)
+  for (const output of outputs) {
+    for (const mark of SECRET_MARKS) expect(output, 'respuesta IPC').not.toContain(mark)
+  }
+  if (!page.isClosed()) {
+    const html = await page.content()
+    for (const mark of SECRET_MARKS) expect(html, 'HTML de la página').not.toContain(mark)
+  }
+  expect(errors, 'errores de consola').toEqual([])
+  expect(remote, 'peticiones remotas del renderer').toEqual([])
+})
+
 test.afterAll(async () => {
   try {
     await restoreClipboardAndClose()
@@ -628,19 +712,18 @@ async function restoreClipboardAndClose(): Promise<void> {
 }
 
 test('sin entorno activo, las tres vistas dicen que no hay entorno', async () => {
+  await resetState(null)
+  const before = sim.problemsRequests
   for (const id of ['home', 'problems', 'metrics']) {
     await goTo(id)
     await expect(page.getByTestId('module-unavailable'), id).toContainText('Sin entorno')
   }
-  expect(sim.problemsRequests).toBe(0)
+  expect(sim.problemsRequests).toBe(before)
 })
 
 test('Problemas: tabla, línea de tiempo y detalle con las entidades afectadas', async () => {
-  await activate('Producción')
-  await goTo('problems')
-
+  await openProblems()
   const rows = page.getByTestId('problem-row')
-  await expect(rows).toHaveCount(3)
   for (const p of problemsA) {
     await expect(page.getByTestId('problems-table')).toContainText(p.displayId)
   }
@@ -701,6 +784,7 @@ test('Problemas: tabla, línea de tiempo y detalle con las entidades afectadas',
 })
 
 test('AUD-12: mientras el detalle carga, el panel ya muestra los datos de la fila', async () => {
+  await openProblems()
   const detail = page.getByTestId('problem-detail')
   let release = (): void => undefined
   sim.detailGate = new Promise<void>((resolve) => {
@@ -730,6 +814,7 @@ test('AUD-12: mientras el detalle carga, el panel ya muestra los datos de la fil
 })
 
 test('AUD-12: si el detalle falla, el error va dentro del panel y los datos de la fila se quedan', async () => {
+  await openProblems()
   const detail = page.getByTestId('problem-detail')
   sim.detailFails = true
   try {
@@ -753,7 +838,7 @@ test('AUD-12: si el detalle falla, el error va dentro del panel y los datos de l
 
 test('AUD-12: el detalle se abre con el teclado, se cierra con Escape y el foco vuelve a la fila', async () => {
   const detail = page.getByTestId('problem-detail')
-  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+  await openProblems()
 
   // Tab desde el filtro de texto hasta el primer botón problem-open.
   await page.getByTestId('problems-filter-text').focus()
@@ -810,7 +895,7 @@ test('AUD-12: filtros de severidad e impacto, en el servidor', async () => {
     await page.locator(`[data-testid="${option}"][value="${value}"]`).click()
     await page.keyboard.press('Escape')
   }
-  await expect(rows).toHaveCount(3)
+  await openProblems()
 
   // Opciones con los valores de la API.
   await page.getByTestId('problems-filter-severity').click()
@@ -872,6 +957,7 @@ test('AUD-12: filtros de severidad e impacto, en el servidor', async () => {
 })
 
 test('tabla de Problemas: columnas, N/A, "+N" con tooltip, en curso y fechas propias', async () => {
+  await openProblems()
   const headers = await page
     .locator('[data-testid^="col-"]')
     .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')))
@@ -932,7 +1018,7 @@ test('tabla de Problemas: columnas, N/A, "+N" con tooltip, en curso y fechas pro
 test('clúster: columna, filtro local, aviso y exportación filtrada', async () => {
   const rows = page.getByTestId('problem-row')
   const row = (id: string): Locator => rows.filter({ hasText: id })
-  await expect(rows).toHaveCount(3)
+  await openProblems()
 
   // Columna: el primero y "+N"; sin clúster, N/A.
   await expect(row('P-101')).toContainText('cluster-norte')
@@ -1003,7 +1089,7 @@ test('clúster: columna, filtro local, aviso y exportación filtrada', async () 
 
 test('tabla de Problemas virtualizada con 300 problemas', async () => {
   sim.many = true
-  await page.getByTestId('module-refresh').click()
+  await goTo('problems')
   const rows = page.getByTestId('problem-row')
   await expect(rows.first()).toContainText('P-M')
 
@@ -1025,6 +1111,7 @@ test('tabla de Problemas virtualizada con 300 problemas', async () => {
 })
 
 test('Problemas: filtros de estado y de texto', async () => {
+  await openProblems()
   const rows = page.getByTestId('problem-row')
   await page.getByTestId('problems-filter-status').selectOption('open')
   await expect(rows).toHaveCount(2)
@@ -1040,6 +1127,7 @@ test('Problemas: filtros de estado y de texto', async () => {
 })
 
 test('AUD-21: los filtros de Problemas se conservan al cambiar de sección', async () => {
+  await openProblems()
   const rows = page.getByTestId('problem-row')
   await page.getByTestId('problems-filter-status').selectOption('open')
   await page.getByTestId('problems-filter-text').fill('pagos')
@@ -1059,6 +1147,7 @@ test('AUD-21: los filtros de Problemas se conservan al cambiar de sección', asy
 })
 
 test('AUD-21: los filtros de Problemas van por entorno', async () => {
+  await openProblems()
   const status = page.getByTestId('problems-filter-status')
   const table = page.getByTestId('problems-table')
   const switchTo = async (name: string): Promise<void> => {
@@ -1087,7 +1176,7 @@ test('AUD-21: los filtros de Problemas van por entorno', async () => {
 
 test('AUD-10: guardar un secreto del entorno descarta sus datos y Problemas los vuelve a pedir', async () => {
   const rows = page.getByTestId('problem-row')
-  await expect(rows).toHaveCount(3)
+  await openProblems()
   const before = sim.problemsRequests
 
   // secrets:set desde Ajustes (la mutación del renderer, no IPC directo).
@@ -1122,6 +1211,7 @@ test('AUD-10: guardar un secreto del entorno descarta sus datos y Problemas los 
 })
 
 test('sin auto-refresco: ni volver a la vista, ni el foco, ni la reconexión piden datos; module-refresh sí', async () => {
+  await openProblems()
   const before = sim.problemsRequests
   await goTo('metrics')
   await goTo('problems')
@@ -1145,6 +1235,7 @@ test('sin auto-refresco: ni volver a la vista, ni el foco, ni la reconexión pid
 })
 
 test('una lista truncada lo indica, con el total real de la API', async () => {
+  await openProblems()
   await expect(page.getByTestId('list-truncated')).toHaveCount(0)
   sim.truncate = true
   await page.getByTestId('module-refresh').click()
@@ -1158,20 +1249,14 @@ test('una lista truncada lo indica, con el total real de la API', async () => {
   await expect(page.getByTestId('kpi-open-problems')).toContainText('999')
   await goTo('problems')
 
+  // Sin truncar, el aviso desaparece al refrescar.
   sim.truncate = false
   await page.getByTestId('module-refresh').click()
   await expect(page.getByTestId('list-truncated')).toHaveCount(0)
-
-  // Inicio también tiene la consulta truncada en caché (sin auto-refresco): se refresca para
-  // que las pruebas siguientes partan del estado normal.
-  await goTo('home')
-  await page.getByTestId('module-refresh').click()
-  await expect(page.getByTestId('kpi-open-problems')).not.toContainText('999')
-  await expect(page.getByTestId('list-truncated')).toHaveCount(0)
-  await goTo('problems')
 })
 
 test('exporta problemas a CSV: BOM, ";", una fila por problema y fórmulas neutralizadas', async () => {
+  await openProblems()
   const file = await exportTo('problems-table', 'export-csv')
   // Si en el mismo minuto ya se exportó otro (por ejemplo, el CSV filtrado del test del clúster), lleva -N.
   expect(file).toMatch(/Cliente_A_Producción_problems_\d{8}-\d{4}(-\d+)?\.csv$/)
@@ -1191,6 +1276,7 @@ test('exporta problemas a CSV: BOM, ";", una fila por problema y fórmulas neutr
 })
 
 test('exporta problemas a XLSX con su hoja Info, y a TXT alineado y con tabuladores', async () => {
+  await openProblems()
   const xlsx = await exportTo('problems-table', 'export-xlsx')
   expect(xlsx).toMatch(/\.xlsx$/)
   const workbook = new ExcelJS.Workbook()
@@ -1232,7 +1318,7 @@ test('con la interfaz en inglés, el XLSX lleva las hojas y la Info en inglés',
   await goTo('settings')
   await page.getByTestId('language-en').click()
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-  await goTo('problems')
+  await openProblems()
 
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(
@@ -1258,7 +1344,7 @@ test('con el separador "," en Ajustes, el CSV usa coma', async () => {
   await expect(page.getByTestId('csv-separator-comma')).toBeChecked()
   expect(await invoke('export:getSettings')).toMatchObject({ csvSeparator: ',' })
 
-  await goTo('problems')
+  await openProblems()
   const lines = readFileSync(await exportTo('problems-table', 'export-csv'))
     .subarray(3)
     .toString('utf8')
@@ -1272,7 +1358,7 @@ test('con el separador "," en Ajustes, el CSV usa coma', async () => {
 })
 
 test('AUD-08: elementos ilegibles y avisos de la API se ven en Problemas y en Inicio', async () => {
-  await goTo('problems')
+  await openProblems()
   await expect(page.getByTestId('api-warnings')).toHaveCount(0)
 
   sim.invalidOne = true
@@ -1306,19 +1392,16 @@ test('AUD-08: elementos ilegibles y avisos de la API se ven en Problemas y en In
   expect(info.filter(([label]) => label === 'Aviso').map(([, value]) => value)).toEqual([
     'Aviso de prueba de la API'
   ])
-  await goTo('home')
 
-  // Se deja todo como estaba (y se refrescan las dos vistas, que guardan caché).
+  // Sin elementos ilegibles ni avisos, al refrescar el aviso desaparece.
   sim.invalidOne = false
   sim.warnings = []
-  await page.getByTestId('module-refresh').click()
-  await expect(page.getByTestId('api-warnings')).toHaveCount(0)
-  await goTo('problems')
   await page.getByTestId('module-refresh').click()
   await expect(page.getByTestId('api-warnings')).toHaveCount(0)
 })
 
 test('BAD_REQUEST: un 400 se muestra como «La consulta no es válida» con el mensaje de la API', async () => {
+  await openProblems()
   sim.badRequest = true
   await page.getByTestId('module-refresh').click()
   await expect(page.getByText('La consulta no es válida').first()).toBeVisible()
@@ -1329,7 +1412,8 @@ test('BAD_REQUEST: un 400 se muestra como «La consulta no es válida» con el m
 })
 
 test('captura del gráfico al portapapeles', async () => {
-  await goTo('problems')
+  await openProblems()
+  await expect(page.getByTestId('problems-timeline').locator('canvas').first()).toBeVisible()
   await app.evaluate(({ clipboard }) => (clipboard as unknown as ElectronClipboard).clear())
   expect(
     await app.evaluate(({ clipboard }) =>
@@ -1350,6 +1434,8 @@ test('captura del gráfico al portapapeles', async () => {
 })
 
 test('captura del gráfico a PNG: x2, fondo sólido y pie según Ajustes', async () => {
+  await openProblems()
+  await expect(page.getByTestId('problems-timeline').locator('canvas').first()).toBeVisible()
   const size = await canvasSize('problems-timeline')
 
   const withFooter = await pngInfo(await exportTo('problems-timeline', 'capture-save'))
@@ -1405,7 +1491,7 @@ test('Métricas: búsqueda, consulta con resolución y gráfico', async () => {
 })
 
 test('AUD-13: resolución aplicada bajo el gráfico', async () => {
-  // Viene del test anterior: 5m consultado.
+  await runMetric('builtin:host.cpu.usage', '5m')
   await expect(page.getByTestId('metric-resolution-applied')).toHaveText(/Resolución aplicada: 5m/)
 
   // Sin resolución, la que diga la API (el simulador responde 1m).
@@ -1416,6 +1502,8 @@ test('AUD-13: resolución aplicada bajo el gráfico', async () => {
 })
 
 test('AUD-13: aviso de puntos antes de consultar y resolución sugerida', async () => {
+  await goTo('metrics')
+  await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage')
   const estimate = page.getByTestId('points-estimate')
   const resolution = page.getByTestId('metric-resolution')
   await page.getByTestId('time-range-7d').click()
@@ -1449,10 +1537,11 @@ test('AUD-13: aviso de puntos antes de consultar y resolución sugerida', async 
   await page.getByTestId('time-range-2h').click()
   await resolution.selectOption('1m')
   await expect(estimate).toHaveCount(0)
-  await resolution.selectOption('5m')
 })
 
 test('AUD-13: recortes y warnings de la API bajo el gráfico', async () => {
+  await goTo('metrics')
+  await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage')
   const warnings = page.getByTestId('api-warnings')
   sim.metricRatios = { dataPointCountRatio: 0.5 }
   sim.metricWarnings = ['Aviso de métricas de la prueba']
@@ -1491,7 +1580,7 @@ test('AUD-13: recortes y warnings de la API bajo el gráfico', async () => {
     sim.metricRatios = {}
     sim.metricWarnings = []
   }
-  // Vuelta a 5m (en caché, sin recortes): solo queda la resolución aplicada.
+  // Una consulta sin recortes: solo queda la resolución aplicada.
   await resolution.selectOption('5m')
   await page.getByTestId('metric-run').click()
   await expect(page.getByText(/la API ha devuelto solo parte/)).toHaveCount(0)
@@ -1499,6 +1588,7 @@ test('AUD-13: recortes y warnings de la API bajo el gráfico', async () => {
 })
 
 test('AUD-13: el buscador elige con Enter sin lanzar la consulta, y dice «Sin resultados»', async () => {
+  await goTo('metrics')
   const search = page.getByTestId('metric-search')
   const selector = page.getByTestId('metric-selector')
   await expect(search).toHaveAttribute('maxlength', '100')
@@ -1530,6 +1620,7 @@ test('AUD-13: el buscador elige con Enter sin lanzar la consulta, y dice «Sin r
 })
 
 test('AUD-13: con varias métricas, la leyenda lleva el metricId delante', async () => {
+  await goTo('metrics')
   const chart = page.getByTestId('metric-chart')
   await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage,builtin:host.cpu.idle')
   await page.getByTestId('metric-run').click()
@@ -1546,6 +1637,7 @@ test('AUD-13: con varias métricas, la leyenda lleva el metricId delante', async
 })
 
 test('i18n: cambiar de idioma con el gráfico de Métricas abierto lo rehace con el locale nuevo', async () => {
+  await runMetric('builtin:host.cpu.usage', '5m')
   const chart = page.getByTestId('metric-chart')
   const series = async (): Promise<string[]> =>
     JSON.parse((await chart.getAttribute('data-series')) ?? '[]') as string[]
@@ -1570,6 +1662,8 @@ test('i18n: cambiar de idioma con el gráfico de Métricas abierto lo rehace con
 })
 
 test('AUD-13: guardar con un nombre repetido dice que ya existe; cancelar limpia', async () => {
+  await goTo('metrics')
+  await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage')
   const dialogName = page.getByTestId('saved-query-name')
   await page.getByTestId('saved-query-save').click()
   await dialogName.fill('Consulta repetida')
@@ -1602,6 +1696,8 @@ test('AUD-13: guardar con un nombre repetido dice que ya existe; cancelar limpia
 })
 
 test('Métricas: guardar, cargar desde la lista y desde Ctrl+K, y borrar una consulta', async () => {
+  await goTo('metrics')
+  await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage')
   await page.getByTestId('saved-query-save').click()
   await page.getByTestId('saved-query-name').fill('CPU producción')
   await page.getByTestId('form-save').click()
@@ -1740,7 +1836,7 @@ test('Inicio: estado de cada SLO (con texto y color), sin evaluar y problemas re
 })
 
 test('rango personalizado: valida las fechas y se usa en las peticiones', async () => {
-  await goTo('problems')
+  await openProblems()
   await page.getByTestId('time-range-custom').click()
   const popover = page.getByTestId('custom-range')
   await expect(popover).toBeVisible()
@@ -1771,7 +1867,7 @@ test('rango personalizado: valida las fechas y se usa en las peticiones', async 
 })
 
 test('cambiar de entorno no mezcla datos', async () => {
-  await goTo('problems')
+  await openProblems()
   await page.getByTestId('env-selector').click()
   await page.getByRole('option', { name: 'Cliente A › Desarrollo' }).click()
   const table = page.getByTestId('problems-table')
@@ -1804,13 +1900,4 @@ test('Métricas no disponible: sin metrics.read tras probar la conexión, o sin 
   await expect(page.getByTestId('module-unavailable')).toContainText(
     'Este módulo usa el token clásico'
   )
-})
-
-test('sin secretos en IPC ni en la página, sin errores de consola ni peticiones remotas del renderer', async () => {
-  for (const output of ipcOutputs)
-    for (const mark of SECRET_MARKS) expect(output).not.toContain(mark)
-  const html = await page.content()
-  for (const mark of SECRET_MARKS) expect(html).not.toContain(mark)
-  expect(consoleErrors).toEqual([])
-  expect(rendererRemote).toEqual([])
 })
