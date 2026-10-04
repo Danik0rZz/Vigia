@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EMPTY_EVIDENCE_FILTERS,
   NOT_AVAILABLE,
   changeOf,
-  countByType,
+  durationParts,
   evidenceWireSchema,
+  filterEvidence,
+  filtersShowing,
   formatUnit,
-  groupEvidence,
   toEvidenceView,
-  type EvidenceView,
   type EvidenceWire
 } from './problem-evidence'
 
@@ -26,6 +27,74 @@ const TYPES = [
   'MAINTENANCE_WINDOW',
   'TIPO_NUEVO_DE_DYNATRACE'
 ] as const
+
+describe('durationParts', () => {
+  it.each([
+    [0, { unit: 's', seconds: 0 }],
+    [-5000, { unit: 's', seconds: 0 }],
+    [59_999, { unit: 's', seconds: 59 }],
+    [60_000, { unit: 'min', minutes: 1 }],
+    [59 * 60_000 + 59_000, { unit: 'min', minutes: 59 }],
+    [3_600_000, { unit: 'h', hours: 1, minutes: 0 }],
+    [26 * 3_600_000 + 5 * 60_000, { unit: 'h', hours: 26, minutes: 5 }]
+  ])('%d ms → %j', (ms, expected) => {
+    expect(durationParts(ms)).toEqual(expected)
+  })
+})
+
+describe('filtersShowing (salto desde el resumen de la causa raíz)', () => {
+  const root = toEvidenceView(
+    wire({
+      displayName: 'Reinicio',
+      rootCauseRelevant: true,
+      endTime: 2000,
+      data: {
+        status: 'CLOSED',
+        endTime: 2000,
+        title: null,
+        eventId: 'e1',
+        tags: ['equipo:pagos'],
+        managementZones: [],
+        flags: { maintenance: false, frequent: false, suppressed: false }
+      }
+    })
+  )
+
+  it('quita solo los filtros que la ocultan y deja los demás', () => {
+    const result = filtersShowing(
+      {
+        text: 'cpu',
+        types: ['METRIC'],
+        entity: 'SERVICE-1',
+        tag: 'otro',
+        rootCauseOnly: true,
+        status: 'OPEN'
+      },
+      root
+    )
+    expect(result).toEqual({
+      text: '',
+      types: [],
+      entity: 'SERVICE-1',
+      tag: null,
+      rootCauseOnly: true,
+      status: 'ALL'
+    })
+  })
+
+  it('si ningún filtro la oculta, los devuelve iguales (en una copia)', () => {
+    const filters = {
+      ...EMPTY_EVIDENCE_FILTERS,
+      text: 'reinicio',
+      tag: 'equipo:pagos',
+      status: 'CLOSED' as const
+    }
+    const result = filtersShowing(filters, root)
+    expect(result).toEqual(filters)
+    expect(result).not.toBe(filters)
+    expect(filterEvidence([root], result)).toHaveLength(1)
+  })
+})
 
 function wire(overrides: Partial<EvidenceWire> = {}): EvidenceWire {
   return {
@@ -47,23 +116,6 @@ function wire(overrides: Partial<EvidenceWire> = {}): EvidenceWire {
     ...overrides
   }
 }
-
-/** Vista mínima para probar el agrupado sin depender de toEvidenceView. */
-function view(
-  name: string,
-  start: number | null,
-  group: string | null,
-  rootCause = false
-): EvidenceView {
-  const entity = group === null ? null : { id: group, label: group, type: 'SERVICE' }
-  return {
-    ...toEvidenceView(wire({ displayName: name, startTime: start, rootCauseRelevant: rootCause })),
-    entity,
-    group: entity
-  }
-}
-
-const names = (items: readonly EvidenceView[]): string[] => items.map((item) => item.displayName)
 
 describe('evidenceWireSchema', () => {
   it('acepta una evidencia completa y un tipo desconocido (el tipo es texto libre)', () => {
@@ -113,24 +165,15 @@ describe('toEvidenceView', () => {
     expect(result.entity).toEqual({ id: 'HOST-9', label: 'HOST-9', type: 'HOST' })
   })
 
-  it('sin groupingEntity, el grupo es la entidad; con ella, la groupingEntity', () => {
-    const plain = toEvidenceView(wire())
-    expect(plain.group).toEqual({ id: 'SERVICE-1', label: 'pagos', type: 'SERVICE' })
-    const grouped = toEvidenceView(
+  it('la entidad es la de la evidencia, no la groupingEntity', () => {
+    const result = toEvidenceView(
       wire({ groupingEntity: { id: 'PROCESS_GROUP-1', name: null, type: 'PROCESS_GROUP' } })
     )
-    expect(grouped.group).toEqual({
-      id: 'PROCESS_GROUP-1',
-      label: 'PROCESS_GROUP-1',
-      type: 'PROCESS_GROUP'
-    })
-    expect(grouped.entity?.id).toBe('SERVICE-1')
+    expect(result.entity?.id).toBe('SERVICE-1')
   })
 
-  it('sin entidad ni groupingEntity: entity y group null', () => {
-    const result = toEvidenceView(wire({ entity: null }))
-    expect(result.entity).toBeNull()
-    expect(result.group).toBeNull()
+  it('sin entidad: entity null', () => {
+    expect(toEvidenceView(wire({ entity: null })).entity).toBeNull()
   })
 
   it.each(['METRIC', 'TRANSACTIONAL'])(
@@ -236,117 +279,6 @@ describe('changeOf', () => {
     [1, Number.NEGATIVE_INFINITY]
   ])('changeOf(%s, %s) → null (la vista pinta N/A)', (before, after) => {
     expect(changeOf(before, after)).toBeNull()
-  })
-})
-
-describe('groupEvidence', () => {
-  it('la causa raíz va arriba, en orden cronológico, y no se repite en los grupos', () => {
-    const result = groupEvidence([
-      view('a', 30, 'S-1'),
-      view('raíz tarde', 50, 'S-1', true),
-      view('raíz pronto', 10, 'S-2', true),
-      view('b', 20, 'S-2')
-    ])
-    expect(names(result.rootCause)).toEqual(['raíz pronto', 'raíz tarde'])
-    const grouped = result.byEntity.flatMap((group) => names(group.items))
-    expect(grouped).toEqual(['b', 'a'])
-    expect(grouped).not.toContain('raíz pronto')
-    expect(grouped).not.toContain('raíz tarde')
-  })
-
-  it('agrupa por entidad, cada grupo en orden cronológico con start null al final', () => {
-    const result = groupEvidence([
-      view('s1-sin-hora', null, 'S-1'),
-      view('s1-tarde', 300, 'S-1'),
-      view('s1-pronto', 100, 'S-1')
-    ])
-    expect(result.byEntity).toHaveLength(1)
-    expect(result.byEntity[0]?.entity?.id).toBe('S-1')
-    expect(names(result.byEntity[0]?.items ?? [])).toEqual(['s1-pronto', 's1-tarde', 's1-sin-hora'])
-  })
-
-  it('los grupos se ordenan por su primera evidencia', () => {
-    const result = groupEvidence([
-      view('c', 500, 'S-C'),
-      view('a2', 400, 'S-A'),
-      view('b', 200, 'S-B'),
-      view('a1', 100, 'S-A')
-    ])
-    expect(result.byEntity.map((group) => group.entity?.id)).toEqual(['S-A', 'S-B', 'S-C'])
-    expect(names(result.byEntity[0]?.items ?? [])).toEqual(['a1', 'a2'])
-  })
-
-  it('un empate conserva el orden de entrada (en grupos y dentro de un grupo)', () => {
-    const groups = groupEvidence([view('y', 100, 'S-Y'), view('x', 100, 'S-X')])
-    expect(groups.byEntity.map((group) => group.entity?.id)).toEqual(['S-Y', 'S-X'])
-    const items = groupEvidence([view('primera', 100, 'S-1'), view('segunda', 100, 'S-1')])
-    expect(names(items.byEntity[0]?.items ?? [])).toEqual(['primera', 'segunda'])
-  })
-
-  it('un grupo con todas las horas null va detrás de los que tienen hora', () => {
-    const result = groupEvidence([view('sin', null, 'S-0'), view('con', 900, 'S-9')])
-    expect(result.byEntity.map((group) => group.entity?.id)).toEqual(['S-9', 'S-0'])
-  })
-
-  it('las evidencias sin entidad van juntas en un grupo con entity null', () => {
-    const result = groupEvidence([
-      view('suelta-1', 10, null),
-      view('con', 20, 'S-1'),
-      view('suelta-2', 30, null)
-    ])
-    expect(result.byEntity).toHaveLength(2)
-    const loose = result.byEntity.find((group) => group.entity === null)
-    expect(names(loose?.items ?? [])).toEqual(['suelta-1', 'suelta-2'])
-  })
-
-  it('agrupa por group.id (groupingEntity), no por la entidad', () => {
-    const a = toEvidenceView(
-      wire({
-        displayName: 'a',
-        entity: { id: 'SERVICE-1', name: null, type: 'SERVICE' },
-        groupingEntity: { id: 'PG-1', name: 'grupo', type: 'PROCESS_GROUP' }
-      })
-    )
-    const b = toEvidenceView(
-      wire({
-        displayName: 'b',
-        entity: { id: 'SERVICE-2', name: null, type: 'SERVICE' },
-        groupingEntity: { id: 'PG-1', name: 'grupo', type: 'PROCESS_GROUP' }
-      })
-    )
-    const result = groupEvidence([a, b])
-    expect(result.byEntity).toHaveLength(1)
-    expect(result.byEntity[0]?.entity?.label).toBe('grupo')
-  })
-
-  it('sin evidencias: todo vacío; solo causa raíz: sin grupos', () => {
-    expect(groupEvidence([])).toEqual({ rootCause: [], byEntity: [] })
-    expect(groupEvidence([view('r', 1, 'S-1', true)]).byEntity).toEqual([])
-  })
-
-  it('ninguna se pierde ni se duplica, y no muta la lista de entrada', () => {
-    const input = Array.from({ length: 300 }, (_, i) =>
-      view(`ev-${i}`, (i * 7919) % 1000, `S-${i % 13}`, i % 50 === 0)
-    )
-    const copy = names(input)
-    const result = groupEvidence(input)
-    const all = [...result.rootCause, ...result.byEntity.flatMap((group) => group.items)]
-    expect(all).toHaveLength(300)
-    expect(new Set(names(all)).size).toBe(300)
-    expect(names(input)).toEqual(copy)
-  })
-})
-
-describe('countByType', () => {
-  it('cuenta todas las recibidas, también la causa raíz y los tipos desconocidos', () => {
-    const views = [
-      toEvidenceView(wire({ evidenceType: 'EVENT' })),
-      toEvidenceView(wire({ evidenceType: 'EVENT', rootCauseRelevant: true })),
-      toEvidenceView(wire({ evidenceType: 'METRIC' })),
-      toEvidenceView(wire({ evidenceType: 'TIPO_NUEVO_DE_DYNATRACE' }))
-    ]
-    expect(countByType(views)).toEqual({ EVENT: 2, METRIC: 1, TIPO_NUEVO_DE_DYNATRACE: 1 })
-    expect(countByType([])).toEqual({})
   })
 })
 

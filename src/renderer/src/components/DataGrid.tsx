@@ -1,6 +1,7 @@
 import {
   memo,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   type JSX,
@@ -88,6 +89,9 @@ interface RowProps<T> {
   onActivate: (item: T) => void
   onFocusRow: (index: number) => void
   measure: ((element: Element | null) => void) | undefined
+  /** Solo en grids con detalle: si está desplegada y el id de su fila de detalle. */
+  expanded: boolean | undefined
+  detailId: string | undefined
 }
 
 /**
@@ -106,13 +110,17 @@ const GridRow = memo(function GridRow<T>({
   active,
   onActivate,
   onFocusRow,
-  measure
+  measure,
+  expanded,
+  detailId
 }: RowProps<T>): JSX.Element {
   const rowStatus = status?.(item)
   return (
     <div
       role="row"
       aria-rowindex={index + 2}
+      aria-expanded={expanded}
+      aria-controls={expanded === true ? detailId : undefined}
       tabIndex={active ? 0 : -1}
       data-testid={rowTestId}
       {...rowData?.(item)}
@@ -145,11 +153,32 @@ const GridRow = memo(function GridRow<T>({
   )
 }) as <T>(props: RowProps<T>) => JSX.Element
 
+/** Acciones del grid desde fuera. */
+export interface DataGridHandle {
+  /** Lleva la fila a la vista (scrollToIndex si se virtualiza) y le da el foco. */
+  focusRow: (id: string) => void
+}
+
+/** Filas que se despliegan: cuáles, qué se pinta debajo y cómo se pliegan con Escape. */
+export interface DataGridDetail<T> {
+  expanded: readonly string[]
+  render: (item: T) => ReactNode
+  onCollapse: (item: T) => void
+  testId: string
+}
+
 /**
  * Grid accesible y genérico: columnas declarativas, barra de estado opcional,
  * cabecera fija con orden por columna, roving tabindex (flechas, Inicio, Fin,
  * RePág, AvPág; Enter activa) y virtualización con muchas filas. Se usa en la
- * lista de Problemas.
+ * lista de Problemas y en las evidencias del detalle.
+ *
+ * Con `detail`, cada fila puede desplegarse: debajo va una fila de detalle
+ * (role=row con una celda que ocupa todo), enlazada con aria-expanded y
+ * aria-controls; no es un treegrid porque no hay jerarquía. Tab entra en su
+ * contenido y Escape lo pliega y devuelve el foco a la fila. Con
+ * virtualización, la fila y su detalle se miden juntos, así que la altura se
+ * recalcula al desplegar, al plegar y cuando el contenido cambia de tamaño.
  */
 export function DataGrid<T, K extends string = string>({
   items,
@@ -168,7 +197,10 @@ export function DataGrid<T, K extends string = string>({
   ariaLabel,
   scrollRef,
   initialIndex = 0,
-  onFirstVisibleChange
+  onFirstVisibleChange,
+  detail,
+  handleRef,
+  className
 }: {
   /** Ya filtrados y ordenados. */
   items: T[]
@@ -194,6 +226,10 @@ export function DataGrid<T, K extends string = string>({
   initialIndex?: number
   /** Índice de la primera fila visible cuando cambia con el scroll. */
   onFirstVisibleChange?: ((index: number) => void) | undefined
+  detail?: DataGridDetail<T> | undefined
+  handleRef?: RefObject<DataGridHandle | null> | undefined
+  /** Clases del grid (por ejemplo, un ancho mínimo con scroll horizontal). */
+  className?: string | undefined
 }): JSX.Element {
   const virtual = items.length >= VIRTUAL_FROM
   // El React Compiler no memoiza este componente (useVirtualizer devuelve funciones
@@ -240,9 +276,61 @@ export function DataGrid<T, K extends string = string>({
     else rowElement(next)?.scrollIntoView({ block: 'nearest' })
   }
 
+  // Al desplegar una fila, la fila y su detalle a la vista ('nearest': lo justo;
+  // si no caben, manda el principio, la fila). Los que ya estaban al montar, no.
+  const shownExpanded = useRef(detail?.expanded ?? [])
+  useEffect(() => {
+    const current = detail?.expanded ?? []
+    const added = current.filter((id) => !shownExpanded.current.includes(id))
+    shownExpanded.current = current
+    const last = added.at(-1)
+    const index = last === undefined ? -1 : items.findIndex((item) => getId(item) === last)
+    if (index < 0) return
+    scrollRef.current
+      ?.querySelector<HTMLElement>(`[role="presentation"][data-index="${index}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  })
+
+  useImperativeHandle(handleRef, () => ({
+    focusRow: (id) => {
+      const index = items.findIndex((item) => getId(item) === id)
+      if (index >= 0) moveTo(index)
+    }
+  }))
+
+  /** Escape en una fila desplegada o dentro de su detalle: pliega y vuelve a la fila. */
+  const collapseFrom = (target: HTMLElement): boolean => {
+    if (detail === undefined) return false
+    const host = target.closest<HTMLElement>('[data-detail-index]')
+    const index =
+      host !== null
+        ? Number(host.dataset['detailIndex'])
+        : target.getAttribute('aria-expanded') === 'true'
+          ? Number(target.dataset['index'])
+          : -1
+    const item = items[index]
+    if (item === undefined) return false
+    detail.onCollapse(item)
+    moveTo(index)
+    return true
+  }
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    const element = event.target as HTMLElement
+    // Lo que sale de un portal (un menú abierto desde el detalle) no está en el
+    // DOM del grid: su Escape es suyo.
+    if (event.key === 'Escape') {
+      if (
+        !event.defaultPrevented &&
+        event.currentTarget.contains(element) &&
+        collapseFrom(element)
+      ) {
+        event.preventDefault()
+      }
+      return
+    }
     // Solo con el foco en una fila: Enter en un botón de la cabecera ordena, no activa.
-    if (items.length === 0 || (event.target as HTMLElement).getAttribute('role') !== 'row') return
+    if (items.length === 0 || element.getAttribute('role') !== 'row') return
     const steps: Partial<Record<string, number>> = {
       ArrowDown: active + 1,
       ArrowUp: active - 1,
@@ -319,7 +407,9 @@ export function DataGrid<T, K extends string = string>({
   const measure = virtual ? virtualizer.measureElement : undefined
   const renderRow = (item: T, index: number): JSX.Element => {
     const id = getId(item)
-    return (
+    const open = detail?.expanded.includes(id)
+    const detailId = detail === undefined ? undefined : `${detail.testId}-${id}`
+    const row = (
       <GridRow
         key={id}
         item={item}
@@ -333,8 +423,37 @@ export function DataGrid<T, K extends string = string>({
         active={index === active}
         onActivate={onActivate}
         onFocusRow={setActive}
-        measure={measure}
+        // Con detalle se mide el envoltorio (fila y detalle juntos).
+        measure={detail === undefined ? measure : undefined}
+        expanded={open}
+        detailId={detailId}
       />
+    )
+    if (detail === undefined) return row
+    return (
+      <div key={id} role="presentation" data-index={index} ref={measure}>
+        {row}
+        {open === true && (
+          <div
+            role="row"
+            id={detailId}
+            data-testid={detail.testId}
+            data-id={id}
+            data-detail-index={index}
+            className="border-t border-dashed border-border bg-hover/40"
+          >
+            {/* Enfocable: Tab entra aunque el detalle no tenga botones (y se lee entero). */}
+            <div
+              role="gridcell"
+              aria-colspan={columns.length}
+              tabIndex={0}
+              className="px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            >
+              {detail.render(item)}
+            </div>
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -353,8 +472,10 @@ export function DataGrid<T, K extends string = string>({
         role="grid"
         data-testid={gridTestId}
         aria-label={ariaLabel}
-        aria-rowcount={items.length + 1}
+        // Las filas de detalle descuadrarían la cuenta: con detalle no se da.
+        aria-rowcount={detail === undefined ? items.length + 1 : undefined}
         onKeyDown={onKeyDown}
+        className={className}
       >
         <div role="rowgroup" data-grid-header className="sticky top-0 z-10 bg-background">
           <div

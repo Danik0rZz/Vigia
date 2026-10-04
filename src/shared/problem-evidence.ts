@@ -105,8 +105,6 @@ export interface EvidenceView {
   type: string
   displayName: string
   entity: EntityLabel | null
-  /** Por dónde se agrupa: groupingEntity o, si no hay, la entidad. */
-  group: EntityLabel | null
   start: number | null
   end: number | 'ACTIVE'
   rootCause: boolean
@@ -180,7 +178,6 @@ export function toEvidenceView(evidence: EvidenceWire, index = 0): EvidenceView 
     type: evidence.evidenceType,
     displayName: evidence.displayName,
     entity,
-    group: label(evidence.groupingEntity) ?? entity,
     start: evidence.startTime,
     end: isActiveEnd(evidence.endTime) ? 'ACTIVE' : (evidence.endTime as number),
     rootCause: evidence.rootCauseRelevant,
@@ -198,42 +195,6 @@ export function toEvidenceView(evidence: EvidenceWire, index = 0): EvidenceView 
     metricId: evidence.metricId,
     unit: evidence.unit
   }
-}
-
-const byStart = (a: EvidenceView, b: EvidenceView): number =>
-  (a.start ?? Number.MAX_SAFE_INTEGER) - (b.start ?? Number.MAX_SAFE_INTEGER)
-
-/**
- * Causa raíz aparte (sin repetirla debajo) y el resto por entidad: cada grupo
- * en orden cronológico y los grupos por su primera evidencia. Las evidencias
- * sin entidad van juntas en un grupo con entity null.
- */
-export function groupEvidence(views: readonly EvidenceView[]): {
-  rootCause: EvidenceView[]
-  byEntity: { entity: EntityLabel | null; items: EvidenceView[] }[]
-} {
-  const rootCause = views.filter((view) => view.rootCause).sort(byStart)
-  const groups = new Map<string, { entity: EntityLabel | null; items: EvidenceView[] }>()
-  for (const view of views) {
-    if (view.rootCause) continue
-    const key = view.group?.id ?? ''
-    const group = groups.get(key) ?? { entity: view.group, items: [] }
-    group.items.push(view)
-    groups.set(key, group)
-  }
-  const byEntity = [...groups.values()].map((group) => ({
-    entity: group.entity,
-    items: group.items.sort(byStart)
-  }))
-  byEntity.sort((a, b) => byStart(a.items[0] as EvidenceView, b.items[0] as EvidenceView))
-  return { rootCause, byEntity }
-}
-
-/** Cuántas evidencias hay de cada tipo (sobre todas las recibidas), para los filtros. */
-export function countByType(views: readonly EvidenceView[]): Record<string, number> {
-  const counts: Record<string, number> = {}
-  for (const view of views) counts[view.type] = (counts[view.type] ?? 0) + 1
-  return counts
 }
 
 /** Columnas por las que se ordena la tabla de evidencias. */
@@ -256,6 +217,20 @@ function nullsLast<T>(a: T | null, b: T | null, sign: number, compare: Comparato
 export function evidenceDuration(view: EvidenceView, now: number): number | null {
   if (view.start === null) return null
   return (view.end === 'ACTIVE' ? now : view.end) - view.start
+}
+
+/** Una duración para leerla: segundos por debajo del minuto, minutos por debajo de la hora. */
+export type DurationParts =
+  | { unit: 's'; seconds: number }
+  | { unit: 'min'; minutes: number }
+  | { unit: 'h'; hours: number; minutes: number }
+
+export function durationParts(ms: number): DurationParts {
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  if (seconds < 60) return { unit: 's', seconds }
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return { unit: 'min', minutes }
+  return { unit: 'h', hours: Math.floor(minutes / 60), minutes: minutes % 60 }
 }
 
 /**
@@ -348,6 +323,21 @@ export function filterEvidence(
   filters: EvidenceFilters
 ): EvidenceView[] {
   return views.filter((view) => matches(view, filters))
+}
+
+/**
+ * Los filtros sin los que ocultan esta evidencia (los demás se quedan): lo que
+ * hace falta para saltar a ella desde el resumen de la causa raíz.
+ */
+export function filtersShowing(filters: EvidenceFilters, view: EvidenceView): EvidenceFilters {
+  const next = { ...filters }
+  if (next.status !== 'ALL' && view.status !== next.status) next.status = 'ALL'
+  if (next.types.length > 0 && !next.types.includes(view.typeLabel)) next.types = []
+  if (next.entity !== null && view.entity?.id !== next.entity) next.entity = null
+  if (next.tag !== null && !view.tags.includes(next.tag)) next.tag = null
+  if (next.rootCauseOnly && !view.rootCause) next.rootCauseOnly = false
+  if (!matches(view, { ...EMPTY_EVIDENCE_FILTERS, text: next.text })) next.text = ''
+  return next
 }
 
 /** Contadores Abiertos/Cerrados/Todos: sobre lo que dejan los demás filtros (no el de estado). */

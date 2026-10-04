@@ -350,7 +350,7 @@ export function ProblemDetailPage(): JSX.Element {
             failed={error !== null}
             empty={(d) => d.evidence.length === 0}
           >
-            {(d) => <EvidenceSection detail={d} now={now} />}
+            {(d) => <EvidenceSection envId={envId ?? ''} detail={d} now={now} />}
           </DetailPart>
 
           <DetailPart

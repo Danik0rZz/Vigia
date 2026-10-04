@@ -209,13 +209,16 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
 
   // 0.10.0: el grid genérico y la lógica de la tabla de evidencias solo los usa
   // Problemas; sin mapear disparaban el e2e completo.
-  it('DataGrid, grid-sort, problem-evidence y event-metric → some con views y smoke', () => {
+  it('DataGrid, grid-sort, la tabla de evidencias y sus gráficos → some con views y smoke', () => {
     const d = decide(
       [
         'src/renderer/src/components/DataGrid.tsx',
         'src/shared/grid-sort.ts',
         'src/shared/problem-evidence.ts',
-        'src/shared/event-metric.ts'
+        'src/shared/event-metric.ts',
+        'src/renderer/src/components/EvidenceSection.tsx',
+        'src/renderer/src/components/EvidenceMetricChart.tsx',
+        'src/renderer/src/app/evidence-table.ts'
       ],
       real
     )

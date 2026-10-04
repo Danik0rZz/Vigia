@@ -157,6 +157,10 @@ const HOSTILE_COMMENT =
  * un comentario con HTML, un impacto con usuarios estimados, y clúster y namespace.
  */
 const BIG_ID = 'pd-big'
+/** v0.10.0: la evidencia de causa raíz de P-778 (cerrada). */
+const BIG_ROOT = 250
+/** v0.10.0: selector del gráfico de la evidencia 299 de P-778 (cuenta como de mini gráfico). */
+const SEL_BIG = 'builtin:host.cpu.usage:avg:e2elazy299'
 detailOnly.push({
   problemId: BIG_ID,
   displayId: 'P-778',
@@ -175,11 +179,24 @@ detailOnly.push({
   evidenceDetails: {
     totalCount: 301,
     details: [
+      // v0.10.0: cada una con su estado (pares abiertas, impares cerradas) y su eventId; la
+      // 250 (cerrada) es la causa raíz: con el orden por defecto queda muy abajo (virtualizada).
       ...Array.from({ length: 300 }, (_, i) => ({
         evidenceType: 'EVENT',
         displayName: `Evidencia ${i + 1}`,
         entity: { entityId: { id: 'SERVICE-BIG1', type: 'SERVICE' }, name: 'grande' },
-        startTime: NOW - 2 * HOUR + i * 1000
+        startTime: NOW - 2 * HOUR + i * 1000,
+        rootCauseRelevant: i + 1 === BIG_ROOT,
+        data: {
+          eventId: `big-${i + 1}`,
+          status: i % 2 === 0 ? 'OPEN' : 'CLOSED',
+          endTime: i % 2 === 0 ? -1 : NOW - HOUR,
+          title: `Evidencia ${i + 1}`,
+          // La 299 (la primera fila por defecto) trae un gráfico: altura que cambia al cargar.
+          ...(i + 1 === 299
+            ? { properties: [{ key: 'dt.event.metric_selector', value: SEL_BIG }] }
+            : {})
+        }
       })),
       // Ilegible: se descarta y se cuenta.
       'esto no es una evidencia'
@@ -326,6 +343,11 @@ const SEL_MANY = 'builtin:service.requestCount.total:splitBy("dt.entity.service"
 const SEL_LAZY = (i: number): string => `builtin:host.cpu.usage:avg:e2elazy${i}`
 const CHART_ENTITY = 'SERVICE-MC1'
 
+/** v0.10.0: eventId de un evento con gráfico, sacado de su nombre ("Gráfico 1" → mc-gráfico-1). */
+function chartEventId(name: string): string {
+  return `mc-${name.toLowerCase().replace(/\s+/g, '-')}`
+}
+
 /** Un EVENT con el selector (y el umbral) en data.properties, como llega de la API. */
 function metricEvent(
   name: string,
@@ -341,6 +363,8 @@ function metricEvent(
     endTime: -1,
     eventType: 'CUSTOM_ALERT',
     data: {
+      // v0.10.0: eventId para localizar su fila y su detalle.
+      eventId: chartEventId(name),
       properties: [
         { key: 'dt.event.title', value: name },
         ...(selector === null ? [] : [{ key: 'dt.event.metric_selector', value: selector }]),
@@ -481,6 +505,138 @@ function eventMetricResponse(query: URLSearchParams): [number, unknown] {
     }
   ]
 }
+
+/**
+ * v0.10.0: tabla de evidencias. Problema CERRADO con eventos abiertos y cerrados (cada
+ * fila, su estado): data.status, data.endTime de respaldo, un EVENT sin data, uno cuyo
+ * status no cuadra con su endTime (gana status), tags sin stringRepresentation y más de
+ * dos, flags, zonas, propiedades con HTML y un METRIC. 3 abiertos y 3 cerrados.
+ */
+const TABLE_ID = 'pd-table'
+const TABLE_HTML = '<b>negrita</b><img src=x onerror="window.__xss=1">'
+const tableEntity = (id: string, type: string, name: string): Record<string, unknown> => ({
+  entityId: { id, type },
+  name
+})
+const T_HOST = tableEntity('HOST-T1', 'HOST', 'host-tabla')
+const T_SERVICE = tableEntity('SERVICE-T1', 'SERVICE', 'servicio-tabla')
+const tableEvent = (
+  name: string,
+  start: number,
+  end: number,
+  dataValue: Record<string, unknown> | null,
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> => ({
+  evidenceType: 'EVENT',
+  displayName: name,
+  eventType: 'CUSTOM_ALERT',
+  entity: T_SERVICE,
+  startTime: start,
+  endTime: end,
+  ...(dataValue === null ? {} : { data: dataValue }),
+  ...extra
+})
+const noFlags = {
+  underMaintenance: false,
+  frequentEvent: false,
+  suppressAlert: false,
+  suppressProblem: false
+}
+detailOnly.push({
+  problemId: TABLE_ID,
+  displayId: 'P-783',
+  title: 'Problema cerrado con eventos abiertos',
+  status: 'CLOSED',
+  severityLevel: 'ERROR',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: NOW - 10 * 60_000,
+  affectedEntities: [T_SERVICE],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 6,
+    details: [
+      tableEvent(
+        'CPU saturada',
+        NOW - 50 * 60_000,
+        -1,
+        {
+          eventId: 'tbl-1',
+          status: 'OPEN',
+          endTime: -1,
+          title: 'CPU saturada',
+          entityTags: [
+            {
+              context: 'CONTEXTLESS',
+              key: 'equipo',
+              value: 'pagos',
+              stringRepresentation: 'equipo:pagos'
+            },
+            { context: 'CONTEXTLESS', key: 'zona', value: 'eu' },
+            { context: 'CONTEXTLESS', key: 'critico' },
+            { context: 'CONTEXTLESS', key: 'capa', value: 'infra' }
+          ],
+          managementZones: [{ id: 'mz-1', name: 'Producción' }],
+          ...noFlags,
+          underMaintenance: true,
+          properties: [
+            { key: 'dt.event.description', value: TABLE_HTML },
+            { key: 'cpu.usage', value: 97 }
+          ]
+        },
+        { entity: T_HOST, eventType: 'CPU_SATURATED', rootCauseRelevant: true }
+      ),
+      tableEvent('Respuesta lenta', NOW - 40 * 60_000, NOW - 20 * 60_000, {
+        eventId: 'tbl-2',
+        status: 'CLOSED',
+        endTime: NOW - 20 * 60_000,
+        title: 'Respuesta lenta',
+        entityTags: [
+          {
+            context: 'CONTEXTLESS',
+            key: 'equipo',
+            value: 'pagos',
+            stringRepresentation: 'equipo:pagos'
+          }
+        ],
+        ...noFlags
+      }),
+      // Sin status: decide data.endTime (-1) → abierto.
+      tableEvent('Errores 5xx', NOW - 30 * 60_000, -1, {
+        eventId: 'tbl-3',
+        endTime: -1,
+        title: 'Errores 5xx',
+        ...noFlags
+      }),
+      // Sin data: decide el endTime de la evidencia → cerrado.
+      tableEvent('Sin datos de evento', NOW - 45 * 60_000, NOW - 35 * 60_000, null, {
+        eventType: 'CUSTOM_INFO'
+      }),
+      // status CLOSED aunque el endTime diga activo: gana status.
+      tableEvent('Estado manda', NOW - 55 * 60_000, -1, {
+        eventId: 'tbl-5',
+        status: 'CLOSED',
+        endTime: -1,
+        title: 'Estado manda',
+        ...noFlags,
+        frequentEvent: true
+      }),
+      {
+        evidenceType: 'METRIC',
+        displayName: 'Tiempo de respuesta tabla',
+        entity: T_SERVICE,
+        startTime: NOW - 60 * 60_000,
+        endTime: -1,
+        metricId: 'builtin:service.response.time',
+        unit: 'MicroSecond',
+        valueBeforeChangePoint: 100_000,
+        valueAfterChangePoint: 300_000
+      }
+    ]
+  }
+})
 
 /** v0.9.1: los 7 comentarios de P-779 (GET /problems/{id}/comments). */
 const EV_ALL_COMMENTS = [
@@ -1470,44 +1626,118 @@ test('v0.9.0: detalle: clúster y namespace, y las secciones sin datos no se pin
   await expect(detail).not.toContainText('Ninguno')
 })
 
-test('v0.9.0: 300 evidencias: se ven 50 y «Ver todas (300)»; la vista responde', async () => {
+/** v0.10.0: filas principales de la tabla de evidencias (sin las de detalle). */
+const evidenceRows = (): Locator => page.getByTestId('evidence-row')
+
+/** v0.10.0: la fila de la evidencia con ese título. */
+function evidenceRow(title: string): Locator {
+  return evidenceRows().filter({ has: page.getByRole('gridcell', { name: title, exact: true }) })
+}
+
+/** v0.10.0: el detalle de una fila (por su aria-controls). */
+async function detailOf(row: Locator): Promise<Locator> {
+  const id = (await row.getAttribute('aria-controls')) ?? ''
+  expect(id).toMatch(/^evidence-detail-/)
+  return page.locator(`[id="${id}"]`)
+}
+
+/** v0.10.0: despliega la fila (si no lo está) y devuelve su detalle. */
+async function expandRow(title: string): Promise<Locator> {
+  const row = evidenceRow(title)
+  await row.scrollIntoViewIfNeeded()
+  if ((await row.getAttribute('aria-expanded')) !== 'true') await row.click()
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  const detail = await detailOf(row)
+  await expect(detail).toBeVisible()
+  return detail
+}
+
+test('v0.10.0: 300 evidencias en la tabla virtualizada; la vista responde', async () => {
   await goToRoute(`/problems/${BIG_ID}`)
   const detail = page.getByTestId('problem-page')
   await expect(page.getByTestId('problem-page-title')).toContainText('P-778')
-  const items = detail.getByTestId('evidence-item')
-  await expect(items).toHaveCount(50)
-  const showAll = detail.getByTestId('evidence-show-all')
-  await expect(showAll).toHaveText('Ver todas (300)')
-  // La evidencia ilegible no sale y se avisa.
+  await expect(evidenceRows().first()).toBeVisible()
+  // Virtualizada: no se pintan las 300 filas.
+  expect(await evidenceRows().count()).toBeLessThan(300)
+  // La evidencia ilegible no sale y se avisa; la API mandó las 301 (no es un recorte).
   await expect(detail.getByTestId('api-warnings')).toContainText('1 elemento')
-  // v0.9.1: la API mandó las 301 (totalCount 301): la ilegible no es un recorte de la API.
   await expect(detail.getByTestId('evidence-api-truncated')).toHaveCount(0)
-  // Un solo grupo (la entidad grande), con su contador y abierto.
-  const group = detail.getByTestId('evidence-group')
-  await expect(group).toHaveCount(1)
-  await expect(group).toHaveAttribute('data-entity-id', 'SERVICE-BIG1')
-  await expect(group.getByTestId('evidence-group-toggle')).toHaveAttribute('aria-expanded', 'true')
-  await expect(group.getByTestId('evidence-group-toggle')).toContainText('(300)')
-  await expect(detail.getByTestId('evidence-filter')).toHaveText(['Evento 300'])
+  // Contadores: 150 abiertas y 150 cerradas.
+  await expect(page.getByTestId('evidence-status-ALL')).toHaveAttribute('data-count', '300')
+  await expect(page.getByTestId('evidence-status-OPEN')).toHaveAttribute('data-count', '150')
+  await expect(page.getByTestId('evidence-status-CLOSED')).toHaveAttribute('data-count', '150')
+  // Orden por defecto: abiertas primero y la más reciente arriba (la 299).
+  await expect(evidenceRows().first()).toHaveAttribute('data-event-id', 'big-299')
 
-  // La vista sigue respondiendo con todo pintado: se mide un clic y un scroll.
+  // La vista responde: ir al final del grid y volver.
   const started = Date.now()
-  await showAll.click()
-  await expect(items).toHaveCount(300)
-  await expect(showAll).toHaveCount(0)
-  await items.last().scrollIntoViewIfNeeded()
-  await expect(items.last()).toContainText('Evidencia 300')
-  expect(Date.now() - started, 'mostrar 300 evidencias').toBeLessThan(5000)
-  // Plegar el grupo de 300 también responde, y desplegarlo las vuelve a enseñar.
-  const toggle = group.getByTestId('evidence-group-toggle')
-  await toggle.click()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  await expect(items).toHaveCount(0)
-  await toggle.click()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  await expect(items.first()).toContainText('Evidencia 1')
+  await evidenceRows().first().focus()
+  await page.keyboard.press('End')
+  const last = page.locator('[data-testid="evidence-row"][data-event-id="big-2"]')
+  await expect(last).toBeInViewport()
+  await expect(last).toBeFocused()
+  await page.keyboard.press('Home')
+  await expect(evidenceRows().first()).toBeFocused()
+  expect(Date.now() - started, 'recorrer 300 evidencias').toBeLessThan(5000)
   await page.getByTestId('problem-back').click()
   await expect(page.getByTestId('problem-page')).toHaveCount(0)
+})
+
+test('v0.10.0: tabla virtualizada: desplegar una fila con gráfico recalcula la altura (la siguiente no se solapa)', async () => {
+  sim.eventMetricDelayMs = 600
+  await goToRoute(`/problems/${BIG_ID}`)
+  const first = page.locator('[data-testid="evidence-row"][data-event-id="big-299"]')
+  const next = page.locator('[data-testid="evidence-row"][data-event-id="big-297"]')
+  await expect(first).toBeVisible()
+  const bottomOf = async (locator: Locator): Promise<number> => {
+    const box = await locator.boundingBox()
+    return (box?.y ?? 0) + (box?.height ?? 0)
+  }
+  const topOf = async (locator: Locator): Promise<number> => (await locator.boundingBox())?.y ?? 0
+
+  await first.click()
+  const detail = await detailOf(first)
+  // Mientras carga: la siguiente fila va debajo del detalle.
+  await expect(detail.getByTestId('evidence-metric-loading')).toBeVisible()
+  expect(await topOf(next)).toBeGreaterThanOrEqual((await bottomOf(detail)) - 1)
+  const loadingBottom = await bottomOf(detail)
+  // Con el gráfico pintado (más alto): se vuelve a medir y la siguiente baja con él.
+  await expect(detail.getByTestId('evidence-metric')).toBeVisible()
+  await expect
+    .poll(async () => (await topOf(next)) - (await bottomOf(detail)))
+    .toBeGreaterThanOrEqual(-1)
+  expect(await bottomOf(detail)).toBeGreaterThan(loadingBottom)
+  expect(eventQueries(SEL_BIG)).toHaveLength(1)
+  // Plegar: la siguiente vuelve justo debajo de la fila.
+  await first.click()
+  await expect(page.getByTestId('evidence-detail')).toHaveCount(0)
+  await expect
+    .poll(async () => Math.abs((await topOf(next)) - (await bottomOf(first))))
+    .toBeLessThan(2)
+})
+
+test('v0.10.0: el resumen de causa raíz salta a su fila aunque un filtro la oculte: quita el filtro, scroll, la despliega y le da el foco', async () => {
+  await goToRoute(`/problems/${BIG_ID}`)
+  await expect(evidenceRows().first()).toBeVisible()
+  // La causa raíz (cerrada) queda oculta: filtro de abiertas y un texto que no casa.
+  await page.getByTestId('evidence-status-OPEN').click()
+  await page.getByTestId('evidence-search').fill('Evidencia 1')
+  const target = page.locator(`[data-testid="evidence-row"][data-event-id="big-${BIG_ROOT}"]`)
+  await expect(target).toHaveCount(0)
+
+  const link = page.getByTestId('root-cause-summary').getByTestId('root-cause-link')
+  await expect(link).toHaveCount(1)
+  await expect(link).toHaveAttribute('data-id', `big-${BIG_ROOT}`)
+  await link.click()
+
+  // Los filtros que la ocultaban se han quitado.
+  await expect(page.getByTestId('evidence-status-ALL')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('evidence-search')).toHaveValue('')
+  // Su fila, en pantalla, desplegada y con el foco.
+  await expect(target).toBeInViewport()
+  await expect(target).toHaveAttribute('aria-expanded', 'true')
+  await expect(target).toBeFocused()
+  await expect(await detailOf(target)).toBeVisible()
 })
 
 test('v0.9.0: seguridad: un comentario con <script> e <img onerror> se ve literal y no ejecuta nada', async () => {
@@ -1629,116 +1859,316 @@ async function openEvidenceProblem(): Promise<Locator> {
   await goToRoute(`/problems/${EV_ID}`)
   const detail = page.getByTestId('problem-page')
   await expect(page.getByTestId('problem-page-title')).toContainText('P-779')
-  await expect(detail.getByTestId('evidence-item').first()).toBeVisible()
+  await expect(detail.getByTestId('evidence-row').first()).toBeVisible()
   return detail
 }
 
-test('v0.9.1: evidencias: aviso de la API, chips con contador, causa raíz y grupos por entidad', async () => {
+/** v0.10.0: abre P-783 (tabla: problema cerrado con eventos abiertos y cerrados). */
+async function openTableProblem(): Promise<Locator> {
+  await goToRoute(`/problems/${TABLE_ID}`)
+  const detail = page.getByTestId('problem-page')
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-783')
+  await expect(evidenceRows()).toHaveCount(6)
+  return detail
+}
+
+const rowTitles = async (): Promise<string[]> =>
+  evidenceRows().evaluateAll((rows) =>
+    rows.map((row) => row.querySelectorAll('[role="gridcell"]')[1]?.textContent?.trim() ?? '')
+  )
+
+test('v0.10.0: tabla de evidencias: estado propio por evento en un problema cerrado, columnas y celdas', async () => {
+  await openTableProblem()
+  const grid = page.getByTestId('evidence-grid')
+  await expect(grid).toHaveAttribute('role', 'grid')
+  await expect(page.getByTestId('evidence-scroll').getByTestId('evidence-grid')).toHaveCount(1)
+  // El problema está cerrado, pero cada fila tiene su estado.
+  await expect(page.getByTestId('detail-summary')).toContainText('Cerrado')
+  // Columnas en orden; tags y flags sin orden.
+  const columns = [
+    'status',
+    'title',
+    'type',
+    'entity',
+    'start',
+    'end',
+    'duration',
+    'tags',
+    'rootCause',
+    'flags'
+  ]
+  expect(
+    await grid
+      .locator('[data-testid^="col-"]')
+      .evaluateAll((cols) => cols.map((col) => col.getAttribute('data-testid')))
+  ).toEqual(columns.map((c) => `col-${c}`))
+  for (const c of ['tags', 'flags']) await expect(grid.getByTestId(`sort-${c}`)).toHaveCount(0)
+  for (const c of columns.filter((c) => c !== 'tags' && c !== 'flags')) {
+    await expect(grid.getByTestId(`sort-${c}`), c).toHaveCount(1)
+  }
+
+  // Orden por defecto: abiertos primero, startTime desc.
+  expect(await rowTitles()).toEqual([
+    'Errores 5xx',
+    'CPU saturada',
+    'Tiempo de respuesta tabla',
+    'Respuesta lenta',
+    'Sin datos de evento',
+    'Estado manda'
+  ])
+  const expected: [string, 'OPEN' | 'CLOSED'][] = [
+    ['Errores 5xx', 'OPEN'], // sin status: data.endTime -1
+    ['CPU saturada', 'OPEN'],
+    ['Tiempo de respuesta tabla', 'OPEN'], // METRIC sin data: endTime -1
+    ['Respuesta lenta', 'CLOSED'],
+    ['Sin datos de evento', 'CLOSED'], // sin data: endTime numérico
+    ['Estado manda', 'CLOSED'] // status CLOSED aunque endTime sea -1
+  ]
+  for (const [title, status] of expected) {
+    const row = evidenceRow(title)
+    await expect(row, title).toHaveAttribute('data-status', status)
+    await expect(row.getByTestId('status-bar'), title).toHaveAttribute('data-status', status)
+    const cell = row.getByTestId('evidence-status')
+    await expect(cell, title).toHaveAttribute('data-status', status)
+    await expect(cell, title).toHaveText(status === 'OPEN' ? 'Abierto' : 'Cerrado')
+    await expect(row, title).toHaveAttribute('aria-expanded', 'false')
+  }
+  await expect(evidenceRow('CPU saturada')).toHaveAttribute('data-event-id', 'tbl-1')
+  // Sin eventId: sin data-event-id.
+  await expect(evidenceRow('Sin datos de evento')).not.toHaveAttribute('data-event-id', /.*/)
+
+  // Fin y duración de una activa; una cerrada con su duración.
+  await expect(evidenceRow('Errores 5xx').getByTestId('evidence-end')).toHaveText('Activo')
+  await expect(evidenceRow('Errores 5xx').getByTestId('evidence-duration')).toHaveText('en curso')
+  await expect(evidenceRow('Respuesta lenta').getByTestId('evidence-duration')).toHaveText('20 min')
+  // Tipo traducido si existe; si no, el código.
+  await expect(evidenceRow('Tiempo de respuesta tabla')).toContainText('Métrica')
+  await expect(evidenceRow('Sin datos de evento')).toContainText('CUSTOM_INFO')
+  // Causa raíz y flags (solo los true).
+  await expect(evidenceRow('CPU saturada').getByTestId('evidence-root')).toHaveText('Sí')
+  await expect(evidenceRow('Respuesta lenta').getByTestId('evidence-root')).toHaveText('')
+  const flags = evidenceRow('CPU saturada').getByTestId('evidence-flags')
+  await expect(flags.getByTestId('flag-maintenance')).toHaveCount(1)
+  await expect(flags.getByTestId('flag-frequent')).toHaveCount(0)
+  await expect(flags.getByTestId('flag-suppressed')).toHaveCount(0)
+  await expect(evidenceRow('Estado manda').getByTestId('flag-frequent')).toHaveCount(1)
+
+  // Tags: 2 visibles y «+2» con un tooltip con todos (sin stringRepresentation → key:value o key).
+  const tags = evidenceRow('CPU saturada').getByTestId('evidence-tags')
+  await expect(tags).toContainText('equipo:pagos')
+  await expect(tags).toContainText('zona:eu')
+  const more = tags.getByTestId('evidence-tags-more')
+  await expect(more).toHaveText('+2')
+  await hoverFresh(page, more)
+  const tooltip = page.getByTestId('evidence-tags-tooltip')
+  await expect(tooltip).toBeVisible()
+  for (const tag of ['equipo:pagos', 'zona:eu', 'critico', 'capa:infra']) {
+    await expect(tooltip).toContainText(tag)
+  }
+  await moveToNeutral(page)
+  await page.keyboard.press('Escape')
+  await expect(tooltip).toHaveCount(0)
+  // Tooltip de la entidad, con su tipo.
+  await hoverFresh(page, evidenceRow('CPU saturada').getByRole('gridcell', { name: /host-tabla/ }))
+  await expect(page.getByTestId('evidence-entity-tooltip')).toContainText('HOST')
+  await moveToNeutral(page)
+  await page.keyboard.press('Escape')
+
+  // Orden por título (clic en la cabecera) y vuelta al de estado.
+  await grid.getByTestId('sort-title').click()
+  expect((await rowTitles())[0]).toBe('CPU saturada')
+  await grid.getByTestId('sort-status').click()
+  await grid.getByTestId('sort-status').click()
+})
+
+test('v0.10.0: contadores Abiertos/Cerrados/Todos filtran y se combinan con el resto de filtros', async () => {
+  await openTableProblem()
+  const button = (s: 'ALL' | 'OPEN' | 'CLOSED'): Locator => page.getByTestId(`evidence-status-${s}`)
+  await expect(button('ALL')).toHaveAttribute('data-count', '6')
+  await expect(button('OPEN')).toHaveAttribute('data-count', '3')
+  await expect(button('CLOSED')).toHaveAttribute('data-count', '3')
+  await expect(button('ALL')).toHaveAttribute('aria-pressed', 'true')
+
+  await button('OPEN').click()
+  await expect(button('OPEN')).toHaveAttribute('aria-pressed', 'true')
+  await expect(button('ALL')).toHaveAttribute('aria-pressed', 'false')
+  await expect(evidenceRows()).toHaveCount(3)
+  for (const row of await evidenceRows().all())
+    await expect(row).toHaveAttribute('data-status', 'OPEN')
+  // Los contadores no dependen del filtro de estado.
+  await expect(button('CLOSED')).toHaveAttribute('data-count', '3')
+
+  await button('CLOSED').click()
+  await expect(evidenceRows()).toHaveCount(3)
+  for (const row of await evidenceRows().all()) {
+    await expect(row).toHaveAttribute('data-status', 'CLOSED')
+  }
+
+  // Combinados: el texto cambia los contadores (todos los filtros menos el de estado).
+  await button('ALL').click()
+  await page.getByTestId('evidence-search').fill('servicio-tabla')
+  await expect(button('ALL')).toHaveAttribute('data-count', '5')
+  await expect(button('OPEN')).toHaveAttribute('data-count', '2')
+  await expect(button('CLOSED')).toHaveAttribute('data-count', '3')
+  await button('OPEN').click()
+  await expect(evidenceRows()).toHaveCount(2)
+  expect(await rowTitles()).toEqual(['Errores 5xx', 'Tiempo de respuesta tabla'])
+})
+
+test('v0.10.0: filtros de texto, tipo, entidad, tag y «solo causa raíz»; sin resultados y limpiar', async () => {
+  await openTableProblem()
+  // Texto: sin tildes ni mayúsculas.
+  await page.getByTestId('evidence-search').fill('ESTADO')
+  expect(await rowTitles()).toEqual(['Estado manda'])
+  await page.getByTestId('evidence-search').fill('')
+  await expect(evidenceRows()).toHaveCount(6)
+
+  // Tipos: popover con opciones (menuitemcheckbox) y su cuenta.
+  const types = page.getByTestId('evidence-types')
+  await expect(types).toHaveAttribute('aria-haspopup', /.+/)
+  await types.click()
+  const option = (type: string): Locator =>
+    page.locator(`[data-testid="evidence-type-option"][data-type="${type}"]`)
+  await expect(option('CUSTOM_ALERT')).toHaveAttribute('role', 'menuitemcheckbox')
+  await expect(option('CUSTOM_ALERT')).toContainText('3')
+  await expect(option('CPU_SATURATED')).toContainText('1')
+  await expect(option('METRIC')).toContainText('1')
+  await option('METRIC').click()
+  await expect(option('METRIC')).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Escape')
+  expect(await rowTitles()).toEqual(['Tiempo de respuesta tabla'])
+  await types.click()
+  await option('CUSTOM_INFO').click()
+  await page.keyboard.press('Escape')
+  expect(await rowTitles()).toEqual(['Tiempo de respuesta tabla', 'Sin datos de evento'])
+  await types.click()
+  await option('METRIC').click()
+  await option('CUSTOM_INFO').click()
+  await page.keyboard.press('Escape')
+  await expect(evidenceRows()).toHaveCount(6)
+
+  // Entidad (select nativo; '' = todas).
+  await page.getByTestId('evidence-entity').selectOption('HOST-T1')
+  expect(await rowTitles()).toEqual(['CPU saturada'])
+  await page.getByTestId('evidence-entity').selectOption('')
+  await expect(evidenceRows()).toHaveCount(6)
+
+  // Tag exacto.
+  await page.getByTestId('evidence-tag').selectOption('equipo:pagos')
+  expect(await rowTitles()).toEqual(['CPU saturada', 'Respuesta lenta'])
+  await page.getByTestId('evidence-tag').selectOption('')
+
+  // Solo causa raíz.
+  await page.getByTestId('evidence-root-only').check()
+  expect(await rowTitles()).toEqual(['CPU saturada'])
+  await page.getByTestId('evidence-root-only').uncheck()
+  await expect(evidenceRows()).toHaveCount(6)
+
+  // Sin resultados: el aviso y "limpiar filtros" lo deja todo como al principio.
+  await page.getByTestId('evidence-search').fill('no existe nada así')
+  await page.getByTestId('evidence-entity').selectOption('HOST-T1')
+  await expect(evidenceRows()).toHaveCount(0)
+  await expect(page.getByTestId('evidence-empty')).toBeVisible()
+  await page.getByTestId('evidence-clear-filters').click()
+  await expect(evidenceRows()).toHaveCount(6)
+  await expect(page.getByTestId('evidence-search')).toHaveValue('')
+  await expect(page.getByTestId('evidence-entity')).toHaveValue('')
+})
+
+test('v0.10.0: desplegar con clic y con Enter, aria-expanded y aria-controls, Tab dentro y Escape pliega y devuelve el foco', async () => {
+  await openTableProblem()
+  const row = evidenceRow('CPU saturada')
+  // Clic: despliega; el detalle es la fila siguiente, con su id en aria-controls.
+  await row.click()
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  const detail = await detailOf(row)
+  await expect(detail).toHaveAttribute('data-testid', 'evidence-detail')
+  await expect(detail).toHaveAttribute('role', 'row')
+  // Propiedades siempre visibles, como texto (el HTML no se interpreta ni se ejecuta).
+  const properties = detail.getByTestId('evidence-properties')
+  await expect(properties).toBeVisible()
+  await expect(properties).toContainText(TABLE_HTML)
+  await expect(properties).toContainText('97')
+  await expect(properties.locator('b, img')).toHaveCount(0)
+  expect(await page.evaluate(() => (window as { __xss?: unknown }).__xss ?? null)).toBeNull()
+  await expect(detail.getByTestId('evidence-zones')).toContainText('Producción')
+  for (const tag of ['equipo:pagos', 'zona:eu', 'critico', 'capa:infra']) {
+    await expect(detail.getByTestId('evidence-all-tags')).toContainText(tag)
+  }
+  await expect(detail.getByTestId('evidence-more')).toHaveCount(0)
+  // Clic otra vez: pliega.
+  await row.click()
+  await expect(row).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByTestId('evidence-detail')).toHaveCount(0)
+
+  // Enter con el foco en la fila: despliega.
+  await row.focus()
+  await page.keyboard.press('Enter')
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  // Tab entra en el contenido del detalle.
+  await page.keyboard.press('Tab')
+  const focusedInDetail = await page.evaluate(
+    () => document.activeElement?.closest('[data-testid="evidence-detail"]') !== null
+  )
+  expect(focusedInDetail).toBe(true)
+  // Escape dentro: pliega y devuelve el foco a la fila.
+  await page.keyboard.press('Escape')
+  await expect(row).toHaveAttribute('aria-expanded', 'false')
+  await expect(row).toBeFocused()
+  // Escape en la fila desplegada también pliega.
+  await page.keyboard.press('Enter')
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  await page.keyboard.press('Escape')
+  await expect(row).toHaveAttribute('aria-expanded', 'false')
+  await expect(row).toBeFocused()
+
+  // METRIC: el detalle es la tarjeta antes → después.
+  const metric = await expandRow('Tiempo de respuesta tabla')
+  await expect(metric.getByTestId('evidence-change')).toContainText('100 ms → 300 ms')
+  await expect(metric.getByTestId('evidence-variation')).toContainText('+200 %')
+})
+
+test('v0.10.0: volver al problema deja la tabla como estaba (filtros, orden y desplegadas); otro problema empieza limpio', async () => {
+  await openTableProblem()
+  await page.getByTestId('evidence-status-CLOSED').click()
+  await expandRow('Respuesta lenta')
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+  // Otro problema: sin filtros ni desplegadas.
+  await goToRoute(`/problems/${BIG_ID}`)
+  await expect(page.getByTestId('evidence-status-ALL')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('[data-testid="evidence-row"][aria-expanded="true"]')).toHaveCount(0)
+  // De vuelta: como se dejó.
+  await goToRoute(`/problems/${TABLE_ID}`)
+  await expect(page.getByTestId('evidence-status-CLOSED')).toHaveAttribute('aria-pressed', 'true')
+  await expect(evidenceRows()).toHaveCount(3)
+  await expect(evidenceRow('Respuesta lenta')).toHaveAttribute('aria-expanded', 'true')
+})
+
+test('v0.9.1: evidencias: aviso de la API (retirado: chips y grupos se van en la 0.10.0)', async () => {
   const detail = await openEvidenceProblem()
   const section = detail.getByTestId('detail-evidence')
-  const items = section.getByTestId('evidence-item')
-
-  // La API mandó 8 de 12: se dice (y no es el "Ver todas" de la vista).
+  // La API mandó 8 de 12: se dice.
   await expect(section.getByTestId('evidence-api-truncated')).toHaveText(
     'La API ha devuelto 8 de 12 evidencias.'
   )
   await expect(section.getByTestId('evidence-api-truncated')).toHaveAttribute('role', 'status')
-
-  // Chips: un tipo cada uno, con la etiqueta traducida (el desconocido, tal cual) y el contador.
-  const chips = section.getByTestId('evidence-filter')
-  const chip = (type: string): Locator => chips.and(page.locator(`[data-type="${type}"]`))
-  await expect(chips).toHaveCount(6)
-  for (const [type, text] of [
-    ['EVENT', 'Evento 2'],
-    ['METRIC', 'Métrica 2'],
-    ['TRANSACTIONAL', 'Transaccional 1'],
-    ['AVAILABILITY_EVIDENCE', 'Disponibilidad 1'],
-    ['MAINTENANCE_WINDOW', 'Mantenimiento 1'],
-    ['TIPO_NUEVO_E2E', 'TIPO_NUEVO_E2E 1']
-  ] as const) {
-    await expect(chip(type), type).toHaveText(text)
-    await expect(chip(type), type).toHaveAttribute('aria-pressed', 'false')
+  await expect(evidenceRows()).toHaveCount(8)
+  // Ya no existen los grupos, los chips ni el bloque de causa raíz.
+  for (const id of ['evidence-group', 'evidence-filter', 'evidence-root-cause', 'evidence-item']) {
+    await expect(section.getByTestId(id), id).toHaveCount(0)
   }
-  await expect(items).toHaveCount(8)
-
-  // Causa raíz arriba, con las dos rootCauseRelevant en orden cronológico.
-  const root = section.getByTestId('evidence-root-cause')
-  await expect(root.locator('h3')).toHaveText('Causa raíz')
-  await expect(root.getByTestId('evidence-item')).toHaveCount(2)
-  await expect(root.getByTestId('evidence-item').nth(0)).toContainText('Reinicio del proceso')
-  await expect(root.getByTestId('evidence-item').nth(1)).toContainText('Host no disponible')
-  // La causa raíz va antes que los grupos.
-  const rootBox = await root.boundingBox()
-  const firstGroupBox = await section.getByTestId('evidence-group').first().boundingBox()
-  expect(rootBox!.y).toBeLessThan(firstGroupBox!.y)
-
-  // Grupos por entidad: por su primera evidencia; el de groupingEntity, por ella.
-  const groups = section.getByTestId('evidence-group')
-  await expect(groups).toHaveCount(3)
-  expect(
-    await groups.evaluateAll((all) => all.map((g) => g.getAttribute('data-entity-id')))
-  ).toEqual(['SERVICE-EV1', 'HOST-EV1', ''])
-  const service = groups.nth(0)
-  const host = groups.nth(1)
-  const loose = groups.nth(2)
-  await expect(service.getByTestId('evidence-group-toggle')).toContainText('pagos-ev')
-  await expect(service.getByTestId('evidence-group-toggle')).toContainText('SERVICE')
-  await expect(service.getByTestId('evidence-group-toggle')).toContainText('(3)')
-  await expect(service.getByTestId('evidence-item')).toHaveText([
-    /Despliegue/,
-    /Tiempo de respuesta/,
-    /Tasa de fallos/
-  ])
-  // host-ev: Uso de CPU y "Algo nuevo", que va por su groupingEntity (no por proc-nuevo).
-  // "Host no disponible" es causa raíz: no se repite aquí.
-  await expect(host.getByTestId('evidence-group-toggle')).toContainText('(2)')
-  await expect(host.getByTestId('evidence-item')).toHaveText([/Uso de CPU/, /Algo nuevo/])
-  await expect(section.locator('[data-entity-id="PROCESS_GROUP_INSTANCE-EV2"]')).toHaveCount(0)
-  await expect(section.getByText('Host no disponible')).toHaveCount(1)
-  await expect(loose.getByTestId('evidence-group-toggle')).toContainText('Sin entidad')
-  await expect(loose.getByTestId('evidence-item')).toHaveText([/Ventana de mantenimiento/])
-  // Tipos sin tarjeta propia: nombre, etiqueta del tipo y fechas ("Activa" si sigue).
-  await expect(loose.getByTestId('evidence-item')).toContainText('Mantenimiento')
-  await expect(loose.getByTestId('evidence-item')).toContainText('Activa')
-  await expect(host.getByTestId('evidence-item').nth(1)).toContainText('TIPO_NUEVO_E2E')
-
-  // Filtro: un chip deja solo su tipo (y la causa raíz, si no es de ese tipo, se va).
-  await chip('METRIC').click()
-  await expect(chip('METRIC')).toHaveAttribute('aria-pressed', 'true')
-  await expect(items).toHaveCount(2)
-  await expect(section.getByTestId('evidence-root-cause')).toHaveCount(0)
-  for (const item of await items.all()) await expect(item).toHaveAttribute('data-type', 'METRIC')
-  // Con dos, la unión; los contadores no cambian (son sobre todas).
-  await chip('TRANSACTIONAL').click()
-  await expect(items).toHaveCount(3)
-  await expect(chip('METRIC')).toHaveText('Métrica 2')
-  await chip('AVAILABILITY_EVIDENCE').click()
-  await expect(section.getByTestId('evidence-root-cause').getByTestId('evidence-item')).toHaveText([
-    /Host no disponible/
-  ])
-  // Sin ninguno pulsado, todo otra vez.
-  for (const type of ['METRIC', 'TRANSACTIONAL', 'AVAILABILITY_EVIDENCE']) await chip(type).click()
-  await expect(items).toHaveCount(8)
-
-  // Grupo plegable: plegado no enseña sus evidencias, pero sí su cabecera y contador.
-  const toggle = service.getByTestId('evidence-group-toggle')
-  await toggle.click()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  await expect(service.getByTestId('evidence-item')).toHaveCount(0)
-  await expect(toggle).toContainText('(3)')
-  await toggle.click()
-  await expect(service.getByTestId('evidence-item')).toHaveCount(3)
+  // El resumen de causa raíz enlaza las dos rootCauseRelevant.
+  await expect(page.getByTestId('root-cause-link')).toHaveCount(2)
 })
 
-test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y «Más detalles» de un EVENT', async () => {
-  const detail = await openEvidenceProblem()
-  const section = detail.getByTestId('detail-evidence')
-  const item = (name: string): Locator =>
-    section.getByTestId('evidence-item').filter({ hasText: name })
+test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y propiedades de un EVENT, en la fila desplegada', async () => {
+  await openEvidenceProblem()
+  // v0.10.0: la tarjeta y las propiedades van en el detalle de la fila desplegada.
+  const item = expandRow
 
   // METRIC: antes → después con la unidad formateada (µs → ms y s), flecha y variación.
-  const metric = item('Tiempo de respuesta')
-  await expect(metric).toHaveAttribute('data-type', 'METRIC')
+  const metric = await item('Tiempo de respuesta')
   const change = metric.getByTestId('evidence-change')
   await expect(change).toContainText('Tiempo de respuesta en pagos-ev:')
   await expect(change).toContainText('200 ms → 1,5 s')
@@ -1750,12 +2180,11 @@ test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y «Más detalles
   await expect(variation).toHaveClass(/text-danger/)
   await expect(change.getByTestId('evidence-metric-id')).toHaveText(EV_METRIC)
   await expect(change.getByTestId('evidence-open-metrics')).toHaveText('Abrir en Métricas')
-  // Sin fin: "Activa".
-  await expect(metric).toContainText('Activa')
+  // Sin fin: "Activo" en la fila.
+  await expect(evidenceRow('Tiempo de respuesta').getByTestId('evidence-end')).toHaveText('Activo')
 
   // TRANSACTIONAL: antes 0 → sin cociente, con la diferencia y su unidad; sin métrica.
-  const transactional = item('Tasa de fallos')
-  await expect(transactional).toHaveAttribute('data-type', 'TRANSACTIONAL')
+  const transactional = await item('Tasa de fallos')
   await expect(transactional.getByTestId('evidence-change')).toContainText('0 % → 12,5 %')
   await expect(transactional.getByTestId('evidence-variation')).toContainText('+12,5 %')
   await expect(transactional.getByTestId('evidence-variation').locator('.sr-only')).toHaveText(
@@ -1765,7 +2194,7 @@ test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y «Más detalles
   await expect(transactional.getByTestId('evidence-open-metrics')).toHaveCount(0)
 
   // METRIC sin valores: N/A (antes, después y variación), sin romper la tarjeta.
-  const empty = item('Uso de CPU')
+  const empty = await item('Uso de CPU')
   await expect(empty.getByTestId('evidence-change')).toContainText('N/A → N/A')
   await expect(empty.getByTestId('evidence-variation')).toHaveText('N/A')
   // Sin datos no hay dirección: ni flecha ni «sin cambio» para el lector de pantalla.
@@ -1773,36 +2202,25 @@ test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y «Más detalles
   await expect(empty.getByTestId('evidence-variation').locator('.sr-only')).toHaveCount(0)
   await expect(empty.getByTestId('evidence-metric-id')).toHaveText('builtin:host.cpu.usage')
 
-  // EVENT con propiedades: "Más detalles" las despliega, como texto (el <b> no es HTML).
-  const event = item('Reinicio del proceso')
-  await expect(event).toContainText('PROCESS_RESTART')
-  const more = event.getByTestId('evidence-more')
-  await expect(more).toHaveText('Más detalles')
-  await expect(more).toHaveAttribute('aria-expanded', 'false')
-  await expect(event.getByTestId('evidence-properties')).toHaveCount(0)
-  await more.click()
-  await expect(more).toHaveText('Menos detalles')
-  await expect(more).toHaveAttribute('aria-expanded', 'true')
+  // EVENT con propiedades: siempre visibles en el detalle, como texto (el <b> no es HTML).
+  await expect(evidenceRow('Reinicio del proceso')).toContainText('PROCESS_RESTART')
+  const event = await item('Reinicio del proceso')
+  await expect(event.getByTestId('evidence-more')).toHaveCount(0)
   const properties = event.getByTestId('evidence-properties')
   await expect(properties.locator('dt')).toHaveText(['dt.event.description', 'exit.code'])
   await expect(properties.locator('dd')).toHaveText([EV_PROPERTY, '137'])
   await expect(properties.locator('b')).toHaveCount(0)
-  await more.click()
-  await expect(event.getByTestId('evidence-properties')).toHaveCount(0)
-  // EVENT sin propiedades: sin "Más detalles".
-  await expect(item('Despliegue').getByTestId('evidence-more')).toHaveCount(0)
-  await expect(item('Despliegue')).toContainText('CUSTOM_DEPLOYMENT')
+  // EVENT sin propiedades: sin bloque de propiedades.
+  await expect(evidenceRow('Despliegue')).toContainText('CUSTOM_DEPLOYMENT')
+  await expect((await item('Despliegue')).getByTestId('evidence-properties')).toHaveCount(0)
 })
 
 test('v0.9.1: «Abrir en Métricas» lleva a Métricas con la métrica, el rango del problema y la consulta hecha', async () => {
-  const detail = await openEvidenceProblem()
+  await openEvidenceProblem()
+  const metric = await expandRow('Tiempo de respuesta')
   const before = sim.metricsQueries
   const clickedAt = Date.now()
-  await detail
-    .getByTestId('evidence-item')
-    .filter({ hasText: 'Tiempo de respuesta' })
-    .getByTestId('evidence-open-metrics')
-    .click()
+  await metric.getByTestId('evidence-open-metrics').click()
 
   // Consulta hecha, con la métrica y el rango personalizado: inicio − 30 min hasta ahora
   // (el problema sigue abierto). Sin filtro por entidad.
@@ -1927,19 +2345,31 @@ test('v0.9.1: XLSX de evidencias variadas: números, "Activa", causa raíz y avi
 const eventQueries = (selector: string): URLSearchParams[] =>
   sim.eventMetricQueries.filter((query) => query.get('metricSelector') === selector)
 
-/** v0.9.2: el mini gráfico de la evidencia con ese nombre. */
+/**
+ * v0.9.2: el mini gráfico de la evidencia con ese nombre. Desde la 0.10.0 vive en el
+ * detalle de su fila: hay que desplegarla antes (openChart).
+ */
 function metricChart(name: string): Locator {
   return page
-    .getByTestId('evidence-item')
-    .filter({ hasText: name })
+    .locator(`[data-testid="evidence-detail"][data-id="${chartEventId(name)}"]`)
     .getByTestId('evidence-metric-chart')
+}
+
+/** v0.10.0: despliega la fila de ese evento y devuelve su mini gráfico. */
+async function openChart(name: string): Promise<Locator> {
+  await expandRow(name)
+  return metricChart(name)
 }
 
 test('v0.9.2: mini gráfico de un EVENT con selector: una consulta, rango y resolución; la serie de la entidad primero', async () => {
   const mountedAt = Date.now()
   await goToRoute(`/problems/${CHART_ID}`)
   await expect(page.getByTestId('problem-page-title')).toContainText('P-780')
-  const chart = metricChart('Respuesta lenta')
+  // Plegada, la fila no pide nada.
+  await expect(evidenceRows().first()).toBeVisible()
+  await page.waitForTimeout(300)
+  expect(eventQueries(SEL_OK)).toHaveLength(0)
+  const chart = await openChart('Respuesta lenta')
   await chart.scrollIntoViewIfNeeded()
   const drawn = chart.getByTestId('evidence-metric')
   await expect(drawn).toBeVisible()
@@ -1978,6 +2408,7 @@ test('v0.9.2: estados del mini gráfico: 400, 403, sin datos, 25 series y select
     ['Sin permiso', 'forbidden', es.problems.metricState.forbidden],
     ['Sin datos', 'noData', es.problems.metricState.noData]
   ] as const) {
+    await openChart(name)
     await metricChart(name).scrollIntoViewIfNeeded()
     await expect(state(name), name).toHaveAttribute('data-state', expected)
     await expect(state(name), name).toHaveText(text)
@@ -1989,7 +2420,7 @@ test('v0.9.2: estados del mini gráfico: 400, 403, sin datos, 25 series y select
   expect(es.problems.metricState.noData).toBe('Sin datos en el periodo.')
 
   // 25 series: se dibujan 10, la de la entidad (SERVICE-MC20) la primera, y se avisa.
-  const many = metricChart('Muchas series')
+  const many = await openChart('Muchas series')
   await many.scrollIntoViewIfNeeded()
   await expect(many.getByTestId('evidence-metric-truncated')).toHaveText(
     'Mostrando 10 de 25 series.'
@@ -2001,8 +2432,7 @@ test('v0.9.2: estados del mini gráfico: 400, 403, sin datos, 25 series y select
   expect(series[0]).toContain('SERVICE-MC20')
 
   // Selector de más de 2000: el texto, sin gráfico ni consulta.
-  const long = page.getByTestId('evidence-item').filter({ hasText: 'Selector largo' })
-  await long.scrollIntoViewIfNeeded()
+  const long = await expandRow('Selector largo')
   await expect(long.getByTestId('evidence-metric-too-long')).toHaveText(
     'Selector demasiado largo para mostrarlo.'
   )
@@ -2011,31 +2441,34 @@ test('v0.9.2: estados del mini gráfico: 400, 403, sin datos, 25 series y select
     false
   )
   // Un EVENT sin selector: ni gráfico ni aviso.
-  const none = page.getByTestId('evidence-item').filter({ hasText: 'Sin selector' })
+  const none = await expandRow('Sin selector')
   await expect(none.getByTestId('evidence-metric-chart')).toHaveCount(0)
   await expect(none.getByTestId('evidence-metric-too-long')).toHaveCount(0)
 
   // La página sigue: título, el resto de las evidencias y volver.
   await expect(page.getByTestId('problem-page-title')).toContainText('P-780')
-  await expect(page.getByTestId('evidence-item')).toHaveCount(7)
+  await expect(evidenceRows()).toHaveCount(7)
   await page.getByTestId('problem-back').click()
   await expect(page.getByTestId('problem-page')).toHaveCount(0)
 })
 
-test('v0.9.2: carga diferida y cola: un gráfico fuera de pantalla no pide; nunca más de 3 consultas a la vez', async () => {
+test('v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez', async () => {
   sim.eventMetricDelayMs = 400
   await goToRoute(`/problems/${LAZY_ID}`)
   await expect(page.getByTestId('problem-page-title')).toContainText('P-781')
+  // v0.10.0: plegadas por defecto, ningún gráfico ni consulta.
+  await expect(evidenceRows()).toHaveCount(20)
   const charts = page.getByTestId('evidence-metric-chart')
-  await expect(charts).toHaveCount(20)
-  // Los de arriba se piden; el último, que no se ve, no.
-  await expect.poll(() => sim.eventMetricQueries.length).toBeGreaterThan(0)
+  await expect(charts).toHaveCount(0)
   await page.waitForTimeout(600)
-  expect(sim.eventMetricQueries.length).toBeLessThan(20)
-  expect(eventQueries(SEL_LAZY(20))).toHaveLength(0)
-  await expect(charts.last()).not.toBeInViewport()
+  expect(sim.eventMetricQueries).toHaveLength(0)
 
-  // Se recorren todos: cada uno se pide al verse, y la cola nunca deja más de 3 en vuelo.
+  // Se despliegan las 20 seguidas: cada una se pide al verse, y la cola nunca deja más de 3.
+  for (const row of await evidenceRows().all()) {
+    await row.scrollIntoViewIfNeeded()
+    await row.click()
+  }
+  await expect(charts).toHaveCount(20)
   for (const chart of await charts.all()) await chart.scrollIntoViewIfNeeded()
   await expect.poll(() => sim.eventMetricQueries.length, { timeout: 15_000 }).toBe(20)
   expect(eventQueries(SEL_LAZY(20))).toHaveLength(1)
@@ -2047,7 +2480,7 @@ test('v0.9.2: carga diferida y cola: un gráfico fuera de pantalla no pide; nunc
 
 test('v0.9.2: «Actualizar» vuelve a pedir los gráficos de un problema abierto, y no los de uno cerrado', async () => {
   await goToRoute(`/problems/${CHART_ID}`)
-  const chart = metricChart('Respuesta lenta')
+  const chart = await openChart('Respuesta lenta')
   await expect(chart.getByTestId('evidence-metric')).toBeVisible()
   expect(eventQueries(SEL_OK)).toHaveLength(1)
   await page.getByTestId('module-refresh').click()
@@ -2057,7 +2490,7 @@ test('v0.9.2: «Actualizar» vuelve a pedir los gráficos de un problema abierto
   // Cerrado: Actualizar repite el detalle, pero no los gráficos.
   await goToRoute(`/problems/${LAZY_ID}`)
   await expect(page.getByTestId('problem-page-title')).toContainText('P-781')
-  await expect(metricChart('Gráfico 1').getByTestId('evidence-metric')).toBeVisible()
+  await expect((await openChart('Gráfico 1')).getByTestId('evidence-metric')).toBeVisible()
   const before = sim.eventMetricQueries.length
   const detailBefore = sim.lastDetailQuery
   await page.getByTestId('module-refresh').click()
@@ -2070,12 +2503,14 @@ test('v0.9.2: «Actualizar» vuelve a pedir los gráficos de un problema abierto
 
 test('v0.9.2: volver a un problema cerrado no repite las consultas de sus gráficos', async () => {
   await goToRoute(`/problems/${LAZY_ID}`)
-  await expect(metricChart('Gráfico 1').getByTestId('evidence-metric')).toBeVisible()
+  await expect((await openChart('Gráfico 1')).getByTestId('evidence-metric')).toBeVisible()
   const first = eventQueries(SEL_LAZY(1)).length
   expect(first).toBe(1)
   await page.getByTestId('problem-back').click()
   await expect(page.getByTestId('problem-page')).toHaveCount(0)
   await goToRoute(`/problems/${LAZY_ID}`)
+  // v0.10.0: la fila sigue desplegada (el estado de la tabla se conserva).
+  await expect(evidenceRow('Gráfico 1')).toHaveAttribute('aria-expanded', 'true')
   await expect(metricChart('Gráfico 1').getByTestId('evidence-metric')).toBeVisible()
   await page.waitForTimeout(500)
   expect(eventQueries(SEL_LAZY(1))).toHaveLength(1)
@@ -2084,8 +2519,8 @@ test('v0.9.2: volver a un problema cerrado no repite las consultas de sus gráfi
 test('v0.9.2: volver a un problema ABIERTO (lista y vuelta) no pide ningún gráfico; Actualizar pide solo la evidencia activa', async () => {
   await goToRoute(`/problems/${MIXED_ID}`)
   await expect(page.getByTestId('problem-page-title')).toContainText('P-782')
-  const done = metricChart('Evidencia terminada')
-  const active = metricChart('Evidencia activa')
+  const done = await openChart('Evidencia terminada')
+  const active = await openChart('Evidencia activa')
   await expect(done.getByTestId('evidence-metric')).toBeVisible()
   await expect(active.getByTestId('evidence-metric')).toBeVisible()
   expect(eventQueries(SEL_DONE)).toHaveLength(1)
@@ -2131,7 +2566,7 @@ test('v0.9.2: volver a un problema ABIERTO (lista y vuelta) no pide ningún grá
 
 test('v0.9.2: «Abrir en Métricas» del gráfico abre Métricas con ese selector y el rango del gráfico', async () => {
   await goToRoute(`/problems/${CHART_ID}`)
-  const chart = metricChart('Respuesta lenta')
+  const chart = await openChart('Respuesta lenta')
   await expect(chart.getByTestId('evidence-metric')).toBeVisible()
   const chartQuery = eventQueries(SEL_OK)[0] as URLSearchParams
   const before = sim.metricsQueries
@@ -2149,7 +2584,7 @@ test('v0.9.2: «Abrir en Métricas» del gráfico abre Métricas con ese selecto
 
 test('v0.9.2: exportar las series del mini gráfico (CSV con hora, serie y valor) y capturarlo', async () => {
   await goToRoute(`/problems/${CHART_ID}`)
-  const chart = metricChart('Respuesta lenta')
+  const chart = await openChart('Respuesta lenta')
   await expect(chart.getByTestId('evidence-metric')).toBeVisible()
   const menu = chart.locator('[data-testid="export-menu"][data-export-target="evidence-metric"]')
   await expect(menu).toBeVisible()
