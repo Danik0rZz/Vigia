@@ -1,10 +1,9 @@
+import { compareCodes, sortRows, type GridSort } from './grid-sort'
+
 /** Columnas por las que se ordena la lista de Problemas. */
 export type ProblemSortKey = 'displayId' | 'title' | 'affected' | 'start'
 
-export interface ProblemSort {
-  key: ProblemSortKey
-  direction: 'asc' | 'desc'
-}
+export type ProblemSort = GridSort<ProblemSortKey>
 
 export const DEFAULT_PROBLEM_SORT: ProblemSort = { key: 'start', direction: 'desc' }
 
@@ -65,23 +64,15 @@ export function sortProblems<T extends SortableProblem>(
   lang: string
 ): T[] {
   const byTitle = compareTitle(lang)
-  const primary = (a: T, b: T): number => {
-    switch (sort.key) {
-      case 'displayId':
-        return compareDisplayId(a.displayId, b.displayId)
-      case 'title':
-        return byTitle(a.title, b.title)
-      case 'affected':
-        return a.affectedCount - b.affectedCount
-      case 'start':
-        return a.startTime - b.startTime
-    }
-  }
-  const sign = sort.direction === 'asc' ? 1 : -1
-  return [...items].sort(
-    (a, b) =>
-      sign * primary(a, b) ||
-      b.startTime - a.startTime ||
-      (a.problemId < b.problemId ? -1 : a.problemId > b.problemId ? 1 : 0)
+  return sortRows(
+    items,
+    sort,
+    {
+      displayId: (a, b) => compareDisplayId(a.displayId, b.displayId),
+      title: (a, b) => byTitle(a.title, b.title),
+      affected: (a, b) => a.affectedCount - b.affectedCount,
+      start: (a, b) => a.startTime - b.startTime
+    },
+    [(a, b) => b.startTime - a.startTime, (a, b) => compareCodes(a.problemId, b.problemId)]
   )
 }
