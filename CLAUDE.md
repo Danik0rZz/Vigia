@@ -24,6 +24,7 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 - **v0.8.1: cerrada.** Backlog P3 de AUD-21 (errores del SSO, huella ofrecida y del SSO en `certificates:pin`, errores de main traducidos por clave, plurales y locale de ECharts, fila de Problemas con `memo`, colación de entornos, limpieza de los e2e en Windows), el aviso de los SLO con problemas sin calcular y `views.spec` independiente del orden. Sin migraciones nuevas. Quedan anotados el fusible del asar y las particiones de red. Criterios automáticos de nivel 3 cumplidos en Windows (e2e ×3, views ×10 con `--workers=1`, tls y tenants ×20, dist:win y clon limpio con la instalación del README).
 - **v0.9.0: cerrada.** Rediseño de Problemas pedido por Dani: grid propio de 4 columnas con barra de estado, orden y teclado; detalle en página propia (`/problems/:problemId`) con vuelta a la lista conservando filtros, orden, fila y foco; exportación del detalle por secciones (`export:workbook`). Sin migraciones nuevas. `app:openExternal` se retiró por no tener uso (está en `0f4faa1`). Las ventanas de los e2e ya no toman el foco del sistema (`VIGIA_E2E`). Criterios automáticos de nivel 3 cumplidos en Windows (check 1342, e2e ×2, views ×3 con `--workers=1`, smoke ×3 y dist:win; sin clon limpio porque no cambian las dependencias).
 - **v0.9.1: cerrada.** Detalle del problema centrado en evidencias y comentarios, pedido por Dani: fuera `impactAnalysis`; evidencias normalizadas (`src/shared/problem-evidence.ts`) con causa raíz arriba, grupos por entidad, filtros por tipo, tarjeta de cambio y "Abrir en Métricas"; comentarios con "Ver todos" (`problems:comments`). Sin migraciones nuevas. En vivo solo llegaron evidencias EVENT: METRIC y TRANSACTIONAL están probados solo con el simulador. Criterios automáticos de nivel 3 cumplidos en Windows (check 1520, e2e ×2, views ×3 con `--workers=1` y dist:win; sin clon limpio porque no cambian las dependencias).
+- **v0.9.2: en cierre.** Mini gráfico en las evidencias EVENT con `dt.event.metric_selector` (clave observada en vivo, fuera de la OpenAPI): extracción en main sobre las propiedades en crudo, `metrics:query`, carga diferida con una cola de 3, umbral `dt.event.metric_threshold`, "Abrir en Métricas", exportación y captura. El selector nunca va al log de main. Sin migraciones nuevas.
 - **Siguiente:** nada nuevo sin Dani (decisión de peticiones). Lo que puede venir está en `docs/propuestas-siguientes.md`, con la licencia aparte.
 - **Primera versión: fases 1, 2, 3, 4 y 6, aceptada por Dani** (2026-10-04). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
@@ -74,6 +75,12 @@ v0.9.1, pruebas a mano (evidencias y comentarios; se pueden hacer con el zip 0.9
 - [ ] Si un problema real trae evidencias de métrica o de transacción, la tarjeta "antes → después" y su unidad tienen sentido. Si no lo tienen, se pasan a "Más detalles" en una 0.9.2. ("Abrir en Métricas" abre la métrica con el rango del problema.)
 - [ ] Un problema con más comentarios que los recientes enseña "Ver todos" y los trae; el XLSX del detalle ya no tiene la hoja Impacto.
 - [ ] Arrancar el zip 0.9.1 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+
+v0.9.2, pruebas a mano (mini gráfico; se pueden hacer con el zip 0.9.2 en vez del 0.9.1):
+
+- [ ] En un problema real con un evento de alerta de métrica, el mini gráfico sale, el periodo sombreado y la línea de inicio cuadran con la evidencia y, si hay umbral, la línea discontinua está donde toca.
+- [ ] "Abrir en Métricas" desde el gráfico abre esa misma consulta con ese rango, y la exportación XLSX del gráfico abre en Excel.
+- [ ] Arrancar el zip 0.9.2 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
 Fase 2:
 

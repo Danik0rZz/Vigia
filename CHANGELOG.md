@@ -3,6 +3,31 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.9.2] - 2026-10-04
+
+Mini gráfico en las evidencias de evento que traen una métrica, a petición de Dani. Sin
+migraciones nuevas.
+
+### Añadido
+
+- Las evidencias de evento con `dt.event.metric_selector` enseñan un mini gráfico de esa métrica:
+  el periodo de la evidencia sombreado, el inicio del problema, el umbral si lo hay y, como mucho,
+  10 series (la de la entidad, la primera y resaltada). Se cargan al verse en pantalla y de 3 en 3.
+- Desde el gráfico: «Abrir en Métricas» con ese selector y ese rango, y exportación (CSV, XLSX,
+  TXT) y captura.
+- «Actualizar» en la página del problema: vuelve a pedir el detalle y, si sigue abierto, sus
+  gráficos.
+
+### Cambiado
+
+- El log de main ya no copia un selector (ni otro valor largo de la consulta) cuando Dynatrace lo
+  repite en un mensaje de error.
+
+### Limitación conocida
+
+- El mini gráfico no muestra la unidad: `/metrics/query` no la devuelve (solo el descriptor de la
+  métrica) y no se inventa. El eje va con números en el formato del idioma.
+
 ## [0.9.1] - 2026-10-04
 
 El detalle del problema se centra en las evidencias y los comentarios, a petición de Dani. Sin

@@ -134,6 +134,18 @@ canales y pruebas nuevas, o una pieza de infraestructura).
 - **Decisiones que necesita de Dani:** si vale un gráfico sin filtrar por entidad (con "Mostrando
   10 de N") o se espera a saber la dimensión.
 
+## 4 ter. Unidad en los mini gráficos (y en Métricas)
+
+- **Qué aporta al usuario:** el eje del mini gráfico de los eventos (0.9.2) y el de Métricas con
+  su unidad (ms, %, bytes…) en lugar de solo números.
+- **API y endpoints:** `GET /metrics/{metricId}` (el descriptor de la métrica, que trae `unit`;
+  `/metrics/query` no la devuelve), una vez por metricId y en caché sin caducidad.
+- **Scopes:** `metrics.read` / `environment-api:metrics:read`, los de Métricas.
+- **Esfuerzo: S.**
+- **Riesgos y dependencias:** sacar el metricId de un selector con transformaciones o con varias
+  métricas. Si no es inequívoco, se queda sin unidad (nunca una unidad que no toca).
+- **Decisiones que necesita de Dani:** si va en una 0.9.3.
+
 ## 5. CI en GitHub Actions
 
 - **Qué aporta al usuario:** que cada push a `main` pase `check` y los e2e en Windows sin depender
@@ -184,6 +196,7 @@ canales y pruebas nuevas, o una pieza de infraestructura).
 | 3. Agrupar Problemas por clúster    | S        | Problemas con varios clústeres y números de una lista recortada | Reabrir la decisión de "sin agrupar"           |
 | 4. Fase 8: DQL y Logs               | L        | Coste por GiB escaneado en Grail                                | Credenciales de plataforma (no hay en Managed) |
 | 4 bis. Gráfico de evidencias METRIC | S o M    | Sin la dimensión de la entidad se mezclan todas las series      | Ver una evidencia METRIC en vivo               |
+| 4 ter. Unidad en los mini gráficos  | S        | Sacar el metricId de un selector con transformaciones           | Nada                                           |
 | 5. CI en GitHub Actions             | S        | Minutos de Actions y logs públicos                              | Confirmar los minutos de la cuenta             |
 | 6. Fusible del asar                 | S        | Un zip que no arranca si se configura mal                       | Un perfil o una máquina virtual de prueba      |
 
