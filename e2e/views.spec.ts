@@ -2823,6 +2823,9 @@ test('v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha
   expect(axis.labels.length).toBeGreaterThan(2)
   expect(new Set(axis.labels).size).toBeGreaterThan(1)
   expect(axis.labels.every((label) => label === '00:00')).toBe(false)
+  // Regresión: sin el arreglo salían 17 «00:00» (y solo los extremos con otra hora), así que
+  // «no todas iguales» no basta: ninguna «00:00» y alguna fecha.
+  expect(axis.labels.filter((label) => label === '00:00')).toHaveLength(0)
   expect(axis.labels.some((label) => ES_DAY.test(label))).toBe(true)
   // El inicio del problema (hace 45 días) queda fuera: sin línea vertical de inicio.
   expect(axis.markLines).toBe(0)
