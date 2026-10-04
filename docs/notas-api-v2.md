@@ -284,9 +284,11 @@ títulos, ni propiedades, ni entidades de los eventos: son datos del cliente.
   `from` → **400** (`DT_ENDPOINTS.events.keepOnNextPage = []`).
 - **Relación con los problemas (observado):** todos los eventos de la muestra traen
   `correlationId`, pero **no coincide con el `problemId`** de ningún problema de las mismas 24 h.
-  No es un enlace directo al problema. Según la OpenAPI (sin comprobar en vivo), el enlace va al
-  revés: las evidencias del detalle del problema (`evidenceDetails`, de tipo `EVENT`) y el filtro
-  `eventSelector=correlationId(…)`.
+  No es un enlace directo al problema.
+- **El enlace evento→problema, según la OpenAPI (`EventEvidence`):** las evidencias de tipo `EVENT`
+  del detalle del problema (`evidenceDetails`) traen `eventId` y el evento completo en `data`. No
+  hace falta ninguna petición nueva: el detalle ya las pide. No comprobado en vivo. El filtro
+  `correlationId(…)` existe, pero la OpenAPI no lo relaciona con los problemas.
 - **Errores:** un `eventSelector` mal formado da **400**.
 - **Tiempos:** mediana de unos 330 ms y máximo por debajo de 0,5 s.
 
@@ -302,8 +304,8 @@ solo objeto, de la que solo mira el tipo de `value`.
 - **Respuesta:** `items` y `totalCount`, sin paginar (llegan todos). Cada esquema trae
   `schemaId`, `displayName` y `latestSchemaVersion` (la OpenAPI declara más campos, como
   `multiObject` u `ordered`, que no llegaron).
-- **Con un token clásico con `settings.read`, la lista es reducida:** solo aparecen esquemas
-  `builtin:` de health-experience y de openpipeline. Los clásicos (`builtin:anomaly-detection.*`,
+- **Con un token clásico con `settings.read`, la lista es reducida:** solo aparece una parte
+  pequeña de los esquemas `builtin:`. Los clásicos (`builtin:anomaly-detection.*`,
   `builtin:management-zones`, `builtin:host.monitoring`…) no aparecen. Es probable que dependa de
   los permisos del token sobre cada esquema (sin confirmar). Una función de Settings tendría que
   partir de lo que este listado devuelve, no de una lista fija.
@@ -338,8 +340,8 @@ nueva sin su visto bueno.
   `WARNING` con el mismo color que `FAILURE`. Y, si se pide algún día la lista sin evaluar (por
   ejemplo, para un listado barato), no mostrar su `status`.
 - **Eventos de un problema (bloque e).** En el detalle de Problemas, una sección con los eventos
-  del problema (los de `evidenceDetails` de tipo `EVENT`, o `eventSelector` con su
-  `correlationId`), sin interfaz nueva de Events. Se decide con Dani.
+  del problema (los de `evidenceDetails` de tipo `EVENT`, que ya llegan con el evento completo),
+  sin interfaz nueva de Events. Se decide con Dani.
 - **Settings 2.0 (bloque f).** Con este token solo se ven unos pocos esquemas: antes de cualquier
   función de Settings hay que saber qué permisos necesita el token para ver los clásicos. Los
   listados, siempre con `fields` sin `value`.
