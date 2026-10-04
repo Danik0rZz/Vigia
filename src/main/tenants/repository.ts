@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { asc, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import {
   clientInputSchema,
   environmentInputSchema,
@@ -18,6 +18,11 @@ const ACTIVE_ENVIRONMENT = 'activeEnvironmentId'
 /** Comparación de nombres sin distinguir mayúsculas (también con tildes, que `lower()` de SQLite no cubre). */
 function sameName(a: string, b: string): boolean {
   return a.toLocaleLowerCase('es') === b.toLocaleLowerCase('es')
+}
+
+/** Orden por nombre con la colación española (tildes y mayúsculas como en un índice). */
+function byName(a: { name: string }, b: { name: string }): number {
+  return a.name.localeCompare(b.name, 'es')
 }
 
 function toEnvironment(row: typeof environments.$inferSelect): Environment {
@@ -54,15 +59,12 @@ export function createTenantRepository(db: AppDatabase): TenantRepository {
   const setSetting = settingsStore.set
 
   function listClients(): Client[] {
-    return db
-      .select()
-      .from(clients)
-      .all()
-      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    return db.select().from(clients).all().sort(byName)
   }
 
   function listEnvironments(): Environment[] {
-    return db.select().from(environments).orderBy(asc(environments.name)).all().map(toEnvironment)
+    // Misma colación que los clientes: la binaria de SQLite pondría «Zeta» antes que «ámbito».
+    return db.select().from(environments).all().sort(byName).map(toEnvironment)
   }
 
   function requireClient(id: string): Client {

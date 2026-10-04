@@ -71,6 +71,18 @@ describe('clientes', () => {
     expect(await repo.listClients()).toEqual([updated])
   })
 
+  it('P3-6: ordena con la colación española (tildes y mayúsculas no van aparte)', async () => {
+    for (const name of ['zeta', 'Ámbito', 'beta', 'Alfa']) {
+      await repo.createClient({ name, color: '#111111' })
+    }
+    expect((await repo.listClients()).map((client) => client.name)).toEqual([
+      'Alfa',
+      'Ámbito',
+      'beta',
+      'zeta'
+    ])
+  })
+
   it('no admite dos clientes con el mismo nombre, sin distinguir mayúsculas', async () => {
     const a = await repo.createClient({ name: 'Cliente A', color: '#111111' })
     await expectDomainError(
@@ -99,6 +111,29 @@ describe('clientes', () => {
 })
 
 describe('entornos', () => {
+  it('P3-6: listEnvironments ordena con la colación española, como los clientes', async () => {
+    const client = await repo.createClient({ name: 'Cliente A', color: '#111111' })
+    for (const name of ['zeta', 'Ámbito', 'beta', 'Alfa']) {
+      await repo.createEnvironment(environmentInput(client.id, { name }))
+    }
+    expect((await repo.listEnvironments()).map((env) => env.name)).toEqual([
+      'Alfa',
+      'Ámbito',
+      'beta',
+      'zeta'
+    ])
+  })
+
+  it('P3-6: el orden es por nombre, no agrupado por cliente', async () => {
+    const b = await repo.createClient({ name: 'Cliente B', color: '#222222' })
+    const a = await repo.createClient({ name: 'Cliente A', color: '#111111' })
+    await repo.createEnvironment(environmentInput(b.id, { name: 'Ñandú' }))
+    await repo.createEnvironment(environmentInput(a.id, { name: 'nube' }))
+    await repo.createEnvironment(environmentInput(a.id, { name: 'Oro' }))
+    // En español, ñ va entre n y o.
+    expect((await repo.listEnvironments()).map((env) => env.name)).toEqual(['nube', 'Ñandú', 'Oro'])
+  })
+
   it('crea con todos los campos, lista, actualiza y borra', async () => {
     const client = await repo.createClient({ name: 'Cliente A', color: '#111111' })
     const input = environmentInput(client.id)
