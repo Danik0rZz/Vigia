@@ -104,7 +104,7 @@ Fase 6:
 | Comando                                | Qué hace                                                          |
 | -------------------------------------- | ----------------------------------------------------------------- |
 | `npm run dev`                          | App en desarrollo con recarga en caliente                         |
-| `npm run check`                        | Lint, tipos y tests unitarios                                     |
+| `npm run check`                        | Lint, tipos, formato y tests unitarios con umbral de cobertura    |
 | `npm run test:e2e`                     | Compila y prueba la app de punta a punta (Playwright)             |
 | `npm run build`                        | Tipos y compilación a `out/`                                      |
 | `npm run dist:win`                     | Zip de Windows en `dist/`                                         |
@@ -114,7 +114,7 @@ Fase 6:
 | `npm run test:live`                    | Pruebas de solo lectura contra el tenant de pruebas               |
 | `npm run scan:tenant`                  | Busca restos del tenant de pruebas (antes de cada push)           |
 
-Antes de dar una tarea por terminada: `npm run check`, `npm run test:e2e:affected` (o `npm run test:e2e` si el cambio es transversal) y `npm run format:check`.
+Antes de dar una tarea por terminada: `npm run check` (ya incluye `format:check` y la cobertura de main y shared con umbral, ver `vitest.config.ts`) y `npm run test:e2e:affected` (o `npm run test:e2e` si el cambio es transversal). Playwright no reintenta y rechaza `test.only`.
 
 ## Arquitectura
 
@@ -159,6 +159,6 @@ Patrón para código nuevo de main: la lógica en módulos puros con tests, y el
 
 ## Versiones fijadas
 
-Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3, Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, TanStack Virtual 3.14.13, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main), ECharts 6.1.0. Node 22 o superior.
+Electron 44.5.1, electron-vite 5.0.0, Vite 7.3.6, React 19.3.0, TypeScript 5.9.3, Zod 4.6.5, electron-log 5.4.4, Vitest 5.0.3 (con @vitest/coverage-v8 5.0.3), Playwright 1.63.0, electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18next 26.4.2, react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0, better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, TanStack Virtual 3.14.13, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main), ECharts 6.1.0. Node 22 o superior.
 
 `npm audit` (2026-10-04): 14 avisos en total (6 moderados y 8 altos), todos de herramientas de desarrollo o empaquetado (http-cache-semantics vía `@electron/get`, `esbuild` vía `drizzle-kit`, `uuid`) salvo dos. `npm audit --omit=dev` da 2 moderados: `uuid` anterior a 11.1.1 (GHSA-w5hq-g745-h8pq) a través de ExcelJS 4.4.0. No es alcanzable: el fallo está en `v3`, `v5` y `v6` con `buf`, y ExcelJS solo usa `v4`. No forzar overrides; revisar al subir ExcelJS o electron-builder. Deuda anotada: npm marca ESLint 9.39.5 como sin soporte (no subir a 10 sin typescript-eslint y electron-vite compatibles).
