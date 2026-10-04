@@ -50,6 +50,22 @@ function expectReasons(decision: Decision): void {
 }
 
 describe('decide', () => {
+  it.each([
+    ['sin config', undefined],
+    ['con null', null],
+    ['con {}', {}],
+    ['con ignore que no es lista', { ...config, ignore: 'docs/**' }],
+    ['con un texto', 'e2e/areas.json']
+  ])('%s → TypeError con un mensaje claro (sin valor por defecto)', (_case, bad) => {
+    const call = (): Decision => decide(['src/renderer/src/pages/X.tsx'], bad as unknown as Config)
+    expect(call).toThrow(TypeError)
+    expect(call).toThrow('decide necesita la config de e2e/areas.json')
+  })
+
+  it('la comprobación de la config va antes que los ficheros (también con una lista vacía)', () => {
+    expect(() => decide([], null as unknown as Config)).toThrow(TypeError)
+  })
+
   it('sin ficheros → none', () => {
     const d = decide([], config)
     expect(d).toMatchObject({ mode: 'none', specs: [] })
@@ -201,7 +217,10 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
   it.each([
     'docs/notas-api-v2.md',
     'src/main/dynatrace/client.test.ts',
-    'src/main/modules/problems.live.test.ts'
+    'src/main/modules/problems.live.test.ts',
+    // Los scripts de herramientas no van en la app empaquetada.
+    'scripts/affected-e2e.cjs',
+    'scripts/scan-tenant.mjs'
   ])('%s solo → none', (file) => {
     expect(specsFor(file).mode).toBe('none')
   })

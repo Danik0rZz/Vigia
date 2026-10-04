@@ -5,9 +5,8 @@
     "**/*.md",
     "src/**/*.test.ts",
     "src/**/*.live.test.ts",
-    "scripts/**/*.test.ts",
+    "scripts/**",
     "src/test/**",
-    "scripts/scan-tenant.mjs",
     "vitest.config.ts",
     "vitest.live.config.ts",
     "drizzle.config.ts",
@@ -51,7 +50,6 @@
     "tsconfig*.json",
     ".gitattributes",
     "build/**",
-    "scripts/affected-e2e.cjs",
     "e2e/areas.json"
   ],
   "areas": {
