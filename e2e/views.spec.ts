@@ -582,12 +582,13 @@ async function goToRoute(route: string): Promise<void> {
   }, route)
 }
 
-/** Abre un problema desde la lista con un clic en su ID y espera su página. */
+/** Abre un problema desde la lista con un clic en su fila (en el título) y espera su página. */
 async function openProblem(displayId: string): Promise<Locator> {
   await page
     .getByTestId('problem-row')
     .filter({ hasText: displayId })
-    .getByText(displayId, { exact: true })
+    .getByRole('gridcell')
+    .nth(1)
     .click()
   const problemPage = page.getByTestId('problem-page')
   await expect(problemPage).toBeVisible()
@@ -595,12 +596,16 @@ async function openProblem(displayId: string): Promise<Locator> {
   return problemPage
 }
 
-/** data-index de la primera fila visible de la lista (su top ≥ el top del contenedor). */
+/**
+ * data-index de la primera fila visible bajo la cabecera fija del grid (la primera
+ * cuyo borde inferior queda por debajo de la cabecera), como la guarda la lista.
+ */
 async function firstVisibleIndex(): Promise<number> {
   return page.getByTestId('problems-scroll').evaluate((scroller) => {
-    const top = scroller.getBoundingClientRect().top
+    const header = scroller.querySelector('[data-grid-header]')
+    const top = header?.getBoundingClientRect().bottom ?? scroller.getBoundingClientRect().top
     const rows = [...scroller.querySelectorAll<HTMLElement>('[data-testid="problem-row"]')]
-      .filter((row) => row.getBoundingClientRect().top >= top - 1)
+      .filter((row) => row.getBoundingClientRect().bottom > top + 1)
       .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
     return Number(rows[0]?.dataset['index'] ?? -1)
   })
@@ -785,9 +790,9 @@ test('Problemas: tabla, línea de tiempo y página de detalle con las entidades 
   await openProblems()
   const rows = page.getByTestId('problem-row')
   for (const p of problemsA) {
-    await expect(page.getByTestId('problems-table')).toContainText(p.displayId)
+    await expect(page.getByTestId('problems-grid')).toContainText(p.displayId)
   }
-  await expect(page.getByTestId('problems-table')).toContainText('Respuesta lenta en pagos')
+  await expect(page.getByTestId('problems-grid')).toContainText('Respuesta lenta en pagos')
   await expect(page.getByTestId('problems-timeline').locator('canvas').first()).toBeVisible()
 
   // Sin rango personalizado, la petición va con el rango global (2 h por defecto).
@@ -897,34 +902,69 @@ test('AUD-12: el detalle se abre con el teclado y, al volver, el foco vuelve a l
   const detail = page.getByTestId('problem-page')
   await openProblems()
 
-  // Tab desde el filtro de texto hasta el primer botón problem-open.
+  // Ya no hay botón problem-open: se navega por las filas del grid.
+  await expect(page.getByTestId('problem-open')).toHaveCount(0)
+  // Roving tabindex: una sola fila con tabIndex 0 (la activa, la 0 al empezar).
+  await expect(page.locator('[data-testid="problem-row"][tabindex="0"]')).toHaveCount(1)
+  await expect(page.locator('[data-testid="problem-row"][tabindex="0"]')).toHaveAttribute(
+    'data-index',
+    '0'
+  )
+
+  // Tab desde el filtro de texto llega a la fila activa.
   await page.getByTestId('problems-filter-text').focus()
   let reached = false
   for (let i = 0; i < 40 && !reached; i++) {
     await page.keyboard.press('Tab')
     reached = await page.evaluate(
-      () => document.activeElement?.getAttribute('data-testid') === 'problem-open'
+      () => document.activeElement?.getAttribute('data-testid') === 'problem-row'
     )
   }
-  expect(reached, 'Tab llega a un problem-open').toBe(true)
-  const focusedId = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? '')
-  expect(focusedId).toMatch(/^P-\d+$/)
-  const opener = page
-    .getByTestId('problem-row')
-    .filter({ hasText: focusedId })
-    .getByTestId('problem-open')
+  expect(reached, 'Tab llega a una fila del grid').toBe(true)
+  const activeIndex = (): Promise<number> =>
+    page.evaluate(() => Number((document.activeElement as HTMLElement | null)?.dataset['index']))
+  expect(await activeIndex()).toBe(0)
 
-  // Enter abre la página del problema, con el foco en su título.
+  // Flechas, Inicio/Fin y RePág/AvPág mueven el foco (3 filas: de 0 a 2, sin salirse).
+  const steps: [string, number][] = [
+    ['ArrowDown', 1],
+    ['ArrowDown', 2],
+    ['ArrowDown', 2],
+    ['ArrowUp', 1],
+    ['Home', 0],
+    ['ArrowUp', 0],
+    ['End', 2],
+    ['PageUp', 0],
+    ['PageDown', 2],
+    ['ArrowUp', 1]
+  ]
+  for (const [key, index] of steps) {
+    await page.keyboard.press(key)
+    expect(await activeIndex(), key).toBe(index)
+  }
+  // Al moverse, la activa pasa a ser la única con tabIndex 0.
+  await expect(page.locator('[data-testid="problem-row"][tabindex="0"]')).toHaveAttribute(
+    'data-index',
+    '1'
+  )
+
+  // Enter abre la fila activa (la 1: por defecto, Inicio desc → P-103, P-101, P-102).
+  const opener = page.locator('[data-testid="problem-row"][data-index="1"]')
+  const openedId = await opener.getAttribute('data-problem-id')
+  const opened = problemsA.find((p) => p['problemId'] === openedId)?.displayId ?? '?'
+  expect(opened).toBe('P-101')
   await page.keyboard.press('Enter')
   await expect(detail).toBeVisible()
-  await expect(page.getByTestId('problem-page-title')).toContainText(focusedId)
+  await expect(page.getByTestId('problem-page-title')).toContainText(opened)
   await expect(page.getByTestId('problem-page-title')).toBeFocused()
 
-  // «Volver» (con el teclado) vuelve a la lista con el foco en el botón de esa fila.
+  // «Volver» (con el teclado) vuelve a la lista con el foco en esa misma fila.
   await page.getByTestId('problem-back').focus()
   await page.keyboard.press('Enter')
   await expect(detail).toHaveCount(0)
-  await expect(opener).toBeFocused()
+  await expect(
+    page.locator(`[data-testid="problem-row"][data-problem-id="${openedId}"]`)
+  ).toBeFocused()
 
   // Escape ya no hace nada en la lista (no hay panel que cerrar).
   await page.keyboard.press('Escape')
@@ -950,9 +990,12 @@ test('v0.9.0: volver del detalle conserva los filtros y la fila visible, con 300
   await page.getByTestId('problems-filter-text').fill('masivo')
   await expect.poll(() => sim.lastProblemsQuery.get('problemSelector') ?? '').toContain('masivo')
   await page.getByTestId('problems-scroll').evaluate((el) => {
-    el.scrollTop = el.scrollHeight
+    // A mitad de la lista: al final, el scroll se recorta y no hay «primera fila» exacta.
+    el.scrollTop = el.scrollHeight / 2
   })
-  await expect.poll(firstVisibleIndex).toBeGreaterThan(200)
+  await expect.poll(firstVisibleIndex).toBeGreaterThan(100)
+  // Se espera a que la lista guarde el índice (va con requestAnimationFrame).
+  await page.waitForTimeout(200)
   const before = await firstVisibleIndex()
 
   // Se abre una fila de las visibles y se vuelve con el botón.
@@ -1014,7 +1057,7 @@ test('v0.9.0: cambiar de entorno estando en el detalle lleva a la lista del ento
   await page.getByRole('option', { name: 'Cliente A › Desarrollo' }).click()
 
   await expect(page.getByTestId('problem-page')).toHaveCount(0)
-  const table = page.getByTestId('problems-table')
+  const table = page.getByTestId('problems-grid')
   await expect(table).toContainText('P-900')
   await expect(table).not.toContainText('P-101')
   expect(await currentRoute()).toBe('/problems')
@@ -1081,7 +1124,7 @@ test('AUD-12: filtros de severidad e impacto, en el servidor', async () => {
   // INFRASTRUCTURE, P-900, de impacto APPLICATION, no saldría).
   await page.getByTestId('env-selector').click()
   await page.getByRole('option', { name: 'Cliente A › Desarrollo' }).click()
-  await expect(page.getByTestId('problems-table')).toContainText('P-900')
+  await expect(page.getByTestId('problems-grid')).toContainText('P-900')
   await page.getByTestId('env-selector').click()
   await page.getByRole('option', { name: 'Cliente A › Producción' }).click()
   await expect(rows).toHaveCount(1)
@@ -1090,78 +1133,191 @@ test('AUD-12: filtros de severidad e impacto, en el servidor', async () => {
   await expect(rows).toHaveCount(3)
 })
 
-test('tabla de Problemas: columnas, N/A, "+N" con tooltip, en curso y fechas propias', async () => {
+test('grid de Problemas: ARIA, orden por columna, barra de estado y afectados', async () => {
   await openProblems()
-  const headers = await page
-    .locator('[data-testid^="col-"]')
-    .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')))
-  expect(headers).toEqual(
-    [
-      'displayId',
-      'title',
-      'status',
-      'impact',
-      'severity',
-      'affected',
-      'rootCause',
-      'cluster',
-      'namespace',
-      'start',
-      'end',
-      'duration'
-    ].map((key) => `col-${key}`)
-  )
-
+  const grid = page.getByTestId('problems-grid')
   const row = (id: string): Locator => page.getByTestId('problem-row').filter({ hasText: id })
-  const table = page.getByTestId('problems-table')
+  /** IDs de las filas en el orden en que se ven. */
+  const order = (): Promise<string[]> =>
+    page
+      .getByTestId('problem-row')
+      .evaluateAll((els) =>
+        els
+          .sort(
+            (a, b) => Number(a.getAttribute('data-index')) - Number(b.getAttribute('data-index'))
+          )
+          .map((el) => el.getAttribute('data-problem-id') ?? '')
+      )
 
-  // P-101, abierto: dos afectadas → la primera y "+1" con tooltip; sin namespace → N/A; fin N/A; en curso.
-  await expect(row('P-101')).toContainText('pagos')
-  await expect(row('P-101')).not.toContainText('host-pagos-01')
-  const more = row('P-101').getByTestId('more-values')
-  await expect(more).toHaveText(/\+1/)
-  await more.hover()
-  await expect(page.getByRole('tooltip')).toContainText('host-pagos-01')
-  await page.mouse.move(0, 0)
-  await expect(row('P-101')).toContainText('N/A')
-  await expect(row('P-101')).toContainText('(en curso)')
-  await expect(row('P-101')).toContainText(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)
+  // La lista se pide ya ordenada por inicio descendente.
+  expect(sim.lastProblemsQuery.get('sort')).toBe('-startTime')
 
-  // P-102, cerrado: sin causa raíz → N/A; fin con fecha; 60 min sin "(en curso)".
-  await expect(row('P-102')).toContainText('60 min')
-  await expect(row('P-102')).not.toContainText('(en curso)')
-  const dates = (await row('P-102').innerText()).match(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/g) ?? []
-  expect(dates, 'inicio y fin con fecha').toHaveLength(2)
-  await expect(row('P-102')).toContainText('N/A')
+  // ARIA: grid con nombre y recuento (3 filas + la cabecera); la cabecera es la fila 1.
+  await expect(grid).toHaveAttribute('role', 'grid')
+  await expect(grid).toHaveAttribute('aria-label', 'Problemas')
+  await expect(grid).toHaveAttribute('aria-rowcount', '4')
+  await expect(grid.locator('[data-grid-header] [role="row"]')).toHaveAttribute(
+    'aria-rowindex',
+    '1'
+  )
+  const rowIndexes = await page
+    .getByTestId('problem-row')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('aria-rowindex')).sort())
+  expect(rowIndexes).toEqual(['2', '3', '4'])
+  for (const r of await page.getByTestId('problem-row').all()) {
+    await expect(r).toHaveAttribute('role', 'row')
+    await expect(r.getByRole('gridcell')).toHaveCount(4)
+  }
 
-  // P-103: severidad desconocida en crudo y dos namespaces → el primero y "+1".
-  await expect(row('P-103')).toContainText('NUEVA_SEVERIDAD')
-  await expect(row('P-103')).toContainText('carrito-ns')
-  // P-103 tiene dos «+1» (clúster y namespace): cada uno se identifica por sus valores.
-  await expect(
-    row('P-103')
-      .getByTestId('more-values')
-      .and(page.getByRole('button', { name: /comun-ns/ }))
-  ).toHaveText(/\+1/)
+  // Cuatro columnas, y por defecto Inicio descendente.
+  const headers = await grid
+    .locator('[role="columnheader"]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')))
+  expect(headers).toEqual(['col-displayId', 'col-title', 'col-affected', 'col-start'])
+  await expect(page.getByTestId('col-start')).toHaveAttribute('aria-sort', 'descending')
+  for (const key of ['displayId', 'title', 'affected']) {
+    await expect(page.getByTestId(`col-${key}`)).toHaveAttribute('aria-sort', 'none')
+  }
+  await expect(page.getByTestId('col-affected')).toContainText('Afectados')
+  expect(await order()).toEqual(['pa-3', 'pa-1', 'pa-2'])
 
-  // Los tipos y los ids de las entidades no van en la tabla.
-  await expect(table).not.toContainText('SERVICE-AAA1')
-  await expect(table).not.toContainText('HOST-AAA1')
+  // Ordenar por ID: una columna nueva de texto empieza ascendente; la misma, invierte.
+  await page.getByTestId('sort-displayId').click()
+  await expect(page.getByTestId('col-displayId')).toHaveAttribute('aria-sort', 'ascending')
+  await expect(page.getByTestId('col-start')).toHaveAttribute('aria-sort', 'none')
+  expect(await order()).toEqual(['pa-1', 'pa-2', 'pa-3'])
+  await page.getByTestId('sort-displayId').click()
+  await expect(page.getByTestId('col-displayId')).toHaveAttribute('aria-sort', 'descending')
+  expect(await order()).toEqual(['pa-3', 'pa-2', 'pa-1'])
+
+  // Afectados empieza descendente; empate (P-102 y P-103, 1 cada uno) → inicio desc.
+  await page.getByTestId('sort-affected').focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('col-affected')).toHaveAttribute('aria-sort', 'descending')
+  expect(await order()).toEqual(['pa-1', 'pa-3', 'pa-2'])
+
+  // Con Espacio también; Título empieza ascendente.
+  await page.getByTestId('sort-title').focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByTestId('col-title')).toHaveAttribute('aria-sort', 'ascending')
+
+  // El orden se conserva al ir al detalle y volver.
+  await page.getByTestId('sort-displayId').click()
+  await expect(page.getByTestId('col-displayId')).toHaveAttribute('aria-sort', 'ascending')
+  await openProblem('P-102')
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('col-displayId')).toHaveAttribute('aria-sort', 'ascending')
+  expect(await order()).toEqual(['pa-1', 'pa-2', 'pa-3'])
+
+  // La exportación sale en el mismo orden que el grid.
+  const csv = readFileSync(await exportTo('problems-table', 'export-csv'))
+    .subarray(3)
+    .toString('utf8')
+    .split('\r\n')
+    .filter((line) => line !== '')
+  expect(csv.slice(1).map((line) => /P-\d+/.exec(line)?.[0])).toEqual(['P-101', 'P-102', 'P-103'])
+
+  // La 1.ª celda dice el estado en texto (para lectores de pantalla) y el ID.
+  await expect(row('P-101').getByRole('gridcell').first()).toHaveText('Abierto: P-101')
+  await expect(row('P-102').getByRole('gridcell').first()).toHaveText('Cerrado: P-102')
+
+  // Barra de estado: abierto y cerrado, cerrado más fina.
+  const bar = (id: string): Locator => row(id).getByTestId('status-bar')
+  await expect(bar('P-101')).toHaveAttribute('data-status', 'OPEN')
+  await expect(bar('P-102')).toHaveAttribute('data-status', 'CLOSED')
+  const width = (id: string): Promise<number> =>
+    bar(id).evaluate((el) => el.getBoundingClientRect().width)
+  expect(await width('P-102')).toBeLessThan(await width('P-101'))
+  // Contraste de la barra (elemento gráfico, WCAG 1.4.11) calculado sobre lo pintado.
+  const barContrast = (id: string): Promise<number> =>
+    bar(id).evaluate((el) => {
+      const rgb = (value: string): number[] =>
+        (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
+      const luminance = ([r = 0, g = 0, b = 0]: number[]): number => {
+        const [R, G, B] = [r, g, b].map((c) => {
+          const s = c / 255
+          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+        }) as [number, number, number]
+        return 0.2126 * R + 0.7152 * G + 0.0722 * B
+      }
+      // La barra: su color pintado. El fondo: el token --background (#rrggbb).
+      const fg = luminance(rgb(getComputedStyle(el).backgroundColor))
+      const background = getComputedStyle(document.documentElement)
+        .getPropertyValue('--background')
+        .trim()
+      const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(background) ?? []
+      const bg = luminance(hex.slice(1, 4).map((part) => parseInt(part, 16)))
+      const [hi, lo] = [fg, bg].sort((a, b) => b - a) as [number, number]
+      return (hi + 0.05) / (lo + 0.05)
+    })
+  expect(await barContrast('P-101')).toBeGreaterThanOrEqual(3)
+  expect(await barContrast('P-102')).toBeGreaterThanOrEqual(3)
+  // Tooltip de la barra con el estado. Para quitar el ratón se pasa por el filtro de
+  // texto: la esquina (0, 0) es la barra de título arrastrable y no recibe el ratón.
+  const away = async (): Promise<void> => {
+    const box = await page.getByTestId('problems-filter-text').boundingBox()
+    await page.mouse.move((box?.x ?? 0) + 10, (box?.y ?? 0) + 5, { steps: 10 })
+  }
+  await bar('P-102').hover()
+  await expect(page.getByRole('tooltip')).toContainText('Cerrado')
+  await away()
+  await expect(page.getByRole('tooltip')).toHaveCount(0)
+
+  // Afectados: el número de únicos y un tooltip con sus nombres.
+  await expect(row('P-101').getByTestId('affected-count')).toHaveText('2')
+  await expect(row('P-102').getByTestId('affected-count')).toHaveText('1')
+  await row('P-101').getByTestId('affected-count').hover()
+  const tooltip = page.getByTestId('affected-tooltip')
+  await expect(tooltip).toContainText('pagos')
+  await expect(tooltip).toContainText('host-pagos-01')
+  await away()
+
+  // Fuera del grid: severidad, clúster, namespace, duración y los ids de las entidades.
+  await expect(grid).not.toContainText('NUEVA_SEVERIDAD')
+  await expect(grid).not.toContainText('cluster-norte')
+  await expect(grid).not.toContainText('carrito-ns')
+  await expect(grid).not.toContainText('(en curso)')
+  await expect(grid).not.toContainText('SERVICE-AAA1')
 })
 
-test('clúster: columna, filtro local, aviso y exportación filtrada', async () => {
+test('grid con 300 filas: Fin, RePág e Inicio mueven el foco y hacen scroll hasta la fila', async () => {
+  sim.many = true
+  await goTo('problems')
+  const rows = page.getByTestId('problem-row')
+  await expect(rows.first()).toContainText('P-M')
+  await expect(page.getByTestId('problems-grid')).toHaveAttribute('aria-rowcount', '301')
+
+  await page.locator('[data-testid="problem-row"][data-index="0"]').focus()
+  const active = (): Promise<{ index: number; rowindex: string | null }> =>
+    page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null
+      return {
+        index: Number(el?.dataset['index']),
+        rowindex: el?.getAttribute('aria-rowindex') ?? null
+      }
+    })
+
+  // El foco se mueve después del scroll de la virtualización: se espera, no se lee al instante.
+  await page.keyboard.press('End')
+  await expect.poll(active).toEqual({ index: 299, rowindex: '301' })
+  await expect(page.locator('[data-testid="problem-row"][data-index="299"]')).toBeInViewport()
+  await page.keyboard.press('PageUp')
+  await expect.poll(async () => (await active()).index).toBe(289)
+  await page.keyboard.press('PageDown')
+  await expect.poll(async () => (await active()).index).toBe(299)
+  await page.keyboard.press('Home')
+  await expect.poll(active).toEqual({ index: 0, rowindex: '2' })
+  await expect(page.locator('[data-testid="problem-row"][data-index="0"]')).toBeInViewport()
+  await page.keyboard.press('PageDown')
+  await expect.poll(async () => (await active()).index).toBe(10)
+  // Virtualizada: no están las 300 en el DOM.
+  expect(await rows.count()).toBeLessThan(300)
+})
+
+test('clúster: filtro local, aviso y exportación filtrada (la columna ya no está en el grid)', async () => {
   const rows = page.getByTestId('problem-row')
   const row = (id: string): Locator => rows.filter({ hasText: id })
   await openProblems()
-
-  // Columna: el primero y "+N"; sin clúster, N/A.
-  await expect(row('P-101')).toContainText('cluster-norte')
-  await expect(row('P-103')).toContainText('cluster-sur')
-  await expect(
-    row('P-103')
-      .getByTestId('more-values')
-      .and(page.getByRole('button', { name: /cluster-norte/ }))
-  ).toHaveText(/\+1/)
 
   // Filtro: una casilla por clúster de los datos cargados, ordenadas.
   await page.getByTestId('problems-filter-cluster').click()
@@ -1249,7 +1405,7 @@ test('Problemas: filtros de estado y de texto', async () => {
   const rows = page.getByTestId('problem-row')
   await page.getByTestId('problems-filter-status').selectOption('open')
   await expect(rows).toHaveCount(2)
-  await expect(page.getByTestId('problems-table')).not.toContainText('P-102')
+  await expect(page.getByTestId('problems-grid')).not.toContainText('P-102')
 
   await page.getByTestId('problems-filter-text').fill('pagos')
   await expect(rows).toHaveCount(1)
@@ -1283,7 +1439,7 @@ test('AUD-21: los filtros de Problemas se conservan al cambiar de sección', asy
 test('AUD-21: los filtros de Problemas van por entorno', async () => {
   await openProblems()
   const status = page.getByTestId('problems-filter-status')
-  const table = page.getByTestId('problems-table')
+  const table = page.getByTestId('problems-grid')
   const switchTo = async (name: string): Promise<void> => {
     await page.getByTestId('env-selector').click()
     await page.getByRole('option', { name: `Cliente A › ${name}` }).click()
@@ -1336,7 +1492,7 @@ test('AUD-10: guardar un secreto del entorno descarta sus datos y Problemas los 
     await goTo('problems')
     await expect.poll(() => sim.problemsRequests).toBeGreaterThan(before)
     await expect(rows).toHaveCount(0)
-    await expect(page.getByTestId('problems-table')).not.toContainText('P-101')
+    await expect(page.getByTestId('problems-grid')).not.toContainText('P-101')
   } finally {
     release()
     sim.problemsGate = null
@@ -1504,7 +1660,7 @@ test('AUD-08: elementos ilegibles y avisos de la API se ven en Problemas y en In
   await expect(warnings).toContainText('Aviso de prueba de la API')
   // El problema ilegible no sale en la tabla; los demás sí.
   await expect(page.getByTestId('problem-row')).toHaveCount(3)
-  await expect(page.getByTestId('problems-table')).not.toContainText('P-ROTO')
+  await expect(page.getByTestId('problems-grid')).not.toContainText('P-ROTO')
 
   await goTo('home')
   await page.getByTestId('module-refresh').click()
@@ -2004,7 +2160,7 @@ test('cambiar de entorno no mezcla datos', async () => {
   await openProblems()
   await page.getByTestId('env-selector').click()
   await page.getByRole('option', { name: 'Cliente A › Desarrollo' }).click()
-  const table = page.getByTestId('problems-table')
+  const table = page.getByTestId('problems-grid')
   await expect(table).toContainText('P-900')
   await expect(table).not.toContainText('P-101')
 

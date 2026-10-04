@@ -67,6 +67,9 @@ export function createModuleHandlers(
         query: {
           ...timeRangeToDt(timeRange),
           problemSelector: buildProblemSelector({ status, severity, impact, text }),
+          // Los más recientes primero: si la lista se recorta (500), lo que falta es
+          // lo más antiguo. La página 2 lo arrastra con nextPageKey.
+          sort: '-startTime',
           pageSize: PROBLEMS_PAGE_SIZE
         },
         schema: problemSchema,

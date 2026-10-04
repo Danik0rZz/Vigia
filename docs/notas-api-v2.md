@@ -106,6 +106,11 @@ no la API en general.
 
 - **Parámetros por defecto:** sin `from`, la API usa `now-2h`, y sin `pageSize`, 50 (OpenAPI).
   Vigía siempre envía el rango de la vista y `pageSize` 100 (hasta 5 páginas).
+- **Orden (según la OpenAPI):** parámetro `sort`, lista separada por comas con prefijo `+`
+  (ascendente, el de por defecto) o `-`: `status` (`+` abiertos primero), `startTime` (`-` los
+  más recientes primero) y `relevance`, que solo vale junto a la búsqueda `text(…)`. Vigía pide
+  `sort=-startTime` desde la 0.9.0: si la lista se recorta, lo que falta es lo más antiguo. La
+  página 2 va solo con `nextPageKey`, que conserva el orden. No comprobado en vivo.
 - **Respuesta:** `problems`, `totalCount` (número, también en la página 2), `pageSize`,
   `nextPageKey` y **`warnings`**, que la OpenAPI declara y Vigía todavía no muestra.
 - **Paginación:**

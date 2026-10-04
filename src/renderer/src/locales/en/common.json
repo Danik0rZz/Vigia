@@ -314,6 +314,7 @@
       "impact": "Impact",
       "severity": "Severity",
       "affected": "Affected entities",
+      "affectedShort": "Affected",
       "rootCause": "Root cause",
       "cluster": "Cluster",
       "namespace": "Namespace",

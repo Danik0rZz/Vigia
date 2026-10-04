@@ -32,6 +32,11 @@
      entorno aunque se parezcan: si cambia uno, no tiene que cambiar el otro. */
   --status-warning: #8a4a00;
   --status-warning-foreground: #ffffff;
+  /* Barra de estado de un problema (abierto / cerrado). Elemento gráfico: contraste
+     ≥ 3:1 frente a --background. No es la única señal: hay texto sr-only y tooltip,
+     y la de cerrado es más fina (daltonismo rojo-verde). */
+  --status-open: #c42b1c;
+  --status-closed: #1f7a3a;
   /* Color por tipo de entorno (texto del tipo y distintivo). Contraste AA (≥ 4,5)
      frente a --background, comprobado en src/main/env-colors.test.ts. Producción
      es un color fijo: no cambia con el cliente. */
@@ -68,6 +73,8 @@
   --danger-foreground: #1a0505;
   --status-warning: #fcd34d;
   --status-warning-foreground: #1a1200;
+  --status-open: #ff6b6b;
+  --status-closed: #4ade80;
   --env-production: #ff6a4d;
   --env-preproduction: #fbbf24;
   --env-integration: #c4b5fd;
@@ -107,6 +114,8 @@
   --color-danger-foreground: var(--danger-foreground);
   --color-status-warning: var(--status-warning);
   --color-status-warning-foreground: var(--status-warning-foreground);
+  --color-status-open: var(--status-open);
+  --color-status-closed: var(--status-closed);
   --color-production: var(--production);
   --color-env-production: var(--env-production);
   --color-env-preproduction: var(--env-preproduction);

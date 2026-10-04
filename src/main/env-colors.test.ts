@@ -63,6 +63,11 @@ describe('AUD-21: botón de peligro', () => {
     expect(css).toMatch(/--color-danger-foreground:\s*var\(--danger-foreground\);/)
   })
 
+  it('v0.9.0: --color-status-open y --color-status-closed exponen los tokens a Tailwind', () => {
+    expect(css).toMatch(/--color-status-open:\s*var\(--status-open\);/)
+    expect(css).toMatch(/--color-status-closed:\s*var\(--status-closed\);/)
+  })
+
   it('SLO: --color-status-warning y su foreground exponen los tokens a Tailwind', () => {
     expect(css).toMatch(/--color-status-warning:\s*var\(--status-warning\);/)
     expect(css).toMatch(/--color-status-warning-foreground:\s*var\(--status-warning-foreground\);/)
@@ -118,6 +123,21 @@ describe.each(THEMES)('tema %s', (_name, selector) => {
     expect(envColors).not.toContain(warning)
     // Y no es un alias de uno de ellos.
     expect(warning).not.toMatch(/var\(--env-/)
+  })
+
+  it.each(['open', 'closed'])(
+    'v0.9.0: --status-%s (barra de estado) contrasta ≥ 3 con --background (WCAG 1.4.11)',
+    (state) => {
+      const color = cssToken(selector, `--status-${state}`)
+      expect(color, `--status-${state} en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(contrast(color ?? '#000000', background)).toBeGreaterThanOrEqual(3)
+    }
+  )
+
+  it('v0.9.0: abierto y cerrado tienen colores distintos', () => {
+    const open = cssToken(selector, '--status-open')?.toLowerCase()
+    const closed = cssToken(selector, '--status-closed')?.toLowerCase()
+    expect(open).not.toBe(closed)
   })
 
   it('cada tipo tiene un color distinto', () => {

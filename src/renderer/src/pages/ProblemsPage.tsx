@@ -11,6 +11,7 @@ import {
   type SeverityLevel
 } from '@shared/modules'
 import { PROBLEM_EXPORT_COLUMNS, toProblemExport, toProblemRow } from '@shared/problem-row'
+import { sortProblems, uniqueAffected } from '@shared/problem-sort'
 import { timeRangeToDates } from '@shared/time-range'
 import { useProblemFilters } from '../app/problem-filters'
 import { useTimeRangeValue } from '../app/time-range'
@@ -26,7 +27,7 @@ import {
 import { PageHeader } from '../components/PageHeader'
 import { ClusterFilter } from '../components/ClusterFilter'
 import { MultiFilter } from '../components/MultiFilter'
-import { ProblemsTable } from '../components/ProblemsTable'
+import { ProblemsTable, type ProblemGridItem } from '../components/ProblemsTable'
 import { INPUT } from '../components/styles'
 import {
   useModuleAccess,
@@ -53,7 +54,7 @@ function timelineBuckets(problems: ProblemSummary[], from: Date, to: Date): [num
 
 /** Problemas del entorno activo en el rango global: filtros, línea de tiempo y tabla. */
 export function ProblemsPage(): JSX.Element {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const access = useModuleAccess('problems')
   const envId = access.available ? access.envId : null
   const timeRange = useTimeRangeValue()
@@ -70,6 +71,8 @@ export function ProblemsPage(): JSX.Element {
     setSeverity,
     impact,
     setImpact,
+    sort,
+    setSort,
     scrollIndex,
     setScrollIndex,
     lastOpened,
@@ -159,11 +162,34 @@ export function ProblemsPage(): JSX.Element {
     [buckets]
   )
 
-  // Tabla y exportación usan las mismas filas; la duración de los abiertos, hasta la consulta.
+  // Se ordena solo lo cargado: la API ya da los más recientes primero, así que
+  // con la lista recortada lo que falta es lo más antiguo.
+  const items = useMemo(
+    () =>
+      sortProblems(
+        problems.map((summary): ProblemGridItem => {
+          const affected = uniqueAffected(summary.affectedEntities)
+          return {
+            summary,
+            problemId: summary.problemId,
+            displayId: summary.displayId,
+            title: summary.title,
+            startTime: summary.startTime,
+            affected,
+            affectedCount: affected.length
+          }
+        }),
+        sort,
+        i18n.language
+      ),
+    [problems, sort, i18n.language]
+  )
+  // La exportación es completa (todas las columnas), en el mismo orden que el grid;
+  // la duración de los abiertos, hasta la consulta.
   const rows = useMemo(() => {
     const now = new Date(query.dataUpdatedAt)
-    return problems.map((problem) => toProblemRow(problem, now))
-  }, [problems, query.dataUpdatedAt])
+    return items.map((item) => toProblemRow(item.summary, now))
+  }, [items, query.dataUpdatedAt])
   const columns: ExportColumn[] = PROBLEM_EXPORT_COLUMNS.map((column) => ({
     ...column,
     header: t(`problems.exportColumns.${column.key}`)
@@ -300,10 +326,12 @@ export function ProblemsPage(): JSX.Element {
             />
           )}
           <ProblemsTable
-            rows={rows}
+            items={items}
             selected={lastOpened}
             onSelect={open}
             scrollRef={tableRef}
+            sort={sort}
+            onSortChange={setSort}
             initialIndex={scrollIndex}
             onFirstVisibleChange={setScrollIndex}
           />
