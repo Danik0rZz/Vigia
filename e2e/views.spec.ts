@@ -14,6 +14,7 @@ import {
 import { captureOnFailure } from './failure-capture'
 import ExcelJS from 'exceljs'
 import { generate } from 'selfsigned'
+import en from '../src/renderer/src/locales/en/common.json'
 import es from '../src/renderer/src/locales/es/common.json'
 
 /**
@@ -809,16 +810,25 @@ test('AUD-12: filtros de severidad e impacto, en el servidor', async () => {
   )
   await page.keyboard.press('Escape')
 
+  const severityTrigger = page.getByTestId('problems-filter-severity')
+  // Sin nada marcado, «Todos».
+  await expect(severityTrigger).toContainText('Todos')
+
   await pick('problems-filter-severity', 'severity-option', 'PERFORMANCE')
   await expect.poll(selectorParam).toMatch(/severityLevel\([^)]*"PERFORMANCE"[^)]*\)/)
   await expect(rows).toHaveCount(1)
   await expect(rows.first()).toContainText('P-101')
+  // Con uno marcado, el nombre de esa opción (no un recuento).
+  await expect(severityTrigger).toContainText('Rendimiento')
+  await expect(severityTrigger).not.toContainText('seleccionado')
 
   // Dos severidades: las dos en el mismo criterio (OR).
   await pick('problems-filter-severity', 'severity-option', 'RESOURCE_CONTENTION')
   await expect.poll(selectorParam).toMatch(/severityLevel\([^)]*"RESOURCE_CONTENTION"[^)]*\)/)
   expect(selectorParam()).toMatch(/severityLevel\([^)]*"PERFORMANCE"[^)]*\)/)
   await expect(rows).toHaveCount(2)
+  // i18n: plural con dos.
+  await expect(severityTrigger).toContainText('2 seleccionados')
 
   // AVAILABILITY va como valor de la API.
   await pick('problems-filter-severity', 'severity-option', 'AVAILABILITY')
@@ -1521,6 +1531,30 @@ test('AUD-13: con varias métricas, la leyenda lleva el metricId delante', async
   await expect
     .poll(async () => JSON.parse((await chart.getAttribute('data-series')) ?? '[]') as string[])
     .toEqual(['HOST-AAA1'])
+})
+
+test('i18n: cambiar de idioma con el gráfico de Métricas abierto lo rehace con el locale nuevo', async () => {
+  const chart = page.getByTestId('metric-chart')
+  const series = async (): Promise<string[]> =>
+    JSON.parse((await chart.getAttribute('data-series')) ?? '[]') as string[]
+  const before = await series()
+  expect(before).toEqual(['HOST-AAA1'])
+  await expect(chart).toHaveAttribute('data-locale', 'ES')
+
+  // Botón de idioma de la barra superior: la página no se desmonta.
+  await page.getByRole('button', { name: es.topbar.language }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(chart).toHaveAttribute('data-locale', 'EN')
+  await expect(chart.locator('canvas').first()).toBeVisible()
+  expect(await series()).toEqual(before)
+
+  // Y de vuelta.
+  await page.getByRole('button', { name: en.topbar.language }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'es')
+  await expect(chart).toHaveAttribute('data-locale', 'ES')
+  await expect(chart.locator('canvas').first()).toBeVisible()
+  expect(await series()).toEqual(before)
+  // Los errores de consola los comprueba el último test del spec.
 })
 
 test('AUD-13: guardar con un nombre repetido dice que ya existe; cancelar limpia', async () => {

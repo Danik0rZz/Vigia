@@ -2,11 +2,16 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, type JSX } from 're
 import { BarChart, LineChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import * as echarts from 'echarts/core'
+import langES from 'echarts/i18n/langES-obj.js'
 import { CanvasRenderer } from 'echarts/renderers'
+import { useTranslation } from 'react-i18next'
 import { useResolvedTheme } from '../app/theme'
+import { dateLang } from '../lib/date-lang'
 
 // Solo las piezas que se usan: el resto de ECharts no entra en el bundle.
 echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
+// EN viene incluido; ES se registra (meses y días del eje de tiempo, textos propios).
+echarts.registerLocale('ES', langES)
 
 /** Colores del tema actual, leídos de los tokens CSS (cambian con el tema y el cliente). */
 export interface ChartColors {
@@ -58,10 +63,13 @@ export const Chart = forwardRef<
   const container = useRef<HTMLDivElement>(null)
   const instance = useRef<echarts.ECharts | null>(null)
   const theme = useResolvedTheme()
+  const { i18n } = useTranslation()
+  // El locale solo se fija al crear el gráfico: cambiar de idioma lo vuelve a crear.
+  const locale = dateLang(i18n.language) === 'en' ? 'EN' : 'ES'
 
   useEffect(() => {
     if (container.current === null) return
-    const chart = echarts.init(container.current, undefined, { renderer: 'canvas' })
+    const chart = echarts.init(container.current, undefined, { renderer: 'canvas', locale })
     instance.current = chart
     const observer = new ResizeObserver(() => chart.resize())
     observer.observe(container.current)
@@ -70,11 +78,11 @@ export const Chart = forwardRef<
       chart.dispose()
       instance.current = null
     }
-  }, [])
+  }, [locale])
 
   useEffect(() => {
     instance.current?.setOption(buildOption(readColors()), { notMerge: true })
-  }, [buildOption, theme])
+  }, [buildOption, theme, locale])
 
   useImperativeHandle(ref, () => ({
     toPngDataUrl: () =>
@@ -90,6 +98,7 @@ export const Chart = forwardRef<
       ref={container}
       data-testid={testId}
       data-series={seriesNames === undefined ? undefined : JSON.stringify(seriesNames)}
+      data-locale={locale}
       role="img"
       aria-label={label}
       style={{ height }}

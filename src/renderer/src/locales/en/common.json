@@ -177,7 +177,11 @@
   },
   "importSummary": {
     "title": "Import finished",
-    "created": "Created: {{clients}} clients and {{environments}} environments.",
+    "created": "Created: {{clients}} and {{environments}}.",
+    "clients_one": "{{count}} client",
+    "clients_other": "{{count}} clients",
+    "environments_one": "{{count}} environment",
+    "environments_other": "{{count}} environments",
     "skipped": "Already existed and were left untouched: {{names}}.",
     "errors": "With errors, not imported: {{names}}.",
     "close": "Close"

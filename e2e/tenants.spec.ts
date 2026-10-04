@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -732,6 +732,69 @@ test('borrar el cliente del entorno activo deja la app sin entorno', async () =>
     data: { clients: [], environments: [] }
   })
   await expectNothingForbidden()
+})
+
+test('i18n: el resumen de la importación usa plurales (1 cliente, 2 clientes, 0 entornos)', async () => {
+  /** Un fichero de configuración inventado, con los clientes y entornos dados. */
+  const configFile = (clients: { name: string; environments: string[] }[]): string => {
+    const path = join(userDataDir, `import-${clients.map((c) => c.name).join('-')}.json`)
+    const file = {
+      format: 'vigia-config',
+      version: 1,
+      exportedAt: '2026-10-04T00:00:00.000Z',
+      clients: clients.map((client) => ({
+        name: client.name,
+        color: '#336699',
+        environments: client.environments.map((name) => ({
+          name,
+          type: 'development',
+          deployment: 'managed',
+          classicApiUrl: 'https://dt.ejemplo.local/e/importado',
+          platformUrl: null,
+          ssoUrl: null,
+          oauthClientId: null,
+          oauthScopes: [],
+          accountUuid: null,
+          certificateLevel: 'system',
+          captureUrlPatterns: [],
+          tags: [],
+          readOnly: false
+        }))
+      }))
+    }
+    writeFileSync(path, JSON.stringify(file), 'utf8')
+    return path
+  }
+  /** El diálogo nativo de abrir fichero devuelve `path` (se sustituye en main). */
+  const answerOpenDialog = async (path: string): Promise<void> => {
+    await app.evaluate(({ dialog }, file) => {
+      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [file] })) as never
+    }, path)
+  }
+
+  await goToSettings()
+  const summary = page.getByTestId('import-summary')
+
+  // Singular: 1 cliente y 1 entorno.
+  await answerOpenDialog(configFile([{ name: 'Importado Uno', environments: ['Desarrollo'] }]))
+  await page.getByTestId('config-import').click()
+  await expect(summary).toContainText('Creados: 1 cliente y 1 entorno.')
+  const dialog = page.getByTestId('import-summary-dialog')
+  await dialog.getByRole('button', { name: es.importSummary.close }).click()
+  await expect(dialog).toBeHidden()
+
+  // Plural y cero: 2 clientes y 0 entornos.
+  await answerOpenDialog(
+    configFile([
+      { name: 'Importado Dos', environments: [] },
+      { name: 'Importado Tres', environments: [] }
+    ])
+  )
+  await page.getByTestId('config-import').click()
+  await expect(summary).toContainText('Creados: 2 clientes y 0 entornos.')
+  await dialog.getByRole('button', { name: es.importSummary.close }).click()
+  await expect(dialog).toBeHidden()
+  await expect(clientRow('Importado Tres')).toHaveCount(1)
 })
 
 test('sin errores en consola ni peticiones remotas en todo el recorrido', async () => {

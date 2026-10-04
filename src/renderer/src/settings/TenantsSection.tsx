@@ -91,7 +91,12 @@ function ImportSummaryView({ summary }: { summary: ImportSummary }): JSX.Element
   const names = (items: { name: string }[]): string => items.map((item) => item.name).join(', ')
   return (
     <div data-testid="import-summary" className="grid gap-1 text-sm">
-      <p>{t('importSummary.created', summary.created)}</p>
+      <p>
+        {t('importSummary.created', {
+          clients: t('importSummary.clients', { count: summary.created.clients }),
+          environments: t('importSummary.environments', { count: summary.created.environments })
+        })}
+      </p>
       {summary.skipped.length > 0 && (
         <p className="text-muted-foreground">
           {t('importSummary.skipped', { names: names(summary.skipped) })}
