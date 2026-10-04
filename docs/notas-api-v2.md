@@ -254,7 +254,7 @@ con `evaluate=true` y `pageSize` 5). Los SLO son del cliente: aquí solo va su f
   `nextPageKey`. No comprobado en vivo.
 - **`GET /slo/{id}`:** misma forma que un elemento de la lista evaluada (con `timeFrame`, `from` y
   `to`).
-- **Tiempos:** mediana de unos 380 ms; las evaluadas, por debajo de 0,5 s con 5 SLO.
+- **Tiempos:** mediana de unos 380 ms; las evaluadas, por debajo de 0,5 s con `pageSize` 5.
 
 ## e) Events y eventTypes
 
