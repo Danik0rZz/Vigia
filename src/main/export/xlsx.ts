@@ -57,7 +57,13 @@ function cellValue(
 ): ExcelJS.CellValue {
   if (value === null || value === undefined) return null
   if (column.type === 'date') return toDate(value) ?? String(value)
-  if (column.type === 'number') return typeof value === 'number' ? value : Number(value)
+  if (column.type === 'number') {
+    // Un texto que no es número (o NaN o infinito) deja la celda vacía, no NaN.
+    const number = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(number) && !(typeof value === 'string' && value.trim() === '')
+      ? number
+      : null
+  }
   // Texto: se guarda como String, nunca como fórmula aunque empiece por "=".
   return String(value)
 }

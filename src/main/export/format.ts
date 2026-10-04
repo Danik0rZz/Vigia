@@ -12,6 +12,8 @@ export function toDate(value: string | number | null | undefined): Date | null {
 /** Texto plano de una celda (TXT y base del CSV): fechas en ISO UTC y punto decimal. */
 export function cellText(column: ExportColumn, value: string | number | null | undefined): string {
   if (value === null || value === undefined) return ''
+  // NaN e infinitos no son datos: celda vacía.
+  if (typeof value === 'number' && !Number.isFinite(value)) return ''
   if (column.type === 'date') return toDate(value)?.toISOString() ?? String(value)
   return String(value)
 }

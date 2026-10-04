@@ -204,3 +204,64 @@ describe('buildXlsx', () => {
     expect(workbook.getWorksheet('Info')).toBeDefined()
   })
 })
+
+describe('AUD-09: celdas de una columna number', () => {
+  /** Valor de la celda de datos de una fila con `value` en la columna number. */
+  async function numberCell(value: unknown): Promise<unknown> {
+    const workbook = await load(
+      await buildXlsx(columns, [{ name: 'a', value: value as number, when: T }], info)
+    )
+    return workbook.getWorksheet('Datos')?.getRow(2).getCell(2).value ?? null
+  }
+
+  it('un número finito se guarda como número', async () => {
+    expect(await numberCell(-3.5)).toBe(-3.5)
+    expect(await numberCell(0)).toBe(0)
+  })
+
+  it('un texto numérico («12», « 7 ») se guarda como número', async () => {
+    expect(await numberCell('12')).toBe(12)
+    expect(await numberCell(' 7 ')).toBe(7)
+  })
+
+  it.each([
+    ['un texto no numérico', 'abc'],
+    ['una fórmula', '=1+1'],
+    ['un texto vacío', ''],
+    ['solo espacios', '   '],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['-Infinity', Number.NEGATIVE_INFINITY]
+  ])('%s → celda vacía (nunca NaN ni fórmula)', async (_case, value) => {
+    expect(await numberCell(value)).toBeNull()
+  })
+})
+
+describe('AUD-09: columnas string y date con texto de fórmula', () => {
+  it('string: se guarda como texto, nunca como fórmula', async () => {
+    const workbook = await load(
+      await buildXlsx(columns, [{ name: '=HYPERLINK("http://x","y")', value: 1, when: T }], info)
+    )
+    const cell = workbook.getWorksheet('Datos')?.getRow(2).getCell(1)
+    expect(cell?.value).toBe('=HYPERLINK("http://x","y")')
+    expect(cell?.formula).toBeUndefined()
+  })
+
+  it('date: un texto que no es fecha se guarda como texto, no como fórmula', async () => {
+    const workbook = await load(
+      await buildXlsx(columns, [{ name: 'a', value: 1, when: '=1+1' }], info)
+    )
+    const cell = workbook.getWorksheet('Datos')?.getRow(2).getCell(3)
+    expect(cell?.value).toBe('=1+1')
+    expect(cell?.formula).toBeUndefined()
+  })
+
+  it('date: una fecha ISO válida como texto se guarda como fecha', async () => {
+    const workbook = await load(
+      await buildXlsx(columns, [{ name: 'a', value: 1, when: '2026-10-03T10:05:00Z' }], info)
+    )
+    const value = workbook.getWorksheet('Datos')?.getRow(2).getCell(3).value
+    expect(value).toBeInstanceOf(Date)
+    expect((value as Date).toISOString()).toBe('2026-10-03T10:05:00.000Z')
+  })
+})

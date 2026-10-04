@@ -15,8 +15,10 @@ function csvCell(
     // Con ';' (Excel en español) el decimal va con coma.
     text = text.replace('.', ',')
   }
-  // Solo el texto se neutraliza: un número negativo es un número, no una fórmula.
-  if (column.type === 'string' && FORMULA_START.test(text)) text = `'${text}`
+  // Se neutraliza todo valor que llegue como TEXTO, sea cual sea el tipo de la
+  // columna: main no se fía del renderer (un texto en una columna number o date
+  // también puede ser una fórmula). Un número de verdad (-5) no se toca.
+  if (typeof value === 'string' && FORMULA_START.test(text)) text = `'${text}`
   if (text.includes(separator) || /["\r\n]/.test(text)) text = `"${text.replaceAll('"', '""')}"`
   return text
 }
