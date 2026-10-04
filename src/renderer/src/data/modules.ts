@@ -5,6 +5,7 @@ import type { ImpactLevel, SeverityLevel } from '@shared/modules'
 import type { TimeRangeValue } from '@shared/time-range'
 import { useTimeRangeValue } from '../app/time-range'
 import { invoke } from '../lib/ipc'
+import { createRequestQueue } from '../lib/request-queue'
 import { useActiveEnvironment, useConnectionStatus } from './tenants'
 
 /** Módulos con datos de Dynatrace; cada uno necesita los scopes de MODULE_SCOPES. */
@@ -106,6 +107,38 @@ export function useProblem(
     queryFn: () =>
       invoke('problems:get', { environmentId: envId ?? '', problemId: problemId ?? '' }),
     enabled: envId !== null && problemId !== null,
+    ...MANUAL
+  })
+}
+
+/**
+ * Una sola cola para los mini gráficos de las evidencias: como mucho 3
+ * consultas a la vez, por muchas que haya en la página. Al salir, TanStack
+ * cancela la señal y las que esperaban salen de la cola sin pedirse.
+ */
+const evidenceMetricQueue = createRequestQueue(3)
+
+/** Serie de la métrica de un evento (dt.event.metric_selector), en su rango y resolución. */
+export function useEvidenceMetric(
+  envId: string | null,
+  request: { selector: string; from: number; to: number; resolution: string },
+  enabled: boolean
+): UseQueryResult<IpcOutput<'metrics:query'>> {
+  const { selector, from, to, resolution } = request
+  return useQuery({
+    queryKey: [envId ?? '', 'evidenceMetric', selector, from, to] as const,
+    queryFn: ({ signal }) =>
+      evidenceMetricQueue.run(
+        () =>
+          invoke('metrics:query', {
+            environmentId: envId ?? '',
+            metricSelector: selector,
+            timeRange: { from: new Date(from).toISOString(), to: new Date(to).toISOString() },
+            resolution
+          }),
+        signal
+      ),
+    enabled: enabled && envId !== null,
     ...MANUAL
   })
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type JSX, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
@@ -7,11 +7,17 @@ import { formatDateTime } from '@shared/format-date'
 import type { IpcOutput } from '@shared/ipc'
 import type { ProblemDetail, ProblemSummary } from '@shared/modules'
 import { usePageCrumb } from '../app/page-crumb'
+import { useProblemClock } from '../app/problem-clock'
 import { useTimeRangeValue } from '../app/time-range'
 import { CommentsSection } from '../components/CommentsSection'
 import { EvidenceSection } from '../components/EvidenceSection'
 import { ExportMenu } from '../components/ExportMenu'
-import { ApiWarnings, ModuleError, ModuleUnavailable } from '../components/ModuleState'
+import {
+  ApiWarnings,
+  ModuleError,
+  ModuleUnavailable,
+  RefreshButton
+} from '../components/ModuleState'
 import { BUTTON_SECONDARY } from '../components/styles'
 import { useModuleAccess, useProblem } from '../data/modules'
 import { dateLang } from '../lib/date-lang'
@@ -115,9 +121,33 @@ export function ProblemDetailPage(): JSX.Element {
   const access = useModuleAccess('problems')
   const envId = access.available ? access.envId : null
   const timeRange = useTimeRangeValue()
-  const { data: detail, error, dataUpdatedAt } = useProblem(envId, problemId)
+  const {
+    data: detail,
+    error,
+    dataUpdatedAt,
+    isFetching: refreshing
+  } = useProblem(envId, problemId)
   const cached = useCachedSummary(envId, problemId)
   const data: ProblemSummary | undefined = detail ?? cached
+  const queryClient = useQueryClient()
+  // "Ahora" de los mini gráficos de este problema: se fija la primera vez y solo
+  // cambia con "Actualizar" (volver a la página no pide datos).
+  const clockKey = `${envId ?? ''}/${problemId}`
+  const storedNow = useProblemClock((state) => state.times[clockKey])
+  const setClock = useProblemClock((state) => state.set)
+  const [firstNow] = useState(() => Date.now())
+  const now = storedNow ?? firstNow
+  useEffect(() => {
+    if (storedNow === undefined) setClock(clockKey, firstNow)
+  }, [storedNow, setClock, clockKey, firstNow])
+  // "Actualizar": el detalle y, si el problema sigue abierto, un "ahora" nuevo.
+  // Así solo se vuelven a pedir los gráficos de evidencias activas (su rango
+  // cambia); los de una evidencia ya terminada, o de un problema cerrado, no.
+  const refresh = (): void => {
+    if (envId === null) return
+    void queryClient.refetchQueries({ queryKey: [envId, 'problems'], type: 'active' })
+    if (data?.status === 'OPEN') setClock(clockKey, Date.now())
+  }
   const titleRef = useRef<HTMLHeadingElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const setCrumb = usePageCrumb((state) => state.setDetail)
@@ -197,6 +227,8 @@ export function ProblemDetailPage(): JSX.Element {
     <div ref={contentRef} data-testid="problem-page" className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         {backButton}
+        <span className="flex-1" />
+        <RefreshButton onRefresh={refresh} busy={refreshing} />
         {workbook !== null && (
           <ExportMenu
             target="problem-page"
@@ -318,7 +350,7 @@ export function ProblemDetailPage(): JSX.Element {
             failed={error !== null}
             empty={(d) => d.evidence.length === 0}
           >
-            {(d) => <EvidenceSection detail={d} />}
+            {(d) => <EvidenceSection detail={d} now={now} />}
           </DetailPart>
 
           <DetailPart

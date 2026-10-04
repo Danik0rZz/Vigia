@@ -1,6 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, type JSX } from 'react'
 import { BarChart, LineChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import {
+  GridComponent,
+  LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
+  TooltipComponent
+} from 'echarts/components'
 import * as echarts from 'echarts/core'
 import langES from 'echarts/i18n/langES-obj.js'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -9,7 +15,17 @@ import { useResolvedTheme } from '../app/theme'
 import { dateLang } from '../lib/date-lang'
 
 // Solo las piezas que se usan: el resto de ECharts no entra en el bundle.
-echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
+echarts.use([
+  BarChart,
+  LineChart,
+  GridComponent,
+  LegendComponent,
+  TooltipComponent,
+  // Periodo de la evidencia, inicio del problema y umbral en los mini gráficos.
+  MarkAreaComponent,
+  MarkLineComponent,
+  CanvasRenderer
+])
 // EN viene incluido; ES se registra (meses y días del eje de tiempo, textos propios).
 echarts.registerLocale('ES', langES)
 

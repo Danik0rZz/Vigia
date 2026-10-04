@@ -17,7 +17,15 @@ import {
 import { cn } from '../lib/cn'
 import { dateLang } from '../lib/date-lang'
 import { metricsLink } from '../lib/metrics-link'
+import { EvidenceMetricChart } from './EvidenceMetricChart'
 import { BUTTON_SECONDARY } from './styles'
+
+/** Lo que las evidencias necesitan del problema: sus fechas y el "ahora" de sus gráficos. */
+export interface ProblemContext {
+  startTime: number
+  endTime: number | null
+  now: number
+}
 
 /** Evidencias que se ven de cada grupo antes de pulsar "Ver todas". */
 const GROUP_PREVIEW = 50
@@ -61,7 +69,7 @@ function ChangeCard({
   problem
 }: {
   view: EvidenceView
-  problem: { startTime: number; endTime: number | null }
+  problem: ProblemContext
 }): JSX.Element {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -140,11 +148,18 @@ function ChangeCard({
 }
 
 /** Evidencia de tipo EVENT: tipo de evento, fechas y "Más detalles" con sus propiedades. */
-function EventItem({ view }: { view: EvidenceView }): JSX.Element {
+function EventItem({
+  view,
+  problem
+}: {
+  view: EvidenceView
+  problem: ProblemContext
+}): JSX.Element {
   const { t } = useTranslation()
   const label = useLabel()
   const [open, setOpen] = useState(false)
   const properties = view.event?.properties ?? []
+  const metric = view.event?.metric ?? null
   return (
     <div className="grid gap-1">
       <div className="flex flex-wrap items-baseline gap-x-3">
@@ -156,6 +171,20 @@ function EventItem({ view }: { view: EvidenceView }): JSX.Element {
         )}
         <Times view={view} />
       </div>
+      {/* Eventos con dt.event.metric_selector: el mini gráfico de esa métrica. */}
+      {metric?.status === 'ok' && (
+        <EvidenceMetricChart
+          view={view}
+          selector={metric.selector}
+          threshold={metric.threshold}
+          problem={problem}
+        />
+      )}
+      {metric?.status === 'tooLong' && (
+        <p data-testid="evidence-metric-too-long" className="text-xs text-muted-foreground">
+          {t('problems.metricTooLong')}
+        </p>
+      )}
       {properties.length > 0 && (
         <>
           <button
@@ -193,11 +222,11 @@ function EvidenceItem({
   problem
 }: {
   view: EvidenceView
-  problem: { startTime: number; endTime: number | null }
+  problem: ProblemContext
 }): JSX.Element {
   const label = useLabel()
   let body: JSX.Element
-  if (view.type === 'EVENT') body = <EventItem view={view} />
+  if (view.type === 'EVENT') body = <EventItem view={view} problem={problem} />
   else if (view.type === 'METRIC' || view.type === 'TRANSACTIONAL') {
     body = <ChangeCard view={view} problem={problem} />
   } else {
@@ -224,7 +253,7 @@ function EvidenceList({
   problem
 }: {
   items: EvidenceView[]
-  problem: { startTime: number; endTime: number | null }
+  problem: ProblemContext
 }): JSX.Element {
   const { t } = useTranslation()
   const [all, setAll] = useState(false)
@@ -258,7 +287,7 @@ function EntityGroup({
 }: {
   entity: EntityLabel | null
   items: EvidenceView[]
-  problem: { startTime: number; endTime: number | null }
+  problem: ProblemContext
 }): JSX.Element {
   const [open, setOpen] = useState(true)
   const Chevron = open ? ChevronDown : ChevronRight
@@ -285,7 +314,14 @@ function EntityGroup({
  * recibidas), la causa raíz arriba y el resto por entidad, cada grupo en orden
  * cronológico. Todo el texto de Dynatrace va como texto.
  */
-export function EvidenceSection({ detail }: { detail: ProblemDetail }): JSX.Element {
+export function EvidenceSection({
+  detail,
+  now
+}: {
+  detail: ProblemDetail
+  /** "Ahora" de los mini gráficos de este problema (ver useProblemClock). */
+  now: number
+}): JSX.Element {
   const { t } = useTranslation()
   const label = useLabel()
   const views = useMemo(() => detail.evidence.map(toEvidenceView), [detail.evidence])
@@ -295,7 +331,10 @@ export function EvidenceSection({ detail }: { detail: ProblemDetail }): JSX.Elem
     () => groupEvidence(types.length === 0 ? views : views.filter((v) => types.includes(v.type))),
     [views, types]
   )
-  const problem = { startTime: detail.startTime, endTime: detail.endTime }
+  const problem = useMemo(
+    () => ({ startTime: detail.startTime, endTime: detail.endTime, now }),
+    [detail.startTime, detail.endTime, now]
+  )
   // Contra lo que mandó la API: una evidencia ilegible no es un recorte (se avisa aparte).
   const truncated = detail.evidenceTotal !== null && detail.evidenceTotal > detail.evidenceReceived
 

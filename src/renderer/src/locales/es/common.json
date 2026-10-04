@@ -384,6 +384,15 @@
     "moreDetails": "Más detalles",
     "lessDetails": "Menos detalles",
     "openInMetrics": "Abrir en Métricas",
+    "metricTooLong": "Selector demasiado largo para mostrarlo.",
+    "metricSeriesShown": "Mostrando {{shown}} de {{total}} series.",
+    "metricSeries": "Serie",
+    "metricState": {
+      "incompatible": "Selector no compatible con la API v2: no se puede dibujar.",
+      "forbidden": "Falta un permiso para leer esta métrica (metrics.read).",
+      "noData": "Sin datos en el periodo.",
+      "error": "No se pudo cargar la métrica."
+    },
     "recentComments": "Se ven los {{shown}} más recientes de {{total}} comentarios.",
     "showAllComments": "Ver todos ({{count}})",
     "evidenceTruncated": "Evidencias recortadas a {{shown}} de {{total}} por el límite de exportación.",

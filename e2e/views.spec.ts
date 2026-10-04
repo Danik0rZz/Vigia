@@ -312,6 +312,145 @@ detailOnly.push({
   }
 })
 
+/**
+ * v0.9.2: mini gráficos de los EVENT con dt.event.metric_selector (en data.properties,
+ * value de texto, como se vio en vivo). Selectores inventados con métricas builtin
+ * genéricas, sin comas (el simulador separa por comas las consultas de Métricas).
+ */
+const SEL_OK = 'builtin:service.response.time:splitBy("dt.entity.service"):avg'
+const SEL_BAD = 'builtin:service.errors.total.count:splitBy():sum:e2e400'
+const SEL_FORBIDDEN = 'builtin:host.disk.usedPct:avg:e2e403'
+const SEL_EMPTY = 'builtin:host.mem.usage:avg:e2evacio'
+const SEL_MANY = 'builtin:service.requestCount.total:splitBy("dt.entity.service"):sum:e2e25'
+const SEL_LAZY = (i: number): string => `builtin:host.cpu.usage:avg:e2elazy${i}`
+const CHART_ENTITY = 'SERVICE-MC1'
+
+/** Un EVENT con el selector (y el umbral) en data.properties, como llega de la API. */
+function metricEvent(
+  name: string,
+  selector: string | null,
+  extra: Record<string, unknown> = {},
+  threshold?: string
+): Record<string, unknown> {
+  return {
+    evidenceType: 'EVENT',
+    displayName: name,
+    entity: { entityId: { id: CHART_ENTITY, type: 'SERVICE' }, name: 'svc-graficos' },
+    startTime: NOW - 90 * 60_000,
+    endTime: -1,
+    eventType: 'CUSTOM_ALERT',
+    data: {
+      properties: [
+        { key: 'dt.event.title', value: name },
+        ...(selector === null ? [] : [{ key: 'dt.event.metric_selector', value: selector }]),
+        ...(threshold === undefined ? [] : [{ key: 'dt.event.metric_threshold', value: threshold }])
+      ]
+    },
+    ...extra
+  }
+}
+
+const CHART_ID = 'pd-chart'
+detailOnly.push({
+  problemId: CHART_ID,
+  displayId: 'P-780',
+  title: 'Problema con gráficos de métrica',
+  status: 'OPEN',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [{ entityId: { id: CHART_ENTITY, type: 'SERVICE' }, name: 'svc-graficos' }],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 7,
+    details: [
+      metricEvent('Respuesta lenta', SEL_OK, {}, '850'),
+      metricEvent('Selector no compatible', SEL_BAD),
+      metricEvent('Sin permiso', SEL_FORBIDDEN),
+      metricEvent('Sin datos', SEL_EMPTY),
+      metricEvent('Muchas series', SEL_MANY, {
+        entity: { entityId: { id: 'SERVICE-MC20', type: 'SERVICE' }, name: 'svc-20' }
+      }),
+      metricEvent('Selector largo', `builtin:host.cpu.usage:filter(${'x'.repeat(2000)}):avg`),
+      metricEvent('Sin selector', null)
+    ]
+  }
+})
+
+/** v0.9.2: problema CERRADO con 20 gráficos, para la carga diferida y la cola. */
+const LAZY_ID = 'pd-lazy'
+detailOnly.push({
+  problemId: LAZY_ID,
+  displayId: 'P-781',
+  title: 'Problema con veinte gráficos',
+  status: 'CLOSED',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 6 * HOUR,
+  endTime: NOW - 4 * HOUR,
+  affectedEntities: [{ entityId: { id: CHART_ENTITY, type: 'SERVICE' }, name: 'svc-graficos' }],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 20,
+    details: Array.from({ length: 20 }, (_, i) =>
+      metricEvent(`Gráfico ${i + 1}`, SEL_LAZY(i + 1), {
+        startTime: NOW - 6 * HOUR + i * 60_000,
+        endTime: NOW - 5 * HOUR
+      })
+    )
+  }
+})
+
+/** Si una consulta de /metrics/query es la de un mini gráfico (y no la vista Métricas). */
+function isEventSelector(selector: string): boolean {
+  return (
+    [SEL_OK, SEL_BAD, SEL_FORBIDDEN, SEL_EMPTY, SEL_MANY].includes(selector) ||
+    /:e2elazy\d+$/.test(selector)
+  )
+}
+
+/** Respuesta del simulador a la consulta de un mini gráfico, según su selector. */
+function eventMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  if (selector === SEL_BAD) {
+    return [
+      400,
+      { error: { code: 400, message: `Constraints violated: ${selector} not supported` } }
+    ]
+  }
+  if (selector === SEL_FORBIDDEN) {
+    return [403, { error: { code: 403, message: 'Token is missing required scope' } }]
+  }
+  const from = Date.parse(query.get('from') ?? '')
+  const timestamps = [0, 1, 2, 3, 4].map((i) => from + i * 10 * 60_000)
+  const serie = (entity: string, base: number): Record<string, unknown> => ({
+    dimensionMap: { 'dt.entity.service': entity },
+    dimensions: [entity],
+    timestamps,
+    values: [base, base + 5, null, base + 2, base + 9]
+  })
+  const data =
+    selector === SEL_EMPTY
+      ? []
+      : selector === SEL_MANY
+        ? Array.from({ length: 25 }, (_, i) => serie(`SERVICE-MC${i + 1}`, i * 10))
+        : // La de la entidad de la evidencia va la segunda: la vista la sube a la primera.
+          [serie('SERVICE-OTRO', 100), serie(CHART_ENTITY, 400)]
+  return [
+    200,
+    {
+      resolution: query.get('resolution') ?? '1m',
+      totalCount: 1,
+      result: [{ metricId: selector, data }]
+    }
+  ]
+}
+
 /** v0.9.1: los 7 comentarios de P-779 (GET /problems/{id}/comments). */
 const EV_ALL_COMMENTS = [
   {
@@ -397,6 +536,11 @@ const defaultSim = () => ({
   /** AUD-12: el detalle falla (400, un error que no es «no existe»). */
   detailFails: false,
   lastDetailQuery: new URLSearchParams(),
+  /** v0.9.2: consultas de los mini gráficos (sus query), en vuelo ahora, máximo y retardo. */
+  eventMetricQueries: [] as URLSearchParams[],
+  eventMetricInFlight: 0,
+  eventMetricMaxInFlight: 0,
+  eventMetricDelayMs: 150,
   /** v0.9.1: peticiones a /problems/{id}/comments y la última query. */
   commentsRequests: 0,
   lastCommentsQuery: new URLSearchParams(),
@@ -576,6 +720,20 @@ async function startServer(): Promise<void> {
       if (req.method === 'GET' && url.pathname === '/api/v2/metrics/query') {
         sim.metricsQueries += 1
         sim.lastMetricsQuery = url.searchParams
+        // v0.9.2: las de los mini gráficos de las evidencias, aparte (con su retardo y su
+        // cuenta de peticiones en vuelo).
+        const eventSelector = url.searchParams.get('metricSelector') ?? ''
+        if (isEventSelector(eventSelector)) {
+          sim.eventMetricQueries.push(url.searchParams)
+          sim.eventMetricInFlight += 1
+          sim.eventMetricMaxInFlight = Math.max(sim.eventMetricMaxInFlight, sim.eventMetricInFlight)
+          setTimeout(() => {
+            sim.eventMetricInFlight -= 1
+            const [status, body] = eventMetricResponse(url.searchParams)
+            send(status, body)
+          }, sim.eventMetricDelayMs)
+          return
+        }
         const timestamps = [0, 1, 2, 3, 4].map((i) => NOW - (4 - i) * 60_000)
         // Varias métricas separadas por comas: un resultado por métrica.
         const selectors = (url.searchParams.get('metricSelector') ?? 'x').split(',')
@@ -1732,6 +1890,236 @@ test('v0.9.1: XLSX de evidencias variadas: números, "Activa", causa raíz y avi
   })
   expect(info.join('\n')).toContain('La API ha devuelto 8 de 12 evidencias.')
   expect(info.join('\n')).toContain('La API ha devuelto 2 de 7 comentarios.')
+})
+
+/** v0.9.2: consultas de un mini gráfico al simulador, por selector. */
+const eventQueries = (selector: string): URLSearchParams[] =>
+  sim.eventMetricQueries.filter((query) => query.get('metricSelector') === selector)
+
+/** v0.9.2: el mini gráfico de la evidencia con ese nombre. */
+function metricChart(name: string): Locator {
+  return page
+    .getByTestId('evidence-item')
+    .filter({ hasText: name })
+    .getByTestId('evidence-metric-chart')
+}
+
+test('v0.9.2: mini gráfico de un EVENT con selector: una consulta, rango y resolución; la serie de la entidad primero', async () => {
+  const mountedAt = Date.now()
+  await goToRoute(`/problems/${CHART_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-780')
+  const chart = metricChart('Respuesta lenta')
+  await chart.scrollIntoViewIfNeeded()
+  const drawn = chart.getByTestId('evidence-metric')
+  await expect(drawn).toBeVisible()
+  await expect(drawn.locator('canvas').first()).toBeVisible()
+  // Dos series; la de la entidad de la evidencia (SERVICE-MC1) va la primera.
+  const series = JSON.parse((await drawn.getAttribute('data-series')) ?? '[]') as string[]
+  expect(series).toHaveLength(2)
+  expect(series[0]).toContain(CHART_ENTITY)
+  expect(series[1]).toContain('SERVICE-OTRO')
+  await expect(chart.getByTestId('evidence-metric-truncated')).toHaveCount(0)
+
+  // Una sola consulta, con el selector tal cual, el rango personalizado y la resolución.
+  const queries = eventQueries(SEL_OK)
+  expect(queries).toHaveLength(1)
+  const query = queries[0] as URLSearchParams
+  const from = Date.parse(query.get('from') ?? '')
+  const to = Date.parse(query.get('to') ?? '')
+  const start = NOW - 90 * 60_000
+  // Activa: hasta "ahora" (el del montaje) y antes del inicio tanto como lleva (~90 min).
+  expect(to).toBeGreaterThanOrEqual(mountedAt - 1000)
+  expect(to).toBeLessThanOrEqual(Date.now())
+  expect(start - from).toBe(to - start)
+  // ~3 h → 1m (unos 180 puntos).
+  expect(query.get('resolution')).toBe('1m')
+  // Sin entitySelector ni nada que no sea la consulta.
+  expect([...query.keys()].sort()).toEqual(['from', 'metricSelector', 'resolution', 'to'])
+})
+
+test('v0.9.2: estados del mini gráfico: 400, 403, sin datos, 25 series y selector demasiado largo; la página sigue', async () => {
+  await goToRoute(`/problems/${CHART_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-780')
+  const state = (name: string): Locator => metricChart(name).getByTestId('evidence-metric-state')
+
+  for (const [name, expected, text] of [
+    ['Selector no compatible', 'incompatible', es.problems.metricState.incompatible],
+    ['Sin permiso', 'forbidden', es.problems.metricState.forbidden],
+    ['Sin datos', 'noData', es.problems.metricState.noData]
+  ] as const) {
+    await metricChart(name).scrollIntoViewIfNeeded()
+    await expect(state(name), name).toHaveAttribute('data-state', expected)
+    await expect(state(name), name).toHaveText(text)
+    // Ni gráfico ni exportación, pero sí "Abrir en Métricas".
+    await expect(metricChart(name).getByTestId('evidence-metric')).toHaveCount(0)
+    await expect(metricChart(name).getByTestId('export-menu')).toHaveCount(0)
+    await expect(metricChart(name).getByTestId('evidence-metric-open')).toBeVisible()
+  }
+  expect(es.problems.metricState.noData).toBe('Sin datos en el periodo.')
+
+  // 25 series: se dibujan 10, la de la entidad (SERVICE-MC20) la primera, y se avisa.
+  const many = metricChart('Muchas series')
+  await many.scrollIntoViewIfNeeded()
+  await expect(many.getByTestId('evidence-metric-truncated')).toHaveText(
+    'Mostrando 10 de 25 series.'
+  )
+  const series = JSON.parse(
+    (await many.getByTestId('evidence-metric').getAttribute('data-series')) ?? '[]'
+  ) as string[]
+  expect(series).toHaveLength(10)
+  expect(series[0]).toContain('SERVICE-MC20')
+
+  // Selector de más de 2000: el texto, sin gráfico ni consulta.
+  const long = page.getByTestId('evidence-item').filter({ hasText: 'Selector largo' })
+  await long.scrollIntoViewIfNeeded()
+  await expect(long.getByTestId('evidence-metric-too-long')).toHaveText(
+    'Selector demasiado largo para mostrarlo.'
+  )
+  await expect(long.getByTestId('evidence-metric-chart')).toHaveCount(0)
+  expect(sim.eventMetricQueries.some((q) => (q.get('metricSelector') ?? '').includes('xxxx'))).toBe(
+    false
+  )
+  // Un EVENT sin selector: ni gráfico ni aviso.
+  const none = page.getByTestId('evidence-item').filter({ hasText: 'Sin selector' })
+  await expect(none.getByTestId('evidence-metric-chart')).toHaveCount(0)
+  await expect(none.getByTestId('evidence-metric-too-long')).toHaveCount(0)
+
+  // La página sigue: título, el resto de las evidencias y volver.
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-780')
+  await expect(page.getByTestId('evidence-item')).toHaveCount(7)
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+})
+
+test('v0.9.2: carga diferida y cola: un gráfico fuera de pantalla no pide; nunca más de 3 consultas a la vez', async () => {
+  sim.eventMetricDelayMs = 400
+  await goToRoute(`/problems/${LAZY_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-781')
+  const charts = page.getByTestId('evidence-metric-chart')
+  await expect(charts).toHaveCount(20)
+  // Los de arriba se piden; el último, que no se ve, no.
+  await expect.poll(() => sim.eventMetricQueries.length).toBeGreaterThan(0)
+  await page.waitForTimeout(600)
+  expect(sim.eventMetricQueries.length).toBeLessThan(20)
+  expect(eventQueries(SEL_LAZY(20))).toHaveLength(0)
+  await expect(charts.last()).not.toBeInViewport()
+
+  // Se recorren todos: cada uno se pide al verse, y la cola nunca deja más de 3 en vuelo.
+  for (const chart of await charts.all()) await chart.scrollIntoViewIfNeeded()
+  await expect.poll(() => sim.eventMetricQueries.length, { timeout: 15_000 }).toBe(20)
+  expect(eventQueries(SEL_LAZY(20))).toHaveLength(1)
+  expect(sim.eventMetricMaxInFlight).toBeLessThanOrEqual(3)
+  // Y la cola sí se usa en paralelo (no de uno en uno).
+  expect(sim.eventMetricMaxInFlight).toBe(3)
+  await expect(page.getByTestId('evidence-metric')).toHaveCount(20, { timeout: 15_000 })
+})
+
+test('v0.9.2: «Actualizar» vuelve a pedir los gráficos de un problema abierto, y no los de uno cerrado', async () => {
+  await goToRoute(`/problems/${CHART_ID}`)
+  const chart = metricChart('Respuesta lenta')
+  await expect(chart.getByTestId('evidence-metric')).toBeVisible()
+  expect(eventQueries(SEL_OK)).toHaveLength(1)
+  await page.getByTestId('module-refresh').click()
+  await expect.poll(() => eventQueries(SEL_OK).length).toBe(2)
+  await expect(chart.getByTestId('evidence-metric')).toBeVisible()
+
+  // Cerrado: Actualizar repite el detalle, pero no los gráficos.
+  await goToRoute(`/problems/${LAZY_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-781')
+  await expect(metricChart('Gráfico 1').getByTestId('evidence-metric')).toBeVisible()
+  const before = sim.eventMetricQueries.length
+  const detailBefore = sim.lastDetailQuery
+  await page.getByTestId('module-refresh').click()
+  // El detalle sí se ha vuelto a pedir.
+  await expect.poll(() => sim.lastDetailQuery !== detailBefore).toBe(true)
+  // Aserción negativa: un margen para que una consulta, si la hubiera, saliera.
+  await page.waitForTimeout(800)
+  expect(sim.eventMetricQueries.length).toBe(before)
+})
+
+test('v0.9.2: volver a un problema cerrado no repite las consultas de sus gráficos', async () => {
+  await goToRoute(`/problems/${LAZY_ID}`)
+  await expect(metricChart('Gráfico 1').getByTestId('evidence-metric')).toBeVisible()
+  const first = eventQueries(SEL_LAZY(1)).length
+  expect(first).toBe(1)
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+  await goToRoute(`/problems/${LAZY_ID}`)
+  await expect(metricChart('Gráfico 1').getByTestId('evidence-metric')).toBeVisible()
+  await page.waitForTimeout(500)
+  expect(eventQueries(SEL_LAZY(1))).toHaveLength(1)
+})
+
+test('v0.9.2: «Abrir en Métricas» del gráfico abre Métricas con ese selector y el rango del gráfico', async () => {
+  await goToRoute(`/problems/${CHART_ID}`)
+  const chart = metricChart('Respuesta lenta')
+  await expect(chart.getByTestId('evidence-metric')).toBeVisible()
+  const chartQuery = eventQueries(SEL_OK)[0] as URLSearchParams
+  const before = sim.metricsQueries
+  await chart.getByTestId('evidence-metric-open').click()
+
+  await expect.poll(() => sim.metricsQueries).toBeGreaterThan(before)
+  await expect.poll(currentRoute).toBe('/metrics')
+  await expect(page.getByTestId('metric-selector')).toHaveValue(SEL_OK)
+  // El mismo rango que el gráfico (la vista Métricas la pide como cualquier consulta).
+  const metricsQuery = sim.eventMetricQueries.at(-1) as URLSearchParams
+  expect(metricsQuery.get('metricSelector')).toBe(SEL_OK)
+  expect(Date.parse(metricsQuery.get('from') ?? '')).toBe(Date.parse(chartQuery.get('from') ?? ''))
+  expect(Date.parse(metricsQuery.get('to') ?? '')).toBe(Date.parse(chartQuery.get('to') ?? ''))
+})
+
+test('v0.9.2: exportar las series del mini gráfico (CSV con hora, serie y valor) y capturarlo', async () => {
+  await goToRoute(`/problems/${CHART_ID}`)
+  const chart = metricChart('Respuesta lenta')
+  await expect(chart.getByTestId('evidence-metric')).toBeVisible()
+  const menu = chart.locator('[data-testid="export-menu"][data-export-target="evidence-metric"]')
+  await expect(menu).toBeVisible()
+
+  const save = async (option: string): Promise<string> => {
+    const before = new Set(readdirSync(exportDir))
+    await menu.click()
+    await page.getByTestId(option).click()
+    let created = ''
+    await expect
+      .poll(() => {
+        created = readdirSync(exportDir).find((name) => !before.has(name)) ?? ''
+        return created
+      })
+      .not.toBe('')
+    return join(exportDir, created)
+  }
+
+  const csv = readFileSync(await save('export-csv'))
+    .subarray(3)
+    .toString('utf8')
+  const lines = csv.split(/\r?\n/).filter((line) => line.trim() !== '')
+  const headerIndex = lines.findIndex((line) => line.includes('Serie'))
+  expect(headerIndex).toBeGreaterThanOrEqual(0)
+  const header = (lines[headerIndex] ?? '').split(';')
+  expect(header).toHaveLength(3)
+  expect(header[1]).toBe('Serie')
+  // 2 series × 5 puntos; la de la entidad primero.
+  const rows = lines.slice(headerIndex + 1).filter((line) => line.split(';').length === 3)
+  expect(rows).toHaveLength(10)
+  expect(rows[0]).toContain(CHART_ENTITY)
+  expect(rows[0]).toMatch(/;400$/)
+  expect(rows.at(-1)).toContain('SERVICE-OTRO')
+
+  // XLSX: Info lleva la consulta (el selector) como contexto, y los valores son números.
+  const book = new ExcelJS.Workbook()
+  await book.xlsx.load(readFileSync(await save('export-xlsx')) as unknown as ArrayBuffer)
+  const info: string[] = []
+  book.getWorksheet('Info')?.eachRow((row) => {
+    info.push(((row.values as unknown[] | undefined) ?? []).map(String).join('|'))
+  })
+  expect(info.join('\n')).toContain(SEL_OK)
+  const data = book.worksheets[0]
+  expect(data?.getRow(2).getCell(1).value).toBeInstanceOf(Date)
+  expect(data?.getRow(2).getCell(3).value).toBe(400)
+
+  const png = await pngInfo(await save('capture-save'))
+  expect(png.width).toBeGreaterThan(0)
+  expect(png.cornerAlpha).toBe(255)
 })
 
 test('v0.9.0: cambiar de entorno estando en el detalle lleva a la lista del entorno nuevo', async () => {

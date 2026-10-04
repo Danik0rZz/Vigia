@@ -22,8 +22,13 @@ export function metricsLink(
   // reloj) da la última hora, y un problema de hace más de un año, el último año.
   if (from >= to) from = to - FALLBACK_MS
   if (to - from > MAX_CUSTOM_RANGE_MS) from = to - MAX_CUSTOM_RANGE_MS
+  return metricsRangeLink(metricId, from, to)
+}
+
+/** Enlace a Métricas con un selector y un rango ya calculados (ms desde epoch). */
+export function metricsRangeLink(selector: string, from: number, to: number): string {
   const params = new URLSearchParams({
-    selector: metricId,
+    selector,
     from: new Date(from).toISOString(),
     to: new Date(to).toISOString()
   })
