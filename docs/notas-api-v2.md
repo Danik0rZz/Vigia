@@ -198,6 +198,27 @@ _Observado (2026-10-04, `problems-event-metric.live.test.ts`, 10 detalles, 13 pe
   también `dt.event.dql_query`.
 - El selector no se copió en ninguna línea del log del cliente.
 
+### Estado propio de los eventos (0.10.0)
+
+_Observado (2026-10-04, `problems-event-state.live.test.ts`, 5 abiertos y 5 cerrados, 11
+peticiones):_
+
+- Todas las evidencias `EVENT` traen `data` (el `Event` de la OpenAPI) con `eventId`,
+  `eventType`, `title`, `status`, `startTime`, `endTime`, `entityId`, `entityTags`,
+  `managementZones`, `properties`, `correlationId`, `frequentEvent`, `suppressProblem`,
+  `suppressAlert` y `underMaintenance`.
+- **`data.status`** (`OPEN` o `CLOSED`, según la OpenAPI) cuadró siempre con el `endTime` de la
+  evidencia (`-1` en los abiertos, un número en los cerrados); `data.endTime` tiene las mismas
+  formas. Si algún día no cuadran, Vigía hace caso a `data.status`.
+- **`data.entityTags`:** una lista de `{ context, key, value?, stringRepresentation }`; `value`
+  falta en los tags de solo clave. Vigía muestra `stringRepresentation` y, si falta, `key:value`
+  o `key`.
+- **Flags** (`underMaintenance`, `frequentEvent`, `suppressProblem`, `suppressAlert`): booleanos;
+  ninguno a `true` en la muestra.
+- `data.title` fue igual al `displayName` de la evidencia en todos los casos.
+- No hubo ningún problema cerrado con eventos abiertos ni abierto con eventos cerrados en la
+  muestra; la tabla no lo supone (cada fila usa su propio estado).
+
 ### `GET /problems/{problemId}/comments`
 
 - **Parámetros (OpenAPI):** solo `problemId`, `nextPageKey` y `pageSize` (máximo 500, 10 por
