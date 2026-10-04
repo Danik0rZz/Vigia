@@ -1,4 +1,4 @@
-import { useEffect, type JSX, type RefObject } from 'react'
+import { memo, useEffect, type JSX, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -65,64 +65,36 @@ function ListCell({ values }: { values: readonly string[] }): JSX.Element {
 }
 
 /**
- * Tabla de problemas. Las filas llegan ya calculadas (toProblemRow), las mismas
- * que se exportan. Con muchas filas se virtualiza dentro de su zona de scroll.
+ * Una fila. Con `memo`, una fila solo se vuelve a pintar si cambian sus datos o
+ * su selección: seleccionar un problema o cambiar un filtro no repinta el resto.
  */
-export function ProblemsTable({
-  rows,
+const ProblemRowView = memo(function ProblemRowView({
+  row,
+  index,
   selected,
   onSelect,
-  scrollRef
+  measure
 }: {
-  rows: ProblemRow[]
-  selected: string | null
+  row: ProblemRow
+  index: number
+  selected: boolean
   onSelect: (problemId: string) => void
-  /** Zona que se captura como imagen. */
-  scrollRef: RefObject<HTMLDivElement | null>
+  measure: ((element: Element | null) => void) | undefined
 }): JSX.Element {
   const { t, i18n } = useTranslation()
   const lang = dateLang(i18n.language)
-  const virtual = rows.length >= VIRTUAL_FROM
-  // El React Compiler no memoiza este componente (useVirtualizer devuelve funciones
-  // que cambian en cada render); es lo esperado con TanStack Virtual.
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 10,
-    enabled: virtual
-  })
-
-  // Dynatrace puede añadir severidades o impactos: se muestran tal cual y se avisa una vez.
-  useEffect(() => {
-    for (const row of rows) {
-      for (const [kind, value, known] of [
-        ['severityLevel', row.severityLevel, severityLevels],
-        ['impactLevel', row.impactLevel, impactLevels]
-      ] as const) {
-        const key = `${kind}:${value}`
-        if (!(known as readonly string[]).includes(value) && !warnedValues.has(key)) {
-          warnedValues.add(key)
-          console.warn(`[problems] ${kind} sin traducción: ${value}`)
-        }
-      }
-    }
-  }, [rows])
-
   const known = (group: 'severity' | 'impact', value: string): string =>
     i18n.exists(`problems.${group}.${value}`) ? t(`problems.${group}.${value}`) : value
 
-  const renderRow = (row: ProblemRow, index: number): JSX.Element => (
+  return (
     <tr
-      key={row.problemId}
       data-testid="problem-row"
       data-problem-id={row.problemId}
       data-index={index}
-      ref={virtual ? virtualizer.measureElement : undefined}
+      ref={measure}
       onClick={() => onSelect(row.problemId)}
       // Sin role=grid, aria-selected no se anuncia: la selección es solo visual.
-      data-selected={selected === row.problemId ? 'true' : undefined}
+      data-selected={selected ? 'true' : undefined}
       className="cursor-pointer border-t border-border hover:bg-hover data-[selected=true]:bg-active"
     >
       <td className="px-2 py-1.5 font-medium whitespace-nowrap">
@@ -166,6 +138,64 @@ export function ProblemsTable({
         )}
       </td>
     </tr>
+  )
+})
+
+/**
+ * Tabla de problemas. Las filas llegan ya calculadas (toProblemRow), las mismas
+ * que se exportan. Con muchas filas se virtualiza dentro de su zona de scroll.
+ */
+export function ProblemsTable({
+  rows,
+  selected,
+  onSelect,
+  scrollRef
+}: {
+  rows: ProblemRow[]
+  selected: string | null
+  onSelect: (problemId: string) => void
+  /** Zona que se captura como imagen. */
+  scrollRef: RefObject<HTMLDivElement | null>
+}): JSX.Element {
+  const { t } = useTranslation()
+  const virtual = rows.length >= VIRTUAL_FROM
+  // El React Compiler no memoiza este componente (useVirtualizer devuelve funciones
+  // que cambian en cada render); es lo esperado con TanStack Virtual.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+    enabled: virtual
+  })
+
+  // Dynatrace puede añadir severidades o impactos: se muestran tal cual y se avisa una vez.
+  useEffect(() => {
+    for (const row of rows) {
+      for (const [kind, value, known] of [
+        ['severityLevel', row.severityLevel, severityLevels],
+        ['impactLevel', row.impactLevel, impactLevels]
+      ] as const) {
+        const key = `${kind}:${value}`
+        if (!(known as readonly string[]).includes(value) && !warnedValues.has(key)) {
+          warnedValues.add(key)
+          console.warn(`[problems] ${kind} sin traducción: ${value}`)
+        }
+      }
+    }
+  }, [rows])
+
+  const measure = virtual ? virtualizer.measureElement : undefined
+  const renderRow = (row: ProblemRow, index: number): JSX.Element => (
+    <ProblemRowView
+      key={row.problemId}
+      row={row}
+      index={index}
+      selected={selected === row.problemId}
+      onSelect={onSelect}
+      measure={measure}
+    />
   )
 
   const items = virtual ? virtualizer.getVirtualItems() : []
