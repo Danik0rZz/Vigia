@@ -177,6 +177,27 @@ no la API en general.
   simulador; queda como prueba manual para Dani. La API no recortó ninguna lista
   (`totalCount` igual a lo recibido) y no había comentarios.
 
+### Eventos con `dt.event.metric_selector` (0.9.2)
+
+_Observado (2026-10-04, `problems-event-metric.live.test.ts`, 10 detalles, 13 peticiones):_
+
+- **La clave `dt.event.metric_selector` NO está en la OpenAPI:** es una propiedad observada y
+  opcional. Viene en `evidenceDetails.details[].data.properties[]` como `{ key, value }`, con
+  `value` de texto; en ningún otro sitio de `data`. La traía en torno a un 10 % de las evidencias
+  `EVENT` de la muestra.
+- **Longitud:** hasta unos cientos de caracteres (ninguno pasó de 500). Por eso no puede salir del
+  recorte de `properties` (8 propiedades de 300 caracteres): el selector se extrae aparte.
+- **Claves estándar que la acompañan** (solo nombres): `dt.event.metric_threshold` (el umbral),
+  `dt.event.title`, `dt.event.description`, `dt.event.group_label`, `dt.event.impact_level`,
+  `dt.event.is_rootcause_relevant`, `dt.event.timeout`, `dt.event.allow_davis_merge`,
+  `dt.event.allow_frequent_issue_detection` y `dt.event.dql_query`, además de claves
+  `dt.event.oa.*` propias de algunas alertas y otras que no son `dt.event.*`. No apareció ninguna
+  clave de baseline, dirección ni unidad.
+- **`/metrics/query` acepta el selector tal cual:** los que se probaron dieron 200 con datos y sin
+  `warnings`. Ninguno tenía forma de DQL (`fetch`/`timeseries`), aunque algunos eventos traen
+  también `dt.event.dql_query`.
+- El selector no se copió en ninguna línea del log del cliente.
+
 ### `GET /problems/{problemId}/comments`
 
 - **Parámetros (OpenAPI):** solo `problemId`, `nextPageKey` y `pageSize` (máximo 500, 10 por
