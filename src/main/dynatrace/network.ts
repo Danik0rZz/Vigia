@@ -69,38 +69,52 @@ export function createEnvironmentNetwork(deps: {
     const ses = session.fromPartition(`env-${envId}-${generation}`)
     // El verificador se pone antes de la primera petición de esta sesión.
     ses.setCertificateVerifyProc((request, callback) => {
-      const pins = deps.pins
-        .list(envId)
-        .filter((pin) => hostnameOf(pin.host) === request.hostname)
-        .map((pin) => pin.fingerprint)
-      const fingerprint = request.certificate.fingerprint
-      const chromiumOk = request.errorCode === 0
-      const decision = verifyCertificate({
-        level: deps.certificateLevel(envId),
-        pins,
-        fingerprint,
-        chromiumOk,
-        hostname: request.hostname,
-        envHosts: deps.environmentHosts(envId)
-      })
-
-      const seen = observedFor(envId)
-      if (decision === 'reject') {
-        seen.set(request.hostname, {
-          fingerprint,
-          reason: 'mismatch',
-          previousFingerprint: pins[0] ?? null
-        })
-      } else if (decision === 'chromium' && !chromiumOk) {
-        seen.set(request.hostname, { fingerprint, reason: 'untrusted', previousFingerprint: null })
-      } else {
-        seen.delete(request.hostname)
+      // Si algo falla (por ejemplo, el entorno se ha borrado con una petición en
+      // curso), se rechaza: el callback siempre responde y nunca se acepta por error.
+      try {
+        callback(decide(envId, request))
+      } catch {
+        callback(REJECT)
       }
-
-      callback(decision === 'accept' ? ACCEPT : decision === 'reject' ? REJECT : USE_CHROMIUM)
     })
     sessions.set(envId, ses)
     return ses
+  }
+
+  /** Decisión del verificador para un certificado (ACCEPT, REJECT o USE_CHROMIUM). */
+  function decide(
+    envId: string,
+    request: { hostname: string; errorCode: number; certificate: { fingerprint: string } }
+  ): number {
+    const pins = deps.pins
+      .list(envId)
+      .filter((pin) => hostnameOf(pin.host) === request.hostname)
+      .map((pin) => pin.fingerprint)
+    const fingerprint = request.certificate.fingerprint
+    const chromiumOk = request.errorCode === 0
+    const decision = verifyCertificate({
+      level: deps.certificateLevel(envId),
+      pins,
+      fingerprint,
+      chromiumOk,
+      hostname: request.hostname,
+      envHosts: deps.environmentHosts(envId)
+    })
+
+    const seen = observedFor(envId)
+    if (decision === 'reject') {
+      seen.set(request.hostname, {
+        fingerprint,
+        reason: 'mismatch',
+        previousFingerprint: pins[0] ?? null
+      })
+    } else if (decision === 'chromium' && !chromiumOk) {
+      seen.set(request.hostname, { fingerprint, reason: 'untrusted', previousFingerprint: null })
+    } else {
+      seen.delete(request.hostname)
+    }
+
+    return decision === 'accept' ? ACCEPT : decision === 'reject' ? REJECT : USE_CHROMIUM
   }
 
   return {
