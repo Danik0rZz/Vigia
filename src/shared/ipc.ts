@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { errorReasonSchema, type ErrorReason } from './error-reasons'
+import { ERROR_REPORT_LIMITS } from './error-report'
 import {
   clientInputSchema,
   clientSchema,
@@ -83,8 +84,34 @@ export const ipcContract = {
         electron: z.string(),
         chrome: z.string(),
         node: z.string()
-      })
+      }),
+      /**
+       * Disparador de pantallas de error (/__errors/:variante): solo sin empaquetar
+       * y con VIGIA_E2E=1. Lo decide main; en la app empaquetada es siempre false.
+       */
+      errorTrigger: z.boolean()
     })
+  },
+  /**
+   * Un error de la interfaz al log de main: enmascarado (secretos, usuario en
+   * rutas, credenciales en URLs) y con freno (sin repetidos, 10 por minuto).
+   */
+  'app:logRendererError': {
+    input: z.object({
+      message: z.string().max(ERROR_REPORT_LIMITS.message),
+      stack: z.string().max(ERROR_REPORT_LIMITS.stack).nullable(),
+      route: z.string().max(ERROR_REPORT_LIMITS.route),
+      version: z.string().max(ERROR_REPORT_LIMITS.version)
+    }),
+    output: z.object({ logged: z.boolean() })
+  },
+  /**
+   * Copia texto al portapapeles desde main: los permisos web de la interfaz
+   * están denegados. Para "Copiar detalles" de las pantallas de error.
+   */
+  'app:copyText': {
+    input: z.object({ text: z.string().max(20_000) }),
+    output: z.object({ ok: z.literal(true) })
   },
   /** Canal de ejemplo de la Fase 1: comprueba el recorrido renderer → preload → main. */
   'app:ping': {

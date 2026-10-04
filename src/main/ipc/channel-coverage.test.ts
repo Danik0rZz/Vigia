@@ -24,6 +24,10 @@ import { createTestDb } from '../../test/fixtures'
 const EXEMPT_CHANNELS: Record<string, string> = {
   'app:getInfo': 'Fase 1: nombre, versión y plataforma del runtime; sin datos de tenants',
   'app:ping': 'Fase 1: canal de ejemplo que devuelve el texto recibido',
+  'app:logRendererError':
+    'v0.10.1: solo devuelve {logged}; lo que escribe en el log va enmascarado (maskErrorDetails, probado en app.test)',
+  'app:copyText':
+    'v0.10.1: solo devuelve {ok}; copia al portapapeles el texto que manda la interfaz, ya enmascarado allí',
   'ui:setTheme': 'Fase 2: aplica el tema a nativeTheme; solo recibe light/dark/system'
 }
 

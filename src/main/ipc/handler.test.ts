@@ -19,8 +19,11 @@ const appHandlers = createAppHandlers({
     version: '0.1.0',
     packaged: false,
     platform: 'win32',
-    versions: { electron: '44.0.0', chrome: '140.0.0', node: '22.0.0' }
+    versions: { electron: '44.0.0', chrome: '140.0.0', node: '22.0.0' },
+    errorTrigger: false
   }),
+  logError: vi.fn(),
+  writeClipboardText: vi.fn(),
   now: () => new Date('2026-10-03T10:00:00.000Z')
 })
 

@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, Menu, nativeTheme } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, Menu, nativeTheme } from 'electron'
 import { APP_NAME, APP_ORIGIN, APP_USER_MODEL_ID } from '@shared/app'
+import { E2E_ENV, isE2eMode } from './e2e-mode'
 import { createAppHandlers } from './ipc/handlers/app'
 import { createConnectionHandlers } from './ipc/handlers/connection'
 import { createExportHandlers } from './ipc/handlers/export'
@@ -90,8 +91,11 @@ function bootstrap(): void {
               electron: process.versions.electron,
               chrome: process.versions.chrome,
               node: process.versions.node
-            }
-          })
+            },
+            errorTrigger: isE2eMode({ packaged: app.isPackaged, value: process.env[E2E_ENV] })
+          }),
+          logError: (message, details) => log.error(`Error en la interfaz: ${message}`, details),
+          writeClipboardText: (text) => clipboard.writeText(text)
         }),
         ...createUiHandlers({
           setThemeSource: (theme) => {
