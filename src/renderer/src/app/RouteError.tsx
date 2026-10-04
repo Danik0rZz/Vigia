@@ -4,7 +4,7 @@ import { isRouteErrorResponse, useLocation, useNavigate, useRouteError } from 'r
 import { isChunkLoadError } from '@shared/error-report'
 import { ErrorScreen } from '../components/ErrorScreen'
 import type { ErrorVariant, UpdatedReason } from '../lib/error-details'
-import { canAutoReload, sessionStore, shouldAutoReload } from '../lib/chunk-reload'
+import { sessionStore, shouldAutoReload } from '../lib/chunk-reload'
 import { reportError } from '../lib/error-log'
 import { isRecentHotUpdate, lastHotUpdate } from '../lib/hot-update'
 
@@ -14,10 +14,33 @@ interface Decision {
   countdown: boolean
 }
 
+/**
+ * Un mismo fallo llega varias veces seguidas (React repite el render que
+ * falla, cada vez con un error nuevo, y el router vuelve a montar la pantalla).
+ * Lo que se decidió para una ruta en este margen se reutiliza.
+ */
+const SAME_FAILURE_MS = 1000
+let lastChunk: { route: string; at: number; countdown: boolean } | null = null
+
+/**
+ * Cuenta atrás para un trozo de la interfaz que falta: se deja la marca
+ * anti-bucle (una sola vez por fallo) y solo hay cuenta atrás si se pudo
+ * escribir. Sin marca (cuota llena, escritura bloqueada) no se evitaría un
+ * bucle de recargas: entonces se enseña el error con sus detalles.
+ */
+function chunkCountdown(route: string, now: number): boolean {
+  if (lastChunk !== null && lastChunk.route === route && now - lastChunk.at < SAME_FAILURE_MS) {
+    return lastChunk.countdown
+  }
+  const countdown = shouldAutoReload(sessionStore(), now)
+  lastChunk = { route, at: now, countdown }
+  return countdown
+}
+
 // Una decisión por error: la pantalla no cambia de variante si se vuelve a pintar.
 const decisions = new WeakMap<object, Decision>()
 
-function decide(error: unknown): Decision {
+function decide(error: unknown, route: string): Decision {
   if (isRouteErrorResponse(error) && error.status === 404) {
     return { variant: 'notFound', reason: 'chunk', countdown: false }
   }
@@ -26,18 +49,18 @@ function decide(error: unknown): Decision {
     return { variant: 'updated', reason: 'hot', countdown: false }
   }
   if (isChunkLoadError(error)) {
-    return canAutoReload(sessionStore(), Date.now())
+    return chunkCountdown(route, Date.now())
       ? { variant: 'updated', reason: 'chunk', countdown: true }
       : { variant: 'unexpected', reason: 'chunk', countdown: false }
   }
   return { variant: 'unexpected', reason: 'chunk', countdown: false }
 }
 
-function decideOnce(error: unknown): Decision {
-  if (typeof error !== 'object' || error === null) return decide(error)
+function decideOnce(error: unknown, route: string): Decision {
+  if (typeof error !== 'object' || error === null) return decide(error, route)
   const known = decisions.get(error)
   if (known !== undefined) return known
-  const decision = decide(error)
+  const decision = decide(error, route)
   decisions.set(error, decision)
   return decision
 }
@@ -53,17 +76,11 @@ export function RouteError(): JSX.Element {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const route = `${location.pathname}${location.search}`
-  const decision = decideOnce(error)
+  const decision = decideOnce(error, route)
 
   useEffect(() => {
     if (decision.variant !== 'notFound') reportError(error, route)
   }, [error, route, decision.variant])
-
-  // Al enseñar la cuenta atrás se deja la marca anti-bucle (con o sin recarga):
-  // otro fallo de este tipo en menos de 60 s ya enseña el error con detalles.
-  useEffect(() => {
-    if (decision.countdown) shouldAutoReload(sessionStore(), Date.now())
-  }, [decision.countdown])
 
   // Reintentar: datos de nuevo y una navegación a la misma ruta, que limpia el error.
   const retry = (): void => {

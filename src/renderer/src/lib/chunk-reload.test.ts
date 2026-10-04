@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canAutoReload, shouldAutoReload } from './chunk-reload'
+import { shouldAutoReload } from './chunk-reload'
 
 /**
  * v0.10.1: recarga automática tras un fallo de chunk, con marca anti-bucle:
@@ -74,46 +74,5 @@ describe('shouldAutoReload', () => {
       }
     }
     expect(shouldAutoReload(throwsOnSet, NOW)).toBe(false)
-  })
-})
-
-describe('canAutoReload (solo lectura)', () => {
-  it('misma respuesta que shouldAutoReload, pero sin escribir la marca', () => {
-    const storage = memory()
-    expect(canAutoReload(storage, NOW)).toBe(true)
-    expect(canAutoReload(storage, NOW)).toBe(true)
-    expect(storage.data[KEY]).toBeUndefined()
-  })
-
-  it('decidir varias veces no gasta la marca: luego shouldAutoReload sigue dando true una vez', () => {
-    const storage = memory()
-    for (let i = 0; i < 5; i += 1) expect(canAutoReload(storage, NOW + i)).toBe(true)
-    expect(shouldAutoReload(storage, NOW + 10)).toBe(true)
-    expect(canAutoReload(storage, NOW + 20)).toBe(false)
-  })
-
-  it.each([
-    ['marca reciente (< 60 s)', String(NOW - 59_999), false],
-    ['marca vieja (> 60 s)', String(NOW - 60_001), true],
-    ['marca basura', 'basura', true],
-    ['marca en el futuro', String(NOW + 10 * 60_000), false]
-  ])('%s → %s', (_label, mark, expected) => {
-    const storage = memory({ [KEY]: mark })
-    expect(canAutoReload(storage, NOW)).toBe(expected)
-    expect(storage.data[KEY]).toBe(mark)
-  })
-
-  it('sin almacenamiento o si leer lanza → false', () => {
-    expect(canAutoReload(null, NOW)).toBe(false)
-    expect(
-      canAutoReload(
-        {
-          getItem: () => {
-            throw new Error('SecurityError')
-          }
-        },
-        NOW
-      )
-    ).toBe(false)
   })
 })

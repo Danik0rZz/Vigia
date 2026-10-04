@@ -214,6 +214,37 @@ test('fallo de chunk sin cancelar: a los 5 s recarga sola (una vez)', async () =
   await expect(page.getByTestId('error-countdown')).toHaveCount(0)
 })
 
+test('fallo de chunk sin poder escribir la marca anti-bucle: nunca recarga sola (no hay bucle)', async () => {
+  // Leer funciona, escribir falla (cuota llena o política): sin marca no se puede evitar el bucle.
+  await page.evaluate(() => {
+    const holder = window as unknown as { __setItem?: Storage['setItem']; __antes?: boolean }
+    holder.__setItem = Storage.prototype.setItem
+    Storage.prototype.setItem = () => {
+      throw new Error('QuotaExceededError de prueba')
+    }
+    holder.__antes = true
+  })
+  try {
+    await goToRoute('/__errors/chunk')
+    // Sin poder dejar la marca: el error con detalles, sin cuenta atrás.
+    await expect(screen()).toHaveAttribute('data-variant', 'unexpected')
+    await expect(page.getByTestId('error-details')).toBeVisible()
+    await expect(page.getByTestId('error-countdown')).toHaveCount(0)
+    // Pasado el tiempo de la cuenta atrás (5 s) y un margen, la página es la misma: sin recarga.
+    await page.waitForTimeout(6500)
+    expect(
+      await page.evaluate(() => (window as unknown as { __antes?: boolean }).__antes ?? false)
+    ).toBe(true)
+    await expect(page.getByTestId('error-countdown')).toHaveCount(0)
+  } finally {
+    // Se restaura siempre: el beforeEach de la siguiente escribe en localStorage.
+    await page.evaluate(() => {
+      const holder = window as unknown as { __setItem?: Storage['setItem'] }
+      if (holder.__setItem !== undefined) Storage.prototype.setItem = holder.__setItem
+    })
+  }
+})
+
 test('error por encima del router: AppErrorBoundary con textos propios, recargar y detalles', async () => {
   await goToRoute('/__errors/fatal')
   const fatal = page.getByTestId('fatal-error')
