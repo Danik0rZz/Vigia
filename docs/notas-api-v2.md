@@ -162,6 +162,33 @@ no la API en general.
   `encodeURIComponent` en la ruta funcionan. No había ningún problema con más de 50 evidencias
   entre los primeros 6: el "Ver todas" y la exportación de cientos de evidencias solo se han
   probado con el simulador de los e2e.
+- **Desde la 0.9.1** el detalle pide solo `fields=evidenceDetails,recentComments` (sin
+  `impactAnalysis`). Según la OpenAPI, las evidencias son de 5 tipos (`EVENT`, `METRIC`,
+  `TRANSACTIONAL`, `MAINTENANCE_WINDOW` y `AVAILABILITY_EVIDENCE`) con `displayName`, `entity`,
+  `groupingEntity`, `rootCauseRelevant` y `startTime` comunes; `METRIC` y `TRANSACTIONAL` traen
+  `unit` y `valueBefore/AfterChangePoint`, y `METRIC`, además, `metricId`. `endTime` es `-1` en
+  un `EVENT` activo y `null` en un `METRIC` abierto. `evidenceDetails.totalCount` y
+  `recentComments.totalCount` dicen cuántas hay en total.
+- _Observado en la 0.9.1 (2026-10-04, `problems-detail.live.test.ts`, 3 abiertos y 3
+  cerrados):_ solo llegaron evidencias `EVENT`, todas con `data.properties`, con `endTime` `-1`
+  (activas) o un número, sin `groupingEntity` y ninguna con `rootCauseRelevant`. `METRIC` y
+  `TRANSACTIONAL`: **según la OpenAPI; sin observar en vivo (en las pruebas solo llegaron
+  EVENT)**. Sus unidades, `displayName` y valores de antes y después solo se han probado con el
+  simulador; queda como prueba manual para Dani. La API no recortó ninguna lista
+  (`totalCount` igual a lo recibido) y no había comentarios.
+
+### `GET /problems/{problemId}/comments`
+
+- **Parámetros (OpenAPI):** solo `problemId`, `nextPageKey` y `pageSize` (máximo 500, 10 por
+  defecto). **No tiene `fields`:** el texto de `nextPageKey` ("except the optional fields
+  parameter") es el genérico de todos los endpoints. Por eso su descriptor
+  (`problemCommentsEndpoint`) no repite nada en la página 2.
+- **Respuesta (observado):** `comments`, `pageSize` y `totalCount`; `nextPageKey` solo si hay
+  más páginas. Cada comentario, según la OpenAPI: `id`, `authorName`, `content`, `context` y
+  `createdAtTimestamp`, y solo este último es obligatorio.
+- _Observado (2026-10-04):_ con un `fields` inventado en la primera página responde igual
+  (lo ignora). La página 2: **según la OpenAPI (solo `nextPageKey`); sin observar en vivo**, porque
+  no había ningún problema con 2 comentarios o más en la muestra.
 
 ## b) Entities y entityTypes
 
