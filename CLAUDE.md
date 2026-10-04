@@ -21,8 +21,8 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 - **Fase 6 (primeras vistas core): cerrada, versión 0.6.0.** Con ella se completa el alcance propuesto de la primera versión (fases 1, 2, 3, 4 y 6). Criterios automáticos cumplidos en Windows; la aceptación manual está en la lista de pendientes.
 - **v0.7.0 (mejoras sobre la primera versión): cerrada y publicada en `main`.** Problemas completo (tabla, detalle con `fields`, exportación común), descripción del token, entornos por tipo y cliente, tooltips del menú y pruebas en vivo (`npm run test:live`). Criterios automáticos cumplidos en Windows.
 - **v0.8.0: cerrada.** Auditoría externa n.º 1 cerrada (todos los P1 y P2; se citan por su ID, `AUD-xx`), clúster y filtros por entorno en Problemas, detalle en panel lateral, Métricas con aviso de puntos y recortes, SLOs en Inicio, y exploración de la API v2 (bloques a-f) en `docs/notas-api-v2.md`. Sin migraciones nuevas. Criterios automáticos de nivel 3 cumplidos en Windows (e2e ×3, repeticiones de views y tenants, dist:win y clon limpio con la instalación del README).
-- **Después de la 0.8.0, en `main` sin versión nueva:** backlog P3 de AUD-21 hecho (errores del SSO, huella ofrecida y del SSO en `certificates:pin`, errores de main traducidos por clave, plurales y locale de ECharts, fila de Problemas con `memo`, colación de entornos, limpieza de los e2e en Windows) y el aviso de los SLO con problemas sin calcular. Quedan anotados el fusible del asar y las particiones de red.
-- **Siguiente:** que `views.spec` no dependa del orden. Lo demás (CI, licencia y las propuestas de `docs/notas-api-v2.md`) lo decide Dani.
+- **v0.8.1: en cierre.** Backlog P3 de AUD-21 (errores del SSO, huella ofrecida y del SSO en `certificates:pin`, errores de main traducidos por clave, plurales y locale de ECharts, fila de Problemas con `memo`, colación de entornos, limpieza de los e2e en Windows), el aviso de los SLO con problemas sin calcular y `views.spec` independiente del orden. Sin migraciones nuevas. Quedan anotados el fusible del asar y las particiones de red.
+- **Siguiente:** nada nuevo sin Dani (decisión de peticiones). Lo que puede venir está en `docs/propuestas-siguientes.md`, con la licencia aparte.
 - **Primera versión: fases 1, 2, 3, 4 y 6, aceptada por Dani** (2026-10-04). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
 - El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
@@ -52,6 +52,13 @@ v0.8.0 (incluye lo de la v0.7.0), pruebas a mano con los datos reales:
 - [ ] Guardar un secreto pulsando Enter en su campo.
 - [ ] Arrancar el zip 0.8.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
+v0.8.1, pruebas a mano (se pueden hacer junto con las de la 0.8.0, con el zip 0.8.1):
+
+- [ ] Con la interfaz en inglés, un error de "Probar conexión" (por ejemplo, un certificado no fiable o un token caducado) sale en inglés.
+- [ ] Si el SSO del entorno usa un certificado que Windows no reconoce: "Probar conexión" ofrece su huella, se acepta y OAuth conecta. Si no es el caso, no aplica.
+- [ ] La lista de entornos (selector y Ajustes) sale en orden alfabético con tildes ("Ámbito" junto a "Alfa", no al final).
+- [ ] Arrancar el zip 0.8.1 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+
 Fase 2:
 
 - [x] Se navega por todas las secciones (vacías) en ambos idiomas y temas.
@@ -80,7 +87,6 @@ Fase 6:
 
 ### Mejoras para después de la primera versión
 
-- `e2e/views.spec.ts` depende del orden de sus tests: cada test debería preparar su propio estado (anotado en la cabecera del spec).
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec, "Funcionalidades").
 - Streaming de exportaciones y aviso de filas de Excel en CSV, con DQL en la Fase 8 (ver la spec, "Exportación de datos").
 - Fusible `enableEmbeddedAsarIntegrityValidation` (AUD-21): propuesto, sin activar. Solo afecta al zip y los e2e corren sobre `out/`, así que se activa cuando se pueda arrancar el zip en un perfil o una VM de prueba (nunca en el perfil de Dani).
@@ -160,7 +166,7 @@ Errores hacia la interfaz: main no traduce. Todo `DtError` o `DomainError` nuevo
 - better-sqlite3 13 trae binarios precompilados N-API dentro del paquete: no hace falta recompilar ni `electron-builder install-app-deps`, y funciona igual en Vitest y en Electron. En el zip va fuera del asar (`asarUnpack`) y solo con el binario win32-x64.
 - Tras cambiar `src/main/db/schema.ts`: `npm run db:generate` y commitear la migración nueva. Main aplica las migraciones al arrancar (en la app empaquetada, desde `resources/migrations`).
 - `lower()` de SQLite solo pasa a minúsculas ASCII: los nombres únicos se comprueban en JS con `toLocaleLowerCase('es')`.
-- Los e2e corren con 4 workers; un spec que use el portapapeles del sistema tiene que ir en serie con views (`test.describe.configure` o un proyecto aparte).
+- Los e2e corren con 4 workers. `views` es el único spec que usa el portapapeles del sistema; sus tests corren en un mismo worker (sin `fullyParallel`), así que no necesitan modo serie. Otro spec que lo use va en un proyecto aparte. Con `--repeat-each`, `views` va con `--workers=1`: si no, dos copias se pisan el portapapeles, y una podría restaurar el PNG de la otra en vez del de Dani.
 - Cada e2e usa su propia carpeta de datos (`VIGIA_USER_DATA_DIR`): el bloqueo de instancia única va por carpeta, así que no chocan con un `npm run dev` abierto.
 - Las rutas de Windows van entre comillas invertidas (`%APPDATA%\vigia`) y los documentos se editan con las herramientas de edición: una ruta escrita desde la shell perdió `\v`, que se convirtió en un carácter de control (0x0B). Un test de `npm run check` falla si un fichero versionado de texto tiene caracteres de control.
 - `Set-Content -Encoding utf8` de PowerShell 5.1 escribe BOM, y `Get-Content -Raw` sin `-Encoding utf8` lee los ficheros como ANSI y estropea las tildes al reescribirlos. Para editar ficheros, usar las herramientas de edición, `sed` o `node`.

@@ -3,6 +3,42 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.8.1] - 2026-10-04
+
+Correcciones y mejoras pequeñas: el backlog P3 de la auditoría n.º 1 (AUD-21) y un ajuste de los
+SLO de Inicio. Sin funciones nuevas grandes ni migraciones nuevas.
+
+### Añadido
+
+- Ajustes › Probar conexión: si falla el certificado del SSO, se ofrece su huella para fijarla,
+  como la de la API. Un pin del SSO solo vale para el SSO, y el nivel «ignorar» nunca se le aplica.
+- Inicio: «N problemas abiertos» de un SLO lleva un tooltip que explica que lo calcula Dynatrace
+  con el filtro de problemas del SLO.
+- `docs/propuestas-siguientes.md`: fichas de lo que puede venir después, para que decida Dani.
+
+### Cambiado
+
+- Los errores que vienen de main se muestran en el idioma de la interfaz (antes, siempre en
+  español). El texto propio de Dynatrace se muestra tal cual.
+- Plurales en el resumen de la importación («1 cliente», «2 entornos»).
+- Los gráficos usan el idioma de la interfaz (meses y días del eje).
+- Los entornos se ordenan como los clientes, con la colación española («ámbito» antes que «Zeta»).
+- La tabla de Problemas solo repinta las filas que cambian al seleccionar o filtrar.
+
+### Corregido
+
+- Un 400 del SSO por un scope no válido ya no dice que el client ID o el secret son incorrectos.
+- Aceptar una huella solo funciona con la que enseñó la última prueba de conexión para ese host, y
+  esa oferta caduca si cambia la URL del entorno o la del SSO.
+- Un SLO cuyos problemas relacionados Dynatrace no pudo calcular (-1) ya no muestra nada en la
+  tarjeta, y en la exportación deja la celda vacía con una nota en la hoja Info.
+
+### Pruebas
+
+- Los e2e limpian sus carpetas temporales aunque falle el cierre de la app, con reintentos en
+  Windows.
+- `views.spec` ya no depende del orden de los tests.
+
 ## [0.8.0] - 2026-10-04
 
 Arreglos de la auditoría n.º 1 (AUD-01 a AUD-20 y los P2 de AUD-21), Problemas y Métricas más
