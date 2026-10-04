@@ -70,11 +70,11 @@ Fase 6:
 - `e2e/views.spec.ts` depende del orden de sus tests: cada test debería preparar su propio estado (anotado en la cabecera del spec).
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec, "Funcionalidades").
 - Streaming de exportaciones y aviso de filas de Excel en CSV, con DQL en la Fase 8 (ver la spec, "Exportación de datos").
-- El futuro CI (AUD-15.4, lo decide Dani) tiene que instalar con `npm ci --ignore-scripts` (ver "Primer paso al retomar").
+- El futuro CI (AUD-15.4, lo decide Dani) tiene que instalar con `npm ci --ignore-scripts` y `npx install-electron` (ver "Primer paso al retomar").
 
 ## Primer paso al retomar
 
-1. `npm ci --ignore-scripts`, y después `npm run check` y `npm run test:e2e`. Si algo falla, arreglarlo antes de seguir. Sin `--ignore-scripts`, npm (10 y 11) intenta compilar better-sqlite3 con node-gyp, porque el lockfile no guarda su `gypfile: false`, y falla sin Visual Studio (detalles en el README). Si una dependencia nueva necesita su script de instalación, `npm rebuild <paquete>`.
+1. `npm ci --ignore-scripts` y `npx install-electron` (Electron 44 no descarga su binario al instalar; si se deja para el primer uso, los e2e en paralelo fallan), y después `npm run check` y `npm run test:e2e`. Si algo falla, arreglarlo antes de seguir. Sin `--ignore-scripts`, npm (10 y 11) intenta compilar better-sqlite3 con node-gyp, porque el lockfile no guarda su `gypfile: false`, y falla sin Visual Studio (detalles en el README). Si una dependencia nueva necesita su script de instalación, `npm rebuild <paquete>`.
 
 ## Reglas de trabajo
 

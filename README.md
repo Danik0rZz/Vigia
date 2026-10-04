@@ -16,19 +16,26 @@ exportación (CSV, XLSX, TXT) y capturas; clientes, entornos y credenciales cifr
 
 ```powershell
 npm ci --ignore-scripts
+npx install-electron
 npm run dev
 ```
 
-Electron (unos 100 MB) se descarga la primera vez que se usa (`npm run dev`, `npm run build` o los
-e2e).
+`npx install-electron` descarga el binario de Electron (unos 100 MB). Electron 44 ya no lo hace
+al instalar: lo descarga la primera vez que se usa, pero los e2e arrancan varias apps a la vez y
+las que no ganan la descarga fallan con "Electron failed to install correctly". Por eso va como
+paso explícito.
 
 **Por qué `--ignore-scripts`:** better-sqlite3 trae sus binarios precompilados (N-API) y no hace
 falta compilar nada, pero `npm ci` (con npm 10 y con npm 11) intenta `node-gyp rebuild` porque el
 `package-lock.json` no guarda que el paquete declara `"gypfile": false`, y falla si no hay Visual
 Studio con C++. Añadir ese campo al lockfile a mano no sirve: `npm install` lo borra. Ningún otro
-paquete de Windows necesita sus scripts de instalación (Electron 44 descarga su binario al usarse),
-así que `--ignore-scripts` deja el entorno completo. Comprobado el 2026-10-04 en un clon limpio con
-Node 22.22 y npm 10.9 y 11.21: tests de main con better-sqlite3 y `electron-vite build`.
+paquete de Windows necesita sus scripts de instalación: esbuild (también las copias de vite, tsx y
+drizzle-kit) trae su binario por `optionalDependencies`, `electron-winstaller` es del instalador
+Squirrel, que no se usa, y `fsevents` es solo de macOS.
+
+Comprobado el 2026-10-04 en un clon limpio con Node 22.22, con npm 10.9 y con npm 11.21:
+`npm ci --ignore-scripts`, `npx install-electron`, `npm run check`, `npm run test:e2e` completo y
+`npm run dist:win`.
 
 ## Comandos
 
