@@ -257,6 +257,59 @@ describe('createOAuthTokenManager: errores', () => {
     await expectDtError(oauth.getToken(ENV), 'INVALID_RESPONSE')
   })
 
+  it.each([
+    ['net::ERR_CERT_AUTHORITY_INVALID', 'TLS_UNTRUSTED'],
+    ['net::ERR_CERT_COMMON_NAME_INVALID', 'TLS_UNTRUSTED'],
+    ['net::ERR_CONNECTION_REFUSED', 'NETWORK'],
+    ['net::ERR_NAME_NOT_RESOLVED', 'NETWORK']
+  ])('AUD-20: si fetch lanza %s → %s, con el mensaje y sin el secreto', async (message, code) => {
+    const { oauth } = manager(async () => {
+      throw new Error(message)
+    })
+    const error = await expectDtError(oauth.getToken(ENV), code)
+    expect(error.message).toContain('No se pudo contactar con el SSO')
+    expect(error.message).toContain(message)
+    expect(error.message).not.toContain('SECRETOOAUTH')
+  })
+
+  it('AUD-20: si fetch lanza algo que no es un Error, también NETWORK', async () => {
+    const { oauth } = manager(async () => {
+      throw 'cadena suelta'
+    })
+    const error = await expectDtError(oauth.getToken(ENV), 'NETWORK')
+    expect(error.message).toContain('cadena suelta')
+  })
+
+  it.each([403, 404, 302])(
+    'AUD-20: otro estado no OK del SSO (%d) da UNAUTHORIZED con el estado',
+    async (status) => {
+      const { oauth } = manager(async () => new Response(null, { status }))
+      const error = await expectDtError(oauth.getToken(ENV), 'UNAUTHORIZED')
+      expect(error.status).toBe(status)
+      expect(error.message).toContain(String(status))
+    }
+  )
+
+  it.each([
+    ['expires_in 0', { access_token: 'x', expires_in: 0 }],
+    ['expires_in negativo', { access_token: 'x', expires_in: -5 }],
+    ['expires_in como texto', { access_token: 'x', expires_in: '300' }],
+    ['access_token vacío', { access_token: '', expires_in: 300 }]
+  ])('AUD-20: %s → INVALID_RESPONSE', async (_case, body) => {
+    const { oauth } = manager(async () => json(200, body))
+    await expectDtError(oauth.getToken(ENV), 'INVALID_RESPONSE')
+  })
+
+  it('AUD-20: un cuerpo que no es JSON → INVALID_RESPONSE', async () => {
+    const { oauth } = manager(async () => new Response('<html>no</html>', { status: 200 }))
+    await expectDtError(oauth.getToken(ENV), 'INVALID_RESPONSE')
+  })
+
+  it('AUD-20: scope con espacios de sobra → sin entradas vacías', async () => {
+    const { oauth } = manager(okToken(300, '  a:read   b:read  '))
+    expect((await oauth.getToken(ENV)).grantedScopes).toEqual(['a:read', 'b:read'])
+  })
+
   it('un fallo no deja nada en caché: el siguiente intento vuelve a pedir', async () => {
     let fail = true
     const { oauth, fetchSpy } = manager(async () =>

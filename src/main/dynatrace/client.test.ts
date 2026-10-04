@@ -595,6 +595,81 @@ describe('timeout y red', () => {
       'NETWORK'
     )
   })
+
+  // AUD-20: el rechazo del verificador propio llega como net::ERR_FAILED (el caso real en
+  // producción): solo es de certificado si el verificador lo anotó para ese host.
+  describe('net::ERR_FAILED', () => {
+    const request = (extra: Record<string, unknown> = {}): Promise<unknown> =>
+      client({ tlsFailure, ...extra }).dtRequest({
+        envId: ENV,
+        api: 'classic',
+        path: '/problems',
+        schema: anyObject
+      })
+
+    it("con tlsFailure 'untrusted' → TLS_UNTRUSTED, preguntando por el host con puerto si lo hay", async () => {
+      environment = { classicApiUrl: 'https://dt.ejemplo.local:9999/e/abc', platformUrl: null }
+      tlsFailure.mockReturnValue('untrusted')
+      responses.push(new Error('net::ERR_FAILED'))
+      const error = await expectDtError(request(), 'TLS_UNTRUSTED')
+      expect(tlsFailure).toHaveBeenCalledWith(ENV, 'dt.ejemplo.local:9999')
+      expect(error.message).toContain('dt.ejemplo.local:9999')
+    })
+
+    it("con tlsFailure 'mismatch' → TLS_PIN_MISMATCH", async () => {
+      tlsFailure.mockReturnValue('mismatch')
+      responses.push(new Error('net::ERR_FAILED'))
+      await expectDtError(request(), 'TLS_PIN_MISMATCH')
+    })
+
+    it('si el verificador no anotó nada (null) → NETWORK, no TLS', async () => {
+      tlsFailure.mockReturnValue(null)
+      responses.push(new Error('net::ERR_FAILED'))
+      const error = await expectDtError(request(), 'NETWORK')
+      expect(error.message).toContain('ERR_FAILED')
+    })
+
+    it('sin tlsFailure en las dependencias → NETWORK', async () => {
+      responses.push(new Error('net::ERR_FAILED'))
+      await expectDtError(request({ tlsFailure: undefined }), 'NETWORK')
+    })
+
+    it('un error de red que no es ERR_FAILED ni de certificado no pregunta al verificador', async () => {
+      responses.push(new Error('net::ERR_CONNECTION_RESET'))
+      await expectDtError(request(), 'NETWORK')
+      expect(tlsFailure).not.toHaveBeenCalled()
+    })
+
+    it('ERR_CERT sin nada anotado sigue siendo TLS_UNTRUSTED', async () => {
+      tlsFailure.mockReturnValue(null)
+      responses.push(new Error('net::ERR_CERT_DATE_INVALID'))
+      await expectDtError(request(), 'TLS_UNTRUSTED')
+    })
+  })
+})
+
+describe('AUD-20: entorno que no se puede leer', () => {
+  it('si getEnvironment lanza → NO_CREDENTIAL «El entorno no existe», sin llamar a la red', async () => {
+    const error = await expectDtError(
+      client({
+        getEnvironment: () => {
+          throw new Error('NOT_FOUND')
+        }
+      }).dtRequest({ envId: ENV, api: 'classic', path: '/problems', schema: anyObject }),
+      'NO_CREDENTIAL'
+    )
+    expect(error.message).toBe('El entorno no existe.')
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('si getEnvironment devuelve null → NO_CREDENTIAL', async () => {
+    environment = null
+    await expectDtError(
+      client().dtRequest({ envId: ENV, api: 'classic', path: '/problems', schema: anyObject }),
+      'NO_CREDENTIAL'
+    )
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
 })
 
 describe('validación de la respuesta', () => {

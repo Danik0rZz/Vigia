@@ -9,14 +9,14 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
     // Cobertura de main y shared (npm run test:coverage, dentro de check). Los
-    // umbrales son los medidos el 2026-10-04 menos unos 3 puntos: si bajan, algo
+    // umbrales son los medidos el 2026-10-04 (tras AUD-20) menos unos 3 puntos: si bajan, algo
     // se ha quedado sin test. Se suben a mano cuando la cobertura crezca.
     coverage: {
       provider: 'v8',
       include: ['src/main/**/*.ts', 'src/shared/**/*.ts'],
       exclude: ['**/*.test.{ts,tsx}', '**/*.live.test.ts'],
       reporter: ['text-summary'],
-      thresholds: { statements: 79, branches: 78, functions: 72, lines: 79 }
+      thresholds: { statements: 86, branches: 84, functions: 81, lines: 86 }
     },
     // Las pruebas en vivo van aparte (npm run test:live).
     exclude: ['**/node_modules/**', '**/*.live.test.ts'],
