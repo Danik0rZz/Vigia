@@ -3,8 +3,9 @@
 App de escritorio para Windows (Electron + React + TypeScript) para trabajar con Dynatrace.
 No afiliada ni respaldada por Dynatrace.
 
-Estado: **Fase 1 — base del proyecto**. La ventana arranca, hay un canal IPC de ejemplo y el
-empaquetado en zip funciona. Todavía no hay ninguna función de Dynatrace.
+Estado: **v0.7.0**. Inicio, Problemas y Métricas contra la API clásica de Dynatrace, con
+exportación (CSV, XLSX, TXT) y capturas; clientes, entornos y credenciales cifradas en local. Ver
+`CHANGELOG.md`.
 
 ## Requisitos
 
@@ -14,18 +15,27 @@ empaquetado en zip funciona. Todavía no hay ninguna función de Dynatrace.
 ## Puesta en marcha
 
 ```powershell
-npm install
+npm ci --ignore-scripts
 npm run dev
 ```
 
-`npm install` descarga Electron (unos 100 MB) la primera vez.
+Electron (unos 100 MB) se descarga la primera vez que se usa (`npm run dev`, `npm run build` o los
+e2e).
+
+**Por qué `--ignore-scripts`:** better-sqlite3 trae sus binarios precompilados (N-API) y no hace
+falta compilar nada, pero `npm ci` (con npm 10 y con npm 11) intenta `node-gyp rebuild` porque el
+`package-lock.json` no guarda que el paquete declara `"gypfile": false`, y falla si no hay Visual
+Studio con C++. Añadir ese campo al lockfile a mano no sirve: `npm install` lo borra. Ningún otro
+paquete de Windows necesita sus scripts de instalación (Electron 44 descarga su binario al usarse),
+así que `--ignore-scripts` deja el entorno completo. Comprobado el 2026-10-04 en un clon limpio con
+Node 22.22 y npm 10.9 y 11.21: tests de main con better-sqlite3 y `electron-vite build`.
 
 ## Comandos
 
 | Comando                     | Qué hace                                              |
 | --------------------------- | ----------------------------------------------------- |
 | `npm run dev`               | Arranca la app en desarrollo, con recarga en caliente |
-| `npm run check`             | Lint, tipos y tests unitarios                         |
+| `npm run check`             | Lint, tipos, formato y tests con umbral de cobertura  |
 | `npm test`                  | Tests unitarios (Vitest)                              |
 | `npm run test:e2e`          | Compila y prueba la app de punta a punta (Playwright) |
 | `npm run build`             | Comprueba tipos y compila a `out/`                    |
