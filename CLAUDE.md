@@ -90,6 +90,13 @@ v0.10.0, pruebas a mano (tabla de evidencias; se pueden hacer con el zip 0.10.0 
 - [ ] Con un filtro puesto, exportar el XLSX: la hoja Evidencias trae solo lo filtrado, en el orden de la tabla, y la hoja Info lo dice. Volver a la lista y entrar otra vez al problema deja la tabla como estaba.
 - [ ] Arrancar el zip 0.10.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
+v0.10.1, pruebas a mano (pantallas de error). Para verlas en desarrollo: `$env:VIGIA_E2E='1'; npm run dev` y, como la app no tiene barra de direcciones, desde la consola de DevTools (Ctrl+Mayús+I en dev): `location.hash = '#/__errors/unexpected'` (y `chunk`, `panel`, `fatal`). Con `VIGIA_E2E` la ventana se abre sin tomar el foco.
+
+- [ ] Cada variante se ve bien en claro y en oscuro: inesperado (Reintentar, Inicio, Recargar), actualizada (cuenta atrás que se puede cancelar), 404 (`#/esto-no-existe`), panel compacto y la de último recurso (`fatal`). El faro se mueve y, con "Reducir animaciones" de Windows, se queda quieto.
+- [ ] "Detalles técnicos" → "Copiar detalles": lo pegado no lleva tu usuario en las rutas (sale `<usuario>`).
+- [ ] Editar un fichero con `npm run dev` abierto: si sale una pantalla, es la de "El código ha cambiado mientras Vigía estaba abierta" con Recargar, no la de React Router.
+- [ ] Arrancar el zip 0.10.1 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+
 Fase 2:
 
 - [x] Se navega por todas las secciones (vacías) en ambos idiomas y temas.

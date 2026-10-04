@@ -3,6 +3,34 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.10.1] - 2026-10-04
+
+Pantallas de error propias en lugar de la de React Router, a petición de Dani. Sin migraciones
+nuevas.
+
+### Añadido
+
+- Pantalla de error con el faro de Vigía, dentro de la app (el menú sigue): error inesperado con
+  Reintentar, Ir a Inicio y Recargar; «Vigía se ha actualizado» si falta una parte de la interfaz,
+  con Recargar y una cuenta atrás de 5 s que se puede cancelar (recarga sola una vez por minuto
+  como mucho); y una página propia para las rutas que no existen (antes llevaba a Inicio sin
+  decir nada).
+- Si falla un gráfico o una tabla, un aviso compacto en su sitio con Reintentar; el resto de la
+  página sigue funcionando.
+- Una pantalla mínima de último recurso si falla lo que está por encima de las páginas.
+- «Detalles técnicos» plegados, con «Copiar detalles». Lo que se copia y lo que va al log no lleva
+  secretos, ni el nombre del usuario en las rutas, ni credenciales en las URLs.
+- Los errores de la interfaz quedan en el log de la app (sin repetidos y como mucho 10 por minuto).
+- La animación del faro (haz que barre, cambiar la bombilla, buscar, sacudida) se queda quieta si
+  Windows tiene activado reducir el movimiento.
+
+### Causa del error al actualizar
+
+- Causa del error al actualizar: recarga en caliente de Vite en desarrollo con cambios a medio
+  escribir; no afecta a la app empaquetada. En desarrollo, un error justo después de una recarga en
+  caliente lo dice así («El código ha cambiado mientras Vigía estaba abierta»), con Recargar y sin
+  cuenta atrás. Ese código no llega a la app empaquetada.
+
 ## [0.10.0] - 2026-10-04
 
 Las evidencias del detalle del problema pasan a ser una tabla con el estado propio de cada
