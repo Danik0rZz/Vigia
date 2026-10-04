@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { DtError } from './errors'
+import { maskSecrets } from './mask'
 
 /** Margen con el que se renueva el token antes de que caduque. */
 const RENEW_MARGIN_MS = 60_000
@@ -33,6 +34,68 @@ const tokenResponseSchema = z.object({
   expires_in: z.number().positive(),
   scope: z.string().optional()
 })
+
+/** Cuerpo de error del SSO (RFC 6749 §5.2). */
+const ssoErrorSchema = z.object({
+  error: z.string().min(1),
+  error_description: z.string().optional()
+})
+
+/** Deja sitio al prefijo dentro de los 300 caracteres de DtError. */
+const DESCRIPTION_MAX = 200
+const REQUEST_ERRORS = new Set(['invalid_request', 'invalid_grant', 'unsupported_grant_type'])
+
+/**
+ * Error para un 400 o 401 del SSO. Un scope no válido o una petición mal
+ * formada no son credenciales malas; el resto (401, invalid_client, cuerpo sin
+ * `error` o desconocido) sigue diciendo que el SSO rechaza el client ID o el
+ * secret. La descripción del SSO se enmascara y se recorta.
+ */
+async function ssoRejection(response: Response, clientSecret: string): Promise<DtError> {
+  const credentialsError = new DtError(
+    'UNAUTHORIZED',
+    'El SSO ha rechazado el client ID o el client secret.',
+    response.status
+  )
+  if (response.status !== 400) return credentialsError
+
+  const text = await response.text().catch(() => '')
+  let json: unknown = null
+  try {
+    json = JSON.parse(text)
+  } catch {
+    return credentialsError
+  }
+  const parsed = ssoErrorSchema.safeParse(json)
+  if (!parsed.success) return credentialsError
+
+  const code = parsed.data.error
+  const description = parsed.data.error_description?.trim()
+  const detail =
+    description === undefined || description === ''
+      ? null
+      : maskSecrets(
+          clientSecret === '' ? description : description.split(clientSecret).join('***')
+        ).slice(0, DESCRIPTION_MAX)
+
+  if (code === 'invalid_scope') {
+    return new DtError(
+      'BAD_REQUEST',
+      `El SSO no acepta los scopes pedidos: ${detail ?? code}`,
+      response.status
+    )
+  }
+  if (REQUEST_ERRORS.has(code)) {
+    return new DtError(
+      'BAD_REQUEST',
+      detail === null
+        ? `El SSO ha rechazado la petición: ${code}`
+        : `El SSO ha rechazado la petición (${code}): ${detail}`,
+      response.status
+    )
+  }
+  return credentialsError
+}
 
 /**
  * Tokens OAuth de plataforma: solo en memoria y por entorno. Se usa el
@@ -82,11 +145,7 @@ export function createOAuthTokenManager(deps: {
     }
 
     if (response.status === 400 || response.status === 401) {
-      throw new DtError(
-        'UNAUTHORIZED',
-        'El SSO ha rechazado el client ID o el client secret.',
-        response.status
-      )
+      throw await ssoRejection(response, credentials.clientSecret)
     }
     if (response.status >= 500) {
       throw new DtError('SERVER_ERROR', `El SSO respondió ${response.status}.`, response.status)

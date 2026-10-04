@@ -243,6 +243,104 @@ describe('createOAuthTokenManager: errores', () => {
     expect(JSON.stringify({ ...error, message: error.message })).not.toContain('SECRETOOAUTH')
   })
 
+  describe('AUD-21 (P3): errores del SSO según RFC 6749 §5.2', () => {
+    const ssoError =
+      (status: number, body: unknown): (() => Promise<Response>) =>
+      async () =>
+        body === undefined ? new Response(null, { status }) : json(status, body)
+
+    it.each([
+      ['401 con invalid_client', 401, { error: 'invalid_client' }],
+      ['401 con invalid_scope (401 manda)', 401, { error: 'invalid_scope' }],
+      ['401 sin cuerpo', 401, undefined],
+      ['400 con invalid_client', 400, { error: 'invalid_client', error_description: 'x' }],
+      ['400 con unauthorized_client', 400, { error: 'unauthorized_client' }]
+    ])('%s → UNAUTHORIZED con el mensaje de siempre y su status', async (_case, status, body) => {
+      const { oauth } = manager(ssoError(status, body))
+      const error = await expectDtError(oauth.getToken(ENV), 'UNAUTHORIZED')
+      expect(error.message).toBe('El SSO ha rechazado el client ID o el client secret.')
+      expect(error.status).toBe(status)
+    })
+
+    it('400 con invalid_scope → BAD_REQUEST «El SSO no acepta los scopes pedidos: …»', async () => {
+      const { oauth } = manager(
+        ssoError(400, { error: 'invalid_scope', error_description: 'Scope storage:x:read unknown' })
+      )
+      const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+      expect(error.message).toBe(
+        'El SSO no acepta los scopes pedidos: Scope storage:x:read unknown'
+      )
+      expect(error.status).toBe(400)
+    })
+
+    it.each(['invalid_request', 'invalid_grant', 'unsupported_grant_type'])(
+      '400 con %s → BAD_REQUEST «El SSO ha rechazado la petición (<error>): …»',
+      async (code) => {
+        const { oauth } = manager(ssoError(400, { error: code, error_description: 'Detalle' }))
+        const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+        expect(error.message).toBe(`El SSO ha rechazado la petición (${code}): Detalle`)
+        expect(error.status).toBe(400)
+      }
+    )
+
+    it.each(['invalid_scope', 'invalid_request'])(
+      '400 con %s sin error_description: el mensaje acaba en el código',
+      async (code) => {
+        const { oauth } = manager(ssoError(400, { error: code }))
+        const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+        expect(error.message).toMatch(new RegExp(`${code}\\.?$`))
+      }
+    )
+
+    it.each([
+      ['sin cuerpo', undefined],
+      ['con un cuerpo que no es JSON', 'texto'],
+      ['con JSON sin error', { error_description: 'algo' }],
+      ['con un error desconocido', { error: 'otro_error' }]
+    ])('400 %s → UNAUTHORIZED como antes', async (_case, body) => {
+      const response =
+        body === 'texto'
+          ? async () => new Response('<html>Bad Request</html>', { status: 400 })
+          : ssoError(400, body)
+      const { oauth } = manager(response)
+      const error = await expectDtError(oauth.getToken(ENV), 'UNAUTHORIZED')
+      expect(error.status).toBe(400)
+    })
+
+    it('el client_secret no aparece aunque el SSO lo devuelva en error_description', async () => {
+      const { oauth } = manager(
+        ssoError(400, {
+          error: 'invalid_scope',
+          error_description: `scope malo para client_secret=${CLIENT_SECRET} (revísalo)`
+        })
+      )
+      const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+      expect(error.message).not.toContain('SECRETOOAUTH')
+      expect(JSON.stringify({ ...error, message: error.message })).not.toContain('SECRETOOAUTH')
+    })
+
+    it('tampoco un client_secret sin el formato dt0…', async () => {
+      const secret = 'secreto-propio-sin-formato-7Q2W9E'
+      credentials = { ...baseCredentials, clientSecret: secret }
+      const { oauth } = manager(
+        ssoError(400, { error: 'invalid_request', error_description: `bad secret ${secret}` })
+      )
+      const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+      expect(error.message).not.toContain(secret)
+    })
+
+    it('error_description se recorta a 200 y el mensaje entero no pasa de 300', async () => {
+      const long = 'x'.repeat(1000)
+      for (const code of ['invalid_scope', 'invalid_request']) {
+        const { oauth } = manager(ssoError(400, { error: code, error_description: long }))
+        const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+        expect(error.message, code).toContain('x'.repeat(200))
+        expect(error.message, code).not.toContain('x'.repeat(201))
+        expect(error.message.length, code).toBeLessThanOrEqual(300)
+      }
+    })
+  })
+
   it('un 5xx del SSO da SERVER_ERROR', async () => {
     const { oauth } = manager(async () => json(503, { error: 'unavailable' }))
     await expectDtError(oauth.getToken(ENV), 'SERVER_ERROR')
