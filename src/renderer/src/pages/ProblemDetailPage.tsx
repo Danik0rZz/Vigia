@@ -6,6 +6,11 @@ import { ArrowLeft } from 'lucide-react'
 import { formatDateTime } from '@shared/format-date'
 import type { IpcOutput } from '@shared/ipc'
 import type { ProblemDetail, ProblemSummary } from '@shared/modules'
+import {
+  INITIAL_EVIDENCE_TABLE,
+  evidenceTableKey,
+  useEvidenceTableStore
+} from '../app/evidence-table'
 import { usePageCrumb } from '../app/page-crumb'
 import { useProblemClock } from '../app/problem-clock'
 import { useTimeRangeValue } from '../app/time-range'
@@ -178,10 +183,21 @@ export function ProblemDetailPage(): JSX.Element {
     else void navigate('/problems', { replace: true })
   }
 
-  // Exportación por secciones (todas las evidencias, no solo las que se ven).
+  // Exportación por secciones; las evidencias, como las deja la tabla (filtros y orden).
+  const evidenceTable =
+    useEvidenceTableStore((state) => state.tables[evidenceTableKey(envId ?? '', problemId)]) ??
+    INITIAL_EVIDENCE_TABLE
   const workbook = useMemo(
-    () => (detail === undefined ? null : problemWorkbook(detail, new Date(dataUpdatedAt), t)),
-    [detail, dataUpdatedAt, t]
+    () =>
+      detail === undefined
+        ? null
+        : problemWorkbook(detail, new Date(dataUpdatedAt), t, {
+            filters: evidenceTable.filters,
+            sort: evidenceTable.sort,
+            now,
+            lang: i18n.language
+          }),
+    [detail, dataUpdatedAt, t, evidenceTable.filters, evidenceTable.sort, now, i18n.language]
   )
   const linked = detail?.linkedProblem?.displayId ?? detail?.linkedProblem?.problemId ?? null
   // Un valor nuevo de Dynatrace se muestra tal cual.

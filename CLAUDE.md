@@ -82,6 +82,13 @@ v0.9.2, pruebas a mano (mini gráfico; se pueden hacer con el zip 0.9.2 en vez d
 - [ ] "Abrir en Métricas" desde el gráfico abre esa misma consulta con ese rango, y la exportación XLSX del gráfico abre en Excel.
 - [ ] Arrancar el zip 0.9.2 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
+v0.10.0, pruebas a mano (tabla de evidencias; se pueden hacer con el zip 0.10.0 en vez del 0.9.2):
+
+- [ ] En un problema real, las evidencias salen en tabla con los abiertos arriba, y se ve de un vistazo qué eventos siguen abiertos (también en un problema cerrado, si tiene alguno). Los contadores Todos/Abiertos/Cerrados cuadran y filtran.
+- [ ] Desplegar un evento con el ratón y con el teclado (Enter, Tab dentro, Escape): propiedades, zonas, etiquetas y, si lo tiene, el mini gráfico. El resumen de la causa raíz salta a su fila.
+- [ ] Con un filtro puesto, exportar el XLSX: la hoja Evidencias trae solo lo filtrado, en el orden de la tabla, y la hoja Info lo dice. Volver a la lista y entrar otra vez al problema deja la tabla como estaba.
+- [ ] Arrancar el zip 0.10.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+
 Fase 2:
 
 - [x] Se navega por todas las secciones (vacías) en ambos idiomas y temas.

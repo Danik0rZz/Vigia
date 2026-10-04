@@ -3,6 +3,41 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.10.0] - 2026-10-04
+
+Las evidencias del detalle del problema pasan a ser una tabla con el estado propio de cada
+evento, a petición de Dani. Sin migraciones nuevas.
+
+### Añadido
+
+- Tabla de evidencias con el mismo grid que la lista de Problemas: estado (Abierto/Cerrado, con
+  su barra), evento, tipo, entidad (su tipo en un tooltip), inicio, fin («Activo»), duración («en
+  curso»), etiquetas (2 y «+N»), causa raíz e indicadores (mantenimiento, frecuente, suprimido).
+  Por defecto, abiertos primero y los más recientes arriba; orden por columna.
+- Cada evento tiene su propio estado: el que manda Dynatrace en `data.status` o, si no viene, el
+  que se deduce de su fin. Un problema cerrado puede tener eventos que siguen abiertos.
+- Filtros: contadores Todos/Abiertos/Cerrados (que filtran por estado), texto (sin tildes ni
+  mayúsculas), tipos con su cuenta, entidad, etiqueta y «Solo causa raíz».
+- Filas desplegables con el detalle: en los eventos, propiedades, management zones, todas las
+  etiquetas y el mini gráfico; en métrica y transacción, la tarjeta «antes → después». Con el
+  teclado: Enter despliega, Tab entra en el detalle y Escape lo pliega.
+- Resumen de la causa raíz encima de la tabla: al pulsarlo, quita los filtros que la ocultan, la
+  despliega y la enfoca.
+- Filtros, orden y filas desplegadas se recuerdan por entorno y problema (los 20 últimos) hasta
+  cerrar la app.
+
+### Cambiado
+
+- La exportación del detalle saca las evidencias que muestra la tabla, con sus filtros y en su
+  orden, y la hoja Info lo dice. La hoja Evidencias gana Estado, Evento, Tipo de entidad, Duración
+  (min), Etiquetas, En mantenimiento, Frecuente e ID del evento, y va también al CSV y al TXT.
+- La lista de Problemas usa el nuevo grid genérico (sin cambios visibles).
+
+### Quitado
+
+- Los grupos por entidad y los chips de tipo de la 0.9.1, y «Más detalles» (las propiedades van
+  en el detalle desplegado).
+
 ## [0.9.2] - 2026-10-04
 
 Mini gráfico en las evidencias de evento que traen una métrica, a petición de Dani. Sin

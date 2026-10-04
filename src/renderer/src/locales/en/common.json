@@ -392,6 +392,7 @@
       "statusClosed": "Closed",
       "filters": "Evidence filters",
       "search": "Search evidence",
+      "textFilter": "Text",
       "types": "Types",
       "typesSelected": "Types ({{count}})",
       "entityFilter": "Entity",
@@ -456,18 +457,26 @@
       "impacted": "Impacted"
     },
     "evidenceColumns": {
+      "status": "Status",
+      "title": "Event",
       "type": "Type",
-      "name": "Name",
       "entity": "Entity",
-      "rootCause": "Root cause",
+      "entityType": "Entity type",
       "start": "Start",
       "end": "End",
+      "durationMinutes": "Duration (min)",
+      "tags": "Tags",
+      "rootCause": "Root cause",
+      "maintenance": "Under maintenance",
+      "frequent": "Frequent",
+      "eventId": "Event ID",
       "before": "Before",
       "after": "After",
       "unit": "Unit",
-      "metricId": "Metric",
-      "eventType": "Event type"
+      "metricId": "Metric"
     },
+    "evidenceExportAll": "Evidence: all ({{total}}), in table order.",
+    "evidenceExportFiltered": "Evidence: {{shown}} of {{total}} left by the table filter ({{filters}}).",
     "commentColumns": {
       "author": "Author",
       "date": "Date",
@@ -476,7 +485,6 @@
     },
     "yes": "Yes",
     "no": "No",
-    "evidenceActive": "Active",
     "apiTruncatedEvidence": "The API returned {{shown}} of {{total}} evidence items.",
     "apiTruncatedComments": "The API returned {{shown}} of {{total}} comments.",
     "status": {

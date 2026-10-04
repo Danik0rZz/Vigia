@@ -1799,25 +1799,47 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
     if (n > 1) entityRows.push(`${String(row.getCell(1).value)}|${String(row.getCell(4).value)}`)
   })
   expect(entityRows).toEqual(['Afectada|SERVICE-BIG1', 'Impactada|APPLICATION-BIG1'])
-  // TODAS las evidencias (la página enseña 50), con la fecha como fecha.
+  // v0.10.0: TODAS las evidencias (sin filtro), en el orden de la tabla y con las columnas nuevas.
   const evidence = es1.getWorksheet('Evidencias')
   expect(evidence?.actualRowCount).toBe(301)
-  expect(header(evidence)).toEqual([
+  const evidenceHeader = header(evidence)
+  expect(evidenceHeader).toEqual([
+    'Estado',
+    'Evento',
     'Tipo',
-    'Nombre',
     'Entidad',
-    'Causa raíz',
+    'Tipo de entidad',
     'Inicio',
     'Fin',
+    'Duración (min)',
+    'Etiquetas',
+    'Causa raíz',
+    'En mantenimiento',
+    'Frecuente',
+    'ID del evento',
     'Antes',
     'Después',
     'Unidad',
-    'Métrica',
-    'Tipo de evento'
+    'Métrica'
   ])
-  expect(evidence?.getRow(2).getCell(5).value).toBeInstanceOf(Date)
-  // Sin endTime: "Activa" (texto en una columna de fecha).
-  expect(evidence?.getRow(2).getCell(6).value).toBe('Activa')
+  const col = (name: string): number => evidenceHeader.indexOf(name) + 1
+  // La primera fila es la de la tabla: big-299 (abierta y la más reciente).
+  const firstRow = evidence?.getRow(2)
+  expect(firstRow?.getCell(col('ID del evento')).value).toBe('big-299')
+  expect(firstRow?.getCell(col('Estado')).value).toBe('Abierto')
+  expect(firstRow?.getCell(col('Inicio')).value).toBeInstanceOf(Date)
+  // Activa: "Activo" (texto en una columna de fecha) y la duración como número.
+  expect(firstRow?.getCell(col('Fin')).value).toBe('Activo')
+  expect(typeof firstRow?.getCell(col('Duración (min)')).value).toBe('number')
+  // Info: van todas.
+  const evidenceNote = (book: ExcelJS.Workbook): string => {
+    const lines: string[] = []
+    book.getWorksheet('Info')?.eachRow((row) => {
+      lines.push(((row.values as unknown[] | undefined) ?? []).map(String).join('|'))
+    })
+    return lines.find((line) => line.includes('Evidencias:')) ?? ''
+  }
+  expect(evidenceNote(es1)).toContain('Evidencias: todas (300), en el orden de la tabla.')
   // Comentario como texto (ni fórmula ni HTML interpretado); columnas Autor, Fecha, Contexto, Comentario.
   const commentSheet = es1.getWorksheet('Comentarios')
   expect(header(commentSheet)).toEqual(['Autor', 'Fecha', 'Contexto', 'Comentario'])
@@ -1830,15 +1852,40 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
   expect(info).toMatchObject({ Cliente: 'Cliente A', Entorno: 'Producción' })
   expect(String(info['Nota'])).toContain('Problemas abiertos: sin fin')
 
-  // CSV: solo Resumen y Entidades, cada una con su título.
+  // v0.10.0: con un filtro en la tabla, la hoja Evidencias trae solo lo filtrado y la Info lo dice.
+  await page.getByTestId('evidence-status-CLOSED').click()
+  await page.getByTestId('evidence-search').fill('Evidencia 25')
+  // Cerradas (las pares) cuyo título contiene «Evidencia 25»: 250, 252, 254, 256 y 258 → 5
+  // (la 25 es impar: abierta).
+  await expect(page.getByTestId('evidence-row')).toHaveCount(5)
+  const filtered = await workbook()
+  const filteredSheet = filtered.getWorksheet('Evidencias')
+  expect(filteredSheet?.actualRowCount).toBe(6)
+  const ids: string[] = []
+  filteredSheet?.eachRow((row, n) => {
+    if (n > 1) ids.push(String(row.getCell(col('ID del evento')).value))
+  })
+  // En el orden de la tabla (cerradas, startTime desc).
+  expect(ids).toEqual(['big-258', 'big-256', 'big-254', 'big-252', 'big-250'])
+  const note = evidenceNote(filtered)
+  expect(note).toContain('Evidencias: las 5 de 300 que deja el filtro de la tabla')
+  expect(note).toContain('Cerrados')
+  expect(note).toContain('Evidencia 25')
+
+  // CSV: ahora también Evidencias (es principal), con lo filtrado; sin Comentarios.
   const csv = readFileSync(await exportTo('problem-page', 'export-csv'))
   expect([...csv.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
   const text = csv.subarray(3).toString('utf8')
   expect(text).toContain('Resumen')
   expect(text).toContain('Entidades')
+  expect(text).toContain('Evidencias')
   expect(text.indexOf('Resumen')).toBeLessThan(text.indexOf('Entidades'))
-  expect(text).not.toContain('Evidencia 1')
+  expect(text.indexOf('Entidades')).toBeLessThan(text.indexOf('Evidencias'))
+  expect(text).toContain('big-250')
+  expect(text).not.toContain('big-299')
   expect(text).not.toContain('Comentarios')
+  await page.getByTestId('evidence-status-ALL').click()
+  await page.getByTestId('evidence-search').fill('')
 
   // En inglés, las hojas en inglés.
   await page.getByRole('button', { name: es.topbar.language }).click()
@@ -1851,7 +1898,7 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
     'Comments',
     'Info'
   ])
-  expect(en1.getWorksheet('Evidence')?.getRow(2).getCell(6).value).toBe('Active')
+  expect(en1.getWorksheet('Evidence')?.getRow(2).getCell(col('Fin')).value).toBe('Active')
 })
 
 /** v0.9.1: abre P-779 (evidencias variadas) por URL y espera a que se pinten. */
@@ -2309,27 +2356,31 @@ test('v0.9.1: XLSX de evidencias variadas: números, "Activa", causa raíz y avi
     'Info'
   ])
   const evidence = book.getWorksheet('Evidencias')
+  // v0.10.0: las columnas se buscan por su cabecera.
+  const headers = ((evidence?.getRow(1).values as unknown[] | undefined) ?? []).map(String)
+  const col = (name: string): number => headers.indexOf(name)
   const rows = new Map<string, ExcelJS.Row>()
   evidence?.eachRow((row, n) => {
-    if (n > 1) rows.set(String(row.getCell(2).value), row)
+    if (n > 1) rows.set(String(row.getCell(col('Evento')).value), row)
   })
   expect(rows.size).toBe(8)
   const metric = rows.get('Tiempo de respuesta')
   // Antes y después como números, sin formatear ni escalar; la unidad aparte.
-  expect(metric?.getCell(7).value).toBe(200_000)
-  expect(metric?.getCell(8).value).toBe(1_500_000)
-  expect(metric?.getCell(9).value).toBe('MicroSecond')
-  expect(metric?.getCell(10).value).toBe(EV_METRIC)
-  expect(metric?.getCell(6).value).toBe('Activa')
-  expect(metric?.getCell(4).value).toBe('No')
+  expect(metric?.getCell(col('Antes')).value).toBe(200_000)
+  expect(metric?.getCell(col('Después')).value).toBe(1_500_000)
+  expect(metric?.getCell(col('Unidad')).value).toBe('MicroSecond')
+  expect(metric?.getCell(col('Métrica')).value).toBe(EV_METRIC)
+  expect(metric?.getCell(col('Fin')).value).toBe('Activo')
+  expect(metric?.getCell(col('Causa raíz')).value).toBe('No')
   const root = rows.get('Reinicio del proceso')
-  expect(root?.getCell(4).value).toBe('Sí')
-  expect(root?.getCell(5).value).toBeInstanceOf(Date)
-  expect(root?.getCell(6).value).toBeInstanceOf(Date)
-  expect(root?.getCell(11).value).toBe('PROCESS_RESTART')
+  expect(root?.getCell(col('Causa raíz')).value).toBe('Sí')
+  expect(root?.getCell(col('Inicio')).value).toBeInstanceOf(Date)
+  expect(root?.getCell(col('Fin')).value).toBeInstanceOf(Date)
+  expect(root?.getCell(col('Duración (min)')).value).toBe(60)
+  expect(root?.getCell(col('Tipo')).value).toBe('PROCESS_RESTART')
   // Sin entidad: celda vacía. Tipo desconocido, tal cual.
-  expect(rows.get('Ventana de mantenimiento')?.getCell(3).value ?? null).toBeNull()
-  expect(rows.get('Algo nuevo')?.getCell(1).value).toBe('TIPO_NUEVO_E2E')
+  expect(rows.get('Ventana de mantenimiento')?.getCell(col('Entidad')).value ?? null).toBeNull()
+  expect(rows.get('Algo nuevo')?.getCell(col('Tipo')).value).toBe('TIPO_NUEVO_E2E')
   // Comentarios: los 2 recientes del detalle.
   expect(book.getWorksheet('Comentarios')?.actualRowCount).toBe(3)
   // Info: los dos recortes de la API.

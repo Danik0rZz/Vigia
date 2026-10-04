@@ -392,6 +392,7 @@
       "statusClosed": "Cerrados",
       "filters": "Filtros de las evidencias",
       "search": "Buscar en las evidencias",
+      "textFilter": "Texto",
       "types": "Tipos",
       "typesSelected": "Tipos ({{count}})",
       "entityFilter": "Entidad",
@@ -456,18 +457,26 @@
       "impacted": "Impactada"
     },
     "evidenceColumns": {
+      "status": "Estado",
+      "title": "Evento",
       "type": "Tipo",
-      "name": "Nombre",
       "entity": "Entidad",
-      "rootCause": "Causa raíz",
+      "entityType": "Tipo de entidad",
       "start": "Inicio",
       "end": "Fin",
+      "durationMinutes": "Duración (min)",
+      "tags": "Etiquetas",
+      "rootCause": "Causa raíz",
+      "maintenance": "En mantenimiento",
+      "frequent": "Frecuente",
+      "eventId": "ID del evento",
       "before": "Antes",
       "after": "Después",
       "unit": "Unidad",
-      "metricId": "Métrica",
-      "eventType": "Tipo de evento"
+      "metricId": "Métrica"
     },
+    "evidenceExportAll": "Evidencias: todas ({{total}}), en el orden de la tabla.",
+    "evidenceExportFiltered": "Evidencias: las {{shown}} de {{total}} que deja el filtro de la tabla ({{filters}}).",
     "commentColumns": {
       "author": "Autor",
       "date": "Fecha",
@@ -476,7 +485,6 @@
     },
     "yes": "Sí",
     "no": "No",
-    "evidenceActive": "Activa",
     "apiTruncatedEvidence": "La API ha devuelto {{shown}} de {{total}} evidencias.",
     "apiTruncatedComments": "La API ha devuelto {{shown}} de {{total}} comentarios.",
     "status": {
