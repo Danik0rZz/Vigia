@@ -240,6 +240,9 @@ con `evaluate=true` y `pageSize` 5). Los SLO son del cliente: aquí solo va su f
   `numeratorValue`, `denominatorValue`, `burnRateMetricKey`, `errorBudgetMetricKey`,
   `normalizedErrorBudgetMetricKey` y `errorBudgetBurnRate` (objeto). Con `evaluate=true` llegan
   además **`relatedOpenProblems`** y **`relatedTotalProblems`**.
+- **`relatedOpenProblems`, según la OpenAPI:** lo calcula Dynatrace con el `problemFilters` del
+  SLO (generado automáticamente si el SLO no tiene filtro) y vale -1 si el cálculo falla. Inicio
+  no muestra nada con un valor negativo y lo exporta como celda vacía, con una nota en la hoja Info.
 - **Sin evaluar (`evaluate=false`) el estado no vale nada:** todos llegan con `status: SUCCESS`,
   `evaluatedPercentage` y `errorBudget` a -1, y a veces con un `error` distinto de `NONE`. Una
   interfaz nunca debe mostrar ese `status`. Inicio pide la lista evaluada, así que no le afecta.

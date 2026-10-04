@@ -380,7 +380,9 @@
     },
     "relatedOpenProblems_one": "{{count}} open problem",
     "relatedOpenProblems_other": "{{count}} open problems",
-    "relatedOpenProblemsColumn": "Related open problems"
+    "relatedOpenProblemsColumn": "Related open problems",
+    "relatedOpenProblemsHint": "Calculated by Dynatrace with the SLO's problem filter",
+    "relatedOpenProblemsEmpty": "Empty cells in “Related open problems”: Dynatrace could not calculate them"
   },
   "export": {
     "menu": "Export or capture",

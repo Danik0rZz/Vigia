@@ -1,6 +1,7 @@
 import { useMemo, useRef, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { sloDisplayStatus } from '@shared/modules'
 import { serviceHealth } from '@shared/service-health'
 import { ExportMenu } from '../components/ExportMenu'
@@ -21,6 +22,10 @@ const SLO_STATUS_CLASS: Record<ReturnType<typeof sloDisplayStatus>, string> = {
   FAILURE: 'text-danger',
   UNEVALUATED: 'text-muted-foreground'
 }
+
+/** Dynatrace no pudo calcular los problemas relacionados (según la OpenAPI, -1). */
+const relatedUnavailable = (slo: { relatedOpenProblems: number | null }): boolean =>
+  slo.relatedOpenProblems !== null && slo.relatedOpenProblems < 0
 
 /** Tarjeta con entrada escalonada (Motion respeta el movimiento reducido). */
 function Card({
@@ -138,8 +143,12 @@ export function HomePage(): JSX.Element {
                     value: slo.evaluatedPercentage,
                     target: slo.target,
                     errorBudget: slo.errorBudget,
-                    relatedOpenProblems: slo.relatedOpenProblems
+                    // Un cálculo fallido (-1) es un número no disponible: celda vacía (AUD-09).
+                    relatedOpenProblems: relatedUnavailable(slo) ? null : slo.relatedOpenProblems
                   })),
+                  ...(sloList.some(relatedUnavailable)
+                    ? { note: t('home.relatedOpenProblemsEmpty') }
+                    : {}),
                   invalidCount: slos.data?.invalid
                 }}
               />
@@ -172,10 +181,28 @@ export function HomePage(): JSX.Element {
                       <span className="text-xs text-muted-foreground">
                         {`${t('home.value')} ${percent(slo.evaluatedPercentage)} · ${t('home.target')} ${percent(slo.target)} · ${t('home.budget')} ${percent(slo.errorBudget)}`}
                       </span>
+                      {/* -1 es que Dynatrace no pudo calcularlo: no se muestra nada. */}
                       {slo.relatedOpenProblems !== null && slo.relatedOpenProblems > 0 && (
-                        <span data-testid="slo-related-problems" className="text-xs text-danger">
-                          {t('home.relatedOpenProblems', { count: slo.relatedOpenProblems })}
-                        </span>
+                        <Tooltip.Root>
+                          <Tooltip.Trigger asChild>
+                            <span
+                              data-testid="slo-related-problems"
+                              tabIndex={0}
+                              className="justify-self-start text-xs text-danger"
+                            >
+                              {t('home.relatedOpenProblems', { count: slo.relatedOpenProblems })}
+                            </span>
+                          </Tooltip.Trigger>
+                          <Tooltip.Portal>
+                            <Tooltip.Content
+                              data-testid="slo-related-problems-tooltip"
+                              sideOffset={6}
+                              className="glass z-50 max-w-80 rounded-md px-3 py-2 text-xs text-foreground"
+                            >
+                              {t('home.relatedOpenProblemsHint')}
+                            </Tooltip.Content>
+                          </Tooltip.Portal>
+                        </Tooltip.Root>
                       )}
                     </li>
                   )

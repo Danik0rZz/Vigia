@@ -195,7 +195,9 @@ const sim = {
   /** AUD-13: dataPointCountRatio / dimensionCountRatio de cada resultado. */
   metricRatios: {} as { dataPointCountRatio?: number; dimensionCountRatio?: number },
   /** AUD-13: warnings de /metrics/query. */
-  metricWarnings: [] as string[]
+  metricWarnings: [] as string[],
+  /** SLOs: «Errores de login» con relatedOpenProblems -1 (no calculado) o 0. */
+  sloRelatedFailed: true
 }
 
 let server: Server
@@ -408,7 +410,8 @@ async function startServer(): Promise<void> {
               evaluatedPercentage: 99.2,
               errorBudget: 20,
               error: 'NONE',
-              relatedOpenProblems: 0
+              // -1: Dynatrace no pudo calcularlo (OpenAPI). Con sim.sloRelatedFailed a false, 0.
+              relatedOpenProblems: sim.sloRelatedFailed ? -1 : 0
             },
             {
               // Sin evaluar: la API da -1 y SUCCESS; la tarjeta no puede decir «Correcto».
@@ -1622,28 +1625,72 @@ test('Inicio: estado de cada SLO (con texto y color), sin evaluar y problemas re
   await expect(item('Búsqueda sin datos')).not.toContainText('Correcto')
   await expect(item('Búsqueda sin datos')).toContainText('—')
 
-  // Problemas abiertos relacionados: solo donde hay más de 0, con plural.
+  // Problemas abiertos relacionados: solo donde hay más de 0, con plural. Con -1 (Dynatrace
+  // no pudo calcularlo, «Errores de login») o 0, nada.
   await expect(card.getByTestId('slo-related-problems')).toHaveCount(1)
-  await expect(item('Latencia carrito').getByTestId('slo-related-problems')).toHaveText(
-    '2 problemas abiertos'
-  )
+  await expect(item('Errores de login').getByTestId('slo-related-problems')).toHaveCount(0)
+  await expect(item('Errores de login')).not.toContainText('-1')
+  const related = item('Latencia carrito').getByTestId('slo-related-problems')
+  await expect(related).toHaveText('2 problemas abiertos')
 
-  // La exportación lleva la columna, vacía si no hay dato.
-  const workbook = new ExcelJS.Workbook()
-  await workbook.xlsx.load(
-    readFileSync(await exportTo('kpi-slos', 'export-xlsx')) as unknown as ArrayBuffer
-  )
-  const sheet = workbook.getWorksheet('Datos')
-  const header = (sheet?.getRow(1).values as unknown[]).slice(1).map(String)
-  const column = header.indexOf('Problemas abiertos relacionados') + 1
-  expect(column, `cabeceras: ${header.join(' | ')}`).toBeGreaterThan(0)
-  const byName = new Map<string, unknown>()
-  sheet?.eachRow((row, n) => {
-    if (n > 1) byName.set(String(row.getCell(1).value), row.getCell(column).value)
-  })
-  expect(byName.get('Latencia carrito')).toBe(2)
-  expect(byName.get('Disponibilidad pagos')).toBe(0)
-  expect(byName.get('Búsqueda sin datos') ?? null).toBeNull()
+  // Explica de dónde sale el número: tooltip con el ratón y con el foco.
+  const hint = page.getByTestId('slo-related-problems-tooltip')
+  const HINT = 'Lo calcula Dynatrace con el filtro de problemas del SLO'
+  await expect(hint).toHaveCount(0)
+  await related.hover()
+  await expect(hint).toBeVisible()
+  await expect(hint).toContainText(HINT)
+  await page.mouse.move(0, 0)
+  await page.keyboard.press('Escape')
+  await expect(hint).toHaveCount(0)
+  await expect(related).toHaveAttribute('tabindex', '0')
+  await related.focus()
+  await expect(hint).toBeVisible()
+  await expect(hint).toContainText(HINT)
+  await page.keyboard.press('Escape')
+  await expect(hint).toHaveCount(0)
+
+  // La exportación lleva la columna numérica: vacía sin dato y también con -1 (no calculado),
+  // y en ese caso una nota en Info que lo explica.
+  const NOTE = 'Celdas vacías en «Problemas abiertos relacionados»: Dynatrace no pudo calcularlo'
+  const exported = async (): Promise<{ values: Map<string, unknown>; info: string[] }> => {
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(
+      readFileSync(await exportTo('kpi-slos', 'export-xlsx')) as unknown as ArrayBuffer
+    )
+    const sheet = workbook.getWorksheet('Datos')
+    const header = (sheet?.getRow(1).values as unknown[]).slice(1).map(String)
+    const column = header.indexOf('Problemas abiertos relacionados') + 1
+    expect(column, `cabeceras: ${header.join(' | ')}`).toBeGreaterThan(0)
+    const values = new Map<string, unknown>()
+    sheet?.eachRow((row, n) => {
+      if (n > 1) values.set(String(row.getCell(1).value), row.getCell(column).value)
+    })
+    const info: string[] = []
+    workbook.getWorksheet('Info')?.eachRow((row) => {
+      info.push(String(row.getCell(2).value ?? ''))
+    })
+    return { values, info }
+  }
+
+  const withFailed = await exported()
+  expect(withFailed.values.get('Latencia carrito')).toBe(2)
+  expect(withFailed.values.get('Disponibilidad pagos')).toBe(0)
+  expect(withFailed.values.get('Errores de login') ?? null).toBeNull()
+  expect(withFailed.values.get('Búsqueda sin datos') ?? null).toBeNull()
+  expect(withFailed.info).toContain(NOTE)
+
+  // Sin ningún -1, sin la nota.
+  sim.sloRelatedFailed = false
+  try {
+    await page.getByTestId('module-refresh').click()
+    await expect(card).toContainText('Errores de login')
+    await expect.poll(async () => (await exported()).values.get('Errores de login')).toBe(0)
+    expect((await exported()).info).not.toContain(NOTE)
+  } finally {
+    sim.sloRelatedFailed = true
+  }
+  await page.getByTestId('module-refresh').click()
 })
 
 test('rango personalizado: valida las fechas y se usa en las peticiones', async () => {

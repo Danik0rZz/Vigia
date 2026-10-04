@@ -380,7 +380,9 @@
     },
     "relatedOpenProblems_one": "{{count}} problema abierto",
     "relatedOpenProblems_other": "{{count}} problemas abiertos",
-    "relatedOpenProblemsColumn": "Problemas abiertos relacionados"
+    "relatedOpenProblemsColumn": "Problemas abiertos relacionados",
+    "relatedOpenProblemsHint": "Lo calcula Dynatrace con el filtro de problemas del SLO",
+    "relatedOpenProblemsEmpty": "Celdas vacías en «Problemas abiertos relacionados»: Dynatrace no pudo calcularlo"
   },
   "export": {
     "menu": "Exportar o capturar",

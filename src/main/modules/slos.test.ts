@@ -37,6 +37,8 @@ describe('sloSchema y toSloSummary', () => {
     it.each([
       ['presente', { relatedOpenProblems: 2 }, 2],
       ['0', { relatedOpenProblems: 0 }, 0],
+      // -1: Dynatrace no pudo calcularlo (OpenAPI). Pasa tal cual; la interfaz lo trata.
+      ['-1', { relatedOpenProblems: -1 }, -1],
       ['ausente', {}, null]
     ])('%s → %s', (_case, extra, expected) => {
       expect(toSloSummary(sloSchema.parse(slo(extra))).relatedOpenProblems).toBe(expected)
