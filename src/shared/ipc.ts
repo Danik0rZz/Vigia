@@ -33,6 +33,30 @@ import {
   untrustedCertificateSchema
 } from './dynatrace'
 
+/**
+ * Nombre de hoja que Excel acepta: 1-31 caracteres, sin []:*?/\, sin apóstrofo
+ * al principio ni al final y distinto de "History" (reservado).
+ */
+export const sheetNameSchema = z
+  .string()
+  .min(1)
+  .max(31)
+  .refine((name) => !/[[\]:*?/\\]/.test(name), 'Carácter no válido en el nombre de hoja')
+  .refine((name) => !name.startsWith("'") && !name.endsWith("'"), 'Apóstrofo al borde')
+  .refine((name) => name.toLowerCase() !== 'history', 'Nombre de hoja reservado')
+
+const exportRowsSchema = z
+  .array(z.record(z.string(), z.union([z.string(), z.number(), z.null()])))
+  .max(MAX_EXPORT_ROWS)
+
+/** Hoja de un libro exportado. Las `primary` son las que van también en CSV y TXT. */
+export const exportSheetSchema = z.object({
+  name: sheetNameSchema,
+  primary: z.boolean(),
+  columns: z.array(exportColumnSchema).min(1).max(100),
+  rows: exportRowsSchema
+})
+
 /** Preferencia de tema: "system" sigue al tema de Windows. */
 export const themePreferences = ['light', 'dark', 'system'] as const
 export type ThemePreference = (typeof themePreferences)[number]
@@ -70,14 +94,6 @@ export const ipcContract = {
       reply: z.string(),
       receivedAt: z.iso.datetime()
     })
-  },
-  /**
-   * Abre una URL en el navegador del sistema. Main solo acepta http(s) con host
-   * y sin credenciales (isSafeExternalUrl); si no, INVALID_INPUT.
-   */
-  'app:openExternal': {
-    input: z.object({ url: z.string().max(2048) }),
-    output: z.object({ ok: z.literal(true) })
   },
   /**
    * Aplica la preferencia de tema a `nativeTheme`, para que los controles nativos
@@ -287,6 +303,41 @@ export const ipcContract = {
       /** Etiquetas del XLSX en el idioma de la interfaz (solo con format xlsx). */
       xlsxLabels: xlsxLabelsSchema.optional()
     }),
+    output: z.object({
+      status: z.enum(['saved', 'cancelled']),
+      fileName: z.string().optional()
+    })
+  },
+  /**
+   * Varias tablas en un libro (detalle de un problema): XLSX con una hoja por
+   * tabla y la hoja Info; CSV y TXT con las hojas `primary`, una tras otra.
+   */
+  'export:workbook': {
+    input: z
+      .object({
+        environmentId: z.uuid(),
+        module: z.enum(exportModules),
+        format: z.enum(['csv', 'xlsx', 'txt', 'txt-tabs']),
+        sheets: z.array(exportSheetSchema).min(1).max(10),
+        query: z.string().max(2000).optional(),
+        timeRange: timeRangeSchema.optional(),
+        loadedAt: z.number().int().positive().optional(),
+        note: z.string().max(500).optional(),
+        warnings: z.array(z.string().max(500)).max(20).optional(),
+        invalidCount: z.number().int().min(0).optional(),
+        xlsxLabels: xlsxLabelsSchema.optional()
+      })
+      .refine(
+        (input) =>
+          input.sheets.reduce((total, sheet) => total + sheet.rows.length, 0) <= MAX_EXPORT_ROWS,
+        'Demasiadas filas en total'
+      )
+      .refine((input) => input.sheets.some((sheet) => sheet.primary), 'Ninguna hoja principal')
+      .refine((input) => {
+        const names = input.sheets.map((sheet) => sheet.name.toLowerCase())
+        const info = (input.xlsxLabels?.infoSheet ?? 'Info').toLowerCase()
+        return new Set(names).size === names.length && !names.includes(info)
+      }, 'Nombres de hoja repetidos'),
     output: z.object({
       status: z.enum(['saved', 'cancelled']),
       fileName: z.string().optional()

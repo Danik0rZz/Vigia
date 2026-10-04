@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IpcChannel } from '@shared/ipc'
 import type { AppDatabase } from '../../db/database'
+import { partSheetName } from '../../export/xlsx'
 import { createSettingsStore } from '../../settings/store'
 import { createTenantRepository } from '../../tenants/repository'
 import { createIpcHandler, type IpcHandlerDeps, type IpcImplementation } from '../handler'
@@ -821,15 +822,235 @@ describe('AUD-14: loadedAt fija Desde y Hasta a cuando se cargaron los datos', (
   })
 })
 
+describe('v0.9.0: export:workbook (varias hojas)', () => {
+  const dir = join('C:', 'exportaciones')
+  const BACKSLASH = String.fromCharCode(92)
+  const twoCols = [
+    { key: 'field', header: 'Campo', type: 'string' },
+    { key: 'value', header: 'Valor', type: 'string' }
+  ]
+  const sheet = (
+    name: string,
+    primary: boolean,
+    rows: Record<string, string | number | null>[] = [{ field: 'a', value: '1' }]
+  ): Record<string, unknown> => ({ name, primary, columns: twoCols, rows })
+  const workbookInput = (
+    format: string,
+    sheets: Record<string, unknown>[],
+    extra: Record<string, unknown> = {}
+  ): Record<string, unknown> => ({
+    environmentId: envId,
+    module: 'problems',
+    format,
+    sheets,
+    ...extra
+  })
+  const three = (): Record<string, unknown>[] => [
+    sheet('Resumen', true, [
+      { field: 'Problema', value: 'P-101' },
+      { field: 'Título', value: '=SUM(1,2)' }
+    ]),
+    sheet('Entidades', true, [{ field: 'SERVICE-1', value: 'pagos' }]),
+    sheet('Evidencias', false, [{ field: 'Evento', value: '+peligro' }])
+  ]
+  const written1 = (): Buffer => [...written.values()][0] ?? Buffer.alloc(0)
+
+  it('xlsx con 3 hojas: en orden, Info al final una sola vez y fórmulas como texto', async () => {
+    expect(await call(build(dir), 'export:workbook', workbookInput('xlsx', three()))).toMatchObject(
+      {
+        ok: true,
+        data: { status: 'saved', fileName: `Cliente_A_Producción_problems_${STAMP}.xlsx` }
+      }
+    )
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(written1() as unknown as ArrayBuffer)
+    expect(workbook.worksheets.map((s) => s.name)).toEqual([
+      'Resumen',
+      'Entidades',
+      'Evidencias',
+      'Info'
+    ])
+    const cell = workbook.getWorksheet('Resumen')?.getRow(3).getCell(2)
+    expect(cell?.value).toBe('=SUM(1,2)')
+    expect(cell?.formula).toBeUndefined()
+    expect(workbook.getWorksheet('Evidencias')?.getRow(2).getCell(2).value).toBe('+peligro')
+    // Info con el contexto de siempre.
+    const info: Record<string, unknown> = {}
+    workbook.getWorksheet('Info')?.eachRow((row) => {
+      info[String(row.getCell(1).value)] = row.getCell(2).value
+    })
+    expect(info).toMatchObject({ Cliente: 'Cliente A', Entorno: 'Producción' })
+  })
+
+  it('csv: solo las hojas primary, en orden, con su título; un solo BOM y CRLF', async () => {
+    await call(build(dir), 'export:workbook', workbookInput('csv', three()))
+    const buffer = written1()
+    expect([...buffer.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+    const text = buffer.subarray(3).toString('utf8')
+    expect(text).not.toContain(String.fromCharCode(0xfeff))
+    expect(text).not.toMatch(/[^\r]\n/)
+    expect(text.indexOf('Resumen')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('Resumen')).toBeLessThan(text.indexOf('Entidades'))
+    // La hoja que no es primary no va en CSV.
+    expect(text).not.toContain('Evidencias')
+    expect(text).not.toContain('peligro')
+    // Fórmulas neutralizadas también aquí.
+    expect(text).toContain("'=SUM(1,2)")
+    // Bloques separados por una línea vacía.
+    expect(text).toContain('\r\n\r\n')
+  })
+
+  it('el título de un bloque que empieza por = también se neutraliza en CSV', async () => {
+    await call(
+      build(dir),
+      'export:workbook',
+      workbookInput('csv', [sheet('=Resumen', true), sheet('Otra', true)])
+    )
+    const text = written1().subarray(3).toString('utf8')
+    expect(text).toContain("'=Resumen")
+    expect(text).not.toMatch(/(^|\r\n)=Resumen/)
+  })
+
+  it.each(['txt', 'txt-tabs'])(
+    '%s: solo las primary, en orden, con título y sin BOM',
+    async (format) => {
+      await call(build(dir), 'export:workbook', workbookInput(format, three()))
+      const buffer = written1()
+      expect([...buffer.subarray(0, 3)]).not.toEqual([0xef, 0xbb, 0xbf])
+      const text = buffer.toString('utf8')
+      expect(text.indexOf('Resumen')).toBeLessThan(text.indexOf('Entidades'))
+      expect(text).toContain('P-101')
+      expect(text).not.toContain('Evidencias')
+      if (format === 'txt-tabs') expect(text).toContain('\t')
+    }
+  )
+
+  it.each([
+    ['vacío', ''],
+    ['de 32 caracteres', 'x'.repeat(32)],
+    ['con [', 'a[b'],
+    ['con ]', 'a]b'],
+    ['con :', 'a:b'],
+    ['con *', 'a*b'],
+    ['con ?', 'a?b'],
+    ['con /', 'a/b'],
+    ['con barra invertida', `a${BACKSLASH}b`],
+    ['con apóstrofo al principio', "'hoja"],
+    ['con apóstrofo al final', "hoja'"],
+    ['History', 'History'],
+    ['HISTORY', 'HISTORY']
+  ])('nombre de hoja %s → INVALID_INPUT sin escribir', async (_case, name) => {
+    expect(
+      await call(build(dir), 'export:workbook', workbookInput('xlsx', [sheet(name, true)]))
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+    expect(written.size).toBe(0)
+  })
+
+  it('un nombre de 31 caracteres y con apóstrofo en medio sí vale', async () => {
+    expect(
+      await call(
+        build(dir),
+        'export:workbook',
+        workbookInput('xlsx', [sheet('x'.repeat(31), true), sheet("Hoja d'Ana", false)])
+      )
+    ).toMatchObject({ ok: true })
+  })
+
+  it.each([
+    ['11 hojas', Array.from({ length: 11 }, (_, i) => sheet(`Hoja ${i}`, true))],
+    ['ninguna hoja', []],
+    ['sin ninguna primary', [sheet('A', false), sheet('B', false)]],
+    ['nombres repetidos sin distinguir mayúsculas', [sheet('Datos', true), sheet('datos', false)]],
+    ['una hoja llamada Info', [sheet('Datos', true), sheet('Info', false)]],
+    ['una hoja llamada info', [sheet('info', true)]]
+  ])('%s → INVALID_INPUT sin escribir', async (_case, sheets) => {
+    expect(await call(build(dir), 'export:workbook', workbookInput('xlsx', sheets))).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' }
+    })
+    expect(written.size).toBe(0)
+  })
+
+  it('con xlsxLabels.infoSheet propio, ese nombre es el reservado (e Info ya vale)', async () => {
+    const xlsxLabels = {
+      dataSheet: 'Data',
+      infoSheet: 'Details',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To'
+    }
+    expect(
+      await call(
+        build(dir),
+        'export:workbook',
+        workbookInput('xlsx', [sheet('Datos', true), sheet('details', false)], { xlsxLabels })
+      )
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+    expect(
+      await call(
+        build(dir),
+        'export:workbook',
+        workbookInput('xlsx', [sheet('Datos', true), sheet('Info', false)], { xlsxLabels })
+      )
+    ).toMatchObject({ ok: true })
+  })
+
+  it('más filas EN TOTAL que el máximo (aunque cada hoja quepa) → INVALID_INPUT', async () => {
+    const rows = Array.from({ length: 50_001 }, () => ({ field: 'x', value: 'y' }))
+    expect(
+      await call(
+        build(dir),
+        'export:workbook',
+        workbookInput('xlsx', [sheet('A', true, rows), sheet('B', false, rows)])
+      )
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+    expect(written.size).toBe(0)
+  })
+
+  it('más de 20 MB de datos → exportTooLarge sin escribir', async () => {
+    const big = 'x'.repeat(100_000)
+    const rows = Array.from({ length: 220 }, () => ({ field: 'P', value: big }))
+    expect(
+      await call(build(dir), 'export:workbook', workbookInput('xlsx', [sheet('A', true, rows)]))
+    ).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT', reason: { key: 'exportTooLarge' } }
+    })
+    expect(written.size).toBe(0)
+  })
+})
+
+describe('v0.9.0: partSheetName', () => {
+  it('la parte 1 recorta a 31; desde la 2 deja sitio para « N»', () => {
+    const name = 'x'.repeat(31)
+    expect(partSheetName(name, 1)).toBe(name)
+    const second = partSheetName(name, 2)
+    expect(second).toHaveLength(31)
+    expect(second.endsWith(' 2')).toBe(true)
+    expect(partSheetName('y'.repeat(40), 1)).toHaveLength(31)
+    expect(partSheetName('Datos', 3)).toBe('Datos 3')
+    const tenth = partSheetName(name, 10)
+    expect(tenth).toHaveLength(31)
+    expect(tenth.endsWith(' 10')).toBe(true)
+  })
+})
+
 describe('todos los canales de exportación', () => {
   const CHANNELS = [
     'capture:image',
     'capture:region',
     'export:getSettings',
     'export:setSettings',
-    'export:table'
+    'export:table',
+    'export:workbook'
   ]
-  it('existen exactamente los 5 canales', () => {
+  it('existen exactamente los 6 canales', () => {
     expect(Object.keys(build(null)).sort()).toEqual(CHANNELS)
   })
 

@@ -270,8 +270,7 @@
     "captureNotPng": "La captura tiene que ser un PNG.",
     "captureInvalidPng": "La captura no es un PNG válido.",
     "captureOutOfWindow": "La zona a capturar se sale de la ventana.",
-    "certificateNotObserved": "Esa huella no es la que se vio para ese host en la última prueba de conexión.",
-    "externalUrlRejected": "Solo se abren enlaces http o https."
+    "certificateNotObserved": "Esa huella no es la que se vio para ese host en la última prueba de conexión."
   },
   "customRange": {
     "title": "Rango personalizado",
@@ -364,6 +363,44 @@
     "detailUnavailable": "No disponible: no se pudo cargar el detalle.",
     "back": "Volver a Problemas",
     "notFoundBack": "Ir a la lista de problemas",
+    "clusterSection": "Clúster y namespace",
+    "clusterLabel": "Clúster",
+    "namespaceLabel": "Namespace",
+    "showAllEvidence": "Ver todas ({{count}})",
+    "evidenceTruncated": "Evidencias recortadas a {{shown}} de {{total}} por el límite de exportación.",
+    "sheets": {
+      "summary": "Resumen",
+      "entities": "Entidades",
+      "evidence": "Evidencias",
+      "impact": "Impacto",
+      "comments": "Comentarios"
+    },
+    "entityColumns": {
+      "role": "Rol",
+      "name": "Nombre",
+      "type": "Tipo",
+      "id": "ID"
+    },
+    "entityRole": {
+      "affected": "Afectada",
+      "impacted": "Impactada"
+    },
+    "evidenceColumns": {
+      "type": "Tipo",
+      "name": "Nombre",
+      "entity": "Entidad",
+      "start": "Inicio"
+    },
+    "impactColumns": {
+      "entity": "Entidad",
+      "type": "Tipo de impacto",
+      "users": "Usuarios afectados (estimado)"
+    },
+    "commentColumns": {
+      "author": "Autor",
+      "date": "Fecha",
+      "content": "Comentario"
+    },
     "status": {
       "OPEN": "Abierto",
       "CLOSED": "Cerrado"

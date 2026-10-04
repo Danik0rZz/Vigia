@@ -31,6 +31,18 @@ export interface ExportTable {
   resolution?: string | undefined
 }
 
+/**
+ * Varias tablas en un libro (export:workbook): XLSX con una hoja por tabla y
+ * CSV/TXT con las `primary`, una tras otra.
+ */
+export interface ExportWorkbook {
+  sheets: { name: string; primary: boolean; columns: ExportColumn[]; rows: ExportRow[] }[]
+  timeRange?: TimeRangeValue | undefined
+  loadedAt?: number | undefined
+  note?: string | undefined
+  warnings?: readonly string[] | undefined
+}
+
 /** Etiquetas del XLSX (hojas e Info) en el idioma de la interfaz. */
 function xlsxLabels(t: TFunction): XlsxLabels {
   const keys = [
@@ -94,6 +106,7 @@ export function ExportMenu({
   target,
   module,
   table,
+  workbook,
   image,
   element
 }: {
@@ -101,6 +114,8 @@ export function ExportMenu({
   target: string
   module: ExportModule
   table?: ExportTable | undefined
+  /** Alternativa a `table`: varias tablas en un libro. */
+  workbook?: ExportWorkbook | undefined
   /** PNG del gráfico (doble resolución, fondo sólido). */
   image?: (() => string | null) | undefined
   /** Elemento a capturar si no hay `image`. */
@@ -156,7 +171,29 @@ export function ExportMenu({
         }
         return
       }
-      if (table === undefined || environmentId === undefined) return
+      if (environmentId === undefined) return
+      if (workbook !== undefined) {
+        const result = await invoke('export:workbook', {
+          environmentId,
+          module,
+          format: action,
+          sheets: workbook.sheets,
+          ...(workbook.timeRange === undefined ? {} : { timeRange: workbook.timeRange }),
+          ...(workbook.loadedAt === undefined || workbook.loadedAt <= 0
+            ? {}
+            : { loadedAt: workbook.loadedAt }),
+          ...(workbook.note === undefined ? {} : { note: workbook.note }),
+          ...(workbook.warnings === undefined || workbook.warnings.length === 0
+            ? {}
+            : { warnings: [...workbook.warnings] }),
+          ...(action === 'xlsx' ? { xlsxLabels: xlsxLabels(t) } : {})
+        })
+        if (result.status === 'saved') {
+          setNotice(t('export.saved', { file: result.fileName ?? '' }))
+        }
+        return
+      }
+      if (table === undefined) return
       const result = await invoke('export:table', {
         environmentId,
         module,
@@ -228,7 +265,7 @@ export function ExportMenu({
             sideOffset={4}
             className="glass z-50 grid w-60 gap-0.5 rounded-lg p-1"
           >
-            {table !== undefined && (
+            {(table !== undefined || workbook !== undefined) && (
               <>
                 {option('export-csv', 'csv', t('export.csv'), Download)}
                 {option('export-xlsx', 'xlsx', t('export.xlsx'), Download)}

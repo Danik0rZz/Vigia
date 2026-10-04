@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { parseItems } from '../dynatrace/parse-items'
 import {
   problemStatuses,
   type EntityRef,
@@ -115,10 +116,29 @@ const looseEntitySchema = z
 const entityLabel = (entity: z.output<typeof looseEntitySchema>): string | null =>
   entity?.name ?? entity?.entityId?.id ?? null
 
+const evidenceItemSchema = z.looseObject({
+  evidenceType: z.string().optional(),
+  displayName: z.string().optional(),
+  entity: looseEntitySchema,
+  startTime: z.number().optional()
+})
+const impactItemSchema = z.looseObject({
+  impactType: z.string().optional(),
+  impactedEntity: looseEntitySchema,
+  estimatedAffectedUsers: z.number().optional()
+})
+const commentItemSchema = z.looseObject({
+  authorName: z.string().optional(),
+  content: z.string().optional(),
+  createdAtTimestamp: z.number().optional()
+})
+
 /**
  * Detalle (GET /problems/{id} con fields=evidenceDetails,impactAnalysis,
  * recentComments). Las partes anidadas son tolerantes: evidence es polimórfico,
- * así que se valida lo que se muestra y se deja pasar el resto.
+ * así que se valida lo que se muestra y se deja pasar el resto. Evidencias,
+ * impactos y comentarios se validan uno a uno (parseItems): uno raro se
+ * descarta y se cuenta, sin tumbar el detalle.
  */
 export const problemDetailSchema = problemSchema.extend({
   entityTags: z
@@ -134,50 +154,16 @@ export const problemDetailSchema = problemSchema.extend({
     .looseObject({ displayId: z.string().optional(), problemId: z.string().optional() })
     .nullable()
     .optional(),
-  evidenceDetails: z
-    .looseObject({
-      details: z
-        .array(
-          z.looseObject({
-            evidenceType: z.string().optional(),
-            displayName: z.string().optional(),
-            entity: looseEntitySchema,
-            startTime: z.number().optional()
-          })
-        )
-        .optional()
-    })
-    .optional(),
-  impactAnalysis: z
-    .looseObject({
-      impacts: z
-        .array(
-          z.looseObject({
-            impactType: z.string().optional(),
-            impactedEntity: looseEntitySchema,
-            estimatedAffectedUsers: z.number().optional()
-          })
-        )
-        .optional()
-    })
-    .optional(),
-  recentComments: z
-    .looseObject({
-      comments: z
-        .array(
-          z.looseObject({
-            authorName: z.string().optional(),
-            content: z.string().optional(),
-            createdAtTimestamp: z.number().optional()
-          })
-        )
-        .optional()
-    })
-    .optional()
+  evidenceDetails: z.looseObject({ details: z.array(z.unknown()).optional() }).optional(),
+  impactAnalysis: z.looseObject({ impacts: z.array(z.unknown()).optional() }).optional(),
+  recentComments: z.looseObject({ comments: z.array(z.unknown()).optional() }).optional()
 })
 
 export function toProblemDetail(problem: z.output<typeof problemDetailSchema>): ProblemDetail {
   const linked = problem.linkedProblemInfo
+  const evidence = parseItems(evidenceItemSchema, problem.evidenceDetails?.details ?? [])
+  const impacts = parseItems(impactItemSchema, problem.impactAnalysis?.impacts ?? [])
+  const comments = parseItems(commentItemSchema, problem.recentComments?.comments ?? [])
   return {
     ...toProblemSummary(problem),
     entityTags: (problem.entityTags ?? []).flatMap((tag) => {
@@ -189,21 +175,22 @@ export function toProblemDetail(problem: z.output<typeof problemDetailSchema>): 
       linked === null || linked === undefined
         ? null
         : { displayId: linked.displayId ?? null, problemId: linked.problemId ?? null },
-    evidence: (problem.evidenceDetails?.details ?? []).map((item) => ({
+    evidence: evidence.items.map((item) => ({
       type: item.evidenceType ?? 'UNKNOWN',
       name: item.displayName ?? '',
       entity: entityLabel(item.entity),
       startTime: item.startTime ?? null
     })),
-    impacts: (problem.impactAnalysis?.impacts ?? []).map((item) => ({
+    impacts: impacts.items.map((item) => ({
       type: item.impactType ?? 'UNKNOWN',
       entity: entityLabel(item.impactedEntity),
       estimatedAffectedUsers: item.estimatedAffectedUsers ?? null
     })),
-    comments: (problem.recentComments?.comments ?? []).map((item) => ({
+    comments: comments.items.map((item) => ({
       author: item.authorName ?? null,
       content: item.content ?? '',
       createdAt: item.createdAtTimestamp ?? null
-    }))
+    })),
+    invalid: evidence.invalid + impacts.invalid + comments.invalid
   }
 }

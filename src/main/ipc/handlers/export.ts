@@ -5,15 +5,29 @@ import {
   type ExportModule,
   type ExportSettings
 } from '@shared/modules'
-import { timeRangeToDates, timeRangeToDt } from '@shared/time-range'
+import { timeRangeToDates, timeRangeToDt, type TimeRangeValue } from '@shared/time-range'
 import { DomainError } from '../../errors'
-import { buildCsv, buildTxt, buildXlsx, exportFileName } from '../../export'
+import {
+  buildCsv,
+  buildCsvSections,
+  buildTxt,
+  buildTxtSections,
+  buildWorkbook,
+  buildXlsx,
+  exportFileName,
+  type XlsxInfo
+} from '../../export'
 import type { SettingsStore } from '../../settings/store'
 import type { TenantRepository } from '../../tenants/repository'
 import type { IpcImplementations } from '../handler'
 
 type ExportChannels =
-  'export:table' | 'export:getSettings' | 'export:setSettings' | 'capture:image' | 'capture:region'
+  | 'export:table'
+  | 'export:workbook'
+  | 'export:getSettings'
+  | 'export:setSettings'
+  | 'capture:image'
+  | 'capture:region'
 
 export type SaveKind = 'csv' | 'xlsx' | 'txt' | 'png'
 
@@ -113,7 +127,91 @@ export function createExportHandlers(
     return saved === null ? { status: 'cancelled' } : { status: 'saved', fileName: saved }
   }
 
+  /** Lo de la hoja Info, igual para una tabla que para un libro. */
+  function infoOf(
+    input: {
+      environmentId: string
+      module: ExportModule
+      query?: string | undefined
+      timeRange?: TimeRangeValue | undefined
+      loadedAt?: number | undefined
+      note?: string | undefined
+      warnings?: string[] | undefined
+      invalidCount?: number | undefined
+      clusterFilter?: string[] | undefined
+      resolution?: string | undefined
+    },
+    now: Date
+  ): XlsxInfo {
+    const { client, environment } = names(input.environmentId)
+    // El rango "2 h" es el de cuando se cargaron los datos, no el de ahora.
+    const loadedAt = input.loadedAt === undefined ? now : new Date(input.loadedAt)
+    const dates =
+      input.timeRange === undefined ? undefined : timeRangeToDates(input.timeRange, loadedAt)
+    return {
+      client,
+      environment,
+      module: input.module,
+      query: input.query,
+      exportedAt: now,
+      timeZone: deps.timeZone(),
+      range: input.timeRange === undefined ? undefined : timeRangeToDt(input.timeRange).from,
+      from: dates?.from,
+      to: dates?.to,
+      note: input.note,
+      warnings: input.warnings,
+      invalidCount: input.invalidCount,
+      clusterFilter: input.clusterFilter,
+      resolution: input.resolution
+    }
+  }
+
   return {
+    'export:workbook': async (input) => {
+      if (JSON.stringify(input.sheets).length > MAX_EXPORT_JSON_BYTES) {
+        throw new DomainError('INVALID_INPUT', 'Demasiados datos para exportar.', {
+          key: 'exportTooLarge'
+        })
+      }
+      const now = deps.now()
+      const { client, environment } = names(input.environmentId)
+      const { csvSeparator } = readSettings()
+      // CSV y TXT llevan solo las hojas principales, una tras otra.
+      const primary = input.sheets
+        .filter((sheet) => sheet.primary)
+        .map((sheet) => ({ title: sheet.name, columns: sheet.columns, rows: sheet.rows }))
+
+      let data: Buffer
+      let kind: SaveKind
+      switch (input.format) {
+        case 'csv':
+          data = buildCsvSections(primary, { separator: csvSeparator })
+          kind = 'csv'
+          break
+        case 'txt':
+        case 'txt-tabs':
+          data = buildTxtSections(primary, { tabs: input.format === 'txt-tabs' })
+          kind = 'txt'
+          break
+        case 'xlsx':
+          data = await buildWorkbook(input.sheets, infoOf(input, now), {
+            labels: input.xlsxLabels
+          })
+          kind = 'xlsx'
+          break
+      }
+
+      const fileName = exportFileName({
+        client,
+        environment,
+        module: input.module,
+        date: now,
+        ext: kind
+      })
+      const saved = await save(fileName, kind, data)
+      return saved === null ? { status: 'cancelled' } : { status: 'saved', fileName: saved }
+    },
+
     'export:table': async (input) => {
       if (JSON.stringify(input.rows).length > MAX_EXPORT_JSON_BYTES) {
         throw new DomainError('INVALID_INPUT', 'Demasiados datos para exportar.', {
@@ -136,36 +234,12 @@ export function createExportHandlers(
           data = buildTxt(input.columns, input.rows, { tabs: input.format === 'txt-tabs' })
           kind = 'txt'
           break
-        case 'xlsx': {
-          // El rango "2 h" es el de cuando se cargaron los datos, no el de ahora.
-          const loadedAt = input.loadedAt === undefined ? now : new Date(input.loadedAt)
-          const dates =
-            input.timeRange === undefined ? undefined : timeRangeToDates(input.timeRange, loadedAt)
-          data = await buildXlsx(
-            input.columns,
-            input.rows,
-            {
-              client,
-              environment,
-              module: input.module,
-              query: input.query,
-              exportedAt: now,
-              timeZone: deps.timeZone(),
-              range:
-                input.timeRange === undefined ? undefined : timeRangeToDt(input.timeRange).from,
-              from: dates?.from,
-              to: dates?.to,
-              note: input.note,
-              warnings: input.warnings,
-              invalidCount: input.invalidCount,
-              clusterFilter: input.clusterFilter,
-              resolution: input.resolution
-            },
-            { labels: input.xlsxLabels }
-          )
+        case 'xlsx':
+          data = await buildXlsx(input.columns, input.rows, infoOf(input, now), {
+            labels: input.xlsxLabels
+          })
           kind = 'xlsx'
           break
-        }
       }
 
       const fileName = exportFileName({

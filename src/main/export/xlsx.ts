@@ -24,6 +24,8 @@ export const DEFAULT_XLSX_LABELS: XlsxLabels = {
 
 /** Filas de datos por hoja que admite Excel (1.048.576 menos la cabecera). */
 export const EXCEL_MAX_ROWS = 1_048_575
+/** Longitud máxima del nombre de una hoja en Excel. */
+const EXCEL_MAX_SHEET_NAME = 31
 
 export interface XlsxInfo {
   client: string
@@ -96,6 +98,13 @@ function addDataSheet(
   sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } }
 }
 
+/** Nombre de la hoja n.º `part` (desde 1) de un reparto, sin pasar de 31 caracteres. */
+export function partSheetName(name: string, part: number): string {
+  if (part === 1) return name.slice(0, EXCEL_MAX_SHEET_NAME)
+  const suffix = ` ${part}`
+  return `${name.slice(0, EXCEL_MAX_SHEET_NAME - suffix.length)}${suffix}`
+}
+
 /**
  * XLSX con ExcelJS: cabecera en negrita y fija, autofiltro, anchos, fechas y
  * números con su tipo real, varias hojas si se pasa del límite de Excel y una
@@ -108,18 +117,33 @@ export async function buildXlsx(
   options: { maxRowsPerSheet?: number; labels?: XlsxLabels | undefined } = {}
 ): Promise<Buffer> {
   const labels = options.labels ?? DEFAULT_XLSX_LABELS
+  return buildWorkbook([{ name: labels.dataSheet, columns, rows }], info, options)
+}
+
+/**
+ * Libro con varias hojas de datos (cada una con el formato de `buildXlsx`, y
+ * repartida si pasa del límite de Excel) y una sola hoja "Info" al final.
+ */
+export async function buildWorkbook(
+  sheets: { name: string; columns: ExportColumn[]; rows: ExportRow[] }[],
+  info: XlsxInfo,
+  options: { maxRowsPerSheet?: number; labels?: XlsxLabels | undefined } = {}
+): Promise<Buffer> {
+  const labels = options.labels ?? DEFAULT_XLSX_LABELS
   const maxRows = options.maxRowsPerSheet ?? EXCEL_MAX_ROWS
   const workbook = new ExcelJS.Workbook()
   workbook.created = info.exportedAt
 
-  const chunks = rows.length === 0 ? 1 : Math.ceil(rows.length / maxRows)
-  for (let index = 0; index < chunks; index += 1) {
-    addDataSheet(
-      workbook,
-      index === 0 ? labels.dataSheet : `${labels.dataSheet} ${index + 1}`,
-      columns,
-      rows.slice(index * maxRows, (index + 1) * maxRows)
-    )
+  for (const sheet of sheets) {
+    const chunks = sheet.rows.length === 0 ? 1 : Math.ceil(sheet.rows.length / maxRows)
+    for (let index = 0; index < chunks; index += 1) {
+      addDataSheet(
+        workbook,
+        partSheetName(sheet.name, index + 1),
+        sheet.columns,
+        sheet.rows.slice(index * maxRows, (index + 1) * maxRows)
+      )
+    }
   }
 
   const infoSheet = workbook.addWorksheet(labels.infoSheet)

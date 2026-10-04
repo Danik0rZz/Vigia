@@ -319,6 +319,78 @@ describe('problemDetailSchema y toProblemDetail', () => {
     })
   })
 
+  it('v0.9.0: sin elementos raros, invalid = 0', () => {
+    expect(toProblemDetail(problemDetailSchema.parse(detail())).invalid).toBe(0)
+  })
+
+  it.each([
+    [
+      'una evidencia que no es objeto',
+      {
+        evidenceDetails: {
+          details: ['texto suelto', { evidenceType: 'EVENT', displayName: 'Buena' }]
+        }
+      },
+      'evidence'
+    ],
+    [
+      'una evidencia con startTime de texto',
+      {
+        evidenceDetails: {
+          details: [
+            { evidenceType: 'EVENT', displayName: 'Mala', startTime: 'ayer' },
+            { evidenceType: 'EVENT', displayName: 'Buena' }
+          ]
+        }
+      },
+      'evidence'
+    ],
+    [
+      'un impacto con estimatedAffectedUsers de texto',
+      {
+        impactAnalysis: {
+          impacts: [
+            { impactType: 'SERVICE', estimatedAffectedUsers: 'muchos' },
+            { impactType: 'APPLICATION' }
+          ]
+        }
+      },
+      'impacts'
+    ],
+    [
+      'un comentario null',
+      { recentComments: { comments: [null, { content: 'Bueno' }] } },
+      'comments'
+    ]
+  ] as const)(
+    'v0.9.0: %s → el detalle llega igual, sin ese elemento, e invalid = 1',
+    (_case, override, part) => {
+      const result = toProblemDetail(
+        problemDetailSchema.parse(detail(override as unknown as Record<string, unknown>))
+      )
+      expect(result.invalid).toBe(1)
+      expect(result[part]).toHaveLength(1)
+      // El resto del detalle no se toca.
+      expect(result).toMatchObject({ problemId: 'p-0001', displayId: 'P-1' })
+    }
+  )
+
+  it('v0.9.0: los descartes de evidencias, impactos y comentarios se suman', () => {
+    const result = toProblemDetail(
+      problemDetailSchema.parse(
+        detail({
+          evidenceDetails: { details: [42, 'x'] },
+          impactAnalysis: { impacts: [null] },
+          recentComments: { comments: [{ createdAtTimestamp: 'hoy' }] }
+        })
+      )
+    )
+    expect(result.invalid).toBe(4)
+    expect(result.evidence).toEqual([])
+    expect(result.impacts).toEqual([])
+    expect(result.comments).toEqual([])
+  })
+
   it('el detalle también es un resumen válido (con namespaces)', () => {
     const result = toProblemDetail(
       problemDetailSchema.parse(detail({ 'k8s.namespace.name': ['ns-a'] }))

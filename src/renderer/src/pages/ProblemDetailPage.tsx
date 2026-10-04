@@ -1,4 +1,4 @@
-import { useEffect, useRef, type JSX, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
@@ -6,20 +6,23 @@ import { ArrowLeft } from 'lucide-react'
 import { formatDateTime } from '@shared/format-date'
 import type { IpcOutput } from '@shared/ipc'
 import type { ProblemDetail, ProblemSummary } from '@shared/modules'
-import { PROBLEM_EXPORT_COLUMNS, toProblemExport, toProblemRow } from '@shared/problem-row'
 import { usePageCrumb } from '../app/page-crumb'
 import { useTimeRangeValue } from '../app/time-range'
 import { ExportMenu } from '../components/ExportMenu'
-import { ModuleError, ModuleUnavailable } from '../components/ModuleState'
+import { ApiWarnings, ModuleError, ModuleUnavailable } from '../components/ModuleState'
 import { BUTTON_SECONDARY } from '../components/styles'
 import { useModuleAccess, useProblem } from '../data/modules'
 import { dateLang } from '../lib/date-lang'
 import { IpcError } from '../lib/ipc'
+import { problemWorkbook } from '../lib/problem-workbook'
 
 /** Cómo se llega desde la lista: así "Volver" puede ir atrás en el historial. */
 export interface ProblemDetailLocationState {
   fromList?: boolean
 }
+
+/** Evidencias que se ven antes de pulsar "Ver todas". */
+const EVIDENCE_PREVIEW = 50
 
 function Part({
   testId,
@@ -29,15 +32,15 @@ function Part({
 }: {
   testId: string
   title: string
-  /** Sin contenido: se dice "Ninguno" en vez de dejar la sección vacía. */
+  /** Sin contenido: la sección no se muestra. */
   empty: boolean
   children: ReactNode
-}): JSX.Element {
-  const { t } = useTranslation()
+}): JSX.Element | null {
+  if (empty) return null
   return (
     <section data-testid={testId} className="glass grid gap-1 rounded-xl p-4">
       <h2 className="text-sm font-semibold">{title}</h2>
-      {empty ? <p className="text-sm text-muted-foreground">{t('problems.none')}</p> : children}
+      {children}
     </section>
   )
 }
@@ -58,7 +61,7 @@ function DetailPart({
   failed: boolean
   empty: (detail: ProblemDetail) => boolean
   children: (detail: ProblemDetail) => ReactNode
-}): JSX.Element {
+}): JSX.Element | null {
   const { t } = useTranslation()
   if (detail === undefined) {
     return (
@@ -146,6 +149,12 @@ export function ProblemDetailPage(): JSX.Element {
     else void navigate('/problems', { replace: true })
   }
 
+  const [showAllEvidence, setShowAllEvidence] = useState(false)
+  // Exportación por secciones (todas las evidencias, no solo las que se ven).
+  const workbook = useMemo(
+    () => (detail === undefined ? null : problemWorkbook(detail, new Date(dataUpdatedAt), t)),
+    [detail, dataUpdatedAt, t]
+  )
   const linked = detail?.linkedProblem?.displayId ?? detail?.linkedProblem?.problemId ?? null
   // Un valor nuevo de Dynatrace se muestra tal cual.
   const translated = (group: 'severity' | 'impact', value: string): string =>
@@ -190,20 +199,17 @@ export function ProblemDetailPage(): JSX.Element {
     <div ref={contentRef} data-testid="problem-page" className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         {backButton}
-        {detail !== undefined && (
+        {workbook !== null && (
           <ExportMenu
             target="problem-page"
             module="problems"
             element={contentRef}
-            table={{
-              columns: PROBLEM_EXPORT_COLUMNS.map((column) => ({
-                ...column,
-                header: t(`problems.exportColumns.${column.key}`)
-              })),
-              rows: [toProblemExport(toProblemRow(detail, new Date(dataUpdatedAt)))],
+            workbook={{
+              sheets: workbook.sheets,
               timeRange,
               loadedAt: dataUpdatedAt,
-              note: t('problems.exportNote')
+              note: t('problems.exportNote'),
+              warnings: workbook.warnings
             }}
           />
         )}
@@ -246,6 +252,7 @@ export function ProblemDetailPage(): JSX.Element {
       )}
 
       {error !== null && <ModuleError error={error} />}
+      <ApiWarnings invalid={detail?.invalid} />
 
       {data !== undefined && (
         <>
@@ -276,6 +283,27 @@ export function ProblemDetailPage(): JSX.Element {
           </Part>
 
           <Part
+            testId="detail-cluster"
+            title={t('problems.clusterSection')}
+            empty={data.clusters.length === 0 && data.namespaces.length === 0}
+          >
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+              {data.clusters.length > 0 && (
+                <>
+                  <dt className="text-muted-foreground">{t('problems.clusterLabel')}</dt>
+                  <dd>{data.clusters.join(', ')}</dd>
+                </>
+              )}
+              {data.namespaces.length > 0 && (
+                <>
+                  <dt className="text-muted-foreground">{t('problems.namespaceLabel')}</dt>
+                  <dd>{data.namespaces.join(', ')}</dd>
+                </>
+              )}
+            </dl>
+          </Part>
+
+          <Part
             testId="detail-impacted"
             title={t('problems.impactedEntities')}
             empty={data.impactedEntities.length === 0}
@@ -293,22 +321,41 @@ export function ProblemDetailPage(): JSX.Element {
             empty={(d) => d.evidence.length === 0}
           >
             {(d) => (
-              <ul className="grid gap-1 text-sm">
-                {d.evidence.map((item, index) => (
-                  <li key={index} className="flex flex-wrap gap-x-3">
-                    <span>{item.name}</span>
-                    {item.entity !== null && (
-                      <span className="text-muted-foreground">{item.entity}</span>
-                    )}
-                    <span className="text-xs text-muted-foreground">{item.type}</span>
-                    {item.startTime !== null && (
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {formatDateTime(item.startTime, lang)}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <>
+                {/* Con cientos de evidencias, las primeras 50: la página no se congela. */}
+                <ul className="grid gap-1 text-sm">
+                  {(showAllEvidence ? d.evidence : d.evidence.slice(0, EVIDENCE_PREVIEW)).map(
+                    (item, index) => (
+                      <li
+                        key={index}
+                        data-testid="evidence-item"
+                        className="flex flex-wrap gap-x-3"
+                      >
+                        <span>{item.name}</span>
+                        {item.entity !== null && (
+                          <span className="text-muted-foreground">{item.entity}</span>
+                        )}
+                        <span className="text-xs text-muted-foreground">{item.type}</span>
+                        {item.startTime !== null && (
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatDateTime(item.startTime, lang)}
+                          </span>
+                        )}
+                      </li>
+                    )
+                  )}
+                </ul>
+                {!showAllEvidence && d.evidence.length > EVIDENCE_PREVIEW && (
+                  <button
+                    type="button"
+                    data-testid="evidence-show-all"
+                    onClick={() => setShowAllEvidence(true)}
+                    className={`${BUTTON_SECONDARY} justify-self-start`}
+                  >
+                    {t('problems.showAllEvidence', { count: d.evidence.length })}
+                  </button>
+                )}
+              </>
             )}
           </DetailPart>
 

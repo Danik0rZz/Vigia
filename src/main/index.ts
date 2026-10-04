@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, dialog, Menu, nativeTheme } from 'electron'
 import { APP_NAME, APP_ORIGIN, APP_USER_MODEL_ID } from '@shared/app'
 import { createAppHandlers } from './ipc/handlers/app'
 import { createConnectionHandlers } from './ipc/handlers/connection'
@@ -91,8 +91,7 @@ function bootstrap(): void {
               chrome: process.versions.chrome,
               node: process.versions.node
             }
-          }),
-          openExternal: (url) => shell.openExternal(url)
+          })
         }),
         ...createUiHandlers({
           setThemeSource: (theme) => {

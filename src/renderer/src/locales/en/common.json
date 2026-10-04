@@ -270,8 +270,7 @@
     "captureNotPng": "The capture must be a PNG.",
     "captureInvalidPng": "The capture is not a valid PNG.",
     "captureOutOfWindow": "The capture area goes beyond the window.",
-    "certificateNotObserved": "That fingerprint is not the one seen for that host in the last connection test.",
-    "externalUrlRejected": "Only http or https links are opened."
+    "certificateNotObserved": "That fingerprint is not the one seen for that host in the last connection test."
   },
   "customRange": {
     "title": "Custom range",
@@ -364,6 +363,44 @@
     "detailUnavailable": "Not available: the details could not be loaded.",
     "back": "Back to Problems",
     "notFoundBack": "Go to the problem list",
+    "clusterSection": "Cluster and namespace",
+    "clusterLabel": "Cluster",
+    "namespaceLabel": "Namespace",
+    "showAllEvidence": "Show all ({{count}})",
+    "evidenceTruncated": "Evidence cut to {{shown}} of {{total}} by the export limit.",
+    "sheets": {
+      "summary": "Summary",
+      "entities": "Entities",
+      "evidence": "Evidence",
+      "impact": "Impact",
+      "comments": "Comments"
+    },
+    "entityColumns": {
+      "role": "Role",
+      "name": "Name",
+      "type": "Type",
+      "id": "ID"
+    },
+    "entityRole": {
+      "affected": "Affected",
+      "impacted": "Impacted"
+    },
+    "evidenceColumns": {
+      "type": "Type",
+      "name": "Name",
+      "entity": "Entity",
+      "start": "Start"
+    },
+    "impactColumns": {
+      "entity": "Entity",
+      "type": "Impact type",
+      "users": "Affected users (estimated)"
+    },
+    "commentColumns": {
+      "author": "Author",
+      "date": "Date",
+      "content": "Comment"
+    },
     "status": {
       "OPEN": "Open",
       "CLOSED": "Closed"

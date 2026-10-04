@@ -21,9 +21,7 @@ const appHandlers = createAppHandlers({
     platform: 'win32',
     versions: { electron: '44.0.0', chrome: '140.0.0', node: '22.0.0' }
   }),
-  now: () => new Date('2026-10-03T10:00:00.000Z'),
-  // Aquí no se abre nada fuera (app:openExternal se prueba en handlers/app.test.ts).
-  openExternal: vi.fn(async () => undefined)
+  now: () => new Date('2026-10-03T10:00:00.000Z')
 })
 
 describe('canal de ejemplo app:ping', () => {

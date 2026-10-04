@@ -147,6 +147,61 @@ const detailOnly: FakeProblem[] = [
   }
 ]
 
+/** v0.9.0: comentario con HTML que la página tiene que enseñar como texto, sin ejecutarlo. */
+const HOSTILE_COMMENT =
+  '<script>window.__xss = "script"</script><img src="x" onerror="window.__xss = \'img\'; alert(1)"> fin'
+
+/**
+ * v0.9.0: problema grande, solo del detalle: 300 evidencias (más una ilegible),
+ * un comentario con HTML, un impacto con usuarios estimados, y clúster y namespace.
+ */
+const BIG_ID = 'pd-big'
+detailOnly.push({
+  problemId: BIG_ID,
+  displayId: 'P-778',
+  title: 'Problema con muchas evidencias',
+  status: 'OPEN',
+  severityLevel: 'ERROR',
+  impactLevel: 'APPLICATION',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  'k8s.cluster.name': ['cluster-norte', 'cluster-sur'],
+  'k8s.namespace.name': ['pagos-ns'],
+  affectedEntities: [{ entityId: { id: 'SERVICE-BIG1', type: 'SERVICE' }, name: 'grande' }],
+  impactedEntities: [{ entityId: { id: 'APPLICATION-BIG1', type: 'APPLICATION' }, name: 'tienda' }],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 301,
+    details: [
+      ...Array.from({ length: 300 }, (_, i) => ({
+        evidenceType: 'EVENT',
+        displayName: `Evidencia ${i + 1}`,
+        entity: { entityId: { id: 'SERVICE-BIG1', type: 'SERVICE' }, name: 'grande' },
+        startTime: NOW - 2 * HOUR + i * 1000
+      })),
+      // Ilegible: se descarta y se cuenta.
+      'esto no es una evidencia'
+    ]
+  },
+  impactAnalysis: {
+    impacts: [
+      {
+        impactType: 'APPLICATION',
+        impactedEntity: {
+          entityId: { id: 'APPLICATION-BIG1', type: 'APPLICATION' },
+          name: 'tienda'
+        },
+        estimatedAffectedUsers: 1500
+      }
+    ]
+  },
+  recentComments: {
+    totalCount: 1,
+    comments: [{ authorName: 'operador', content: HOSTILE_COMMENT, createdAtTimestamp: NOW - HOUR }]
+  }
+})
+
 const manyProblems: FakeProblem[] = Array.from({ length: 300 }, (_, i) => ({
   problemId: `pm-${i + 1}`,
   displayId: `P-M${i + 1}`,
@@ -1048,6 +1103,171 @@ test('v0.9.0: un problema que no existe da un 404 con enlace a la lista', async 
   await page.getByTestId('problem-not-found-back').click()
   await expect(page.getByTestId('problem-row')).toHaveCount(3)
   expect(await currentRoute()).toBe('/problems')
+})
+
+test('v0.9.0: detalle: clúster y namespace, y las secciones sin datos no se pintan', async () => {
+  await openProblems()
+
+  // P-101: un clúster y ningún namespace → solo la fila «Clúster».
+  let detail = await openProblem('P-101')
+  const cluster = detail.getByTestId('detail-cluster')
+  await expect(cluster).toContainText('Clúster y namespace')
+  await expect(cluster).toContainText('cluster-norte')
+  await expect(cluster.locator('dt')).toHaveText(['Clúster'])
+  await page.getByTestId('problem-back').click()
+
+  // P-103: dos clústeres (unidos con «, ») y dos namespaces.
+  detail = await openProblem('P-103')
+  await expect(detail.getByTestId('detail-cluster')).toContainText('cluster-sur, cluster-norte')
+  await expect(detail.getByTestId('detail-cluster')).toContainText('carrito-ns, comun-ns')
+  await expect(detail.getByTestId('detail-cluster').locator('dt')).toHaveText([
+    'Clúster',
+    'Namespace'
+  ])
+  await page.getByTestId('problem-back').click()
+
+  // P-102: sin clúster, sin impactadas, sin zonas y, cargado el detalle, sin evidencias,
+  // impactos, comentarios, etiquetas ni vinculado → ninguna de esas secciones (ni «Ninguno»).
+  detail = await openProblem('P-102')
+  await expect(detail.getByTestId('detail-affected')).toContainText('host-bd-01')
+  await expect(detail.getByTestId('detail-loading')).toHaveCount(0)
+  for (const id of [
+    'detail-cluster',
+    'detail-impacted',
+    'detail-zones',
+    'detail-evidence',
+    'detail-impacts',
+    'detail-comments',
+    'detail-tags',
+    'detail-linked'
+  ]) {
+    await expect(detail.getByTestId(id), id).toHaveCount(0)
+  }
+  await expect(detail).not.toContainText('Ninguno')
+})
+
+test('v0.9.0: 300 evidencias: se ven 50 y «Ver todas (300)»; la vista responde', async () => {
+  await goToRoute(`/problems/${BIG_ID}`)
+  const detail = page.getByTestId('problem-page')
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-778')
+  const items = detail.getByTestId('evidence-item')
+  await expect(items).toHaveCount(50)
+  const showAll = detail.getByTestId('evidence-show-all')
+  await expect(showAll).toHaveText('Ver todas (300)')
+  // La evidencia ilegible no sale y se avisa.
+  await expect(detail.getByTestId('api-warnings')).toContainText('1 elemento')
+
+  // La vista sigue respondiendo con todo pintado: se mide un clic y un scroll.
+  const started = Date.now()
+  await showAll.click()
+  await expect(items).toHaveCount(300)
+  await expect(showAll).toHaveCount(0)
+  await items.last().scrollIntoViewIfNeeded()
+  await expect(items.last()).toContainText('Evidencia 300')
+  expect(Date.now() - started, 'mostrar 300 evidencias').toBeLessThan(5000)
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+})
+
+test('v0.9.0: seguridad: un comentario con <script> e <img onerror> se ve literal y no ejecuta nada', async () => {
+  const dialogs: string[] = []
+  const onDialog = (dialog: { message: () => string; dismiss: () => Promise<void> }): void => {
+    dialogs.push(dialog.message())
+    void dialog.dismiss()
+  }
+  page.on('dialog', onDialog)
+  try {
+    await goToRoute(`/problems/${BIG_ID}`)
+    const comments = page.getByTestId('detail-comments')
+    // El texto, tal cual, con sus etiquetas.
+    await expect(comments).toContainText('<script>window.__xss = "script"</script>')
+    await expect(comments).toContainText('<img src="x" onerror=')
+    await expect(comments).toContainText('fin')
+    // Nada de eso se ha convertido en elementos ni se ha ejecutado.
+    const page_ = page.getByTestId('problem-page')
+    await expect(page_.locator('script')).toHaveCount(0)
+    await expect(page_.locator('img')).toHaveCount(0)
+    // Un margen para que un onerror o un script, si los hubiera, se ejecutaran.
+    await page.waitForTimeout(300)
+    expect(await page.evaluate(() => (window as { __xss?: unknown }).__xss ?? null)).toBeNull()
+    expect(dialogs).toEqual([])
+  } finally {
+    page.off('dialog', onDialog)
+  }
+  // Los errores de consola (una imagen rota daría uno) los comprueba el afterEach.
+})
+
+test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; CSV solo con las principales', async () => {
+  await goToRoute(`/problems/${BIG_ID}`)
+  await expect(page.getByTestId('problem-page').getByTestId('detail-evidence')).toBeVisible()
+
+  const workbook = async (): Promise<ExcelJS.Workbook> => {
+    const book = new ExcelJS.Workbook()
+    await book.xlsx.load(
+      readFileSync(await exportTo('problem-page', 'export-xlsx')) as unknown as ArrayBuffer
+    )
+    return book
+  }
+  const header = (sheet: ExcelJS.Worksheet | undefined): string[] =>
+    ((sheet?.getRow(1).values as unknown[] | undefined) ?? []).slice(1).map(String)
+
+  const es1 = await workbook()
+  expect(es1.worksheets.map((s) => s.name)).toEqual([
+    'Resumen',
+    'Entidades',
+    'Evidencias',
+    'Impacto',
+    'Comentarios',
+    'Info'
+  ])
+  expect(es1.getWorksheet('Resumen')?.actualRowCount).toBe(2)
+  expect(header(es1.getWorksheet('Resumen'))).toHaveLength(17)
+  // Entidades: la afectada y la impactada, con su rol.
+  const entityRows: string[] = []
+  es1.getWorksheet('Entidades')?.eachRow((row, n) => {
+    if (n > 1) entityRows.push(`${String(row.getCell(1).value)}|${String(row.getCell(4).value)}`)
+  })
+  expect(entityRows).toEqual(['Afectada|SERVICE-BIG1', 'Impactada|APPLICATION-BIG1'])
+  // TODAS las evidencias (la página enseña 50), con la fecha como fecha.
+  const evidence = es1.getWorksheet('Evidencias')
+  expect(evidence?.actualRowCount).toBe(301)
+  expect(evidence?.getRow(2).getCell(4).value).toBeInstanceOf(Date)
+  // Impacto con la columna de usuarios, porque Dynatrace la da.
+  expect(header(es1.getWorksheet('Impacto'))).toContain('Usuarios afectados (estimado)')
+  expect(es1.getWorksheet('Impacto')?.getRow(2).getCell(3).value).toBe(1500)
+  // Comentario como texto (ni fórmula ni HTML interpretado).
+  expect(String(es1.getWorksheet('Comentarios')?.getRow(2).getCell(3).value)).toBe(HOSTILE_COMMENT)
+  // Info con el contexto y la nota de siempre.
+  const info: Record<string, unknown> = {}
+  es1.getWorksheet('Info')?.eachRow((row) => {
+    info[String(row.getCell(1).value)] = row.getCell(2).value
+  })
+  expect(info).toMatchObject({ Cliente: 'Cliente A', Entorno: 'Producción' })
+  expect(String(info['Nota'])).toContain('Problemas abiertos: sin fin')
+
+  // CSV: solo Resumen y Entidades, cada una con su título.
+  const csv = readFileSync(await exportTo('problem-page', 'export-csv'))
+  expect([...csv.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+  const text = csv.subarray(3).toString('utf8')
+  expect(text).toContain('Resumen')
+  expect(text).toContain('Entidades')
+  expect(text.indexOf('Resumen')).toBeLessThan(text.indexOf('Entidades'))
+  expect(text).not.toContain('Evidencia 1')
+  expect(text).not.toContain('Comentarios')
+
+  // En inglés, las hojas en inglés.
+  await page.getByRole('button', { name: es.topbar.language }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  const en1 = await workbook()
+  expect(en1.worksheets.map((s) => s.name)).toEqual([
+    'Summary',
+    'Entities',
+    'Evidence',
+    'Impact',
+    'Comments',
+    'Info'
+  ])
+  expect(header(en1.getWorksheet('Impact'))).toContain('Affected users (estimated)')
 })
 
 test('v0.9.0: cambiar de entorno estando en el detalle lleva a la lista del entorno nuevo', async () => {

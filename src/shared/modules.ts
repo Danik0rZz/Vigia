@@ -95,7 +95,9 @@ export const problemDetailOutputSchema = problemSummarySchema.extend({
       content: z.string(),
       createdAt: z.number().nullable()
     })
-  )
+  ),
+  /** Evidencias, impactos y comentarios descartados por no cumplir el esquema. */
+  invalid: z.number().int().min(0)
 })
 export type ProblemDetail = z.output<typeof problemDetailOutputSchema>
 

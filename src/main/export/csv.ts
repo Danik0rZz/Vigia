@@ -23,6 +23,17 @@ function csvCell(
   return text
 }
 
+/** Cabecera y filas de una tabla, ya como líneas CSV. */
+function csvLines(columns: ExportColumn[], rows: ExportRow[], separator: ';' | ','): string[] {
+  const header = columns
+    .map((column) => csvCell({ ...column, type: 'string' }, column.header, separator))
+    .join(separator)
+  const lines = rows.map((row) =>
+    columns.map((column) => csvCell(column, row[column.key], separator)).join(separator)
+  )
+  return [header, ...lines]
+}
+
 /**
  * CSV para Excel: UTF-8 con BOM (acentos y eñes), CRLF, comillas RFC 4180 y
  * fórmulas neutralizadas. Con ';' los decimales van con coma.
@@ -32,12 +43,24 @@ export function buildCsv(
   rows: ExportRow[],
   options: { separator: ';' | ',' }
 ): Buffer {
+  return Buffer.from(`${BOM}${csvLines(columns, rows, options.separator).join('\r\n')}\r\n`, 'utf8')
+}
+
+/**
+ * Varias tablas en un solo CSV: cada bloque empieza con su título (una celda,
+ * neutralizada como cualquier texto) y su cabecera; entre bloques, una línea en
+ * blanco.
+ */
+export function buildCsvSections(
+  sections: { title: string; columns: ExportColumn[]; rows: ExportRow[] }[],
+  options: { separator: ';' | ',' }
+): Buffer {
   const { separator } = options
-  const header = columns
-    .map((column) => csvCell({ ...column, type: 'string' }, column.header, separator))
-    .join(separator)
-  const lines = rows.map((row) =>
-    columns.map((column) => csvCell(column, row[column.key], separator)).join(separator)
+  const blocks = sections.map((section) =>
+    [
+      csvCell({ key: 'title', header: '', type: 'string' }, section.title, separator),
+      ...csvLines(section.columns, section.rows, separator)
+    ].join('\r\n')
   )
-  return Buffer.from(`${BOM}${[header, ...lines].join('\r\n')}\r\n`, 'utf8')
+  return Buffer.from(`${BOM}${blocks.join('\r\n\r\n')}\r\n`, 'utf8')
 }

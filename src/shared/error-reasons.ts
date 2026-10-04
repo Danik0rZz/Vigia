@@ -49,8 +49,7 @@ export const errorReasonKeys = [
   'captureNotPng',
   'captureInvalidPng',
   'captureOutOfWindow',
-  'certificateNotObserved',
-  'externalUrlRejected'
+  'certificateNotObserved'
 ] as const
 export type ErrorReasonKey = (typeof errorReasonKeys)[number]
 
