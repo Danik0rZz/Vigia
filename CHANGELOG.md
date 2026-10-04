@@ -3,6 +3,28 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.9.1] - 2026-10-04
+
+El detalle del problema se centra en las evidencias y los comentarios, a petición de Dani. Sin
+migraciones nuevas.
+
+### Añadido
+
+- Evidencias agrupadas: la causa raíz arriba y el resto por entidad, en orden cronológico, con
+  grupos plegables y filtros por tipo con su contador.
+- Tarjeta de cambio en las evidencias de métrica y de transacción: «antes → después» con su unidad
+  (ms o s, %, KB, MB…), la variación y una flecha.
+- «Más detalles» en las evidencias de evento, con sus propiedades.
+- «Abrir en Métricas» desde una evidencia de métrica, con el rango del problema.
+- Comentarios con su contexto y «Ver todos» cuando la API tiene más que los recientes.
+- Avisos cuando la API recorta las evidencias o los comentarios.
+
+### Cambiado
+
+- El detalle ya no pide ni muestra el análisis de impacto (`impactAnalysis`): se centra en
+  evidencias y comentarios. La exportación pierde la hoja Impacto y la de Evidencias gana causa
+  raíz, fin, antes, después, unidad, métrica y tipo de evento.
+
 ## [0.9.0] - 2026-10-04
 
 Rediseño de Problemas, a petición de Dani: lista en un grid propio y detalle en su propia página.
