@@ -24,6 +24,10 @@ const SPEC = /^e2e\/[^/]+\.spec\.ts$/
  * @returns {{ mode: 'all' | 'some' | 'none', specs: string[], reasons: string[] }}
  */
 function decide(files, config) {
+  // Obligatoria: sin ella no hay forma segura de decidir (nada de un valor por defecto).
+  if (config === null || typeof config !== 'object' || !Array.isArray(config.ignore)) {
+    throw new TypeError('decide necesita la config de e2e/areas.json')
+  }
   // Solo se ignoran ficheros por su patrón (docs, tests): si queda alguno, cuenta.
   const relevant = [...new Set(files.map(toPosix))].filter(
     (file) => file !== '' && !matches(file, config.ignore)
