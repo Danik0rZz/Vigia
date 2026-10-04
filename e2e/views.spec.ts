@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { createServer, type Server } from 'node:https'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import {
   _electron as electron,
   expect,
@@ -1310,6 +1310,10 @@ test('captura del gráfico a PNG: x2, fondo sólido y pie según Ajustes', async
 
   const file = await exportTo('problems-timeline', 'capture-save')
   expect(file).toMatch(/Cliente_A_Producción_problems_\d{8}-\d{4}.*\.png$/)
+  // AUD-14: el aviso dice el nombre del fichero escrito (con su -N si lo hay), no «Guardado:» vacío.
+  await expect(exportMenu('problems-timeline').locator('xpath=..').getByRole('status')).toHaveText(
+    `Guardado: ${basename(file)}`
+  )
   const withoutFooter = await pngInfo(file)
   expect(Math.abs(withoutFooter.height - 2 * size.height)).toBeLessThanOrEqual(1)
   expect(withoutFooter.cornerAlpha).toBe(255)

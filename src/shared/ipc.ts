@@ -260,6 +260,11 @@ export const ipcContract = {
         .max(MAX_EXPORT_ROWS),
       query: z.string().max(2000).optional(),
       timeRange: timeRangeSchema.optional(),
+      /**
+       * Cuándo se cargaron los datos (ms desde epoch): las fechas del rango de la
+       * hoja Info se calculan con ese momento, no con el de exportar.
+       */
+      loadedAt: z.number().int().positive().optional(),
       /** Nota para la hoja Info del XLSX, en el idioma de la interfaz. */
       note: z.string().max(500).optional(),
       /** Avisos de Dynatrace (`warnings`) para la hoja Info, una fila por aviso. */
@@ -288,7 +293,11 @@ export const ipcContract = {
       dataUrl: z.string().max(MAX_CAPTURE_DATA_URL),
       action: z.enum(['clipboard', 'save'])
     }),
-    output: z.object({ status: z.enum(['copied', 'saved', 'cancelled']) })
+    /** fileName: el nombre con el que se guardó de verdad (el elegido en el diálogo). */
+    output: z.object({
+      status: z.enum(['copied', 'saved', 'cancelled']),
+      fileName: z.string().optional()
+    })
   },
   /** Captura de una zona de la ventana (webContents.capturePage), validada contra su tamaño. */
   'capture:region': {
@@ -303,7 +312,10 @@ export const ipcContract = {
       }),
       action: z.enum(['clipboard', 'save'])
     }),
-    output: z.object({ status: z.enum(['copied', 'saved', 'cancelled']) })
+    output: z.object({
+      status: z.enum(['copied', 'saved', 'cancelled']),
+      fileName: z.string().optional()
+    })
   },
 
   'config:import': {

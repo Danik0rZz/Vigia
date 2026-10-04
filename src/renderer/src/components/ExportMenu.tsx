@@ -17,6 +17,8 @@ export interface ExportTable {
   rows: ExportRow[]
   query?: string | undefined
   timeRange?: TimeRangeValue | undefined
+  /** Cuándo se cargaron los datos (dataUpdatedAt): el rango de Info se calcula con él. */
+  loadedAt?: number | undefined
   /** Nota para la hoja Info del XLSX, ya traducida. */
   note?: string | undefined
   /** Avisos de Dynatrace para la hoja Info, una fila por aviso. */
@@ -111,7 +113,9 @@ export function ExportMenu({
   const settings = useExportSettings()
   const environmentId = active?.environment.id
 
-  async function capture(action: 'clipboard' | 'save'): Promise<{ status: string }> {
+  async function capture(
+    action: 'clipboard' | 'save'
+  ): Promise<{ status: string; fileName?: string | undefined }> {
     const dataUrl = image?.() ?? null
     if (dataUrl !== null) {
       const footer =
@@ -147,7 +151,9 @@ export function ExportMenu({
       if (action === 'clipboard' || action === 'save') {
         const result = await capture(action)
         if (result.status === 'copied') setNotice(t('export.copied'))
-        else if (result.status === 'saved') setNotice(t('export.saved', { file: '' }).trim())
+        else if (result.status === 'saved') {
+          setNotice(t('export.saved', { file: result.fileName ?? '' }).trim())
+        }
         return
       }
       if (table === undefined || environmentId === undefined) return
@@ -159,6 +165,9 @@ export function ExportMenu({
         rows: table.rows,
         ...(table.query === undefined ? {} : { query: table.query }),
         ...(table.timeRange === undefined ? {} : { timeRange: table.timeRange }),
+        ...(table.loadedAt === undefined || table.loadedAt <= 0
+          ? {}
+          : { loadedAt: table.loadedAt }),
         ...(table.note === undefined ? {} : { note: table.note }),
         ...(table.warnings === undefined || table.warnings.length === 0
           ? {}

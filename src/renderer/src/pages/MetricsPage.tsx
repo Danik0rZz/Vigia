@@ -126,6 +126,7 @@ export function MetricsPage(): JSX.Element {
             isEmpty={query.isSuccess && query.data.series.length === 0}
             query={params?.metricSelector}
             timeRange={timeRange}
+            loadedAt={query.dataUpdatedAt}
           />
         </div>
 

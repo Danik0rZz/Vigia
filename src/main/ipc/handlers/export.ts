@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import {
   MAX_CAPTURE_BYTES,
   MAX_EXPORT_JSON_BYTES,
@@ -89,7 +89,8 @@ export function createExportHandlers(
     if (path === null) return null
     await deps.writeFile(path, data)
     settings.set(SETTING_LAST_DIR, dirname(path))
-    return fileName
+    // El nombre que eligió el usuario en el diálogo, no el propuesto.
+    return basename(path)
   }
 
   async function deliverPng(
@@ -97,7 +98,7 @@ export function createExportHandlers(
     action: 'clipboard' | 'save',
     environmentId: string | undefined,
     module: ExportModule
-  ): Promise<{ status: 'copied' | 'saved' | 'cancelled' }> {
+  ): Promise<{ status: 'copied' | 'saved' | 'cancelled'; fileName?: string }> {
     if (action === 'clipboard') {
       await deps.clipboard.writeImage(png)
       return { status: 'copied' }
@@ -108,9 +109,8 @@ export function createExportHandlers(
       date: deps.now(),
       ext: 'png'
     })
-    return (await save(fileName, 'png', png)) === null
-      ? { status: 'cancelled' }
-      : { status: 'saved' }
+    const saved = await save(fileName, 'png', png)
+    return saved === null ? { status: 'cancelled' } : { status: 'saved', fileName: saved }
   }
 
   return {
@@ -135,8 +135,10 @@ export function createExportHandlers(
           kind = 'txt'
           break
         case 'xlsx': {
+          // El rango "2 h" es el de cuando se cargaron los datos, no el de ahora.
+          const loadedAt = input.loadedAt === undefined ? now : new Date(input.loadedAt)
           const dates =
-            input.timeRange === undefined ? undefined : timeRangeToDates(input.timeRange, now)
+            input.timeRange === undefined ? undefined : timeRangeToDates(input.timeRange, loadedAt)
           data = await buildXlsx(
             input.columns,
             input.rows,

@@ -682,6 +682,141 @@ describe('capture:region', () => {
   })
 })
 
+describe('AUD-14: fileName es el del fichero escrito', () => {
+  const capture = (channel: 'capture:image' | 'capture:region'): Record<string, unknown> =>
+    channel === 'capture:image'
+      ? { environmentId: envId, module: 'metrics', dataUrl: PNG_DATA_URL, action: 'save' }
+      : {
+          environmentId: envId,
+          module: 'home',
+          rect: { x: 0, y: 0, width: 10, height: 10 },
+          action: 'save'
+        }
+
+  it('con diálogo: export:table devuelve el nombre ELEGIDO, no el propuesto', async () => {
+    dialogAnswer = join('D:', 'informes', 'mi-informe.xlsx')
+    expect(await call(build(null), 'export:table', table('xlsx'))).toEqual({
+      ok: true,
+      data: { status: 'saved', fileName: 'mi-informe.xlsx' }
+    })
+    expect(written.has(dialogAnswer)).toBe(true)
+  })
+
+  it.each(['capture:image', 'capture:region'] as const)(
+    'con diálogo: %s devuelve el nombre elegido',
+    async (channel) => {
+      dialogAnswer = join('D:', 'capturas', 'pantalla propia.png')
+      expect(await call(build(null), channel, capture(channel))).toEqual({
+        ok: true,
+        data: { status: 'saved', fileName: 'pantalla propia.png' }
+      })
+      expect(written.has(dialogAnswer)).toBe(true)
+    }
+  )
+
+  it.each(['capture:image', 'capture:region'] as const)(
+    'con diálogo cancelado: %s → cancelled sin fileName',
+    async (channel) => {
+      dialogAnswer = null
+      expect(await call(build(null), channel, capture(channel))).toEqual({
+        ok: true,
+        data: { status: 'cancelled' }
+      })
+      expect(written.size).toBe(0)
+    }
+  )
+
+  it('con la carpeta fija: el nombre escrito, con -2 y -3 si ya existe', async () => {
+    const dir = join('C:', 'capturas')
+    const handlers = createExportHandlers({
+      repo: createTenantRepository(db),
+      settings,
+      exportDir: dir,
+      dialogs: { chooseSaveFile },
+      writeFile: async (path: string, data: Buffer) => {
+        written.set(path, data)
+      },
+      fileExists: (path: string) => written.has(path),
+      clipboard: { writeImage: (png: Buffer) => clipboardImages.push(png) },
+      window: { size: () => ({ width: 800, height: 600 }), capturePage },
+      now: () => NOW,
+      timeZone: () => 'Europe/Madrid'
+    } as unknown as Parameters<typeof createExportHandlers>[0])
+    const base = `Cliente_A_Producción_metrics_${STAMP}`
+    const names: unknown[] = []
+    for (let i = 0; i < 3; i++) {
+      const result = await call(handlers, 'capture:image', capture('capture:image'))
+      names.push((result.data as { fileName?: string }).fileName)
+    }
+    expect(names).toEqual([`${base}.png`, `${base}-2.png`, `${base}-3.png`])
+    expect([...written.keys()].sort()).toEqual(names.map((n) => join(dir, String(n))).sort())
+    expect(chooseSaveFile).not.toHaveBeenCalled()
+  })
+
+  it('al portapapeles, sin fileName', async () => {
+    const result = await call(build(null), 'capture:image', {
+      ...capture('capture:image'),
+      action: 'clipboard'
+    })
+    expect(result).toEqual({ ok: true, data: { status: 'copied' } })
+  })
+})
+
+describe('AUD-14: loadedAt fija Desde y Hasta a cuando se cargaron los datos', () => {
+  const dir = join('C:', 'exportaciones')
+  const HOUR = 3600_000
+
+  async function info(extra: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const result = await call(build(dir), 'export:table', table('xlsx', extra))
+    expect(result.ok, JSON.stringify(result)).toBe(true)
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load([...written.values()][0] as unknown as ArrayBuffer)
+    const values: Record<string, unknown> = {}
+    workbook.getWorksheet('Info')?.eachRow((row) => {
+      values[String(row.getCell(1).value)] = row.getCell(2).value
+    })
+    return values
+  }
+
+  it('datos de hace 6 h con rango 2h: Desde = loadedAt − 2 h, Hasta = loadedAt; Exportado = ahora', async () => {
+    const loadedAt = NOW.getTime() - 6 * HOUR
+    const values = await info({ timeRange: '2h', loadedAt })
+    expect((values['Hasta'] as Date).getTime()).toBe(loadedAt)
+    expect((values['Desde'] as Date).getTime()).toBe(loadedAt - 2 * HOUR)
+    expect((values['Exportado'] as Date).getTime()).toBe(NOW.getTime())
+    expect(values['Rango']).toBe('now-2h')
+  })
+
+  it('sin loadedAt, como antes: relativas a la hora de exportar', async () => {
+    const values = await info({ timeRange: '2h' })
+    expect((values['Hasta'] as Date).getTime()).toBe(NOW.getTime())
+    expect((values['Desde'] as Date).getTime()).toBe(NOW.getTime() - 2 * HOUR)
+  })
+
+  it('un rango personalizado no depende de loadedAt', async () => {
+    const from = Date.UTC(2026, 9, 1, 8, 0)
+    const to = Date.UTC(2026, 9, 1, 10, 0)
+    const values = await info({
+      timeRange: { from: new Date(from).toISOString(), to: new Date(to).toISOString() },
+      loadedAt: NOW.getTime() - 6 * HOUR
+    })
+    expect((values['Desde'] as Date).getTime()).toBe(from)
+    expect((values['Hasta'] as Date).getTime()).toBe(to)
+  })
+
+  it.each([
+    ['0', 0],
+    ['negativo', -1],
+    ['con decimales', 1.5],
+    ['texto', '1700000000000']
+  ])('loadedAt %s → INVALID_INPUT sin escribir', async (_case, loadedAt) => {
+    expect(
+      await call(build(dir), 'export:table', table('xlsx', { timeRange: '2h', loadedAt }))
+    ).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+    expect(written.size).toBe(0)
+  })
+})
+
 describe('todos los canales de exportación', () => {
   it('existen exactamente los 5 canales', () => {
     expect(Object.keys(build(null)).sort()).toEqual([

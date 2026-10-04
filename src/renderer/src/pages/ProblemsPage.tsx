@@ -246,6 +246,7 @@ export function ProblemsPage(): JSX.Element {
                 ],
                 rows: buckets.map(([time, count]) => ({ time, count })),
                 timeRange,
+                loadedAt: query.dataUpdatedAt,
                 clusterFilter: filtered ? activeClusters : undefined
               }}
             />
@@ -271,6 +272,7 @@ export function ProblemsPage(): JSX.Element {
                 rows: rows.map(toProblemExport),
                 query: text === '' ? undefined : text,
                 timeRange,
+                loadedAt: query.dataUpdatedAt,
                 note: t('problems.exportNote'),
                 warnings: query.data?.warnings,
                 invalidCount: query.data?.invalid,

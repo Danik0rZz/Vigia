@@ -20,7 +20,8 @@ export function MetricChartPanel({
   result,
   isEmpty,
   query,
-  timeRange
+  timeRange,
+  loadedAt
 }: {
   title: string | undefined
   result: MetricResult | undefined
@@ -28,6 +29,8 @@ export function MetricChartPanel({
   isEmpty: boolean
   query: string | undefined
   timeRange: TimeRangeValue
+  /** Cuándo llegaron los datos (dataUpdatedAt), para el rango de la hoja Info. */
+  loadedAt: number
 }): JSX.Element {
   const { t } = useTranslation()
   const chart = useRef<ChartHandle>(null)
@@ -117,6 +120,7 @@ export function MetricChartPanel({
             rows: exportRows,
             query,
             timeRange,
+            loadedAt,
             resolution: result?.resolution,
             warnings: [...partialLines, ...(result?.warnings ?? [])]
           }}

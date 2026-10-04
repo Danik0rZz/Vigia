@@ -128,6 +128,7 @@ export function ProblemDetail({
                     })),
                     rows: [toProblemExport(toProblemRow(detail, new Date(dataUpdatedAt)))],
                     timeRange,
+                    loadedAt: dataUpdatedAt,
                     note: t('problems.exportNote')
                   }}
                 />
