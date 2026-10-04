@@ -3,6 +3,39 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.9.0] - 2026-10-04
+
+Rediseño de Problemas, a petición de Dani: lista en un grid propio y detalle en su propia página.
+Sin migraciones nuevas.
+
+### Añadido
+
+- Detalle de un problema en su propia página (`/problems/<id>`), con la ruta en la barra superior
+  («… › Problemas › P-1234») y un mensaje propio si el problema no existe. Al volver, la lista
+  conserva filtros, orden, la fila que se veía y el foco.
+- Secciones nuevas en el detalle: clúster y namespace; evidencias de 50 en 50 con «Ver todas».
+- Exportación del detalle por secciones: XLSX con Resumen, Entidades, Evidencias, Impacto y
+  Comentarios; CSV y TXT con Resumen y Entidades.
+- Orden de la lista por ID (natural: P-9 antes que P-10), título, afectados o inicio.
+
+### Cambiado
+
+- La lista de Problemas es un grid de 4 columnas (ID, Título, Afectados e Inicio) con una barra de
+  estado roja o verde, y se maneja con el teclado (flechas, Inicio, Fin, RePág, AvPág y Enter). Las
+  demás columnas siguen en la exportación.
+- Dynatrace devuelve los problemas más recientes primero: si la lista se recorta, lo que falta es lo
+  más antiguo.
+- El detalle ya no enseña secciones vacías.
+
+### Eliminado
+
+- El panel lateral del detalle (sustituido por la página).
+
+### Corregido
+
+- Una evidencia, un impacto o un comentario que Dynatrace manda con una forma inesperada ya no
+  tumba el detalle: se descarta, se cuenta y se avisa.
+
 ## [0.8.1] - 2026-10-04
 
 Correcciones y mejoras pequeñas: el backlog P3 de la auditoría n.º 1 (AUD-21) y un ajuste de los

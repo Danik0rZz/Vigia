@@ -22,6 +22,7 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 - **v0.7.0 (mejoras sobre la primera versión): cerrada y publicada en `main`.** Problemas completo (tabla, detalle con `fields`, exportación común), descripción del token, entornos por tipo y cliente, tooltips del menú y pruebas en vivo (`npm run test:live`). Criterios automáticos cumplidos en Windows.
 - **v0.8.0: cerrada.** Auditoría externa n.º 1 cerrada (todos los P1 y P2; se citan por su ID, `AUD-xx`), clúster y filtros por entorno en Problemas, detalle en panel lateral, Métricas con aviso de puntos y recortes, SLOs en Inicio, y exploración de la API v2 (bloques a-f) en `docs/notas-api-v2.md`. Sin migraciones nuevas. Criterios automáticos de nivel 3 cumplidos en Windows (e2e ×3, repeticiones de views y tenants, dist:win y clon limpio con la instalación del README).
 - **v0.8.1: cerrada.** Backlog P3 de AUD-21 (errores del SSO, huella ofrecida y del SSO en `certificates:pin`, errores de main traducidos por clave, plurales y locale de ECharts, fila de Problemas con `memo`, colación de entornos, limpieza de los e2e en Windows), el aviso de los SLO con problemas sin calcular y `views.spec` independiente del orden. Sin migraciones nuevas. Quedan anotados el fusible del asar y las particiones de red. Criterios automáticos de nivel 3 cumplidos en Windows (e2e ×3, views ×10 con `--workers=1`, tls y tenants ×20, dist:win y clon limpio con la instalación del README).
+- **v0.9.0: en cierre.** Rediseño de Problemas pedido por Dani: grid propio de 4 columnas con barra de estado, orden y teclado; detalle en página propia (`/problems/:problemId`) con vuelta a la lista conservando filtros, orden, fila y foco; exportación del detalle por secciones (`export:workbook`). Sin migraciones nuevas. `app:openExternal` se retiró por no tener uso (está en `0f4faa1`).
 - **Siguiente:** nada nuevo sin Dani (decisión de peticiones). Lo que puede venir está en `docs/propuestas-siguientes.md`, con la licencia aparte.
 - **Primera versión: fases 1, 2, 3, 4 y 6, aceptada por Dani** (2026-10-04). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
@@ -46,7 +47,7 @@ v0.8.0 (incluye lo de la v0.7.0), pruebas a mano con los datos reales:
 - [ ] Al marcar "ignorar certificados" en el formulario del entorno aparece el aviso.
 - [ ] La ruta de la barra superior muestra Cliente › tipo de entorno, y el menú tiene tooltips.
 - [ ] "Probar conexión" describe el token (nombre, caducidad y scopes).
-- [ ] Problemas: columna y filtro de Clúster, filtros de severidad e impacto, y detalle en el panel lateral (también con el teclado: Tab hasta el ID y Enter).
+- [ ] Problemas: filtro de Clúster y filtros de severidad e impacto. (El panel lateral del detalle ya no existe: desde la 0.9.0, el detalle va en su propia página; ver abajo.)
 - [ ] Los avisos "Mostrando N de M" y los avisos de Dynatrace se entienden.
 - [ ] Métricas: con 7 días y 1 min aparece el aviso de puntos y "Usar 10m". SLOs de Inicio: el estado de aviso con su color, "Sin evaluar" y los problemas relacionados.
 - [ ] Guardar un secreto pulsando Enter en su campo.
@@ -58,6 +59,13 @@ v0.8.1, pruebas a mano (se pueden hacer junto con las de la 0.8.0, con el zip 0.
 - [ ] Si el SSO del entorno usa un certificado que Windows no reconoce: "Probar conexión" ofrece su huella, se acepta y OAuth conecta. Si no es el caso, no aplica.
 - [ ] La lista de entornos (selector y Ajustes) sale en orden alfabético con tildes ("Ámbito" junto a "Alfa", no al final).
 - [ ] Arrancar el zip 0.8.1 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
+
+v0.9.0, pruebas a mano (Problemas rediseñado; se pueden hacer con el zip 0.9.0 en vez del 0.8.1):
+
+- [ ] La lista se lee bien en claro y en oscuro: barra roja en los abiertos y verde (más fina) en los cerrados, 4 columnas y orden al pulsar cada cabecera.
+- [ ] Con el teclado: Tab hasta la lista, flechas, Inicio y Fin, y Enter abre el problema; "Volver a Problemas" (o la flecha atrás) deja la lista como estaba: filtros, orden, la fila que se veía y el foco en el problema abierto.
+- [ ] El detalle de un problema real muestra sus secciones (solo las que tienen datos) y la exportación XLSX abre en Excel con las hojas Resumen, Entidades, Evidencias, Impacto y Comentarios.
+- [ ] Arrancar el zip 0.9.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
 Fase 2:
 
