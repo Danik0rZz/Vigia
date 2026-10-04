@@ -207,6 +207,21 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
     }
   })
 
+  // 0.10.0: el grid genérico y la lógica de la tabla de evidencias solo los usa
+  // Problemas; sin mapear disparaban el e2e completo.
+  it('DataGrid, grid-sort, problem-evidence y event-metric → some con views y smoke', () => {
+    const d = decide(
+      [
+        'src/renderer/src/components/DataGrid.tsx',
+        'src/shared/grid-sort.ts',
+        'src/shared/problem-evidence.ts',
+        'src/shared/event-metric.ts'
+      ],
+      real
+    )
+    expect(d).toMatchObject({ mode: 'some', specs: [SMOKE, 'e2e/views.spec.ts'].sort() })
+  })
+
   // Los locales los cubre el test de paridad y main.css el de contraste (los dos
   // en check): solos, disparan shell; con un fichero de un módulo, también el suyo.
   it.each(['src/renderer/src/locales/es/common.json', 'src/renderer/src/assets/main.css'])(

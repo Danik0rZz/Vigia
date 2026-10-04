@@ -10,7 +10,14 @@ import {
   type SeverityLevel
 } from '@shared/modules'
 import { eventMetricInfo } from '@shared/event-metric'
-import type { EvidenceEntity, EvidenceWire } from '@shared/problem-evidence'
+import {
+  MAX_EVENT_TAGS,
+  MAX_EVENT_TAG_LENGTH,
+  MAX_EVENT_ZONES,
+  type EventData,
+  type EvidenceEntity,
+  type EvidenceWire
+} from '@shared/problem-evidence'
 
 /** Máximo de caracteres de `text()` en el problemSelector (Environment API v2). */
 const MAX_TEXT = 30
@@ -131,14 +138,8 @@ const evidenceItemSchema = z.looseObject({
   startTime: z.number().nullable().optional(),
   endTime: z.number().nullable().optional(),
   eventType: z.string().optional(),
-  data: z
-    .looseObject({
-      properties: z
-        .array(z.looseObject({ key: z.string().optional(), value: z.unknown().optional() }))
-        .optional()
-    })
-    .nullable()
-    .optional(),
+  // Sin esquema: un data de forma rara no tira la evidencia (se lee campo a campo).
+  data: z.unknown().optional(),
   metricId: z.string().optional(),
   unit: z.string().optional(),
   valueBeforeChangePoint: z.number().nullable().optional(),
@@ -167,7 +168,80 @@ function propertyText(value: unknown): string {
   return text.slice(0, MAX_PROPERTY_LENGTH)
 }
 
+type Raw = Record<string, unknown>
+
+const asObject = (value: unknown): Raw | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Raw) : null
+
+const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null)
+
+/** Las propiedades del evento con clave de texto (las demás se ignoran). */
+function rawProperties(data: Raw | null): { key: string; value: unknown }[] {
+  const list = data?.['properties']
+  if (!Array.isArray(list)) return []
+  return list.flatMap((entry) => {
+    const property = asObject(entry)
+    const key = asString(property?.['key'])
+    return property === null || key === null ? [] : [{ key, value: property['value'] }]
+  })
+}
+
+/** Tag como texto: stringRepresentation o, si falta o está vacía, key:value o key. */
+function tagText(entry: unknown): string | null {
+  const tag = asObject(entry)
+  if (tag === null) return null
+  const text = asString(tag['stringRepresentation'])
+  if (text !== null && text !== '') return text
+  const key = asString(tag['key'])
+  if (key === null || key === '') return null
+  const value = asString(tag['value'])
+  return value === null || value === '' ? key : `${key}:${value}`
+}
+
+/** Lo que se usa de data (Event de la API v2), campo a campo y con topes. */
+function toEventData(raw: unknown): EventData | null {
+  const data = asObject(raw)
+  if (data === null) return null
+  const status = data['status']
+  const endTime = data['endTime']
+  const tags = Array.isArray(data['entityTags'])
+    ? [
+        ...new Set(
+          data['entityTags'].flatMap((entry) => {
+            const text = tagText(entry)
+            return text === null ? [] : [text.slice(0, MAX_EVENT_TAG_LENGTH)]
+          })
+        )
+      ].slice(0, MAX_EVENT_TAGS)
+    : []
+  const zones = Array.isArray(data['managementZones'])
+    ? data['managementZones']
+        .flatMap((entry) => {
+          const zone = asObject(entry)
+          const name = asString(zone?.['name']) ?? asString(zone?.['id'])
+          return name === null ? [] : [name]
+        })
+        .slice(0, MAX_EVENT_ZONES)
+    : []
+  return {
+    status: status === 'OPEN' || status === 'CLOSED' ? status : null,
+    endTime: typeof endTime === 'number' && Number.isFinite(endTime) ? endTime : null,
+    title: asString(data['title']),
+    eventId: asString(data['eventId']),
+    tags,
+    managementZones: zones,
+    flags: {
+      maintenance: data['underMaintenance'] === true,
+      frequent: data['frequentEvent'] === true,
+      suppressed: data['suppressAlert'] === true || data['suppressProblem'] === true
+    }
+  }
+}
+
 export function toEvidenceWire(item: z.output<typeof evidenceItemSchema>): EvidenceWire {
+  const isEvent = item.evidenceType === 'EVENT'
+  const data = asObject(item.data)
+  const properties = rawProperties(data)
   return {
     evidenceType: item.evidenceType,
     displayName: item.displayName,
@@ -177,16 +251,16 @@ export function toEvidenceWire(item: z.output<typeof evidenceItemSchema>): Evide
     startTime: item.startTime ?? null,
     endTime: item.endTime ?? null,
     eventType: item.eventType ?? null,
-    properties: (item.data?.properties ?? [])
-      .filter((property) => property.key !== undefined)
+    properties: properties
       .slice(0, MAX_EVENT_PROPERTIES)
-      .map((property) => ({ key: property.key ?? '', text: propertyText(property.value) })),
+      .map((property) => ({ key: property.key, text: propertyText(property.value) })),
     metricId: item.metricId ?? null,
     unit: item.unit ?? null,
     valueBefore: item.valueBeforeChangePoint ?? null,
     valueAfter: item.valueAfterChangePoint ?? null,
     // Sobre las propiedades EN CRUDO: el selector no cabe en el recorte de arriba.
-    eventMetric: item.evidenceType === 'EVENT' ? eventMetricInfo(item.data?.properties ?? []) : null
+    eventMetric: isEvent ? eventMetricInfo(properties) : null,
+    data: isEvent ? toEventData(item.data) : null
   }
 }
 

@@ -274,7 +274,8 @@ describe('problemDetailSchema y toProblemDetail', () => {
     unit: null,
     valueBefore: null,
     valueAfter: null,
-    eventMetric: null
+    eventMetric: null,
+    data: null
   }
 
   it('mapea el detalle completo (v0.9.1: sin impactos, con totales)', () => {
@@ -578,7 +579,160 @@ describe('toEvidenceWire (v0.9.1)', () => {
       unit: 'MicroSecond',
       valueBefore: 1200.5,
       valueAfter: 9800,
-      eventMetric: null
+      eventMetric: null,
+      data: null
+    })
+  })
+
+  describe('v0.10.0: data del EVENT (estado propio, título, id, tags, zonas y flags)', () => {
+    const event = (
+      dataValue: unknown,
+      extra: Record<string, unknown> = {}
+    ): Record<string, unknown> => ({
+      evidenceType: 'EVENT',
+      displayName: 'Respuesta lenta',
+      eventType: 'CUSTOM_ALERT',
+      data: dataValue,
+      ...extra
+    })
+
+    it('lee status, endTime, title y eventId directamente de data', () => {
+      const result = normalize(
+        event({
+          status: 'OPEN',
+          endTime: -1,
+          title: 'Título del evento',
+          eventId: '-4567_1700V2',
+          properties: []
+        })
+      )
+      expect(result?.data).toMatchObject({
+        status: 'OPEN',
+        endTime: -1,
+        title: 'Título del evento',
+        eventId: '-4567_1700V2'
+      })
+    })
+
+    it.each([
+      ['un estado desconocido', { status: 'RESOLVED' }, 'status', null],
+      ['un estado en minúsculas', { status: 'open' }, 'status', null],
+      ['status numérico', { status: 1 }, 'status', null],
+      ['endTime ausente', {}, 'endTime', null],
+      ['endTime de texto', { endTime: 'ayer' }, 'endTime', null],
+      ['endTime -1 (se conserva)', { endTime: -1 }, 'endTime', -1],
+      ['endTime número', { endTime: 1791050000000 }, 'endTime', 1791050000000],
+      ['title numérico', { title: 5 }, 'title', null],
+      ['eventId numérico', { eventId: 5 }, 'eventId', null]
+    ])('%s → %j', (_label, dataValue, field, expected) => {
+      const result = normalize(event(dataValue))
+      expect(result).toBeDefined()
+      expect((result?.data as Record<string, unknown> | null)?.[field]).toEqual(expected)
+    })
+
+    it('tags: stringRepresentation; si falta o está vacía, key:value o key; sin duplicados y en orden', () => {
+      const result = normalize(
+        event({
+          entityTags: [
+            {
+              context: 'CONTEXTLESS',
+              key: 'equipo',
+              value: 'pagos',
+              stringRepresentation: 'equipo:pagos'
+            },
+            { context: 'CONTEXTLESS', key: 'zona', value: 'eu' },
+            { context: 'CONTEXTLESS', key: 'critico' },
+            { context: 'CONTEXTLESS', key: 'x', value: 'y', stringRepresentation: '' },
+            { context: 'CONTEXTLESS', key: 'equipo', value: 'pagos' },
+            { context: 'AWS', key: 'k', value: 'v', stringRepresentation: '[AWS]k:v' }
+          ]
+        })
+      )
+      expect(result?.data?.tags).toEqual(['equipo:pagos', 'zona:eu', 'critico', 'x:y', '[AWS]k:v'])
+    })
+
+    it('tags: como mucho 50, cada uno recortado a 200 caracteres', () => {
+      const many = Array.from({ length: 60 }, (_, i) => ({ key: `t${i}` }))
+      expect(normalize(event({ entityTags: many }))?.data?.tags).toHaveLength(50)
+      const long = normalize(event({ entityTags: [{ key: 'k', value: 'v'.repeat(500) }] }))
+      expect(long?.data?.tags[0]).toHaveLength(200)
+    })
+
+    it('zonas: el name o, si no hay, el id; como mucho 20', () => {
+      const result = normalize(
+        event({ managementZones: [{ id: '1', name: 'Producción' }, { id: '2' }] })
+      )
+      expect(result?.data?.managementZones).toEqual(['Producción', '2'])
+      const many = Array.from({ length: 30 }, (_, i) => ({ id: `${i}`, name: `z${i}` }))
+      expect(normalize(event({ managementZones: many }))?.data?.managementZones).toHaveLength(20)
+    })
+
+    it('flags: solo true cuenta; suppressed es suppressAlert o suppressProblem', () => {
+      expect(normalize(event({}))?.data?.flags).toEqual({
+        maintenance: false,
+        frequent: false,
+        suppressed: false
+      })
+      expect(
+        normalize(event({ underMaintenance: true, frequentEvent: true, suppressAlert: false }))
+          ?.data?.flags
+      ).toEqual({ maintenance: true, frequent: true, suppressed: false })
+      expect(normalize(event({ suppressProblem: true }))?.data?.flags.suppressed).toBe(true)
+      expect(normalize(event({ suppressAlert: true }))?.data?.flags.suppressed).toBe(true)
+      // 'true' de texto no es true.
+      expect(normalize(event({ underMaintenance: 'true' }))?.data?.flags.maintenance).toBe(false)
+    })
+
+    it('un data con campos de forma rara no tira la evidencia: lo raro queda en null o []', () => {
+      const result = normalize(
+        event({
+          status: 5,
+          endTime: 'x',
+          title: {},
+          eventId: [],
+          entityTags: 'no es lista',
+          managementZones: [3, null, { id: 'ok' }],
+          underMaintenance: 'sí',
+          properties: []
+        })
+      )
+      expect(result).toBeDefined()
+      expect(result?.displayName).toBe('Respuesta lenta')
+      expect(result?.data).toMatchObject({
+        status: null,
+        endTime: null,
+        title: null,
+        eventId: null
+      })
+      expect(result?.data?.tags).toEqual([])
+      expect(result?.data?.flags.maintenance).toBe(false)
+    })
+
+    it('un data que no es un objeto no tira la evidencia (data null)', () => {
+      const result = normalize(event('texto suelto'))
+      expect(result).toBeDefined()
+      expect(result?.data).toBeNull()
+    })
+
+    it('sin data, o en un tipo que no es EVENT, data null', () => {
+      expect(normalize({ evidenceType: 'EVENT', displayName: 'e' })?.data).toBeNull()
+      expect(normalize(event(null))?.data).toBeNull()
+      expect(normalize(event({ status: 'OPEN' }, { evidenceType: 'METRIC' }))?.data).toBeNull()
+    })
+
+    it('la salida cumple evidenceWireSchema (el contrato del IPC)', () => {
+      const result = normalize(
+        event({
+          status: 'CLOSED',
+          endTime: 1,
+          entityTags: Array.from({ length: 60 }, (_, i) => ({
+            key: `t${i}`,
+            value: 'v'.repeat(300)
+          })),
+          managementZones: Array.from({ length: 30 }, (_, i) => ({ id: `${i}` }))
+        })
+      )
+      expect(evidenceWireSchema.safeParse(result).success).toBe(true)
     })
   })
 

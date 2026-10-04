@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { eventMetricSchema, type EventMetric } from './event-metric'
+import { compareCodes, type Comparator, type GridSort } from './grid-sort'
 
 /** Valor que se muestra cuando un dato no está o no es un número. */
 export const NOT_AVAILABLE = 'N/A'
@@ -11,6 +12,34 @@ export const evidenceEntitySchema = z.object({
   type: z.string().nullable()
 })
 export type EvidenceEntity = z.output<typeof evidenceEntitySchema>
+
+/** Topes de lo que cruza el IPC desde `data` de un EVENT. */
+export const MAX_EVENT_TAGS = 50
+export const MAX_EVENT_TAG_LENGTH = 200
+export const MAX_EVENT_ZONES = 20
+
+/**
+ * Lo que se usa de `data` de una evidencia EVENT (el Event de la API v2): su
+ * estado propio, su título e id, los tags de la entidad como texto, las zonas
+ * de gestión por nombre y los flags. Lo que no tiene la forma esperada llega
+ * como null, [] o false.
+ */
+export const eventDataSchema = z.object({
+  status: z.enum(['OPEN', 'CLOSED']).nullable(),
+  /** Tal cual: -1 es "sigue activo"; null si falta o no es un número. */
+  endTime: z.number().nullable(),
+  title: z.string().nullable(),
+  eventId: z.string().nullable(),
+  tags: z.array(z.string().max(MAX_EVENT_TAG_LENGTH)).max(MAX_EVENT_TAGS),
+  managementZones: z.array(z.string()).max(MAX_EVENT_ZONES),
+  flags: z.object({
+    maintenance: z.boolean(),
+    frequent: z.boolean(),
+    /** suppressAlert o suppressProblem. */
+    suppressed: z.boolean()
+  })
+})
+export type EventData = z.output<typeof eventDataSchema>
 
 /**
  * Evidencia de un problema tal como la manda main: los campos de los 5 tipos
@@ -38,7 +67,9 @@ export const evidenceWireSchema = z.object({
   valueBefore: z.number().nullable(),
   valueAfter: z.number().nullable(),
   /** Solo en EVENT: el selector de métrica (extraído en main, entero) y su umbral. */
-  eventMetric: eventMetricSchema.nullable()
+  eventMetric: eventMetricSchema.nullable(),
+  /** Solo en EVENT con `data`. */
+  data: eventDataSchema.nullable()
 })
 export type EvidenceWire = z.output<typeof evidenceWireSchema>
 
@@ -59,6 +90,18 @@ export interface ChangeView {
 
 /** Modelo común de una evidencia para la vista y la exportación. */
 export interface EvidenceView {
+  /** Clave de la fila: el eventId o, si no hay, `ev-<índice>`. */
+  id: string
+  eventId: string | null
+  /** Estado propio (data.status; si no, por endTime). */
+  status: 'OPEN' | 'CLOSED'
+  /** data.title o, si no hay, displayName. */
+  title: string
+  /** En EVENT, el eventType (o EVENT); en el resto, el evidenceType. Código tal cual. */
+  typeLabel: string
+  tags: string[]
+  managementZones: string[]
+  flags: EventData['flags']
   type: string
   displayName: string
   entity: EntityLabel | null
@@ -97,20 +140,49 @@ export function changeOf(before: number | null, after: number | null): ChangeVie
   return { direction, ratio: after / before, delta: null }
 }
 
-/** Normaliza una evidencia de cualquier tipo (también uno desconocido). */
-export function toEvidenceView(evidence: EvidenceWire): EvidenceView {
+const NO_FLAGS: EventData['flags'] = { maintenance: false, frequent: false, suppressed: false }
+
+const isActiveEnd = (end: number | null): boolean =>
+  end === null || end === -1 || !Number.isFinite(end)
+
+/**
+ * Estado propio: data.status manda (aunque no cuadre con el fin); sin él, un
+ * data.endTime null o -1 es activo; si no, decide el fin de la evidencia.
+ */
+function statusOf(evidence: EvidenceWire): EvidenceView['status'] {
+  const data = evidence.data
+  if (data !== null) {
+    if (data.status !== null) return data.status
+    if (data.endTime === null || data.endTime === -1) return 'OPEN'
+  }
+  return isActiveEnd(evidence.endTime) ? 'OPEN' : 'CLOSED'
+}
+
+/**
+ * Normaliza una evidencia de cualquier tipo (también uno desconocido). El
+ * índice (su posición al llegar) da la clave de la fila si no hay eventId.
+ */
+export function toEvidenceView(evidence: EvidenceWire, index = 0): EvidenceView {
   const entity = label(evidence.entity)
   const isChange = evidence.evidenceType === 'METRIC' || evidence.evidenceType === 'TRANSACTIONAL'
+  const data = evidence.data
+  const eventId = data?.eventId ?? null
   return {
+    id: eventId ?? `ev-${index}`,
+    eventId,
+    status: statusOf(evidence),
+    title: data !== null && data.title ? data.title : evidence.displayName,
+    typeLabel:
+      evidence.evidenceType === 'EVENT' ? (evidence.eventType ?? 'EVENT') : evidence.evidenceType,
+    tags: data?.tags ?? [],
+    managementZones: data?.managementZones ?? [],
+    flags: data?.flags ?? NO_FLAGS,
     type: evidence.evidenceType,
     displayName: evidence.displayName,
     entity,
     group: label(evidence.groupingEntity) ?? entity,
     start: evidence.startTime,
-    end:
-      evidence.endTime === null || evidence.endTime === -1 || !Number.isFinite(evidence.endTime)
-        ? 'ACTIVE'
-        : evidence.endTime,
+    end: isActiveEnd(evidence.endTime) ? 'ACTIVE' : (evidence.endTime as number),
     rootCause: evidence.rootCauseRelevant,
     before: evidence.valueBefore,
     after: evidence.valueAfter,
@@ -162,6 +234,166 @@ export function countByType(views: readonly EvidenceView[]): Record<string, numb
   const counts: Record<string, number> = {}
   for (const view of views) counts[view.type] = (counts[view.type] ?? 0) + 1
   return counts
+}
+
+/** Columnas por las que se ordena la tabla de evidencias. */
+export type EvidenceSortKey =
+  'status' | 'title' | 'type' | 'entity' | 'start' | 'end' | 'duration' | 'rootCause'
+export type EvidenceSort = GridSort<EvidenceSortKey>
+
+/** Por defecto: abiertos primero (y, por los desempates, los más recientes arriba). */
+export const DEFAULT_EVIDENCE_SORT: EvidenceSort = { key: 'status', direction: 'asc' }
+
+const compareNumbers = (a: number, b: number): number => (a < b ? -1 : a > b ? 1 : 0)
+
+/** null al final en los dos sentidos; el resto, en el sentido pedido. */
+function nullsLast<T>(a: T | null, b: T | null, sign: number, compare: Comparator<T>): number {
+  if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1
+  return sign * compare(a, b)
+}
+
+/** Duración en ms: hasta el fin o, si sigue activa, hasta `now`; null sin inicio. */
+export function evidenceDuration(view: EvidenceView, now: number): number | null {
+  if (view.start === null) return null
+  return (view.end === 'ACTIVE' ? now : view.end) - view.start
+}
+
+/**
+ * Copia ordenada. Desempates fijos (no cambian con el sentido): inicio
+ * descendente (sin inicio al final), eventId (sin él al final) e id, así el
+ * orden no depende de cómo llegaron los datos al refrescar.
+ */
+export function sortEvidence(
+  views: readonly EvidenceView[],
+  sort: EvidenceSort,
+  lang: string,
+  now: number
+): EvidenceView[] {
+  const text = new Intl.Collator(lang, { sensitivity: 'base', numeric: true }).compare
+  const sign = sort.direction === 'asc' ? 1 : -1
+  const value: Record<EvidenceSortKey, (view: EvidenceView) => number | string | null> = {
+    status: (view) => (view.status === 'OPEN' ? 0 : 1),
+    title: (view) => view.title,
+    type: (view) => view.typeLabel,
+    entity: (view) => view.entity?.label ?? null,
+    start: (view) => view.start,
+    end: (view) => (view.end === 'ACTIVE' ? Number.POSITIVE_INFINITY : view.end),
+    duration: (view) => evidenceDuration(view, now),
+    rootCause: (view) => (view.rootCause ? 1 : 0)
+  }
+  const pick = value[sort.key]
+  const compareValues = (a: number | string, b: number | string): number =>
+    typeof a === 'string' && typeof b === 'string'
+      ? text(a, b)
+      : compareNumbers(Number(a), Number(b))
+  return [...views].sort(
+    (a, b) =>
+      nullsLast(pick(a), pick(b), sign, compareValues) ||
+      nullsLast(a.start, b.start, -1, compareNumbers) ||
+      nullsLast(a.eventId, b.eventId, 1, compareCodes) ||
+      compareCodes(a.id, b.id)
+  )
+}
+
+/** Filtros de la tabla de evidencias. */
+export interface EvidenceFilters {
+  text: string
+  /** typeLabel; vacío = todos. */
+  types: string[]
+  /** Id de la entidad. */
+  entity: string | null
+  /** Tag exacto. */
+  tag: string | null
+  rootCauseOnly: boolean
+  status: 'ALL' | 'OPEN' | 'CLOSED'
+}
+
+export const EMPTY_EVIDENCE_FILTERS: EvidenceFilters = {
+  text: '',
+  types: [],
+  entity: null,
+  tag: null,
+  rootCauseOnly: false,
+  status: 'ALL'
+}
+
+/** Sin tildes ni mayúsculas, para buscar. */
+const fold = (value: string): string =>
+  value.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es')
+
+type FilterKey = 'types' | 'status'
+
+function matches(view: EvidenceView, filters: EvidenceFilters, skip?: FilterKey): boolean {
+  if (skip !== 'status' && filters.status !== 'ALL' && view.status !== filters.status) return false
+  if (skip !== 'types' && filters.types.length > 0 && !filters.types.includes(view.typeLabel)) {
+    return false
+  }
+  if (filters.entity !== null && view.entity?.id !== filters.entity) return false
+  if (filters.tag !== null && !view.tags.includes(filters.tag)) return false
+  if (filters.rootCauseOnly && !view.rootCause) return false
+  const needle = fold(filters.text.trim())
+  if (needle === '') return true
+  return [
+    view.title,
+    view.displayName,
+    view.typeLabel,
+    view.entity?.label ?? '',
+    ...view.tags
+  ].some((field) => fold(field).includes(needle))
+}
+
+/** Las evidencias que pasan todos los filtros, en el mismo orden. */
+export function filterEvidence(
+  views: readonly EvidenceView[],
+  filters: EvidenceFilters
+): EvidenceView[] {
+  return views.filter((view) => matches(view, filters))
+}
+
+/** Contadores Abiertos/Cerrados/Todos: sobre lo que dejan los demás filtros (no el de estado). */
+export function countByStatus(
+  views: readonly EvidenceView[],
+  filters: EvidenceFilters
+): { open: number; closed: number; all: number } {
+  const shown = views.filter((view) => matches(view, filters, 'status'))
+  const open = shown.filter((view) => view.status === 'OPEN').length
+  return { open, closed: shown.length - open, all: shown.length }
+}
+
+/** Cuántas hay de cada typeLabel: sobre lo que dejan los demás filtros (no el de tipos). */
+export function typeCounts(
+  views: readonly EvidenceView[],
+  filters: EvidenceFilters
+): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const view of views) {
+    if (matches(view, filters, 'types')) counts[view.typeLabel] = (counts[view.typeLabel] ?? 0) + 1
+  }
+  return counts
+}
+
+/** Entidades para el filtro: únicas por id y por su etiqueta en el idioma. */
+export function entityOptions(
+  views: readonly EvidenceView[],
+  lang = 'es'
+): { id: string; label: string }[] {
+  const byId = new Map<string, string>()
+  for (const view of views) {
+    if (view.entity !== null && !byId.has(view.entity.id))
+      byId.set(view.entity.id, view.entity.label)
+  }
+  const text = new Intl.Collator(lang, { sensitivity: 'base', numeric: true }).compare
+  return [...byId]
+    .map(([id, label]) => ({ id, label }))
+    .sort((a, b) => text(a.label, b.label) || compareCodes(a.id, b.id))
+}
+
+/** Tags para el filtro: únicos y ordenados en el idioma. */
+export function tagOptions(views: readonly EvidenceView[], lang = 'es'): string[] {
+  const text = new Intl.Collator(lang, { sensitivity: 'base', numeric: true }).compare
+  return [...new Set(views.flatMap((view) => view.tags))].sort(
+    (a, b) => text(a, b) || compareCodes(a, b)
+  )
 }
 
 const TIME_TO_MS: Record<string, number> = {
