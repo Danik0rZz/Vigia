@@ -41,6 +41,10 @@ export function createDynatraceServices(deps: {
         url === null ? [] : [new URL(url).hostname]
       )
     },
+    ssoHost: (envId) => {
+      const { ssoUrl, oauthClientId } = repo.getEnvironment(envId)
+      return oauthClientId === null ? null : new URL(ssoUrl ?? DEFAULT_SSO_URL).hostname
+    },
     pins
   })
 
@@ -62,7 +66,9 @@ export function createDynatraceServices(deps: {
             scopes: environment.oauthScopes,
             accountUuid: environment.accountUuid
           }
-        }
+        },
+        // El fallo de certificado del SSO también se ofrece para fijar su huella.
+        tlsFailure: (id, host) => network.tlsFailure(id, host)
       })
       oauthByEnv.set(envId, manager)
     }
@@ -104,7 +110,8 @@ export function createDynatraceServices(deps: {
           oauth,
           getEnvironment: (id) => repo.getEnvironment(id),
           secretsStatus: (id) => secrets.status(id),
-          readSecret: (id, kind) => secrets.read(id, kind)
+          readSecret: (id, kind) => secrets.read(id, kind),
+          warn: (message) => deps.logger.warn(`Probar conexión: ${message}`)
         })
         return { ...report, untrustedCertificates: network.untrusted(envId) }
       },

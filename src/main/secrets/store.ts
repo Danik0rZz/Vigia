@@ -44,7 +44,8 @@ export function createSecretStore(db: AppDatabase, crypto: SecretCrypto): Secret
       .from(environments)
       .where(eq(environments.id, environmentId))
       .get()
-    if (found === undefined) throw new DomainError('NOT_FOUND', 'El entorno no existe.')
+    if (found === undefined)
+      throw new DomainError('NOT_FOUND', 'El entorno no existe.', { key: 'environmentMissing' })
   }
 
   const where = (environmentId: string, kind: SecretKind): SQL | undefined =>
@@ -64,13 +65,17 @@ export function createSecretStore(db: AppDatabase, crypto: SecretCrypto): Secret
     set(environmentId: string, kind: SecretKind, value: string): void {
       const parsed = secretValueSchema.safeParse(value)
       if (!parsed.success) {
-        throw new DomainError('INVALID_INPUT', 'El valor debe tener entre 1 y 4096 caracteres.')
+        throw new DomainError('INVALID_INPUT', 'El valor debe tener entre 1 y 4096 caracteres.', {
+          key: 'secretLength',
+          params: { max: 4096 }
+        })
       }
       requireEnvironment(environmentId)
       if (!crypto.isEncryptionAvailable()) {
         throw new DomainError(
           'ENCRYPTION_UNAVAILABLE',
-          'El cifrado del sistema no está disponible: no se guardan secretos.'
+          'El cifrado del sistema no está disponible: no se guardan secretos.',
+          { key: 'encryptionUnavailable' }
         )
       }
       const ciphertext = crypto.encryptString(parsed.data)
@@ -116,7 +121,8 @@ export function createSecretStore(db: AppDatabase, crypto: SecretCrypto): Secret
         unreadableKeys.add(markKey(environmentId, kind))
         throw new DomainError(
           'SECRET_UNREADABLE',
-          'No se puede leer la credencial: se guardó en otro equipo o con otro usuario de Windows. Vuelve a introducirla.'
+          'No se puede leer la credencial: se guardó en otro equipo o con otro usuario de Windows. Vuelve a introducirla.',
+          { key: 'secretUnreadable' }
         )
       }
     }

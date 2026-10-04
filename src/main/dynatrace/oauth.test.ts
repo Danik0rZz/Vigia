@@ -319,6 +319,48 @@ describe('createOAuthTokenManager: errores', () => {
       expect(JSON.stringify({ ...error, message: error.message })).not.toContain('SECRETOOAUTH')
     })
 
+    it.each([
+      ['invalid_scope', 'ssoScope'],
+      ['invalid_request', 'ssoRequestDetail']
+    ])(
+      'i18n (b): %s → reason %s, sin el client_secret (con o sin formato) en sus params',
+      async (code, key) => {
+        for (const secret of [CLIENT_SECRET, 'secreto-propio-sin-formato-7Q2W9E']) {
+          credentials = { ...baseCredentials, clientSecret: secret }
+          const { oauth } = manager(
+            ssoError(400, { error: code, error_description: `revisa ${secret} por favor` })
+          )
+          const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+          expect(error.reason?.key).toBe(key)
+          const params = JSON.stringify(error.reason?.params ?? {})
+          expect(params).not.toContain('SECRETOOAUTH')
+          expect(params).not.toContain('7Q2W9E')
+          expect(params).toContain('revisa')
+        }
+      }
+    )
+
+    it('i18n (b): ssoRequestDetail lleva el código y la descripción como parámetros', async () => {
+      const { oauth } = manager(ssoError(400, { error: 'invalid_request', error_description: 'x' }))
+      const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+      expect(error.reason).toEqual({
+        key: 'ssoRequestDetail',
+        params: { code: 'invalid_request', detail: 'x' }
+      })
+    })
+
+    it('i18n (b): sin descripción, ssoScope lleva el código como detail', async () => {
+      const { oauth } = manager(ssoError(400, { error: 'invalid_scope' }))
+      const error = await expectDtError(oauth.getToken(ENV), 'BAD_REQUEST')
+      expect(error.reason).toEqual({ key: 'ssoScope', params: { detail: 'invalid_scope' } })
+    })
+
+    it('i18n (b): 401 → ssoCredentials', async () => {
+      const { oauth } = manager(ssoError(401, undefined))
+      const error = await expectDtError(oauth.getToken(ENV), 'UNAUTHORIZED')
+      expect(error.reason).toEqual({ key: 'ssoCredentials' })
+    })
+
     it('tampoco un client_secret sin el formato dt0…', async () => {
       const secret = 'secreto-propio-sin-formato-7Q2W9E'
       credentials = { ...baseCredentials, clientSecret: secret }
@@ -355,19 +397,81 @@ describe('createOAuthTokenManager: errores', () => {
     await expectDtError(oauth.getToken(ENV), 'INVALID_RESPONSE')
   })
 
-  it.each([
-    ['net::ERR_CERT_AUTHORITY_INVALID', 'TLS_UNTRUSTED'],
-    ['net::ERR_CERT_COMMON_NAME_INVALID', 'TLS_UNTRUSTED'],
-    ['net::ERR_CONNECTION_REFUSED', 'NETWORK'],
-    ['net::ERR_NAME_NOT_RESOLVED', 'NETWORK']
-  ])('AUD-20: si fetch lanza %s → %s, con el mensaje y sin el secreto', async (message, code) => {
-    const { oauth } = manager(async () => {
-      throw new Error(message)
+  it.each(['net::ERR_CONNECTION_REFUSED', 'net::ERR_NAME_NOT_RESOLVED'])(
+    'AUD-20: si fetch lanza %s → NETWORK ssoUnreachable, con el mensaje y sin el secreto',
+    async (message) => {
+      const { oauth } = manager(async () => {
+        throw new Error(message)
+      })
+      const error = await expectDtError(oauth.getToken(ENV), 'NETWORK')
+      expect(error.message).toContain('No se pudo contactar con el SSO')
+      expect(error.message).toContain(message)
+      expect(error.message).not.toContain('SECRETOOAUTH')
+      expect(error.reason).toEqual({ key: 'ssoUnreachable', params: { detail: message } })
+    }
+  )
+
+  it.each(['net::ERR_CERT_AUTHORITY_INVALID', 'net::ERR_CERT_COMMON_NAME_INVALID'])(
+    'AUD-20: si fetch lanza %s → TLS_UNTRUSTED con el host del SSO (tlsUntrusted)',
+    async (message) => {
+      const { oauth } = manager(async () => {
+        throw new Error(message)
+      })
+      const error = await expectDtError(oauth.getToken(ENV), 'TLS_UNTRUSTED')
+      expect(error.message).toBe('El certificado del SSO (sso.dynatrace.com) no es de confianza.')
+      expect(error.reason).toEqual({ key: 'tlsUntrusted', params: { host: 'sso.dynatrace.com' } })
+    }
+  )
+
+  describe('P3-7: rechazo del verificador propio (net::ERR_FAILED) en el SSO', () => {
+    /** Gestor con tlsFailure; devuelve también las llamadas a tlsFailure. */
+    function managerWithTls(answer: 'untrusted' | 'mismatch' | null): {
+      oauth: ReturnType<typeof createOAuthTokenManager>
+      asked: [string, string][]
+    } {
+      const asked: [string, string][] = []
+      const oauth = createOAuthTokenManager({
+        fetch: (async () => {
+          throw new Error('net::ERR_FAILED')
+        }) as unknown as typeof fetch,
+        now: () => clock,
+        credentials: async () => credentials,
+        tlsFailure: (envId: string, host: string) => {
+          asked.push([envId, host])
+          return answer
+        }
+      } as unknown as Parameters<typeof createOAuthTokenManager>[0])
+      return { oauth, asked }
+    }
+
+    it("con tlsFailure 'untrusted' → TLS_UNTRUSTED, preguntando por el host del SSO", async () => {
+      const { oauth, asked } = managerWithTls('untrusted')
+      const error = await expectDtError(oauth.getToken(ENV), 'TLS_UNTRUSTED')
+      expect(asked).toEqual([[ENV, 'sso.dynatrace.com']])
+      expect(error.reason).toEqual({ key: 'tlsUntrusted', params: { host: 'sso.dynatrace.com' } })
     })
-    const error = await expectDtError(oauth.getToken(ENV), code)
-    expect(error.message).toContain('No se pudo contactar con el SSO')
-    expect(error.message).toContain(message)
-    expect(error.message).not.toContain('SECRETOOAUTH')
+
+    it("con tlsFailure 'mismatch' → TLS_PIN_MISMATCH (tlsMismatch)", async () => {
+      const { oauth } = managerWithTls('mismatch')
+      const error = await expectDtError(oauth.getToken(ENV), 'TLS_PIN_MISMATCH')
+      expect(error.message).toBe(
+        'El certificado del SSO (sso.dynatrace.com) no coincide con la huella fijada.'
+      )
+      expect(error.reason).toEqual({ key: 'tlsMismatch', params: { host: 'sso.dynatrace.com' } })
+    })
+
+    it('si el verificador no anotó nada → NETWORK ssoUnreachable, no TLS', async () => {
+      const { oauth } = managerWithTls(null)
+      const error = await expectDtError(oauth.getToken(ENV), 'NETWORK')
+      expect(error.reason?.key).toBe('ssoUnreachable')
+    })
+
+    it('un SSO con puerto propio pregunta por host:puerto', async () => {
+      credentials = { ...baseCredentials, ssoUrl: 'https://sso.ejemplo.local:8443/token' }
+      const { oauth, asked } = managerWithTls('untrusted')
+      await expectDtError(oauth.getToken(ENV), 'TLS_UNTRUSTED')
+      expect(asked).toEqual([[ENV, 'sso.ejemplo.local:8443']])
+    })
   })
 
   it('AUD-20: si fetch lanza algo que no es un Error, también NETWORK', async () => {

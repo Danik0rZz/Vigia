@@ -55,9 +55,13 @@ async function ssoRejection(response: Response, clientSecret: string): Promise<D
   const credentialsError = new DtError(
     'UNAUTHORIZED',
     'El SSO ha rechazado el client ID o el client secret.',
-    response.status
+    response.status,
+    { key: 'ssoCredentials' }
   )
   if (response.status !== 400) return credentialsError
+  // Lo que devuelve el SSO no puede traer el secret, ni siquiera sin formato de token.
+  const scrub = (value: string): string =>
+    maskSecrets(clientSecret === '' ? value : value.split(clientSecret).join('***'))
 
   const text = await response.text().catch(() => '')
   let json: unknown = null
@@ -74,25 +78,28 @@ async function ssoRejection(response: Response, clientSecret: string): Promise<D
   const detail =
     description === undefined || description === ''
       ? null
-      : maskSecrets(
-          clientSecret === '' ? description : description.split(clientSecret).join('***')
-        ).slice(0, DESCRIPTION_MAX)
+      : scrub(description).slice(0, DESCRIPTION_MAX)
 
   if (code === 'invalid_scope') {
     return new DtError(
       'BAD_REQUEST',
       `El SSO no acepta los scopes pedidos: ${detail ?? code}`,
-      response.status
+      response.status,
+      { key: 'ssoScope', params: { detail: detail ?? code } }
     )
   }
   if (REQUEST_ERRORS.has(code)) {
-    return new DtError(
-      'BAD_REQUEST',
-      detail === null
-        ? `El SSO ha rechazado la petición: ${code}`
-        : `El SSO ha rechazado la petición (${code}): ${detail}`,
-      response.status
-    )
+    return detail === null
+      ? new DtError('BAD_REQUEST', `El SSO ha rechazado la petición: ${code}`, response.status, {
+          key: 'ssoRequest',
+          params: { code }
+        })
+      : new DtError(
+          'BAD_REQUEST',
+          `El SSO ha rechazado la petición (${code}): ${detail}`,
+          response.status,
+          { key: 'ssoRequestDetail', params: { code, detail } }
+        )
   }
   return credentialsError
 }
@@ -106,6 +113,8 @@ export function createOAuthTokenManager(deps: {
   fetch: typeof fetch
   now: () => Date
   credentials: (envId: string) => Promise<OAuthCredentials | null>
+  /** Por qué falló el certificado de `host` (con puerto), según el verificador. */
+  tlsFailure?: (envId: string, host: string) => 'untrusted' | 'mismatch' | null
 }): OAuthTokenManager {
   const tokens = new Map<string, OAuthToken>()
   const pending = new Map<string, Promise<OAuthToken>>()
@@ -115,7 +124,12 @@ export function createOAuthTokenManager(deps: {
   async function requestToken(envId: string): Promise<OAuthToken> {
     const credentials = await deps.credentials(envId)
     if (credentials === null) {
-      throw new DtError('NO_CREDENTIAL', 'El entorno no tiene client ID y client secret de OAuth.')
+      throw new DtError(
+        'NO_CREDENTIAL',
+        'El entorno no tiene client ID y client secret de OAuth.',
+        undefined,
+        { key: 'oauthMissing' }
+      )
     }
 
     const body = new URLSearchParams({
@@ -138,27 +152,61 @@ export function createOAuthTokenManager(deps: {
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      throw new DtError(
-        /ERR_CERT/.test(message) ? 'TLS_UNTRUSTED' : 'NETWORK',
-        `No se pudo contactar con el SSO: ${message}`
-      )
+      // Como en el cliente: el rechazo del verificador propio llega como ERR_FAILED,
+      // y solo es de certificado si el verificador lo anotó para el host del SSO.
+      const certError = /ERR_CERT|ERR_SSL/i.test(message)
+      const host = new URL(credentials.ssoUrl).host
+      const observed =
+        certError || /ERR_FAILED/.test(message) ? (deps.tlsFailure?.(envId, host) ?? null) : null
+      if (certError || observed !== null) {
+        throw (observed ?? 'untrusted') === 'mismatch'
+          ? new DtError(
+              'TLS_PIN_MISMATCH',
+              `El certificado del SSO (${host}) no coincide con la huella fijada.`,
+              undefined,
+              { key: 'tlsMismatch', params: { host } }
+            )
+          : new DtError(
+              'TLS_UNTRUSTED',
+              `El certificado del SSO (${host}) no es de confianza.`,
+              undefined,
+              { key: 'tlsUntrusted', params: { host } }
+            )
+      }
+      throw new DtError('NETWORK', `No se pudo contactar con el SSO: ${message}`, undefined, {
+        key: 'ssoUnreachable',
+        params: { detail: message }
+      })
     }
 
     if (response.status === 400 || response.status === 401) {
       throw await ssoRejection(response, credentials.clientSecret)
     }
+    const statusReason = { key: 'ssoStatus', params: { status: response.status } } as const
     if (response.status >= 500) {
-      throw new DtError('SERVER_ERROR', `El SSO respondió ${response.status}.`, response.status)
+      throw new DtError(
+        'SERVER_ERROR',
+        `El SSO respondió ${response.status}.`,
+        response.status,
+        statusReason
+      )
     }
     if (!response.ok) {
-      throw new DtError('UNAUTHORIZED', `El SSO respondió ${response.status}.`, response.status)
+      throw new DtError(
+        'UNAUTHORIZED',
+        `El SSO respondió ${response.status}.`,
+        response.status,
+        statusReason
+      )
     }
 
     const parsed = tokenResponseSchema.safeParse(await response.json().catch(() => null))
     if (!parsed.success) {
       throw new DtError(
         'INVALID_RESPONSE',
-        'La respuesta del SSO no tiene access_token y expires_in.'
+        'La respuesta del SSO no tiene access_token y expires_in.',
+        undefined,
+        { key: 'ssoInvalidToken' }
       )
     }
     return {

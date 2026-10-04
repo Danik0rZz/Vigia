@@ -116,7 +116,9 @@ export function createExportHandlers(
   return {
     'export:table': async (input) => {
       if (JSON.stringify(input.rows).length > MAX_EXPORT_JSON_BYTES) {
-        throw new DomainError('INVALID_INPUT', 'Demasiados datos para exportar.')
+        throw new DomainError('INVALID_INPUT', 'Demasiados datos para exportar.', {
+          key: 'exportTooLarge'
+        })
       }
       const now = deps.now()
       const { client, environment } = names(input.environmentId)
@@ -188,11 +190,15 @@ export function createExportHandlers(
 
     'capture:image': async ({ environmentId, module, dataUrl, action }) => {
       if (!dataUrl.startsWith(PNG_PREFIX)) {
-        throw new DomainError('INVALID_INPUT', 'La captura tiene que ser un PNG.')
+        throw new DomainError('INVALID_INPUT', 'La captura tiene que ser un PNG.', {
+          key: 'captureNotPng'
+        })
       }
       const png = Buffer.from(dataUrl.slice(PNG_PREFIX.length), 'base64')
       if (png.length > MAX_CAPTURE_BYTES || !png.subarray(0, 8).equals(PNG_SIGNATURE)) {
-        throw new DomainError('INVALID_INPUT', 'La captura no es un PNG válido.')
+        throw new DomainError('INVALID_INPUT', 'La captura no es un PNG válido.', {
+          key: 'captureInvalidPng'
+        })
       }
       return deliverPng(png, action, environmentId, module)
     },
@@ -200,7 +206,9 @@ export function createExportHandlers(
     'capture:region': async ({ environmentId, module, rect, action }) => {
       const { width, height } = deps.window.size()
       if (rect.x + rect.width > width || rect.y + rect.height > height) {
-        throw new DomainError('INVALID_INPUT', 'La zona a capturar se sale de la ventana.')
+        throw new DomainError('INVALID_INPUT', 'La zona a capturar se sale de la ventana.', {
+          key: 'captureOutOfWindow'
+        })
       }
       return deliverPng(await deps.window.capturePage(rect), action, environmentId, module)
     }

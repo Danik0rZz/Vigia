@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { unavailableReason, type ModuleAccess } from '../data/modules'
 import { dataWarnings } from '../lib/data-warnings'
+import { errorDetail } from '../lib/error-detail'
 import { listNotice } from '../lib/list-notice'
 import { IpcError } from '../lib/ipc'
 import { BUTTON_SECONDARY } from './styles'
@@ -37,7 +38,7 @@ export function ModuleError({ error }: { error: unknown }): JSX.Element {
         {translated !== '' && translated !== false ? translated : t('errors.generic')}
       </p>
       {error instanceof IpcError && (
-        <p className="text-xs text-muted-foreground">{error.message}</p>
+        <p className="text-xs text-muted-foreground">{errorDetail(t, error)}</p>
       )}
     </div>
   )

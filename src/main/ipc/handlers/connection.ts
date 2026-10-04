@@ -55,7 +55,8 @@ export function createConnectionHandlers(
       if (!deps.wasOffered(environmentId, host, fingerprint)) {
         throw new DomainError(
           'CONFLICT',
-          'CERTIFICATE_NOT_OBSERVED: esa huella no es la que se vio para ese host en la última prueba de conexión.'
+          'CERTIFICATE_NOT_OBSERVED: esa huella no es la que se vio para ese host en la última prueba de conexión.',
+          { key: 'certificateNotObserved' }
         )
       }
       pins.pin(environmentId, host, fingerprint)

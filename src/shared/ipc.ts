@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { errorReasonSchema, type ErrorReason } from './error-reasons'
 import {
   clientInputSchema,
   clientSchema,
@@ -353,11 +354,15 @@ export const ipcErrorCodes = [
 ] as const
 export type IpcErrorCode = (typeof ipcErrorCodes)[number]
 
-export interface IpcFailure {
-  code: IpcErrorCode
-  /** Mensaje apto para mostrar o registrar: nunca incluye secretos ni trazas. */
-  message: string
-}
+/** Fallo de un canal. Main valida el `reason` con este esquema antes de enviarlo. */
+export const ipcFailureSchema = z.object({
+  code: z.enum(ipcErrorCodes),
+  /** Mensaje apto para registrar o, sin `reason`, mostrar: nunca incluye secretos ni trazas. */
+  message: z.string(),
+  /** Motivo para que la interfaz lo traduzca (`errorReasons.<key>`). */
+  reason: errorReasonSchema.optional()
+})
+export type IpcFailure = z.output<typeof ipcFailureSchema>
 
 /**
  * Sobre de respuesta. Los errores viajan como datos porque las excepciones
@@ -383,8 +388,12 @@ export function isIpcChannel(value: unknown): value is IpcChannel {
   return typeof value === 'string' && Object.hasOwn(ipcContract, value)
 }
 
-export function ipcFailure(code: IpcErrorCode, message: string): IpcResult<never> {
-  return { ok: false, error: { code, message } }
+export function ipcFailure(
+  code: IpcErrorCode,
+  message: string,
+  reason?: ErrorReason
+): IpcResult<never> {
+  return { ok: false, error: reason === undefined ? { code, message } : { code, message, reason } }
 }
 
 /** Resume un error de validación de Zod sin volcar los datos recibidos. */

@@ -32,8 +32,8 @@ export interface EnvironmentNetwork {
   untrusted(envId: string): UntrustedCertificate[]
   /**
    * Si el verificador rechazó esa huella para ese host en la última prueba
-   * (lo que `untrusted` ofreció) y el host sigue siendo del entorno. Lo único
-   * que `certificates:pin` acepta.
+   * (lo que `untrusted` ofreció) y el host sigue siendo del entorno o de su
+   * SSO. Lo único que `certificates:pin` acepta.
    */
   wasOffered(envId: string, host: string, fingerprint: string): boolean
 }
@@ -49,6 +49,8 @@ export function createEnvironmentNetwork(deps: {
   certificateLevel(envId: string): CertificateLevel
   /** Nombres de host de la API clásica y de plataforma del entorno (los únicos que "ignorar" acepta). */
   environmentHosts(envId: string): string[]
+  /** Nombre del host del SSO del entorno, o null sin OAuth. Se puede fijar, nunca ignorar. */
+  ssoHost?(envId: string): string | null
   pins: PinStore
 }): EnvironmentNetwork {
   const sessions = new Map<string, Session>()
@@ -176,8 +178,9 @@ export function createEnvironmentNetwork(deps: {
     },
 
     wasOffered(envId, host, fingerprint) {
-      // Si la URL del entorno ha cambiado, lo ofrecido para el host anterior caduca.
-      if (!deps.environmentHosts(envId).includes(hostnameOf(host))) return false
+      // Si la URL del entorno (o la del SSO) ha cambiado, lo ofrecido para el host anterior caduca.
+      const pinnable = [...deps.environmentHosts(envId), deps.ssoHost?.(envId) ?? null]
+      if (!pinnable.includes(hostnameOf(host))) return false
       return (offered.get(envId) ?? []).some(
         (certificate) => certificate.host === host && certificate.fingerprint === fingerprint
       )

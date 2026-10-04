@@ -85,14 +85,17 @@ export function createTenantHandlers(
     if ((await deps.statFile(path)).size > MAX_CONFIG_FILE_BYTES) {
       throw new DomainError(
         'INVALID_INPUT',
-        'El fichero es demasiado grande para ser una configuración.'
+        'El fichero es demasiado grande para ser una configuración.',
+        { key: 'configTooLarge' }
       )
     }
     let raw: unknown
     try {
       raw = JSON.parse(await deps.readFile(path))
     } catch {
-      throw new DomainError('INVALID_INPUT', 'No se pudo leer el fichero como JSON.')
+      throw new DomainError('INVALID_INPUT', 'No se pudo leer el fichero como JSON.', {
+        key: 'configNotJson'
+      })
     }
     return { status: 'done', summary: applyConfigImport(repo, parseConfigFile(raw)) }
   }
@@ -128,7 +131,8 @@ export function createTenantHandlers(
         if (toManaged && orphans.length > 0 && dropPlatformSecrets !== true) {
           throw new DomainError(
             'CONFLICT',
-            'PLATFORM_SECRETS_PRESENT: el entorno tiene credenciales de plataforma; confirma que se borren al pasar a Managed.'
+            'PLATFORM_SECRETS_PRESENT: el entorno tiene credenciales de plataforma; confirma que se borren al pasar a Managed.',
+            { key: 'platformSecretsPresent' }
           )
         }
         repo.updateEnvironment(id, input)

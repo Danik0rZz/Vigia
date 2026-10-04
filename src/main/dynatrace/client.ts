@@ -136,15 +136,23 @@ export function createDtClient(deps: DtClientDeps): DtClient {
       environment = null
     }
     if (environment === null || environment === undefined) {
-      throw new DtError('NO_CREDENTIAL', 'El entorno no existe.')
+      throw new DtError('NO_CREDENTIAL', 'El entorno no existe.', undefined, {
+        key: 'environmentMissing'
+      })
     }
     return environment
   }
 
-  async function secretOrFail(envId: string, kind: SecretKind, what: string): Promise<string> {
+  async function secretOrFail(
+    envId: string,
+    kind: 'classicToken' | 'platformToken',
+    what: string
+  ): Promise<string> {
     const value = await deps.readSecret(envId, kind)
     if (value === null || value === '')
-      throw new DtError('NO_CREDENTIAL', `El entorno no tiene ${what}.`)
+      throw new DtError('NO_CREDENTIAL', `El entorno no tiene ${what}.`, undefined, {
+        key: kind === 'classicToken' ? 'missingClassicToken' : 'missingPlatformToken'
+      })
     return value
   }
 
@@ -177,8 +185,13 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     }
   }
 
-  const timeoutError = (timeoutMs: number): DtError =>
-    new DtError('TIMEOUT', `Sin respuesta en ${Math.round(timeoutMs / 1000)} s.`)
+  const timeoutError = (timeoutMs: number): DtError => {
+    const seconds = Math.round(timeoutMs / 1000)
+    return new DtError('TIMEOUT', `Sin respuesta en ${seconds} s.`, undefined, {
+      key: 'timeout',
+      params: { seconds }
+    })
+  }
 
   /**
    * Espera `promise` (la lectura del cuerpo) mientras no venza el plazo del
@@ -228,14 +241,24 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         certError || /ERR_FAILED/.test(text) ? (deps.tlsFailure?.(envId, host) ?? null) : null
       if (certError || observed !== null) {
         const reason = observed ?? 'untrusted'
-        throw new DtError(
-          reason === 'mismatch' ? 'TLS_PIN_MISMATCH' : 'TLS_UNTRUSTED',
-          reason === 'mismatch'
-            ? `El certificado de ${host} no coincide con la huella fijada.`
-            : `El certificado de ${host} no es de confianza.`
-        )
+        throw reason === 'mismatch'
+          ? new DtError(
+              'TLS_PIN_MISMATCH',
+              `El certificado de ${host} no coincide con la huella fijada.`,
+              undefined,
+              { key: 'tlsMismatch', params: { host } }
+            )
+          : new DtError(
+              'TLS_UNTRUSTED',
+              `El certificado de ${host} no es de confianza.`,
+              undefined,
+              { key: 'tlsUntrusted', params: { host } }
+            )
       }
-      throw new DtError('NETWORK', `Error de red: ${text}`)
+      throw new DtError('NETWORK', `Error de red: ${text}`, undefined, {
+        key: 'network',
+        params: { detail: text }
+      })
     }
   }
 
@@ -245,10 +268,13 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     const environment = await environmentOf(envId)
     const base = api === 'classic' ? environment.classicApiUrl : environment.platformUrl
     if (base === null) {
-      throw new DtError(
-        'NO_CREDENTIAL',
-        api === 'classic' ? 'Falta la URL de la API clásica.' : 'Falta la URL de plataforma.'
-      )
+      throw api === 'classic'
+        ? new DtError('NO_CREDENTIAL', 'Falta la URL de la API clásica.', undefined, {
+            key: 'missingClassicUrl'
+          })
+        : new DtError('NO_CREDENTIAL', 'Falta la URL de plataforma.', undefined, {
+            key: 'missingPlatformUrl'
+          })
     }
     // Concatenación, no new URL(path, base): en Managed la base lleva /e/<id>.
     const url = `${base}${api === 'classic' ? '/api/v2' : ''}${path}${buildQuery(options.query)}`
@@ -311,7 +337,8 @@ export function createDtClient(deps: DtClientDeps): DtClient {
           throw new DtError(
             'RATE_LIMITED',
             'Dynatrace limita las peticiones; prueba más tarde.',
-            429
+            429,
+            { key: 'rateLimited' }
           )
         }
         const wait =
@@ -352,7 +379,9 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         json = await readBody(response.json())
       } catch (error) {
         if (error instanceof DtError) throw error
-        throw new DtError('INVALID_RESPONSE', 'La respuesta no es JSON.', response.status)
+        throw new DtError('INVALID_RESPONSE', 'La respuesta no es JSON.', response.status, {
+          key: 'notJson'
+        })
       }
       const parsed = schema.safeParse(json)
       if (!parsed.success) {
@@ -364,7 +393,8 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         throw new DtError(
           'INVALID_RESPONSE',
           `La respuesta no tiene el formato esperado (${path}).`,
-          response.status
+          response.status,
+          { key: 'unexpectedFormat', params: { path } }
         )
       }
       return { retry: false, value: parsed.data }

@@ -9,7 +9,7 @@ import {
   type TokenInfo
 } from '@shared/dynatrace'
 import type { Environment, SecretKind } from '@shared/tenants'
-import { DomainError } from '../errors'
+import { DomainError, wireReason } from '../errors'
 import type { DtClient } from './client'
 import { DtError } from './errors'
 import type { OAuthTokenManager } from './oauth'
@@ -44,23 +44,32 @@ export interface ConnectionTestDeps {
   secretsStatus(envId: string): MaybePromise<Record<SecretKind, boolean>>
   readSecret(envId: string, kind: SecretKind): MaybePromise<string | null>
   now?: () => Date
+  /** Aviso en el log (un motivo de error que no cumple el esquema). */
+  warn?: (message: string) => void
 }
 
 function failed(
   id: MechanismResult['id'],
   error: unknown,
+  warn: (message: string) => void,
   tokenInfo: TokenInfo | null = null
 ): MechanismResult {
   const dtError =
     error instanceof DtError
       ? error
       : error instanceof DomainError && error.code === 'SECRET_UNREADABLE'
-        ? new DtError('SECRET_UNREADABLE', error.message)
-        : new DtError('NETWORK', 'Error inesperado al probar la conexión.')
+        ? new DtError('SECRET_UNREADABLE', error.message, undefined, error.reason)
+        : new DtError('NETWORK', 'Error inesperado al probar la conexión.', undefined, {
+            key: 'connectionUnexpected'
+          })
+  const reason = wireReason(dtError.reason, warn)
   return {
     id,
     state: 'disconnected',
-    error: { code: dtError.code, message: dtError.message },
+    error:
+      reason === undefined
+        ? { code: dtError.code, message: dtError.message }
+        : { code: dtError.code, message: dtError.message, reason },
     missingScopes: [],
     tokenInfo
   }
@@ -97,6 +106,7 @@ export async function testConnection(
   deps: ConnectionTestDeps
 ): Promise<ConnectionReport> {
   const now = deps.now ?? (() => new Date())
+  const warn = deps.warn ?? (() => undefined)
   const environment = await deps.getEnvironment(envId)
   const secrets = await deps.secretsStatus(envId)
   const mechanisms: MechanismResult[] = []
@@ -126,10 +136,14 @@ export async function testConnection(
         mechanisms.push(
           failed(
             'classic',
-            new DtError(
-              'UNAUTHORIZED',
-              info.enabled === false ? 'El token está desactivado.' : 'El token ha caducado.'
-            ),
+            info.enabled === false
+              ? new DtError('UNAUTHORIZED', 'El token está desactivado.', undefined, {
+                  key: 'tokenDisabled'
+                })
+              : new DtError('UNAUTHORIZED', 'El token ha caducado.', undefined, {
+                  key: 'tokenExpired'
+                }),
+            warn,
             tokenInfo
           )
         )
@@ -143,7 +157,7 @@ export async function testConnection(
         })
       }
     } catch (error) {
-      mechanisms.push(failed('classic', error))
+      mechanisms.push(failed('classic', error, warn))
     }
   }
 
@@ -180,7 +194,7 @@ export async function testConnection(
         tokenInfo
       })
     } catch (error) {
-      mechanisms.push(failed('oauth', error))
+      mechanisms.push(failed('oauth', error, warn))
     }
   }
 
@@ -202,7 +216,7 @@ export async function testConnection(
         tokenInfo: null
       })
     } catch (error) {
-      mechanisms.push(failed('platform', error))
+      mechanisms.push(failed('platform', error, warn))
     }
   }
 

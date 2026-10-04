@@ -43,14 +43,19 @@ export function createSavedQueryStore(db: AppDatabase): SavedQueryStore {
         .from(environments)
         .where(eq(environments.id, envId))
         .get()
-      if (environment === undefined) throw new DomainError('NOT_FOUND', 'El entorno no existe.')
+      if (environment === undefined)
+        throw new DomainError('NOT_FOUND', 'El entorno no existe.', { key: 'environmentMissing' })
 
       const existing = list(envId)
       if (input.id !== undefined && !existing.some((query) => query.id === input.id)) {
-        throw new DomainError('NOT_FOUND', 'La consulta guardada no existe.')
+        throw new DomainError('NOT_FOUND', 'La consulta guardada no existe.', {
+          key: 'savedQueryMissing'
+        })
       }
       if (existing.some((query) => query.id !== input.id && sameName(query.name, input.name))) {
-        throw new DomainError('CONFLICT', 'Ya hay una consulta guardada con ese nombre.')
+        throw new DomainError('CONFLICT', 'Ya hay una consulta guardada con ese nombre.', {
+          key: 'savedQueryNameTaken'
+        })
       }
 
       const query: SavedQuery = {

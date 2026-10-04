@@ -5,6 +5,7 @@ import type { TokenInfo, UntrustedCertificate } from '@shared/dynatrace'
 import type { EnvironmentView } from '@shared/tenants'
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from '../components/styles'
 import { queryKeys, useTenantMutation } from '../data/tenants'
+import { errorDetail } from '../lib/error-detail'
 import { invoke } from '../lib/ipc'
 import { cn } from '../lib/cn'
 
@@ -203,7 +204,7 @@ export function ConnectionPanel({ environment }: { environment: EnvironmentView 
               </span>
               {mechanism.error !== null && (
                 <span className="text-danger">
-                  {t(`dtErrors.${mechanism.error.code}`)} {mechanism.error.message}
+                  {t(`dtErrors.${mechanism.error.code}`)} {errorDetail(t, mechanism.error)}
                 </span>
               )}
               {mechanism.missingScopes.length > 0 && (

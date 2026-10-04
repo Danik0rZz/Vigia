@@ -145,6 +145,8 @@ Tres procesos. Solo main accede a red, disco, procesos externos y secretos; la i
 
 Patrón para código nuevo de main: la lógica en módulos puros con tests, y el uso de Electron en una capa fina aparte.
 
+Errores hacia la interfaz: main no traduce. Todo `DtError` o `DomainError` nuevo con texto para el usuario lleva `reason` (clave de `src/shared/error-reasons.ts` con su texto en `errorReasons.*` de es y en); su `message` en español es para el log. Solo los que llevan el texto propio de Dynatrace van sin `reason`, en la lista blanca de `src/main/error-reasons.test.ts`, que falla si alguno lo olvida.
+
 ## Cosas que ya se aprendieron
 
 - **La tilde de "Vigía" no puede acabar en una cabecera HTTP ni en una ruta.** Electron mete el nombre de la app en el User-Agent y eso rompía el protocolo `app://`. Está resuelto en `src/main/user-agent.ts`. Para todo lo técnico se usa `vigia`.

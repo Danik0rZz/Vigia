@@ -421,6 +421,136 @@ describe('AUD-21 (P3-2): wasOffered, lo único que certificates:pin acepta', () 
     expect(result).not.toBe(true)
   })
 
+  describe('P3-7: el host del SSO también se puede fijar', () => {
+    const SSO = 'sso.example'
+
+    /** Red con ssoHost; el verificador rechaza el certificado del SSO y untrusted() lo ofrece. */
+    async function ssoOffered(
+      ssoHost: () => string | null
+    ): Promise<ReturnType<typeof createEnvironmentNetwork>> {
+      const network = createEnvironmentNetwork({
+        certificateLevel: () => level,
+        environmentHosts: () => hosts,
+        ssoHost,
+        pins: { list: () => pins, pin: () => undefined, unpin: () => undefined, forHost: () => [] }
+      })
+      const proc = await verifierOf(network, ENV)
+      verify(proc, { hostname: SSO, errorCode: -202 })
+      expect(network.tlsFailure(ENV, `${SSO}:443`)).toBe('untrusted')
+      expect(network.untrusted(ENV)).toEqual([
+        { host: `${SSO}:443`, fingerprint: FP, reason: 'untrusted', previousFingerprint: null }
+      ])
+      return network
+    }
+
+    it('con ssoHost = el del SSO → wasOffered true', async () => {
+      const network = await ssoOffered(() => SSO)
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(true)
+    })
+
+    it('con ssoHost null (sin OAuth) → false', async () => {
+      const network = await ssoOffered(() => null)
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(false)
+    })
+
+    it('con ssoHost de otro host (el SSO ha cambiado) → false', async () => {
+      const network = await ssoOffered(() => 'otro-sso.example')
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(false)
+    })
+
+    it('sin la dep ssoHost (opcional), el SSO no se puede fijar', async () => {
+      const network = build()
+      const proc = await verifierOf(network, ENV)
+      verify(proc, { hostname: SSO, errorCode: -202 })
+      network.tlsFailure(ENV, `${SSO}:443`)
+      network.untrusted(ENV)
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(false)
+    })
+
+    /** Verificador de una red con API en api.example, SSO en sso.example y los pins actuales. */
+    async function verifierWithSso(): Promise<VerifyProc> {
+      const network = createEnvironmentNetwork({
+        certificateLevel: () => level,
+        environmentHosts: () => ['api.example'],
+        ssoHost: () => SSO,
+        pins: { list: () => pins, pin: () => undefined, unpin: () => undefined, forHost: () => [] }
+      })
+      return verifierOf(network, ENV)
+    }
+
+    it('garantía 1: el pin del SSO solo vale para el SSO (la API sin pin propio → Chromium)', async () => {
+      level = 'pinned'
+      pins = [{ host: `${SSO}:443`, fingerprint: FP }]
+      const proc = await verifierWithSso()
+      // La API presenta justo la huella fijada para el SSO: no se acepta por eso.
+      expect(verify(proc, { hostname: 'api.example', errorCode: -202 })).toEqual([USE_CHROMIUM])
+      expect(
+        verify(proc, {
+          hostname: 'api.example',
+          errorCode: -202,
+          certificate: { fingerprint: OTHER_FP }
+        })
+      ).toEqual([USE_CHROMIUM])
+      // El SSO con su huella sí.
+      expect(verify(proc, { hostname: SSO, errorCode: -202 })).toEqual([ACCEPT])
+    })
+
+    it('garantía 1: con un pin propio de la API distinto, la huella del SSO no la salva → REJECT', async () => {
+      level = 'pinned'
+      pins = [
+        { host: `${SSO}:443`, fingerprint: FP },
+        { host: 'api.example:443', fingerprint: OTHER_FP }
+      ]
+      const proc = await verifierWithSso()
+      expect(verify(proc, { hostname: 'api.example' })).toEqual([REJECT])
+      expect(
+        verify(proc, { hostname: 'api.example', certificate: { fingerprint: OTHER_FP } })
+      ).toEqual([ACCEPT])
+    })
+
+    it("garantía 2: con 'ignore', el SSO sin pin → Chromium; con un pin que no coincide → REJECT", async () => {
+      level = 'ignore'
+      pins = []
+      let proc = await verifierWithSso()
+      expect(verify(proc, { hostname: SSO, errorCode: -202 })).toEqual([USE_CHROMIUM])
+      // La API (del entorno) sí se ignora.
+      expect(verify(proc, { hostname: 'api.example', errorCode: -202 })).toEqual([ACCEPT])
+
+      pins = [{ host: `${SSO}:443`, fingerprint: OTHER_FP }]
+      proc = await verifierWithSso()
+      expect(verify(proc, { hostname: SSO, errorCode: -202 })).toEqual([REJECT])
+      // Y con su pin correcto, aceptado.
+      expect(
+        verify(proc, { hostname: SSO, errorCode: -202, certificate: { fingerprint: OTHER_FP } })
+      ).toEqual([ACCEPT])
+    })
+
+    it('garantía 3: la oferta se compara con el ssoHost del momento de fijar, no con el de la prueba', async () => {
+      let current: string | null = SSO
+      const network = await ssoOffered(() => current)
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(true)
+      current = 'sso-b.example'
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(false)
+      current = null
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(false)
+      current = SSO
+      expect(network.wasOffered(ENV, `${SSO}:443`, FP)).toBe(true)
+    })
+
+    it("el nivel 'ignore' NO se aplica al SSO: su certificado no fiable sigue rechazándose", async () => {
+      level = 'ignore'
+      const network = createEnvironmentNetwork({
+        certificateLevel: () => level,
+        environmentHosts: () => [HOST],
+        ssoHost: () => SSO,
+        pins: { list: () => [], pin: () => undefined, unpin: () => undefined, forHost: () => [] }
+      })
+      const proc = await verifierOf(network, ENV)
+      expect(verify(proc, { hostname: SSO, errorCode: -202 })).toEqual([USE_CHROMIUM])
+      expect(verify(proc, { hostname: HOST, errorCode: -202 })).toEqual([ACCEPT])
+    })
+  })
+
   it('con huella fijada distinta (mismatch), lo ofrecido es la huella NUEVA', async () => {
     level = 'pinned'
     pins = [{ host: `${HOST}:443`, fingerprint: FP }]

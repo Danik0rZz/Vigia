@@ -42,6 +42,8 @@ const fingerprints: string[] = []
 let ssoServer: Server | null = null
 let ssoRequests = 0
 const CLIENT_SECRET = `dt0s02.CLIENTEPUBLICO00000000000.${'SECRETOE2ESSO'.padEnd(64, 'X')}`
+/** Token que emite el SSO fijado de P3-7 (no es un secreto real). */
+const SSO_ACCESS_TOKEN = 'ACCESOSSOFIJADOE2E'
 const consoleErrors: string[] = []
 const rendererRemote: string[] = []
 const ipcOutputs: string[] = []
@@ -96,6 +98,18 @@ async function startServer(): Promise<string> {
             name: 'e2e',
             enabled: true,
             scopes: ['problems.read', 'metrics.read', 'slo.read']
+          })
+        }
+        // P3-7: la comprobación de plataforma de OAuth, solo con el token del SSO de prueba.
+        if (req.method === 'GET' && req.url === '/platform/management/v1/environment') {
+          if (req.headers.authorization !== `Bearer ${SSO_ACCESS_TOKEN}`) {
+            return send(401, { error: { code: 401, message: 'Missing or invalid token' } })
+          }
+          return send(200, {
+            environmentId: 'e2e',
+            createTime: '2026-01-01T00:00:00Z',
+            type: 'saas',
+            state: 'ACTIVE'
           })
         }
         send(404, { error: { code: 404, message: 'No existe' } })
@@ -255,6 +269,34 @@ test('nivel system: certificado no confiable, con su host y su huella', async ()
     { host, fingerprint: fingerprints[0], reason: 'untrusted', previousFingerprint: null }
   ])
   expect(await invoke('certificates:list', { environmentId })).toEqual([])
+})
+
+test('i18n (b): con la interfaz en inglés, el motivo del error de main sale en inglés', async () => {
+  // Botón de idioma de la barra superior (topbar.language en cada idioma).
+  await page.getByRole('button', { name: 'Cambiar a inglés' }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  try {
+    await openEnvironmentForm()
+    const form = page.getByTestId('environment-form')
+    await form.getByTestId('connection-test').click()
+    const result = form.getByTestId('connection-result-classic')
+    // El motivo tlsUntrusted {host} traducido, con el host:puerto del servidor simulado.
+    await expect(result).toContainText(`The certificate of ${host} is not trusted.`)
+    await expect(result).not.toContainText('no es de confianza')
+    await closeEnvironmentForm()
+  } finally {
+    await page.getByRole('button', { name: 'Switch to Spanish' }).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'es')
+  }
+
+  // En español, el mismo motivo en español.
+  await openEnvironmentForm()
+  const form = page.getByTestId('environment-form')
+  await form.getByTestId('connection-test').click()
+  await expect(form.getByTestId('connection-result-classic')).toContainText(
+    `El certificado de ${host} no es de confianza.`
+  )
+  await closeEnvironmentForm()
 })
 
 test('AUD-21 (P3-2): aceptar una huella que ya no ofrece la última prueba da error y no fija nada', async () => {
@@ -499,6 +541,85 @@ test('nivel ignore NO vale para el SSO: un SSO ajeno autofirmado falla y no reci
   // Se deja el entorno como estaba para los pasos siguientes.
   await invoke('secrets:delete', { environmentId, kind: 'oauthClientSecret' })
   await setLevel('ignore', { oauthClientId: null, oauthScopes: [], ssoUrl: null })
+})
+
+test('P3-7: el certificado del SSO se ofrece en «Probar conexión», se puede fijar y entonces OAuth conecta', async () => {
+  // SSO propio con certificado autofirmado en 'localhost' (distinto del host del entorno).
+  ssoServer?.closeAllConnections()
+  await new Promise<void>((resolve) => (ssoServer ? ssoServer.close(() => resolve()) : resolve()))
+  const { key, cert, fingerprint: ssoFingerprint } = await newCertificate('localhost')
+  ssoServer = createServer({ key, cert }, (_req, res) => {
+    ssoRequests += 1
+    res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
+    res.end(
+      JSON.stringify({
+        access_token: SSO_ACCESS_TOKEN,
+        expires_in: 300,
+        token_type: 'Bearer',
+        scope: 'platform-management:environments:read'
+      })
+    )
+  })
+  await new Promise<void>((resolve) => ssoServer?.listen(0, '127.0.0.1', resolve))
+  const ssoHost = `localhost:${(ssoServer.address() as AddressInfo).port}`
+  const requestsBefore = ssoRequests
+
+  await setLevel('pinned', {
+    platformUrl: `https://${host}`,
+    oauthClientId: 'dt0s02.CLIENTEPUBLICO00000000000',
+    oauthScopes: ['platform-management:environments:read'],
+    ssoUrl: `https://${ssoHost}/sso/oauth2/token`
+  })
+  await invoke('secrets:set', { environmentId, kind: 'oauthClientSecret', value: CLIENT_SECRET })
+  try {
+    // 1) La prueba ofrece el certificado del SSO (y no le ha llegado nada: el TLS falla antes).
+    const first = await testConnection()
+    expect(first.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
+      state: 'disconnected',
+      error: { code: 'TLS_UNTRUSTED' }
+    })
+    const offeredSso = first.untrustedCertificates.find((c) => c.host === ssoHost)
+    expect(offeredSso).toEqual({
+      host: ssoHost,
+      fingerprint: ssoFingerprint,
+      reason: 'untrusted',
+      previousFingerprint: null
+    })
+    expect(ssoRequests).toBe(requestsBefore)
+
+    // 2) Se fija la huella del SSO (y la del host del entorno, que la prueba también ofrece).
+    for (const certificate of first.untrustedCertificates) {
+      await invoke('certificates:pin', {
+        environmentId,
+        host: certificate.host,
+        fingerprint: certificate.fingerprint
+      })
+    }
+    const pinned = await invoke<{ host: string; fingerprint: string }[]>('certificates:list', {
+      environmentId
+    })
+    expect(pinned).toContainEqual({ host: ssoHost, fingerprint: ssoFingerprint })
+
+    // 3) Con la huella fijada, la siguiente prueba conecta OAuth (el SSO emite el token y la
+    // plataforma lo acepta).
+    const second = await testConnection()
+    expect(second.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
+      state: 'connected',
+      error: null
+    })
+    expect(second.untrustedCertificates.filter((c) => c.host === ssoHost)).toEqual([])
+    expect(ssoRequests).toBeGreaterThan(requestsBefore)
+  } finally {
+    // Se deja como estaba: sin OAuth, sin plataforma, sin la huella del SSO y en 'ignore'.
+    await invoke('certificates:unpin', { environmentId, host: ssoHost })
+    await invoke('secrets:delete', { environmentId, kind: 'oauthClientSecret' })
+    await setLevel('ignore', {
+      platformUrl: null,
+      oauthClientId: null,
+      oauthScopes: [],
+      ssoUrl: null
+    })
+  }
 })
 
 test('de vuelta a system: otra vez no confiable (no queda nada en caché) y sin aviso', async () => {

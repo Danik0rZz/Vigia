@@ -8,7 +8,7 @@ import {
   type IpcResult
 } from '@shared/ipc'
 import { DtError } from '../dynatrace/errors'
-import { DomainError } from '../errors'
+import { DomainError, wireReason } from '../errors'
 
 /** Lo que main necesita saber de quien envía un mensaje para decidir si se fía. */
 export interface IpcSender {
@@ -66,7 +66,10 @@ export function createIpcHandler<C extends IpcChannel>(
     } catch (error) {
       // Errores esperados: llegan con su código y su mensaje, que no lleva secretos.
       if (error instanceof DomainError || error instanceof DtError) {
-        return ipcFailure(error.code, error.message)
+        const reason = wireReason(error.reason, (message) =>
+          deps.logger.warn(`IPC ${channel}: ${message}`)
+        )
+        return ipcFailure(error.code, error.message, reason)
       }
       // El detalle va solo al log de main; al renderer llega un mensaje genérico.
       deps.logger.error(`IPC ${channel}: error en la implementación`, error)

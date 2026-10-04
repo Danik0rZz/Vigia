@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { errorReasonSchema } from './error-reasons'
 
 /**
  * Scopes que necesita cada módulo, deducidos de `..\API\` (Environment API v2):
@@ -66,7 +67,13 @@ export type TokenInfo = z.output<typeof tokenInfoSchema>
 export const mechanismResultSchema = z.object({
   id: z.enum(mechanismIds),
   state: z.enum(['connected', 'disconnected']),
-  error: z.object({ code: z.enum(dtErrorCodes), message: z.string() }).nullable(),
+  error: z
+    .object({
+      code: z.enum(dtErrorCodes),
+      message: z.string(),
+      reason: errorReasonSchema.optional()
+    })
+    .nullable(),
   missingScopes: z.array(z.string()),
   tokenInfo: tokenInfoSchema.nullable()
 })

@@ -47,7 +47,9 @@ export function buildConfigExport(
 export function parseConfigFile(raw: unknown): ConfigFile {
   const parsed = configFileSchema.safeParse(raw)
   if (!parsed.success) {
-    throw new DomainError('INVALID_INPUT', 'El fichero no es una configuración de Vigía válida.')
+    throw new DomainError('INVALID_INPUT', 'El fichero no es una configuración de Vigía válida.', {
+      key: 'configInvalid'
+    })
   }
   return parsed.data
 }

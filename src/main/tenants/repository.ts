@@ -69,19 +69,23 @@ export function createTenantRepository(db: AppDatabase): TenantRepository {
 
   function requireClient(id: string): Client {
     const client = db.select().from(clients).where(eq(clients.id, id)).get()
-    if (client === undefined) throw new DomainError('NOT_FOUND', 'El cliente no existe.')
+    if (client === undefined)
+      throw new DomainError('NOT_FOUND', 'El cliente no existe.', { key: 'clientMissing' })
     return client
   }
 
   function requireEnvironment(id: string): Environment {
     const row = db.select().from(environments).where(eq(environments.id, id)).get()
-    if (row === undefined) throw new DomainError('NOT_FOUND', 'El entorno no existe.')
+    if (row === undefined)
+      throw new DomainError('NOT_FOUND', 'El entorno no existe.', { key: 'environmentMissing' })
     return toEnvironment(row)
   }
 
   function checkClientName(name: string, exceptId: string | null): void {
     if (listClients().some((client) => client.id !== exceptId && sameName(client.name, name))) {
-      throw new DomainError('CONFLICT', 'Ya existe un cliente con ese nombre.')
+      throw new DomainError('CONFLICT', 'Ya existe un cliente con ese nombre.', {
+        key: 'clientNameTaken'
+      })
     }
   }
 
@@ -93,7 +97,9 @@ export function createTenantRepository(db: AppDatabase): TenantRepository {
       .all()
       .some((row) => row.id !== exceptId && sameName(row.name, name))
     if (taken)
-      throw new DomainError('CONFLICT', 'Ya existe un entorno con ese nombre en el cliente.')
+      throw new DomainError('CONFLICT', 'Ya existe un entorno con ese nombre en el cliente.', {
+        key: 'environmentNameTaken'
+      })
   }
 
   /** Si el entorno activo ya no existe (borrado o en cascada), se deja sin entorno activo. */

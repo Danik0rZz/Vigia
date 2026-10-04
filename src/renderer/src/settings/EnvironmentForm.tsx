@@ -95,8 +95,7 @@ export function EnvironmentForm({
       requestClose()
     } catch (error) {
       // CONFLICT por secretos de plataforma (la vista estaba desfasada): no es el nombre.
-      const platform =
-        error instanceof IpcError && error.message.startsWith('PLATFORM_SECRETS_PRESENT')
+      const platform = error instanceof IpcError && error.reason?.key === 'platformSecretsPresent'
       if (error instanceof IpcError && error.code === 'CONFLICT' && !platform) {
         form.setError('name', { message: 'errors.nameTaken' })
       } else {
