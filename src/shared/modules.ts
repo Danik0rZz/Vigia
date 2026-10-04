@@ -109,7 +109,15 @@ export const metricResultSchema = z.object({
       values: z.array(z.number().nullable())
     })
   ),
-  warnings: z.array(z.string())
+  warnings: z.array(z.string()),
+  /** Resultados que la API ha recortado (ratio de puntos o de dimensiones < 1). */
+  partial: z.array(
+    z.object({
+      metricId: z.string(),
+      dataPoints: z.number().nullable(),
+      dimensions: z.number().nullable()
+    })
+  )
 })
 export type MetricResult = z.output<typeof metricResultSchema>
 
@@ -187,7 +195,9 @@ export const xlsxLabelsSchema = z.object({
   /** Opcional: etiqueta de la fila con los elementos descartados. */
   invalidItems: z.string().min(1).max(60).optional(),
   /** Opcional: etiqueta de la fila del filtro de clúster. */
-  clusterFilter: z.string().min(1).max(60).optional()
+  clusterFilter: z.string().min(1).max(60).optional(),
+  /** Opcional: etiqueta de la fila de la resolución (Métricas). */
+  resolution: z.string().min(1).max(60).optional()
 })
 export type XlsxLabels = z.output<typeof xlsxLabelsSchema>
 

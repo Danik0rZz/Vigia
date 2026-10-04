@@ -48,7 +48,57 @@ describe('metricDataSchema y toMetricSeries', () => {
           values: [1, 2, 3]
         }
       ],
-      warnings: ['La consulta se ha recortado']
+      warnings: ['La consulta se ha recortado'],
+      partial: []
+    })
+  })
+
+  describe('AUD-13: partial con dataPointCountRatio y dimensionCountRatio', () => {
+    const withRatios = (ratios: Record<string, unknown>[]): Record<string, unknown> =>
+      queryResponse({
+        result: ratios.map((ratio, i) => ({
+          metricId: `m${i + 1}`,
+          data: [{ dimensionMap: {}, timestamps: [1], values: [1] }],
+          ...ratio
+        }))
+      })
+    const partialOf = (ratios: Record<string, unknown>[]): unknown =>
+      toMetricSeries(metricDataSchema.parse(withRatios(ratios))).partial
+
+    it('solo los resultados con algún ratio < 1; el otro ratio va a null', () => {
+      expect(
+        partialOf([
+          { dataPointCountRatio: 0.5, dimensionCountRatio: 1 },
+          { dataPointCountRatio: 1, dimensionCountRatio: 0.25 },
+          { dataPointCountRatio: 0.1, dimensionCountRatio: 0.2 }
+        ])
+      ).toEqual([
+        { metricId: 'm1', dataPoints: 0.5, dimensions: null },
+        { metricId: 'm2', dataPoints: null, dimensions: 0.25 },
+        { metricId: 'm3', dataPoints: 0.1, dimensions: 0.2 }
+      ])
+    })
+
+    it('ratios 1 o ausentes → fuera', () => {
+      expect(
+        partialOf([
+          { dataPointCountRatio: 1, dimensionCountRatio: 1 },
+          {},
+          { dataPointCountRatio: 1 }
+        ])
+      ).toEqual([])
+    })
+
+    it('ratio 0 también es recorte', () => {
+      expect(partialOf([{ dataPointCountRatio: 0 }])).toEqual([
+        { metricId: 'm1', dataPoints: 0, dimensions: null }
+      ])
+    })
+
+    it('un ratio que no es número → la respuesta no vale', () => {
+      expect(metricDataSchema.safeParse(withRatios([{ dataPointCountRatio: '0.5' }])).success).toBe(
+        false
+      )
     })
   })
 

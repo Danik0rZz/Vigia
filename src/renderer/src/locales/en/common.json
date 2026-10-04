@@ -344,7 +344,19 @@
     "delete": "Delete",
     "deleteConfirm": "Delete the query “{{name}}”?",
     "deleteBody": "Only the saved query is deleted.",
-    "noSeries": "The query returned no data."
+    "noSeries": "The query returned no data.",
+    "noResults": "No results.",
+    "pointsEstimate": "About {{points}} points per series: the query may be slow and so may the chart.",
+    "useResolution": "Use {{resolution}}",
+    "resolutionApplied": "Applied resolution: {{resolution}}",
+    "partialPoints": "{{metricId}}: the API returned only part of the data points ({{percent}} %).",
+    "partialDimensions": "{{metricId}}: the API returned only part of the dimensions ({{percent}} %).",
+    "exportColumns": {
+      "time": "Time",
+      "metricId": "Metric",
+      "dimensions": "Dimensions",
+      "value": "Value"
+    }
   },
   "home": {
     "openProblems": "Open problems",
@@ -387,7 +399,8 @@
       "note": "Note",
       "warning": "Warning",
       "invalidItems": "Discarded items",
-      "clusterFilter": "Cluster filter"
+      "clusterFilter": "Cluster filter",
+      "resolution": "Resolution"
     }
   },
   "exportSettings": {

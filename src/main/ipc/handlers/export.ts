@@ -154,7 +154,8 @@ export function createExportHandlers(
               note: input.note,
               warnings: input.warnings,
               invalidCount: input.invalidCount,
-              clusterFilter: input.clusterFilter
+              clusterFilter: input.clusterFilter,
+              resolution: input.resolution
             },
             { labels: input.xlsxLabels }
           )

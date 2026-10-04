@@ -25,6 +25,8 @@ export interface ExportTable {
   invalidCount?: number | undefined
   /** Clústeres del filtro local activo: fila propia en la hoja Info. */
   clusterFilter?: readonly string[] | undefined
+  /** Resolución aplicada por la API (Métricas): fila propia en la hoja Info. */
+  resolution?: string | undefined
 }
 
 /** Etiquetas del XLSX (hojas e Info) en el idioma de la interfaz. */
@@ -44,7 +46,8 @@ function xlsxLabels(t: TFunction): XlsxLabels {
     'note',
     'warning',
     'invalidItems',
-    'clusterFilter'
+    'clusterFilter',
+    'resolution'
   ] as const
   return Object.fromEntries(keys.map((key) => [key, t(`export.xlsxLabels.${key}`)])) as XlsxLabels
 }
@@ -166,6 +169,7 @@ export function ExportMenu({
         ...(table.clusterFilter === undefined || table.clusterFilter.length === 0
           ? {}
           : { clusterFilter: [...table.clusterFilter] }),
+        ...(table.resolution === undefined ? {} : { resolution: table.resolution }),
         // Las etiquetas del XLSX las traduce la interfaz, como las cabeceras.
         ...(action === 'xlsx' ? { xlsxLabels: xlsxLabels(t) } : {})
       })

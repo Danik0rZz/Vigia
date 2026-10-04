@@ -214,6 +214,65 @@ describe('export:table con VIGIA_EXPORT_DIR', () => {
     return rows
   }
 
+  it('AUD-13: resolution → fila propia «Resolución», antes de los Aviso', async () => {
+    await call(
+      build(dir),
+      'export:table',
+      table('xlsx', {
+        resolution: '10m',
+        warnings: ['m1: la API ha devuelto solo parte de los puntos']
+      })
+    )
+    const rows = await infoRows()
+    expect(rows.filter(([label]) => label === 'Resolución')).toEqual([['Resolución', '10m']])
+    const labels = rows.map(([label]) => label)
+    expect(labels.indexOf('Resolución')).toBeLessThan(labels.indexOf('Aviso'))
+  })
+
+  it('AUD-13: sin resolution no hay fila', async () => {
+    await call(build(dir), 'export:table', table('xlsx'))
+    expect((await infoRows()).some(([label]) => label === 'Resolución')).toBe(false)
+  })
+
+  it('AUD-13: con xlsxLabels.resolution usa esa etiqueta', async () => {
+    const xlsxLabels = {
+      dataSheet: 'Data',
+      infoSheet: 'Info',
+      client: 'Client',
+      environment: 'Environment',
+      module: 'Module',
+      query: 'Query',
+      exported: 'Exported',
+      timeZone: 'Time zone',
+      range: 'Range',
+      from: 'From',
+      to: 'To',
+      resolution: 'Resolution'
+    }
+    await call(build(dir), 'export:table', table('xlsx', { xlsxLabels, resolution: '1h' }))
+    expect((await infoRows()).filter(([label]) => label === 'Resolution')).toEqual([
+      ['Resolution', '1h']
+    ])
+  })
+
+  it.each([
+    ['vacía', ''],
+    ['de 21 caracteres', 'x'.repeat(21)],
+    ['numérica', 5]
+  ])('AUD-13: resolution %s → INVALID_INPUT', async (_case, resolution) => {
+    expect(await call(build(dir), 'export:table', table('xlsx', { resolution }))).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT' }
+    })
+    expect(written.size).toBe(0)
+  })
+
+  it('AUD-13: el CSV no lleva la resolución', async () => {
+    await call(build(dir), 'export:table', table('csv', { resolution: '10m' }))
+    const text = [...written.values()][0]?.toString('utf8') ?? ''
+    expect(text).not.toContain('Resolución')
+  })
+
   it('clusterFilter → fila propia «Filtro de clúster» con los valores unidos, antes de descartados y Aviso', async () => {
     await call(
       build(dir),

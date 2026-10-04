@@ -454,6 +454,57 @@ describe('metrics:query y metrics:search', () => {
     expect(requests).toHaveLength(2)
   })
 
+  it('AUD-13: metrics:search descarta las métricas inválidas y las cuenta en invalid', async () => {
+    routes['/metrics'] = () =>
+      json(200, {
+        totalCount: 3,
+        nextPageKey: null,
+        metrics: [
+          { metricId: 'builtin:host.cpu.usage', displayName: 'CPU' },
+          { displayName: 'Sin metricId' },
+          { metricId: 'builtin:host.cpu.idle' }
+        ]
+      })
+    const result = await call('metrics:search', { environmentId: envId, text: 'cpu' })
+    expect(result).toMatchObject({ ok: true, data: { invalid: 1 } })
+    const ids = (result as { data: { metrics: { metricId: string }[] } }).data.metrics.map(
+      (m) => m.metricId
+    )
+    expect(ids).toEqual(['builtin:host.cpu.usage', 'builtin:host.cpu.idle'])
+  })
+
+  it('AUD-13: metrics:search sin inválidas → invalid 0', async () => {
+    expect(await call('metrics:search', { environmentId: envId, text: 'cpu' })).toMatchObject({
+      ok: true,
+      data: { invalid: 0 }
+    })
+  })
+
+  it('AUD-13: metrics:query devuelve partial con los ratios < 1 de la API', async () => {
+    routes['/metrics/query'] = () =>
+      json(200, {
+        resolution: '1m',
+        totalCount: 1,
+        result: [
+          {
+            metricId: 'builtin:host.cpu.usage',
+            dataPointCountRatio: 0.5,
+            dimensionCountRatio: 1,
+            data: [{ dimensionMap: {}, timestamps: [1], values: [1] }]
+          }
+        ]
+      })
+    expect(
+      await call('metrics:query', { environmentId: envId, timeRange: '2h', metricSelector: 'm' })
+    ).toMatchObject({
+      ok: true,
+      data: {
+        resolution: '1m',
+        partial: [{ metricId: 'builtin:host.cpu.usage', dataPoints: 0.5, dimensions: null }]
+      }
+    })
+  })
+
   it.each(['', 'x'.repeat(101)])('metrics:search rechaza el texto %j', async (text) => {
     expect(await call('metrics:search', { environmentId: envId, text })).toMatchObject({
       ok: false,

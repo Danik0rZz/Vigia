@@ -344,7 +344,19 @@
     "delete": "Borrar",
     "deleteConfirm": "¿Borrar la consulta «{{name}}»?",
     "deleteBody": "Solo se borra la consulta guardada.",
-    "noSeries": "La consulta no ha devuelto datos."
+    "noSeries": "La consulta no ha devuelto datos.",
+    "noResults": "Sin resultados.",
+    "pointsEstimate": "Unos {{points}} puntos por serie: la consulta puede tardar y el gráfico, ir lento.",
+    "useResolution": "Usar {{resolution}}",
+    "resolutionApplied": "Resolución aplicada: {{resolution}}",
+    "partialPoints": "{{metricId}}: la API ha devuelto solo parte de los puntos ({{percent}} %).",
+    "partialDimensions": "{{metricId}}: la API ha devuelto solo parte de las dimensiones ({{percent}} %).",
+    "exportColumns": {
+      "time": "Fecha",
+      "metricId": "Métrica",
+      "dimensions": "Dimensiones",
+      "value": "Valor"
+    }
   },
   "home": {
     "openProblems": "Problemas abiertos",
@@ -387,7 +399,8 @@
       "note": "Nota",
       "warning": "Aviso",
       "invalidItems": "Elementos descartados",
-      "clusterFilter": "Filtro de clúster"
+      "clusterFilter": "Filtro de clúster",
+      "resolution": "Resolución"
     }
   },
   "exportSettings": {

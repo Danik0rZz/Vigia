@@ -14,6 +14,9 @@ export const metricDataSchema = z.object({
   result: z.array(
     z.object({
       metricId: z.string(),
+      /** < 1 si la API ha recortado puntos o dimensiones (observado en vivo). */
+      dataPointCountRatio: z.number().optional(),
+      dimensionCountRatio: z.number().optional(),
       data: z.array(
         z.object({
           dimensionMap: z.record(z.string(), z.string()),
@@ -37,11 +40,21 @@ export function toMetricSeries(data: z.output<typeof metricDataSchema>): MetricR
         values: series.values
       }))
     ),
-    warnings: data.warnings ?? []
+    warnings: data.warnings ?? [],
+    // Solo los resultados recortados: un ratio < 1 (el que no lo sea, a null).
+    partial: data.result.flatMap((metric) => {
+      const ratio = (value: number | undefined): number | null =>
+        value !== undefined && value < 1 ? value : null
+      const dataPoints = ratio(metric.dataPointCountRatio)
+      const dimensions = ratio(metric.dimensionCountRatio)
+      return dataPoints === null && dimensions === null
+        ? []
+        : [{ metricId: metric.metricId, dataPoints, dimensions }]
+    })
   }
 }
 
-const metricDescriptorSchema = z.object({
+export const metricDescriptorSchema = z.object({
   metricId: z.string(),
   displayName: z.string().nullable().optional(),
   unit: z.string().nullable().optional(),
@@ -51,6 +64,13 @@ const metricDescriptorSchema = z.object({
 /** Página de GET /api/v2/metrics (búsqueda por texto). */
 export const metricSearchPageSchema = z.object({
   metrics: z.array(metricDescriptorSchema),
+  totalCount: z.number(),
+  nextPageKey: z.string().nullable().optional()
+})
+
+/** La misma página, con las métricas sin validar: se validan una a una (parseItems). */
+export const metricSearchRawPageSchema = z.object({
+  metrics: z.array(z.unknown()),
   totalCount: z.number(),
   nextPageKey: z.string().nullable().optional()
 })

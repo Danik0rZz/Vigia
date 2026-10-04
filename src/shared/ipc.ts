@@ -209,7 +209,8 @@ export const ipcContract = {
     output: z.object({
       metrics: z.array(metricInfoSchema),
       truncated: z.boolean(),
-      totalCount: z.number().nullable()
+      totalCount: z.number().nullable(),
+      invalid: z.number().int().min(0)
     })
   },
   'slos:list': {
@@ -258,6 +259,8 @@ export const ipcContract = {
       warnings: z.array(z.string().max(500)).max(20).optional(),
       /** Elementos descartados por no cumplir el esquema: fila propia en la hoja Info. */
       invalidCount: z.number().int().min(0).optional(),
+      /** Resolución aplicada por la API (Métricas): fila propia en la hoja Info. */
+      resolution: z.string().min(1).max(20).optional(),
       /** Clústeres del filtro local activo: la exportación no es el total. */
       clusterFilter: z.array(z.string().min(1).max(200)).min(1).max(100).optional(),
       /** Etiquetas del XLSX en el idioma de la interfaz (solo con format xlsx). */

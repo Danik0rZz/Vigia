@@ -1,9 +1,11 @@
 import { DT_ENDPOINTS } from '@shared/dt-endpoints'
 import { timeRangeToDt } from '@shared/time-range'
 import type { DtClient } from '../../dynatrace/client'
+import { parseItems } from '../../dynatrace/parse-items'
 import {
   metricDataSchema,
-  metricSearchPageSchema,
+  metricDescriptorSchema,
+  metricSearchRawPageSchema,
   toMetricInfo,
   toMetricSeries
 } from '../../modules/metrics'
@@ -110,12 +112,15 @@ export function createModuleHandlers(
         api: 'classic',
         path: '/metrics',
         query: { text, pageSize: METRIC_SEARCH_PAGE_SIZE },
-        schema: metricSearchPageSchema
+        schema: metricSearchRawPageSchema
       })
+      // Una métrica inesperada se descarta y se cuenta (AUD-08), no tumba la búsqueda.
+      const parsed = parseItems(metricDescriptorSchema, page.metrics)
       return {
-        metrics: page.metrics.map(toMetricInfo),
+        metrics: parsed.items.map(toMetricInfo),
         truncated: page.nextPageKey !== null && page.nextPageKey !== undefined,
-        totalCount: page.totalCount
+        totalCount: page.totalCount,
+        invalid: parsed.invalid
       }
     },
 

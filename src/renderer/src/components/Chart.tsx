@@ -47,8 +47,14 @@ export const Chart = forwardRef<
     label: string
     buildOption: (colors: ChartColors) => echarts.EChartsCoreOption
     height?: number
+    /**
+     * Nombres de las series (los de la leyenda), en su orden. El canvas no se
+     * puede leer: así se ven en el DOM (data-series, JSON) para las pruebas y
+     * las herramientas de accesibilidad.
+     */
+    seriesNames?: readonly string[] | undefined
   }
->(function Chart({ testId, label, buildOption, height = 240 }, ref): JSX.Element {
+>(function Chart({ testId, label, buildOption, height = 240, seriesNames }, ref): JSX.Element {
   const container = useRef<HTMLDivElement>(null)
   const instance = useRef<echarts.ECharts | null>(null)
   const theme = useResolvedTheme()
@@ -83,6 +89,7 @@ export const Chart = forwardRef<
     <div
       ref={container}
       data-testid={testId}
+      data-series={seriesNames === undefined ? undefined : JSON.stringify(seriesNames)}
       role="img"
       aria-label={label}
       style={{ height }}

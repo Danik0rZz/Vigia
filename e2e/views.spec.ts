@@ -188,7 +188,13 @@ const sim = {
   detailFails: false,
   lastDetailQuery: new URLSearchParams(),
   lastProblemsQuery: new URLSearchParams(),
-  lastMetricsQuery: new URLSearchParams()
+  lastMetricsQuery: new URLSearchParams(),
+  /** AUD-13: peticiones a /metrics/query. */
+  metricsQueries: 0,
+  /** AUD-13: dataPointCountRatio / dimensionCountRatio de cada resultado. */
+  metricRatios: {} as { dataPointCountRatio?: number; dimensionCountRatio?: number },
+  /** AUD-13: warnings de /metrics/query. */
+  metricWarnings: [] as string[]
 }
 
 let server: Server
@@ -329,33 +335,35 @@ async function startServer(): Promise<void> {
         return respondDetail()
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/metrics') {
-        return send(200, {
-          totalCount: 2,
-          nextPageKey: null,
-          metrics: [
-            { metricId: 'builtin:host.cpu.usage', displayName: 'CPU usage %', unit: 'Percent' },
-            { metricId: 'builtin:host.cpu.idle', displayName: 'CPU idle', unit: 'Percent' }
-          ]
-        })
+        // Filtra por text (AUD-13: «Sin resultados» con un texto que no casa).
+        const text = (url.searchParams.get('text') ?? '').toLowerCase()
+        const metrics = [
+          { metricId: 'builtin:host.cpu.usage', displayName: 'CPU usage %', unit: 'Percent' },
+          { metricId: 'builtin:host.cpu.idle', displayName: 'CPU idle', unit: 'Percent' }
+        ].filter((m) => `${m.metricId} ${m.displayName}`.toLowerCase().includes(text))
+        return send(200, { totalCount: metrics.length, nextPageKey: null, metrics })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/metrics/query') {
+        sim.metricsQueries += 1
         sim.lastMetricsQuery = url.searchParams
         const timestamps = [0, 1, 2, 3, 4].map((i) => NOW - (4 - i) * 60_000)
+        // Varias métricas separadas por comas: un resultado por métrica.
+        const selectors = (url.searchParams.get('metricSelector') ?? 'x').split(',')
         return send(200, {
           resolution: url.searchParams.get('resolution') ?? '1m',
-          totalCount: 1,
-          result: [
-            {
-              metricId: url.searchParams.get('metricSelector') ?? 'x',
-              data: [
-                {
-                  dimensionMap: { 'dt.entity.host': 'HOST-AAA1' },
-                  timestamps,
-                  values: [10, 20, null, 15, 30]
-                }
-              ]
-            }
-          ]
+          totalCount: selectors.length,
+          ...(sim.metricWarnings.length > 0 ? { warnings: sim.metricWarnings } : {}),
+          result: selectors.map((metricId) => ({
+            metricId,
+            ...sim.metricRatios,
+            data: [
+              {
+                dimensionMap: { 'dt.entity.host': 'HOST-AAA1' },
+                timestamps,
+                values: [10, 20, null, 15, 30]
+              }
+            ]
+          }))
         })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/slo') {
@@ -1336,6 +1344,176 @@ test('Métricas: búsqueda, consulta con resolución y gráfico', async () => {
   await expect(page.getByTestId('metric-chart').locator('canvas').first()).toBeVisible()
   expect(sim.lastMetricsQuery.get('metricSelector')).toBe('builtin:host.cpu.usage')
   expect(sim.lastMetricsQuery.get('resolution')).toBe('5m')
+})
+
+test('AUD-13: resolución aplicada bajo el gráfico', async () => {
+  // Viene del test anterior: 5m consultado.
+  await expect(page.getByTestId('metric-resolution-applied')).toHaveText(/Resolución aplicada: 5m/)
+
+  // Sin resolución, la que diga la API (el simulador responde 1m).
+  await page.getByTestId('metric-resolution').selectOption('')
+  await page.getByTestId('metric-run').click()
+  await expect.poll(() => sim.lastMetricsQuery.has('resolution')).toBe(false)
+  await expect(page.getByTestId('metric-resolution-applied')).toHaveText(/Resolución aplicada: 1m/)
+})
+
+test('AUD-13: aviso de puntos antes de consultar y resolución sugerida', async () => {
+  const estimate = page.getByTestId('points-estimate')
+  const resolution = page.getByTestId('metric-resolution')
+  await page.getByTestId('time-range-7d').click()
+
+  // Sin resolución (120 puntos) o Inf (1): sin aviso.
+  for (const value of ['', 'Inf', '1h']) {
+    await resolution.selectOption(value)
+    await expect(estimate).toHaveCount(0)
+  }
+
+  // 1m en 7 días son 10 081 puntos por serie.
+  await resolution.selectOption('1m')
+  await expect(estimate).toBeVisible()
+  await expect(estimate).toContainText(/10\D?081/)
+  const use = page.getByTestId('use-resolution')
+  await expect(use).toHaveText(/Usar 10m/)
+
+  // No bloquea: con el aviso, la consulta sale igual con 1m.
+  const before = sim.metricsQueries
+  await page.getByTestId('metric-run').click()
+  await expect.poll(() => sim.metricsQueries).toBeGreaterThan(before)
+  expect(sim.lastMetricsQuery.get('resolution')).toBe('1m')
+  expect(sim.lastMetricsQuery.get('from')).toBe('now-7d')
+
+  // «Usar 10m» cambia la resolución y el aviso desaparece.
+  await use.click()
+  await expect(resolution).toHaveValue('10m')
+  await expect(estimate).toHaveCount(0)
+
+  // En 2 h, 1m son 121 puntos: sin aviso.
+  await page.getByTestId('time-range-2h').click()
+  await resolution.selectOption('1m')
+  await expect(estimate).toHaveCount(0)
+  await resolution.selectOption('5m')
+})
+
+test('AUD-13: recortes y warnings de la API bajo el gráfico', async () => {
+  const warnings = page.getByTestId('api-warnings')
+  sim.metricRatios = { dataPointCountRatio: 0.5 }
+  sim.metricWarnings = ['Aviso de métricas de la prueba']
+  // Cada paso con una resolución nueva: una clave ya consultada sale de la caché sin petición.
+  const resolution = page.getByTestId('metric-resolution')
+  try {
+    await resolution.selectOption('10m')
+    await page.getByTestId('metric-run').click()
+    await expect(warnings).toContainText(
+      'builtin:host.cpu.usage: la API ha devuelto solo parte de los puntos (50 %)'
+    )
+    await expect(warnings).toContainText('Aviso de métricas de la prueba')
+    await expect(warnings).not.toContainText('dimensiones')
+
+    sim.metricRatios = { dimensionCountRatio: 0.25 }
+    sim.metricWarnings = []
+    await resolution.selectOption('1h')
+    await page.getByTestId('metric-run').click()
+    await expect(warnings).toContainText('parte de las dimensiones (25 %)')
+    await expect(warnings).not.toContainText('parte de los puntos')
+
+    // El XLSX lleva la resolución y los recortes como Aviso.
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(
+      readFileSync(await exportTo('metric-chart', 'export-xlsx')) as unknown as ArrayBuffer
+    )
+    const info: [string, unknown][] = []
+    workbook.getWorksheet('Info')?.eachRow((r) => {
+      info.push([String(r.getCell(1).value), r.getCell(2).value])
+    })
+    expect(info.filter(([label]) => label === 'Resolución')).toEqual([['Resolución', '1h']])
+    expect(
+      info.filter(([label, value]) => label === 'Aviso' && String(value).includes('dimensiones'))
+    ).toHaveLength(1)
+  } finally {
+    sim.metricRatios = {}
+    sim.metricWarnings = []
+  }
+  // Vuelta a 5m (en caché, sin recortes): solo queda la resolución aplicada.
+  await resolution.selectOption('5m')
+  await page.getByTestId('metric-run').click()
+  await expect(page.getByText(/la API ha devuelto solo parte/)).toHaveCount(0)
+  await expect(page.getByTestId('metric-resolution-applied')).toBeVisible()
+})
+
+test('AUD-13: el buscador elige con Enter sin lanzar la consulta, y dice «Sin resultados»', async () => {
+  const search = page.getByTestId('metric-search')
+  const selector = page.getByTestId('metric-selector')
+  await expect(search).toHaveAttribute('maxlength', '100')
+  await selector.fill('otra.metrica')
+
+  const before = sim.metricsQueries
+  await search.fill('idle')
+  const results = page.getByTestId('metric-search-result')
+  await expect(results).toHaveCount(1)
+  await search.press('Enter')
+  await expect(selector).toHaveValue('builtin:host.cpu.idle')
+  await expect(search).toHaveValue('')
+  // Aserción negativa: un margen para que una consulta indebida llegara.
+  await page.waitForTimeout(500)
+  expect(sim.metricsQueries).toBe(before)
+
+  // Un click en un resultado hace lo mismo.
+  await search.fill('cpu')
+  await expect(results).toHaveCount(2)
+  await results.filter({ hasText: 'CPU usage' }).click()
+  await expect(selector).toHaveValue('builtin:host.cpu.usage')
+  await expect(search).toHaveValue('')
+  expect(sim.metricsQueries).toBe(before)
+
+  await search.fill('nada-que-casar')
+  await expect(page.getByTestId('metric-search-empty')).toBeVisible()
+  await expect(results).toHaveCount(0)
+  await search.fill('')
+})
+
+test('AUD-13: con varias métricas, la leyenda lleva el metricId delante', async () => {
+  const chart = page.getByTestId('metric-chart')
+  await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage,builtin:host.cpu.idle')
+  await page.getByTestId('metric-run').click()
+  await expect
+    .poll(async () => JSON.parse((await chart.getAttribute('data-series')) ?? '[]') as string[])
+    .toEqual(['builtin:host.cpu.usage · HOST-AAA1', 'builtin:host.cpu.idle · HOST-AAA1'])
+
+  // Con una sola, solo las dimensiones.
+  await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage')
+  await page.getByTestId('metric-run').click()
+  await expect
+    .poll(async () => JSON.parse((await chart.getAttribute('data-series')) ?? '[]') as string[])
+    .toEqual(['HOST-AAA1'])
+})
+
+test('AUD-13: guardar con un nombre repetido dice que ya existe; cancelar limpia', async () => {
+  const dialogName = page.getByTestId('saved-query-name')
+  await page.getByTestId('saved-query-save').click()
+  await dialogName.fill('Consulta repetida')
+  await page.getByTestId('form-save').click()
+  const saved = page.getByTestId('saved-query').filter({ hasText: 'Consulta repetida' })
+  await expect(saved).toHaveCount(1)
+
+  await page.getByTestId('saved-query-save').click()
+  await dialogName.fill('Consulta repetida')
+  await page.getByTestId('form-save').click()
+  await expect(page.getByText(es.errors.nameTaken)).toBeVisible()
+  await expect(saved).toHaveCount(1)
+
+  // Cancelar limpia el nombre y el error.
+  await page.getByTestId('form-cancel').click()
+  await expect(dialogName).toHaveCount(0)
+  await page.getByTestId('saved-query-save').click()
+  await expect(dialogName).toHaveValue('')
+  await expect(page.getByText(es.errors.nameTaken)).toHaveCount(0)
+  await page.getByTestId('form-cancel').click()
+
+  await saved.getByTestId('saved-query-delete').click()
+  const confirm = page.getByTestId('confirm-dialog')
+  if (await confirm.isVisible().catch(() => false))
+    await confirm.getByTestId('confirm-accept').click()
+  await expect(saved).toHaveCount(0)
 })
 
 test('Métricas: guardar, cargar desde la lista y desde Ctrl+K, y borrar una consulta', async () => {
