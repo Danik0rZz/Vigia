@@ -3,6 +3,72 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [0.8.0] - 2026-10-04
+
+Arreglos de la auditoría n.º 1 (AUD-01 a AUD-20 y los P2 de AUD-21), Problemas y Métricas más
+completos, y exploración de la API v2 en un tenant de pruebas (`docs/notas-api-v2.md`). Sin
+migraciones nuevas.
+
+### Añadido
+
+- Problemas:
+  - Columna y filtro de clúster de Kubernetes. El filtro es local, porque la API no permite
+    filtrar por clúster, y el aviso lo dice ("Mostrando N (filtro de clúster) de L cargados de M").
+  - Filtros de severidad e impacto, que sí filtran en Dynatrace.
+  - Los filtros se guardan por entorno y no se pierden al cambiar de sección.
+  - El detalle se abre en un panel lateral, también con el teclado, y muestra al instante los datos
+    de la fila mientras llega el resto.
+- Métricas:
+  - Antes de consultar se estiman los puntos por serie y, si son muchos, se avisa y se ofrece una
+    resolución más gruesa (la API no la rebaja: 1 min en 7 días son más de 10 000 puntos).
+  - Se muestran la resolución aplicada, los recortes de la API y sus avisos.
+  - El buscador está fuera del formulario (Enter elige la métrica y no lanza la consulta).
+  - La leyenda lleva la métrica cuando hay varias.
+- Inicio:
+  - Los SLO en aviso tienen su propio color.
+  - Un SLO sin evaluar se muestra "Sin evaluar", nunca "Correcto".
+  - Se muestran los problemas abiertos relacionados con cada SLO.
+  - El total real de problemas abiertos.
+- Listas: "Mostrando N de M" con el total real de la API, y SLOs paginados.
+- Exportación:
+  - La hoja Info del XLSX añade: avisos de Dynatrace, elementos descartados, filtro de clúster y
+    resolución.
+  - El rango de la hoja Info es el de cuando se cargaron los datos.
+  - El aviso de guardado lleva el nombre real del fichero.
+- Pruebas en vivo de solo lectura (`npm run test:live`), con una guarda que rechaza cualquier
+  escritura antes de llegar a la red, y `npm run scan:tenant` antes de cada push.
+- e2e por niveles (`npm run test:e2e:affected`) y captura con log al fallar un e2e.
+
+### Cambiado
+
+- Una lista con un elemento inesperado ya no falla entera: el elemento se descarta, se cuenta y
+  se avisa.
+- Un 400 de Dynatrace se muestra como "La consulta no es válida" con el mensaje de la API.
+- Un plazo vencido mientras se lee la respuesta da error de tiempo, en vez de dejar la vista
+  cargando.
+- Credenciales:
+  - Enter en una credencial la guarda a ella.
+  - Borrar una credencial pide confirmación.
+  - Pasar un entorno a Managed borra las credenciales de plataforma solo tras confirmarlo, y en
+    una sola operación.
+  - Una credencial guardada en otro equipo se marca "Hay que volver a introducirla".
+- Al editar un entorno o sus credenciales se borran de la caché sus datos.
+- La paleta Ctrl+K se abre por encima de los diálogos.
+- El botón de borrar cumple el contraste AA en el tema oscuro.
+- La URL del entorno no admite parámetros (`?…`).
+- La exportación neutraliza las fórmulas por el valor y no por el tipo de columna, y `NaN` sale
+  como celda vacía.
+- Paginación: cada endpoint declara qué parámetros repite en la página siguiente (solo
+  `/problems` repite `fields`).
+- `npm run check` incluye el formato y la cobertura con umbral.
+- Instalación: `npm ci --ignore-scripts` y `npx install-electron` (ver README).
+
+### Corregido
+
+- La salud de servicios de Inicio ordenaba la gravedad alfabéticamente.
+- El verificador de certificados podía no responder si el entorno se borraba con una petición en
+  curso.
+
 ## [0.7.0] - 2026-10-04
 
 Mejoras sobre la primera versión: Problemas completo, entornos más claros y pruebas en vivo.

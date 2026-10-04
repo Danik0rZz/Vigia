@@ -20,7 +20,8 @@ App de escritorio para Windows (Electron + React + TypeScript) para trabajar con
 - **Fase 4 (cliente de Dynatrace): cerrada, versión 0.4.0.** Criterios automáticos cumplidos en Windows (unitarios, integración con un HTTPS simulado y e2e de certificados); la prueba contra un tenant real está en la lista de pendientes.
 - **Fase 6 (primeras vistas core): cerrada, versión 0.6.0.** Con ella se completa el alcance propuesto de la primera versión (fases 1, 2, 3, 4 y 6). Criterios automáticos cumplidos en Windows; la aceptación manual está en la lista de pendientes.
 - **v0.7.0 (mejoras sobre la primera versión): cerrada y publicada en `main`.** Problemas completo (tabla, detalle con `fields`, exportación común), descripción del token, entornos por tipo y cliente, tooltips del menú y pruebas en vivo (`npm run test:live`). Criterios automáticos cumplidos en Windows.
-- **En curso (después de la v0.7.0):** arreglos de la auditoría externa n.º 1 (se citan por su ID, `AUD-xx`) y exploración de la API v2 en el tenant de pruebas, documentada en `docs/notas-api-v2.md`.
+- **v0.8.0: cerrada.** Auditoría externa n.º 1 cerrada (todos los P1 y P2; se citan por su ID, `AUD-xx`), clúster y filtros por entorno en Problemas, detalle en panel lateral, Métricas con aviso de puntos y recortes, SLOs en Inicio, y exploración de la API v2 (bloques a-f) en `docs/notas-api-v2.md`. Sin migraciones nuevas. Criterios automáticos de nivel 3 cumplidos en Windows (e2e ×3, repeticiones de views y tenants, dist:win y clon limpio con la instalación del README).
+- **Siguiente:** backlog P3 de AUD-21 y que `views.spec` no dependa del orden. Lo demás (CI, licencia y las propuestas de `docs/notas-api-v2.md`) lo decide Dani.
 - **Primera versión: fases 1, 2, 3, 4 y 6, aceptada por Dani** (2026-10-04). Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo retome.
 - Repositorio git local. Remoto público: https://github.com/Danik0rZz/Vigia.
 - El código se escribió y se probó en Linux. Dani ha comprobado a mano la Fase 1 en Windows, y `npm run check` y `npm run test:e2e` pasan en Windows (2026-10-03).
@@ -38,6 +39,17 @@ Aceptación manual de la Fase 1 (comprobada por Dani en Windows):
 No bloquea: se sigue con la fase siguiente y Dani lo prueba cuando pueda.
 
 Dani aceptó la v0.6.0 el 2026-10-04 (cliente y entorno que se conservan al reiniciar) y dio por cumplidos los criterios manuales de las fases 2, 3, 4 y 6. "Probar conexión contra un tenant real" queda cubierto por las pruebas en vivo (`npm run test:live`, v0.7.0), y "XLSX y CSV en Excel" se revisa con las exportaciones reales de esas pruebas.
+
+v0.8.0 (incluye lo de la v0.7.0), pruebas a mano con los datos reales:
+
+- [ ] Al marcar "ignorar certificados" en el formulario del entorno aparece el aviso.
+- [ ] La ruta de la barra superior muestra Cliente › tipo de entorno, y el menú tiene tooltips.
+- [ ] "Probar conexión" describe el token (nombre, caducidad y scopes).
+- [ ] Problemas: columna y filtro de Clúster, filtros de severidad e impacto, y detalle en el panel lateral (también con el teclado: Tab hasta el ID y Enter).
+- [ ] Los avisos "Mostrando N de M" y los avisos de Dynatrace se entienden.
+- [ ] Métricas: con 7 días y 1 min aparece el aviso de puntos y "Usar 10m". SLOs de Inicio: el estado de aviso con su color, "Sin evaluar" y los problemas relacionados.
+- [ ] Guardar un secreto pulsando Enter en su campo.
+- [ ] Arrancar el zip 0.8.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de `%APPDATA%\vigia`**; lo hace Dani.
 
 Fase 2:
 
@@ -70,6 +82,8 @@ Fase 6:
 - `e2e/views.spec.ts` depende del orden de sus tests: cada test debería preparar su propio estado (anotado en la cabecera del spec).
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec, "Funcionalidades").
 - Streaming de exportaciones y aviso de filas de Excel en CSV, con DQL en la Fase 8 (ver la spec, "Exportación de datos").
+- Fusible `enableEmbeddedAsarIntegrityValidation` (AUD-21): propuesto, sin activar. Solo afecta al zip y los e2e corren sobre `out/`, así que se activa cuando se pueda arrancar el zip en un perfil o una VM de prueba (nunca en el perfil de Dani).
+- Particiones de red sin liberar (AUD-21): cada `reset` deja la sesión anterior hasta cerrar la app. Es una limitación de Electron; solo se anota.
 - El futuro CI (AUD-15.4, lo decide Dani) tiene que instalar con `npm ci --ignore-scripts` y `npx install-electron` (ver "Primer paso al retomar").
 
 ## Primer paso al retomar
