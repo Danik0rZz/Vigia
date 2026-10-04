@@ -1578,7 +1578,10 @@ test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y «Más detalles
   // METRIC sin valores: N/A (antes, después y variación), sin romper la tarjeta.
   const empty = item('Uso de CPU')
   await expect(empty.getByTestId('evidence-change')).toContainText('N/A → N/A')
-  await expect(empty.getByTestId('evidence-variation')).toContainText('N/A')
+  await expect(empty.getByTestId('evidence-variation')).toHaveText('N/A')
+  // Sin datos no hay dirección: ni flecha ni «sin cambio» para el lector de pantalla.
+  await expect(empty.getByTestId('evidence-variation').locator('svg')).toHaveCount(0)
+  await expect(empty.getByTestId('evidence-variation').locator('.sr-only')).toHaveCount(0)
   await expect(empty.getByTestId('evidence-metric-id')).toHaveText('builtin:host.cpu.usage')
 
   // EVENT con propiedades: "Más detalles" las despliega, como texto (el <b> no es HTML).

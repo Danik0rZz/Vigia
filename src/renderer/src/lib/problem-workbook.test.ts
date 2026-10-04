@@ -63,6 +63,9 @@ function detail(overrides: Partial<ProblemDetail> = {}): ProblemDetail {
     comments: [],
     commentTotal: null,
     invalid: 0,
+    // Por defecto, lo recibido es lo legible (sin descartes).
+    evidenceReceived: overrides.evidence?.length ?? 0,
+    commentReceived: overrides.comments?.length ?? 0,
     ...overrides
   } as ProblemDetail
 }
@@ -267,6 +270,43 @@ describe('problemWorkbook', () => {
     expect(result.warnings).toEqual([
       `problems.apiTruncatedEvidence${JSON.stringify({ shown: 2, total: 250 })}`,
       `problems.apiTruncatedComments${JSON.stringify({ shown: 1, total: 40 })}`
+    ])
+  })
+
+  it('v0.9.1: el aviso compara con lo RECIBIDO (ilegibles incluidos) y shown es lo recibido', () => {
+    // 301 recibidas (una ilegible, descartada) de 301: la API no ha recortado nada.
+    const legible = Array.from({ length: 300 }, () => evidence())
+    const complete = problemWorkbook(
+      detail({
+        evidence: legible,
+        evidenceTotal: 301,
+        evidenceReceived: 301,
+        comments: [{ author: null, content: 'x', context: null, createdAt: 1 }],
+        commentTotal: 2,
+        commentReceived: 2,
+        invalid: 2
+      }),
+      LOADED,
+      t
+    )
+    expect(complete.warnings).toEqual([])
+    // 5 recibidas (2 ilegibles) de 9: se avisa con shown = 5, no 3.
+    const cut = problemWorkbook(
+      detail({
+        evidence: [evidence(), evidence(), evidence()],
+        evidenceTotal: 9,
+        evidenceReceived: 5,
+        comments: [{ author: null, content: 'x', context: null, createdAt: 1 }],
+        commentTotal: 4,
+        commentReceived: 3,
+        invalid: 4
+      }),
+      LOADED,
+      t
+    )
+    expect(cut.warnings).toEqual([
+      `problems.apiTruncatedEvidence${JSON.stringify({ shown: 5, total: 9 })}`,
+      `problems.apiTruncatedComments${JSON.stringify({ shown: 3, total: 4 })}`
     ])
   })
 

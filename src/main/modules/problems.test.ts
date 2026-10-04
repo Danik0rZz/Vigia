@@ -285,7 +285,9 @@ describe('problemDetailSchema y toProblemDetail', () => {
       entityTags: ['equipo:pagos', 'critico', 'zona:eu'],
       linkedProblem: { displayId: 'P-0', problemId: 'p-0000' },
       evidenceTotal: 2,
+      evidenceReceived: 2,
       commentTotal: 2,
+      commentReceived: 2,
       invalid: 0
     })
     expect(result.evidence).toEqual([
@@ -480,6 +482,42 @@ describe('problemDetailSchema y toProblemDetail', () => {
     expect(result.invalid).toBe(3)
     expect(result.evidence).toEqual([])
     expect(result.comments).toEqual([])
+    // Lo recibido cuenta también lo ilegible (para no confundirlo con un recorte de la API).
+    expect(result).toMatchObject({ evidenceReceived: 2, commentReceived: 1 })
+  })
+
+  it('v0.9.1: evidenceReceived y commentReceived, en crudo (legibles e ilegibles); sin partes, 0', () => {
+    const mixed = toProblemDetail(
+      problemDetailSchema.parse(
+        detail({
+          evidenceDetails: {
+            totalCount: 3,
+            details: [{ evidenceType: 'EVENT', displayName: 'Buena' }, null, 'x']
+          },
+          recentComments: { totalCount: 2, comments: [{ createdAtTimestamp: 1 }, {}] }
+        })
+      )
+    )
+    expect(mixed).toMatchObject({
+      evidenceTotal: 3,
+      evidenceReceived: 3,
+      commentTotal: 2,
+      commentReceived: 2,
+      invalid: 3
+    })
+    expect(mixed.evidence).toHaveLength(1)
+    expect(mixed.comments).toHaveLength(1)
+
+    const raw = detail()
+    delete raw['evidenceDetails']
+    delete raw['recentComments']
+    expect(toProblemDetail(problemDetailSchema.parse(raw))).toMatchObject({
+      evidenceReceived: 0,
+      commentReceived: 0
+    })
+    expect(
+      toProblemDetail(problemDetailSchema.parse(detail({ evidenceDetails: {} }))).evidenceReceived
+    ).toBe(0)
   })
 
   it('v0.9.1: un tipo de evidencia desconocido se conserva tal cual y no cuenta como invalid', () => {
