@@ -5,6 +5,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+Sin migraciones nuevas.
+
+### Añadido
+
+- Detalle del problema: al desplegar un evento de la tabla de evidencias, su descripción sale la
+  primera, en una sección «Descripción» con formato (títulos, listas, negrita, código, tablas, citas
+  y enlaces). Un conmutador «Con formato · Texto original» enseña el texto tal cual (vuelve a «Con
+  formato» al plegar la fila) y «Copiar» copia el texto original. La descripción ya no se repite en
+  la lista de propiedades y llega entera aunque el evento tenga muchas propiedades (hasta 5 000
+  caracteres; si se recorta, una nota lo dice). Por seguridad, el HTML que traiga se ve como texto,
+  solo los enlaces web se abren (en el navegador del sistema) y las imágenes no se cargan: se ve su
+  texto alternativo o su dirección. (ficha 0001)
+
 ### Cambiado
 
 - Forma de trabajar del proyecto (no cambia la app): fichas de tarea con criterios de aceptación,

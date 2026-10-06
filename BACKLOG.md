@@ -6,9 +6,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- [0001](tasks/0001-descripcion-evento-markdown.md): descripción del evento
-  (`dt.event.description`) con formato Markdown en el detalle del problema, con «Con formato ·
-  Texto original» y «Copiar». Aprobada por Dani el 2026-10-06.
+(vacío)
 
 ## Próximo
 
@@ -34,11 +32,16 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 - **e2e de `views.spec.ts` que dependen de la máquina** (primer candidato a ficha). Fallan en el
   primer CI (`windows-latest`, run 37506732054, 2026-10-06) y en la VPS, sin cambios de código:
-  - `:1605` (300 filas virtualizadas): espera la fila 150 y ve la 146 en el CI y la 140 en la VPS.
-  - `:1413` (Problemas, detalle): la cabecera arrastrable (`app-drag`) intercepta el clic en la
+  Líneas del spec tras la ficha 0001 (en el `main` anterior eran `:1605`, `:1413`, `:3857` y
+  `:3962`):
+  - `:1721` (300 filas virtualizadas): espera la fila 150 y ve la 146 en el CI y la 140 en la VPS.
+  - `:1529` (Problemas, detalle): la cabecera arrastrable (`app-drag`) intercepta el clic en la
     ruta de la barra superior.
-  - `:3857` (i18n con el gráfico de Métricas): la serie llega vacía.
-  - `:3962` (SLO de Inicio): se agota la espera de 5 s.
+  - `:3978` (i18n con el gráfico de Métricas): la serie llega vacía. Pasa aislado (3/3) y falla en
+    el spec completo, así que depende del orden. Deducción del verifier en la ficha 0001, sin
+    comprobar: lee `data-series` sin `expect.poll` justo después de `runMetric`, mientras aún se
+    rehace el gráfico del test anterior.
+  - `:4083` (SLO de Inicio): se agota la espera de 5 s.
     Apuntan a la geometría de la ventana y a los tiempos del runner. Mientras no se arreglen, el CI
     sale en rojo. De paso: `actions/checkout` y `actions/setup-node` a una versión con Node 24 (aviso
     de deprecación de Node 20).
@@ -47,6 +50,18 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   "Funcionalidades").
 - Particiones de red sin liberar (AUD-21, ADR-0003): cada `reset` deja la sesión anterior hasta
   cerrar la app. Es una limitación de Electron; solo se anota.
+- Guarda de las pruebas en vivo (`src/test/live-usage.test.ts`): limitar los patrones de módulos de
+  red a `from`, `import(` y `require(`, y prohibir en `*.live.test.ts` un `import(` o `require(` con
+  argumento no literal. Quita falsos positivos (tomaba los literales `'http'` y `'https'` de un test
+  por un import de red) y cierra el atajo del nombre calculado. (surgió en 0001)
+- Descripción del evento: si algún día aparecen descripciones de más de 5 000 caracteres, la nota
+  de recorte podría ofrecer pedir la descripción entera a main bajo demanda. (surgió en 0001)
+- El recorte de la descripción del evento (`slice`) puede partir un emoji por la mitad: retroceder
+  una posición si cae en un sustituto alto. Poco probable con el tope de 5 000. (surgió en 0001)
+- `remark-gfm` pinta las notas al pie con textos fijos en inglés (`Footnotes` y su aria-label): se
+  pueden pasar sus etiquetas con `t()`. (surgió en 0001)
+- El aviso de «Copiado» de la descripción no se borra hasta plegar la fila (coherente con las
+  pantallas de error); valorar que desaparezca solo. (surgió en 0001)
 
 ## Aparcado
 
@@ -59,3 +74,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Fases 1, 2, 3, 4 y 6 (primera versión, aceptada por Dani el 2026-10-04) y versiones 0.7.0 a
   0.10.2: ver `CHANGELOG.md`.
 - CI en GitHub Actions sobre Windows (propuesta 5), montado con el flujo de agentes (ADR-0007).
+- [0001](tasks/0001-descripcion-evento-markdown.md): descripción del evento con formato Markdown en
+  el detalle del problema, con «Con formato · Texto original» y «Copiar» (ADR-0008).

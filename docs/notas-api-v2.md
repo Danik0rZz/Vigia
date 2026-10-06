@@ -198,6 +198,25 @@ _Observado (2026-10-04, `problems-event-metric.live.test.ts`, 10 detalles, 13 pe
   también `dt.event.dql_query`.
 - El selector no se copió en ninguna línea del log del cliente.
 
+### Descripción del evento: `dt.event.description` (ficha 0001)
+
+_Observado (2026-10-06, `problems-event-description.live.test.ts`, 10 detalles, 11 peticiones):_
+
+- **La clave `dt.event.description` NO está en la OpenAPI como clave fija:** es una propiedad
+  observada en `evidenceDetails.details[].data.properties[]`, como `{ key, value }` con `value` de
+  texto.
+- **Longitud:** máxima de 245 caracteres y mediana de 90. Ninguna llegaba al recorte genérico de
+  300 caracteres, pero podía quedar fuera de las 8 propiedades que se mandan a la interfaz; por eso
+  se extrae aparte, como `dt.event.metric_selector`.
+- **Formato:** un 25 % con rasgos de Markdown, sobre todo tablas GFM compactas (`|a|b|` con fila de
+  alineación `|:--|`) y escapes con barra invertida. Sin HTML en crudo.
+- No salió en ninguna línea del log del cliente.
+- **Tope `MAX_DESCRIPTION_LENGTH` = 5 000** (`src/shared/problem-evidence.ts`). Regla de la ficha:
+  el doble de la máxima observada, redondeado hacia arriba al millar, con un mínimo de 5 000 y un
+  máximo de 20 000 (el límite de `app:copyText`). El doble de 245 redondeado es 1 000, así que
+  queda en el mínimo: margen de unas 20 veces sobre lo visto. Si se recorta, la interfaz lo dice.
+  Cómo se pinta: ADR-0008.
+
 ### Estado propio de los eventos (0.10.0)
 
 _Observado (2026-10-04, `problems-event-state.live.test.ts`, 5 abiertos y 5 cerrados, 11

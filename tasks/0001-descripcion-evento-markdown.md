@@ -1,7 +1,7 @@
 ---
 id: '0001'
 titulo: Descripción del evento con formato Markdown en el detalle del problema
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0001-descripcion-evento-markdown
 adrs: [2, 4, 5]
@@ -256,3 +256,17 @@ Implementado por el developer en `c141bcb`, `c28b7e7` y `a4fe8e8`.
   91,15 / 90,54 / 87,22 / 91,58 sin ese test. e2e (completo, por `package*.json` y
   `areas.json`): 168 de 169; falla solo `views.spec.ts:1721` (el `:1605` de `main` en
   BACKLOG.md, 140 en vez de 150). Los diez e2e de la ficha y los dos ajustados, en verde.
+
+### Cierre (doc-writer, 2026-10-06)
+
+- **Commits:** tests en `ea0fcf2` y `3f07bf8`; código en `c141bcb` (main y esquema), `c28b7e7`
+  (`MarkdownText` y dependencias) y `a4fe8e8` (sección «Descripción»); `f4f7119` ajusta el test
+  live a la guarda de `live-usage.test.ts`.
+- **Ficheros principales:** `src/main/modules/problems.ts`, `src/shared/problem-evidence.ts`,
+  `src/renderer/src/components/MarkdownText.tsx`,
+  `src/renderer/src/components/EvidenceDescription.tsx`, `EvidenceSection.tsx`, locales es y en,
+  `package.json` (react-markdown 10.1.0 y remark-gfm 4.0.1, devDependencies).
+- **Rondas de revisión:** 1 (aprobada).
+- **ADR nuevo:** [ADR-0008](../docs/adr/0008-contenido-del-tenant-con-formato.md). Tope y medición
+  en `docs/notas-api-v2.md` («Descripción del evento: `dt.event.description`»).
+- Sin migraciones nuevas.

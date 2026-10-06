@@ -47,6 +47,9 @@ Cómo añadir un canal IPC: ver el README.
 - La API de cada módulo (v1, v2 o plataforma) se deduce de `..\API\` y de la documentación
   oficial; la elección se anota en la ficha y, si es una decisión de módulo, en un ADR.
 - Cada entorno tiene su partición de red; un cambio de certificados crea una nueva (ADR-0003).
+- Contenido del tenant con formato (Markdown): solo con `MarkdownText`
+  (`src/renderer/src/components/`), sin HTML en crudo, solo enlaces http/https y sin imágenes ni
+  recursos remotos (ADR-0008).
 
 ## Datos
 
@@ -66,7 +69,7 @@ electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18
 react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0,
 better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, TanStack
 Virtual 3.14.13, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main),
-ECharts 6.1.0. Node 22 o superior.
+ECharts 6.1.0, react-markdown 10.1.0 y remark-gfm 4.0.1 (renderer, ADR-0008). Node 22 o superior.
 
 - Dependencias con versión exacta: `npm install --save-exact <paquete>`. Una dependencia nueva
   necesita ficha y, si es de main o cambia el empaquetado, ADR.

@@ -21,3 +21,6 @@
   una imagen se copia con `clipboard.write([new ClipboardItem({ "image/png": blob })])`.
 - En producción no hay menú (`Menu.setApplicationMenu(null)`), así que tampoco hay atajos de recarga
   ni DevTools.
+- La guarda de las pruebas en vivo (`src/test/live-usage.test.ts`) toma cualquier literal suelto
+  `'http'` o `'https'` por un import de red: en un `*.live.test.ts`, escribir los esquemas sin ese
+  literal (por ejemplo `'http:'`).

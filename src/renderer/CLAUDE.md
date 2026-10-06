@@ -14,3 +14,6 @@
   motivo.
 - Sin definición cerrada no se implementan: Service flows avanzados, Vista de negocio,
   notificaciones, Favoritos y variación de los KPI.
+- Contenido del tenant con formato (Markdown): solo con `MarkdownText`, nunca
+  `dangerouslySetInnerHTML` ni `rehype-raw`; sin HTML en crudo, solo enlaces http/https y sin
+  imágenes (ADR-0008).
