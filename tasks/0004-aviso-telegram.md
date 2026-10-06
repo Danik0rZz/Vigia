@@ -8,7 +8,7 @@ adrs: [7]
 adr_nuevo: Avisos del flujo de agentes por Telegram (servicio externo, opcional y filtrado)
 api: ninguna de Dynatrace. Telegram Bot API, método `sendMessage` (https://core.telegram.org/bots/api#sendmessage)
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -61,26 +61,30 @@ propuesta para cuando no hay `.env.live.local` (se envía y se avisa).
 - **Mensaje:** texto plano (sin `parse_mode`, así nada del resumen se interpreta como formato),
   como mucho **1 500 caracteres** (si el resumen no cabe, se recorta con «…»). Orden:
   1. Una línea con icono y lo esencial: `✅ 0004 · <título> — hecha` / `⛔ … — bloqueada` /
-     `⏸ … — parada: decisión de Dani` / `📦 v0.11.0 — cerrada` / `❌ v0.11.0 — fallida`.
+     `⏸ … — parada: decisión de Dani` / `📦 v0.11.0 · <título> — cerrada` /
+     `❌ v0.11.0 · <título> — fallida` (ronda 1: el título también en las versiones, CA2).
   2. `Rondas: N · Verifier: VERDE`.
   3. Si hay `decision`: `Decide Dani: <texto>`.
   4. El resumen.
   5. Si hay `ci`: la URL.
 - **Credenciales:** de `process.env`. Si faltan y es Windows, de las variables de usuario del
-  registro (`reg query HKCU\Environment /v <nombre>`), porque `setx` solo llega a los procesos que
+  registro (`reg query HKCU\Environment /v <nombre>`, con `reg.exe` por ruta absoluta desde
+  `%SystemRoot%`, sin shell; ronda 1, CA13), porque `setx` solo llega a los procesos que
   se abren después y las sesiones de Claude Code ya abiertas no las ven. Sin ellas: aviso
   «sin VIGIA_TELEGRAM_TOKEN o VIGIA_TELEGRAM_CHAT_ID: no se envía» y salida 0.
 - **El token no sale nunca:** ni en stdout, ni en stderr, ni en el texto de un error (la URL de la
   Bot API lo lleva dentro: `https://api.telegram.org/bot<token>/sendMessage`). Todo texto que se
   imprime pasa antes por una función que sustituye el token y el chat_id por `***`. El chat_id
   tampoco se imprime.
-- **Envío:** `POST` a `sendMessage` con JSON `{ chat_id, text, disable_web_page_preview: true }`,
-  con un tiempo máximo de 10 s (`AbortSignal.timeout`). Un 200 con `ok: true` es éxito; cualquier
+- **Envío:** `POST` a `sendMessage` con JSON
+  `{ chat_id, text, link_preview_options: { is_disabled: true } }` (ronda 1:
+  `disable_web_page_preview` ya no está en la Bot API, CA1), con un tiempo máximo de 10 s (`AbortSignal.timeout`). Un 200 con `ok: true` es éxito; cualquier
   otra cosa (código, `ok: false`, tiempo agotado, error de red) es un aviso con el código o el
   `description` de Telegram (filtrados), y salida 0.
 - **Filtro del tenant:** reutiliza `extractNeedles` de `scripts/scan-tenant.mjs` sobre
   `.env.live.local`, que se busca en el directorio actual y, si no está, en el checkout principal
   (primera entrada de `git worktree list`). La comparación, sin mayúsculas, como en `scan:tenant`.
+  Se aplica al mensaje y a los campos completos del JSON antes de recortar (ronda 1, CA12).
   Si hay coincidencia: no se envía y se avisa con el **tipo** de coincidencia (nunca el valor).
   Sin `.env.live.local`: se envía, igual que `scan:tenant` pasa sin él (no hay nada con qué
   comparar), y se avisa en la terminal de que no se ha podido filtrar.
@@ -190,6 +194,18 @@ Todos en `scripts/notify-telegram.test.ts`, con `fetch` simulado y sin red.
   2. [Seguridad] Filtrar también los campos completos antes de recortar (CA12).
   3. [Seguridad] `reg.exe` por ruta absoluta (CA13).
   4. [Legibilidad] El título también en la primera línea de las versiones (CA2).
+
+### Ronda 2: APROBADO
+
+- Los cuatro cambios hechos y con test: CA1 (`link_preview_options`, sin `disable_web_page_preview`),
+  CA2 (título en las versiones), CA12 (filtro sobre el mensaje y todos los campos sin recortar; solo
+  imprime el tipo) y CA13 (`win32.join(SystemRoot, "System32", "reg.exe")`, sin shell; sin
+  `SystemRoot` ni `windir` no ejecuta nada).
+- Tests sin tocar después de `19ad163`; los únicos cambios salen de los criterios de `b257ca7`.
+- Nada de la ronda 1 roto: toda salida pasa por `redact`; comandos y `settings.json` sin cambios en
+  esta ronda; datos de prueba inventados; commits noreply.
+- API contrastada con la documentación oficial (comprobación del Orquestador del 2026-10-07).
+- Opcional (hecho por el Orquestador): la "Especificación" se alineó con CA1, CA2, CA12 y CA13.
 
 ## Verificación
 
