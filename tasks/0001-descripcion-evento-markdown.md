@@ -1,7 +1,7 @@
 ---
 id: '0001'
 titulo: Descripción del evento con formato Markdown en el detalle del problema
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0001-descripcion-evento-markdown
 adrs: [2, 4, 5]
@@ -154,7 +154,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) La nota de recorte podría ofrecer pedir la descripción entera a main bajo demanda si
+  algún día aparecen descripciones de más de 5 000 caracteres.
 
 ## Notas del revisor
 
@@ -191,4 +192,36 @@ Tests escritos en `ea0fcf2` (test-writer, antes del código; fallan por falta de
 
 ## Resultado
 
-(pendiente)
+Implementado por el developer en `c141bcb`, `c28b7e7` y `a4fe8e8`.
+
+- **MAX_DESCRIPTION_LENGTH = 5 000** (`src/shared/problem-evidence.ts`). Medición del paso 0
+  (informe en `live-reports/`, 10 detalles, 11 peticiones): máxima observada de 245 caracteres;
+  el doble redondeado al millar es 1 000, así que queda en el mínimo de la regla, 5 000. Ninguna
+  descripción salió en el log del cliente ni había HTML en crudo.
+- Main (`eventDescription` en `src/main/modules/problems.ts`): la primera
+  `dt.event.description` con texto no vacío, tal cual (sin quitar espacios) y recortada a 5 000.
+  En un EVENT, **todas** las apariciones de la clave salen de las 8 propiedades genéricas (también
+  las que no son texto o están vacías: así nunca se repite la clave). Las evidencias que no son
+  EVENT llevan `description: null`, como `eventMetric`, y no se les quita la clave.
+- Campo nuevo obligatorio (`.nullable()`, no `.optional()`) en `evidenceWireSchema` y
+  `event.description` en `EvidenceView`. Los fixtures de tests anteriores que construyen la
+  evidencia completa solo añaden `description: null` (`problems.test.ts` en `emptyWire` y en el
+  `toEqual` de METRIC, `problem-evidence.test.ts` en `wire()` y en el `toEqual` de EVENT,
+  `evidence-table.test.ts` y `problem-workbook.test.ts`).
+- Interfaz: `MarkdownText.tsx` (react-markdown 10.1.0 + remark-gfm 4.0.1, exactas y en
+  devDependencies; unos 157 kB minificados, 48 kB gzip, sobre un bundle de 4,2 MB; sin avisos del
+  React Compiler) y `EvidenceDescription.tsx`. El título de la sección es `role="heading"`
+  `aria-level=4` y no un `h4`: los `h*` de la sección son solo los del Markdown (CA6 y CA10 los
+  cuentan). Los enlaces no web pierden el href en `urlTransform` y se pintan como texto; el
+  `src` de las imágenes nunca llega a un `img`. Si la copia falla se ve `errorScreen.copyFailed`,
+  como en las pantallas de error. La nota de recorte dice el tope y que «Copiar» copia lo recortado.
+- **Conflicto de tests para el Orquestador:** `src/test/live-usage.test.ts` (guarda existente de
+  las pruebas en vivo) falla con `problems-event-description.live.test.ts`: su patrón
+  `['"](https?|net|tls|http2)['"]` toma los literales `'http'` y `'https'` de `KNOWN_SCHEMES`
+  por un import de red. No es del código de la ficha (falla igual en `cb83914`) y no he tocado
+  ninguno de los dos. Opciones: escribir los esquemas en el test live sin ese literal suelto (por
+  ejemplo `'http:'`) o ceñir el patrón de la guarda a `from`/`import(`/`require(`.
+- `npm run check`: lint, tipos y formato en verde; 1873 de 1874 tests (el de arriba); cobertura
+  91,15 / 90,54 / 87,22 / 91,58 sin ese test. e2e (completo, por `package*.json` y
+  `areas.json`): 168 de 169; falla solo `views.spec.ts:1721` (el `:1605` de `main` en
+  BACKLOG.md, 140 en vez de 150). Los diez e2e de la ficha y los dos ajustados, en verde.
