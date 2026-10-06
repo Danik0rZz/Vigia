@@ -1,0 +1,177 @@
+---
+id: '0004'
+titulo: Aviso por Telegram al terminar /tarea o /cerrar-version
+estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
+rama: feat/0004-aviso-telegram
+adrs: [7]
+adr_nuevo: Avisos del flujo de agentes por Telegram (servicio externo, opcional y filtrado)
+api: ninguna de Dynatrace. Telegram Bot API, método `sendMessage` (https://core.telegram.org/bots/api#sendmessage)
+migracion: no
+rondas_revision: 0
+---
+
+## Petición original
+
+Aviso por Telegram al terminar una tarea o una versión. Dani quiere recibir un mensaje en Telegram
+cada vez que termine `/tarea` o `/cerrar-version`, con un resumen de lo hecho.
+
+- Cuándo: `/tarea` integrada y con push a `main`; `/tarea` que acaba en `bloqueada` tras 3 rondas;
+  `/tarea` que se para por un ROJO del verifier que no se resuelve; `/tarea` que se para porque
+  hace falta una decisión de Dani (por ejemplo un `[ALCANCE]`); fin de `/cerrar-version`, salga
+  bien o no.
+- Qué lleva: número y título de la ficha, estado final, resumen del briefing del doc-writer,
+  rondas de revisión, resultado del verifier, enlace al CI si lo hay y, si está parada, qué decisión
+  se espera de Dani. En español, corto, legible en el móvil.
+- Cómo: un script del repo (`scripts/notify-telegram.mjs`) que llama a `sendMessage` de la Bot API.
+  Token y chat_id en variables de entorno del usuario de Windows (`VIGIA_TELEGRAM_TOKEN` y
+  `VIGIA_TELEGRAM_CHAT_ID`), nunca en el repo, en logs ni en mensajes de error. `/tarea` y
+  `/cerrar-version` añaden el paso que lo llama.
+- Si falla: sin variables, aviso en la terminal y la tarea no falla. Si Telegram no responde, un
+  error visible sin el token y el flujo sigue.
+- Seguridad: antes de enviar, el texto pasa por el filtro de restos del tenant con las mismas reglas
+  que `scan:tenant`; si encuentra algo, no se envía y se avisa. Nada del tenant ni nombres de
+  clientes.
+- Tests unitarios con `fetch` simulado: envío correcto, variables ausentes, error de red, bloqueo por
+  restos del tenant y el token en ninguna salida.
+- Fuera de alcance: recibir órdenes o lanzar tareas desde Telegram (se estudiará aparte).
+- Manual: que llega un mensaje real al móvil tras una tarea.
+
+Dani ya ha fijado las dos variables en su usuario de Windows con `setx`.
+
+## Especificación
+
+**Decisión de Dani:** enviar avisos a un servicio externo (Telegram) es "publicar algo nuevo hacia
+fuera" (`docs/flujo.md`, "Quién decide"); lo pide Dani y la ficha la aprueba Dani. Dani la aprobó el 2026-10-06 con la
+propuesta para cuando no hay `.env.live.local` (se envía y se avisa).
+
+**1. Script `scripts/notify-telegram.mjs`** (ESM, sin dependencias nuevas; `fetch` de Node).
+
+- Uso: `node scripts/notify-telegram.mjs <ruta-a-un-json>`. El Orquestador escribe el JSON en su
+  scratchpad. Campos (todos texto salvo `rondas`):
+  `tipo` (`tarea` | `version`), `ficha` (número, en `tarea`), `titulo`, `version` (en `version`),
+  `estado` (por ejemplo `hecha`, `bloqueada`, `parada`, `cerrada`, `fallida`), `resumen`, `rondas`
+  (número), `verifier` (`VERDE` | `ROJO` | `sin pasar`), `ci` (URL o vacío), `decision`
+  (qué se espera de Dani, o vacío).
+- Lógica en funciones exportadas y puras, como `scan-tenant.mjs` (para los tests):
+  `buildMessage(datos)`, `checkTenantLeftovers(texto, needles)` y
+  `sendTelegram({ token, chatId, text, fetchImpl })`. `main(argv, deps)` las une y **siempre
+  sale con 0**: el aviso es opcional y nunca para el flujo. Lo que pasa se dice en la terminal
+  (stderr) con un prefijo `[aviso telegram]`.
+- **Mensaje:** texto plano (sin `parse_mode`, así nada del resumen se interpreta como formato),
+  como mucho **1 500 caracteres** (si el resumen no cabe, se recorta con «…»). Orden:
+  1. Una línea con icono y lo esencial: `✅ 0004 · <título> — hecha` / `⛔ … — bloqueada` /
+     `⏸ … — parada: decisión de Dani` / `📦 v0.11.0 — cerrada` / `❌ v0.11.0 — fallida`.
+  2. `Rondas: N · Verifier: VERDE`.
+  3. Si hay `decision`: `Decide Dani: <texto>`.
+  4. El resumen.
+  5. Si hay `ci`: la URL.
+- **Credenciales:** de `process.env`. Si faltan y es Windows, de las variables de usuario del
+  registro (`reg query HKCU\Environment /v <nombre>`), porque `setx` solo llega a los procesos que
+  se abren después y las sesiones de Claude Code ya abiertas no las ven. Sin ellas: aviso
+  «sin VIGIA_TELEGRAM_TOKEN o VIGIA_TELEGRAM_CHAT_ID: no se envía» y salida 0.
+- **El token no sale nunca:** ni en stdout, ni en stderr, ni en el texto de un error (la URL de la
+  Bot API lo lleva dentro: `https://api.telegram.org/bot<token>/sendMessage`). Todo texto que se
+  imprime pasa antes por una función que sustituye el token y el chat_id por `***`. El chat_id
+  tampoco se imprime.
+- **Envío:** `POST` a `sendMessage` con JSON `{ chat_id, text, disable_web_page_preview: true }`,
+  con un tiempo máximo de 10 s (`AbortSignal.timeout`). Un 200 con `ok: true` es éxito; cualquier
+  otra cosa (código, `ok: false`, tiempo agotado, error de red) es un aviso con el código o el
+  `description` de Telegram (filtrados), y salida 0.
+- **Filtro del tenant:** reutiliza `extractNeedles` de `scripts/scan-tenant.mjs` sobre
+  `.env.live.local`, que se busca en el directorio actual y, si no está, en el checkout principal
+  (primera entrada de `git worktree list`). La comparación, sin mayúsculas, como en `scan:tenant`.
+  Si hay coincidencia: no se envía y se avisa con el **tipo** de coincidencia (nunca el valor).
+  Sin `.env.live.local`: se envía, igual que `scan:tenant` pasa sin él (no hay nada con qué
+  comparar), y se avisa en la terminal de que no se ha podido filtrar.
+- Nunca lee ni imprime el contenido de `.env.live.local` más allá de lo que hace `scan-tenant.mjs`.
+
+**2. Comandos.**
+
+- `.claude/commands/tarea.md`: un paso «Aviso» que llama al script en estos puntos:
+  - tras el push del paso 9 (y con el enlace del CI del paso 10): `estado: hecha`;
+  - al quedar `bloqueada` (tres rondas sin aprobar, también cuando la última fue un ROJO del
+    verifier): `estado: bloqueada`, con el motivo en `resumen` y `verifier` con su último
+    resultado;
+  - al pararse esperando a Dani (un `[ALCANCE]` que no está delegado, o cualquier "para y
+    pregunta"): `estado: parada`, con la pregunta en `decision`. Si el `[ALCANCE]` lo decide el
+    Planificador por delegación, no se avisa (no espera a Dani).
+- `.claude/commands/cerrar-version.md`: el aviso al final, `cerrada` (con la ruta del zip no: es una
+  ruta local; basta el número de versión y el CI) o `fallida` (ROJO del verifier u otra parada,
+  con el motivo).
+- El `resumen` lo redacta el Orquestador a partir del briefing del doc-writer, en pocas líneas y
+  sin datos del tenant ni nombres de clientes (el filtro es la red de seguridad, no la única
+  defensa: no conoce los nombres de clientes).
+- `.claude/settings.json`: permiso `Bash(node scripts/notify-telegram.mjs *)` (y su equivalente
+  `PowerShell(…)`) para que el aviso no pida confirmación.
+
+**3. Documentación** (doc-writer): sección corta en `docs/flujo.md` (qué avisa, variables, que es
+opcional y cómo probarlo), ADR nuevo, y una nota en el README de cómo fijar las variables con
+`setx` y que hay que abrir una terminal nueva (o confiar en la lectura del registro).
+
+**4. Primer envío real.** Al cerrar la tarea, el Orquestador manda un aviso de prueba con el
+propio script (`estado: hecha` de esta ficha, el aviso normal del paso 10). Si llega al móvil,
+Dani lo confirma (prueba a mano).
+
+## Criterios de aceptación
+
+Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
+Todos en `scripts/notify-telegram.test.ts`, con `fetch` simulado y sin red.
+
+- CA1: con token, chat_id y datos de una tarea hecha, se hace un único `POST` a
+  `https://api.telegram.org/bot<token>/sendMessage` con `chat_id`, `text` y
+  `disable_web_page_preview: true`, y el resultado es éxito.
+- CA2: `buildMessage` produce, para `hecha`, `bloqueada`, `parada` (con `decision`), `cerrada` y
+  `fallida`, la primera línea con su icono, número o versión, título y estado; la línea de rondas
+  y verifier; `Decide Dani:` solo si hay `decision`; y la URL del CI solo si hay `ci`.
+- CA3: un resumen largo deja el mensaje en 1 500 caracteres como mucho, acabado en «…», sin
+  perder la primera línea ni la del CI.
+- CA4: sin `VIGIA_TELEGRAM_TOKEN` o sin `VIGIA_TELEGRAM_CHAT_ID` (ni en el entorno ni en el
+  registro simulado), no se llama a `fetch`, se avisa en stderr y `main` devuelve 0.
+- CA5: si faltan en `process.env` pero el registro simulado las tiene, se envía con ellas.
+- CA6: un error de red, un tiempo agotado, un HTTP 401 y un 200 con `ok: false` acaban en aviso
+  en stderr y `main` devuelve 0.
+- CA7: si el texto contiene un valor que `extractNeedles` saca de un `.env` de prueba (inventado),
+  no se llama a `fetch`, se avisa con el tipo de coincidencia y el valor no sale en ninguna salida.
+- CA8: sin `.env.live.local` en el directorio ni en el checkout principal, se envía y se avisa de
+  que no se ha filtrado.
+- CA9: en todos los casos anteriores (también cuando el error simulado lleva la URL con el token
+  dentro o un `description` que lo repite), ni el token ni el chat_id aparecen en stdout, stderr ni
+  en el valor que devuelve `main`.
+- CA10: un JSON de entrada que no existe o no es válido acaba en aviso y `main` devuelve 0, sin
+  llamar a `fetch`.
+- CA11: `.claude/commands/tarea.md` y `.claude/commands/cerrar-version.md` contienen el paso que
+  llama a `node scripts/notify-telegram.mjs` en cada punto de la especificación (hecha, bloqueada,
+  parada; cerrada y fallida), y `.claude/settings.json` lo permite. (Test que lee los ficheros y
+  busca la llamada y los estados.)
+
+## Pruebas a mano para Dani
+
+- Tras esta tarea (o la siguiente), llega un mensaje real al móvil, se lee bien y no lleva nada del
+  tenant ni de clientes.
+- Con las variables quitadas un momento, una tarea termina igual, con el aviso en la terminal.
+
+## Fuera de alcance
+
+- Recibir órdenes desde Telegram o lanzar tareas desde allí (Remote Control o Channels, aparte).
+- Avisos de otros momentos (cada ronda de revisión, CI en rojo después del push).
+- Formato enriquecido (Markdown o HTML de Telegram), botones o adjuntos.
+- Filtrar nombres de clientes de forma automática (no hay una lista en el repositorio que se pueda
+  usar; lo evita el Orquestador al redactar el resumen).
+- Cambios en la app Vigía.
+
+## Ideas surgidas (fuera de alcance)
+
+(ninguna)
+
+## Notas del revisor
+
+(sin revisar)
+
+## Verificación
+
+(pendiente)
+
+## Resultado
+
+(pendiente)

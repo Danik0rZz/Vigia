@@ -6,7 +6,8 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-(nada)
+- [0004](tasks/0004-aviso-telegram.md): aviso por Telegram al terminar `/tarea` o
+  `/cerrar-version`. Aprobada por Dani el 2026-10-06.
 
 ## Próximo
 
