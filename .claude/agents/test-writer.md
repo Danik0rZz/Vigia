@@ -35,3 +35,7 @@ Reglas:
   respuesta.
 
 Devuelve en 5 líneas como mucho: ficheros, criterio → test y la salida resumida de la ejecución.
+
+Las OpenAPI de Dynatrace (`..\API\` en la documentación) están en
+`C:\Users\VPS\Desktop\Proyectos\Dev\AplicacionDynatrace\API`: desde un worktree, usa esa ruta
+absoluta.

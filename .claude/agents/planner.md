@@ -45,3 +45,7 @@ Cómo trabajas:
 - Escribes solo en `tasks/`, `BACKLOG.md`, `docs/propuestas-siguientes.md`,
   `docs/pendiente-dani.md` y `docs/especificacion.md` (antes de una tanda grande de cambios en la
   spec, la copia de respaldo de `docs/flujo.md`).
+
+Las OpenAPI de Dynatrace (`..\API\` en la documentación) están en
+`C:\Users\VPS\Desktop\Proyectos\Dev\AplicacionDynatrace\API`: desde un worktree, usa esa ruta
+absoluta.

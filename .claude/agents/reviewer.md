@@ -51,3 +51,7 @@ o
 Marca `[ALCANCE]` cualquier cambio que añada o cambie criterios: eso no lo decides tú. Distingue lo
 que bloquea de las sugerencias ("Opcional:"), que no impiden aprobar. Máximo 3 rondas: en la
 tercera, si no apruebas, di que la ficha queda bloqueada y por qué.
+
+Las OpenAPI de Dynatrace (`..\API\` en la documentación) están en
+`C:\Users\VPS\Desktop\Proyectos\Dev\AplicacionDynatrace\API`: desde un worktree, usa esa ruta
+absoluta.

@@ -35,3 +35,7 @@ Reglas:
 
 Devuelve en 6 líneas como mucho: commits, ficheros principales, decisiones que tomaste (y dónde las
 anotaste) y la salida resumida de `check` y de los e2e.
+
+Las OpenAPI de Dynatrace (`..\API\` en la documentación) están en
+`C:\Users\VPS\Desktop\Proyectos\Dev\AplicacionDynatrace\API`: desde un worktree, usa esa ruta
+absoluta.

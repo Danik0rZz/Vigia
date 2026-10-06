@@ -24,7 +24,10 @@ que no está escrito, para los agentes no existe.
 - `docs/propuestas-siguientes.md` (propuestas con su análisis), `docs/notas-api-v2.md` (lo observado
   en vivo) y `docs/glosario.md` (términos de Dynatrace que se escriben igual en los dos idiomas).
 - `..\API\`: especificaciones OpenAPI de Dynatrace, fuente de verdad de endpoints, parámetros y
-  scopes. Son ficheros grandes: buscar en ellos, no leerlos enteros.
+  scopes. Es la carpeta junto al checkout principal, fuera del repositorio:
+  `C:\Users\VPS\Desktop\Proyectos\Dev\AplicacionDynatrace\API` (Configuration API, Environment API
+  v1 y v2, y `Plataform API`). Desde los worktrees de Orca, la ruta relativa no existe: usar la
+  absoluta. Son ficheros grandes: buscar en ellos, no leerlos enteros.
 - `README.md`: instalación, comandos y cómo añadir un canal IPC.
 
 ## Estado
