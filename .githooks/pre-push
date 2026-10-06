@@ -1,8 +1,9 @@
 #!/bin/sh
 # Puerta sin IA (ADR-0007): antes de publicar, restos del tenant de pruebas (sin mostrar valores).
 # Se activa una vez por clon: git config core.hooksPath .githooks
+# scan-tenant.mjs solo usa módulos de Node: no necesita node_modules. Lee .env.live.local de la
+# carpeta desde la que se hace el push (el checkout principal).
 
-[ -d node_modules ] || { echo "pre-push: no hay node_modules (instalación del README). No se publica."; exit 1; }
-echo "pre-push › npm run scan:tenant"
-npm run --silent scan:tenant || { echo "pre-push: scan:tenant ha encontrado restos del tenant. No se publica."; exit 1; }
+echo "pre-push › scan:tenant"
+node scripts/scan-tenant.mjs || { echo "pre-push: scan:tenant ha encontrado restos del tenant. No se publica."; exit 1; }
 exit 0
