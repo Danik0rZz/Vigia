@@ -159,9 +159,9 @@ Todos en `scripts/notify-telegram.test.ts`, con `fetch` simulado y sin red.
 
 ## Pruebas a mano para Dani
 
-- Tras esta tarea (o la siguiente), llega un mensaje real al móvil, se lee bien y no lleva nada del
-  tenant ni de clientes.
-- Con las variables quitadas un momento, una tarea termina igual, con el aviso en la terminal.
+- [x] Tras esta tarea (o la siguiente), llega un mensaje real al móvil, se lee bien y no lleva nada
+      del tenant ni de clientes. Confirmado por Dani el 2026-10-07 con el aviso del cierre de esta ficha.
+- [ ] Con las variables quitadas un momento, una tarea termina igual, con el aviso en la terminal.
 
 ## Fuera de alcance
 
