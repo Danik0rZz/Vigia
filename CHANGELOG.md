@@ -32,6 +32,11 @@ Sin migraciones nuevas.
   agentes especializados de Claude Code, hooks de git de pre-commit y pre-push, y CI en GitHub
   Actions sobre Windows (`check`, e2e completo y `dist:win`) en cada push a `main`. Ver
   `docs/flujo.md` y el ADR-0007.
+- Forma de trabajar del proyecto (no cambia la app): aviso opcional por Telegram al terminar
+  `/tarea` (hecha, bloqueada o parada esperando una decisión de Dani) y `/cerrar-version` (cerrada
+  o fallida), con un resumen corto. Las credenciales van en variables de usuario de Windows, el
+  texto pasa antes por el filtro de restos del tenant y, si algo falla, se avisa en la terminal y el
+  flujo sigue. Ver `docs/flujo.md` y el ADR-0009. (ficha 0004)
 
 ## [0.10.2] - 2026-10-04
 

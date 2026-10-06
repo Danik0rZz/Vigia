@@ -6,8 +6,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- [0004](tasks/0004-aviso-telegram.md): aviso por Telegram al terminar `/tarea` o
-  `/cerrar-version`. Aprobada por Dani el 2026-10-06.
+(nada)
 
 ## Próximo
 
@@ -77,6 +76,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   explica el `createElement`. (surgió en 0003)
 - `EntityPageFrame`: sacar el nombre del tipo de la `labelKey` del registro, para tener una sola
   fuente. (surgió en 0003)
+- Aviso por Telegram en otros momentos (cada ronda de revisión, CI en rojo después del push), que
+  quedaron fuera de la ficha. (surgió en 0004)
+- Recibir órdenes o lanzar tareas desde Telegram (Remote Control o Channels): estudiarlo aparte.
+  (surgió en 0004)
 
 ## Aparcado
 
@@ -95,3 +98,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   formato; se quitó el conmutador de la 0001 y se queda «Copiar».
 - [0003](tasks/0003-pagina-analisis-entidad.md): «Analizar entidad» en el detalle de las
   evidencias, con una página en construcción por tipo de entidad (y una genérica para el resto).
+- [0004](tasks/0004-aviso-telegram.md): aviso por Telegram al terminar `/tarea` o
+  `/cerrar-version`, opcional y con filtro del tenant (ADR-0009).

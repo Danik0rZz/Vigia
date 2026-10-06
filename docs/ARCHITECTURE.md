@@ -21,7 +21,7 @@ src/
   shared/      Código común: identidad de la app, contrato IPC, razones de error
 e2e/           Pruebas de extremo a extremo (Playwright sobre out/)
 build/         Recursos de empaquetado
-scripts/       Herramientas de desarrollo (e2e afectados, escaneo del tenant)
+scripts/       Herramientas de desarrollo (e2e afectados, escaneo del tenant, aviso por Telegram)
 ```
 
 - `src/shared/ipc.ts`: contrato IPC. Cada canal tiene esquema Zod de entrada y de salida.

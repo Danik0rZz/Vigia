@@ -18,5 +18,6 @@ Las 0001 a 0006 recogen decisiones ya tomadas en las fases 1 a 6 y en las versio
 | [0006](0006-e2e-sobre-out.md)                    | Los e2e corren sobre `out/`, sin empaquetar                    |
 | [0007](0007-flujo-con-agentes.md)                | Flujo de trabajo con fichas y agentes                          |
 | [0008](0008-contenido-del-tenant-con-formato.md) | Contenido del tenant con formato: sin HTML ni recursos remotos |
+| [0009](0009-avisos-por-telegram.md)              | Avisos del flujo por Telegram: opcionales y filtrados          |
 
 Plantilla: [`_PLANTILLA.md`](_PLANTILLA.md).

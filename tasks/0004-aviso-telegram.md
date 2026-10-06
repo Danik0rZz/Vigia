@@ -1,7 +1,7 @@
 ---
 id: '0004'
 titulo: Aviso por Telegram al terminar /tarea o /cerrar-version
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0004-aviso-telegram
 adrs: [7]
@@ -295,4 +295,13 @@ Ronda 2 (developer, código en `47259b9`; los 73 tests pasan):
 
 ## Resultado
 
-(pendiente)
+- Commits (rango `main..feat/0004-aviso-telegram`): tests `1380222` y `19ad163` (ronda 2); código
+  `8dcce79`, `286649b` y `47259b9` (ronda 2); el resto, la ficha y este cierre.
+- Ficheros principales: `scripts/notify-telegram.mjs` y `scripts/notify-telegram.test.ts` (73
+  tests), `.claude/commands/tarea.md`, `.claude/commands/cerrar-version.md` y
+  `.claude/settings.json`. Documentación: `docs/flujo.md` ("Avisos por Telegram"), README,
+  `docs/ARCHITECTURE.md`, CHANGELOG y BACKLOG.
+- Rondas de revisión: 2 (ronda 1 aprobada con cuatro cambios que aceptó Dani; ronda 2 aprobada).
+  Verifier: VERDE (check, 1986 tests; sin e2e afectados).
+- ADR nuevo: [ADR-0009](../docs/adr/0009-avisos-por-telegram.md), avisos del flujo por Telegram.
+- Sin migraciones. No cambia la app.

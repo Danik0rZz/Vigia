@@ -6,18 +6,19 @@ leyendo. Si algo no está escrito, para ellos no existe.
 
 ## Quién es quién
 
-| Quién        | Dónde                        | Qué hace                                                                                 |
-| ------------ | ---------------------------- | ---------------------------------------------------------------------------------------- |
-| Dani         | —                            | Pide, decide y aprueba. Prueba a mano (`docs/pendiente-dani.md`).                        |
-| Planificador | Sesión 1 (antes, peticiones) | Convierte peticiones en fichas. Decide en nombre de Dani si lo delega.                   |
-| Orquestador  | Sesión 2 (worktree propio)   | `/tarea NNNN` y `/cerrar-version`. Coordina; no escribe código.                          |
-| test-writer  | Subagente del Orquestador    | Tests desde la ficha, antes del código. Tienen que fallar.                               |
-| developer    | Subagente del Orquestador    | Implementa hasta verde. No toca los tests.                                               |
-| reviewer     | Subagente del Orquestador    | Revisa el diff sin contexto previo. Solo lectura. (Antes, senior.)                       |
-| verifier     | Subagente del Orquestador    | Repite `check` y los e2e afectados en un worktree limpio. (Antes, test.)                 |
-| doc-writer   | Subagente del Orquestador    | CHANGELOG, BACKLOG, ADR, ARCHITECTURE y el resultado de la ficha.                        |
-| Hooks de git | `.githooks/` (sin IA)        | Pre-commit: lint, tipos, formato y unitarios relacionados. Pre-push: escaneo del tenant. |
-| CI           | GitHub Actions (sin IA)      | `check`, e2e completo y `dist:win` en Windows en cada push a `main`.                     |
+| Quién        | Dónde                                  | Qué hace                                                                                 |
+| ------------ | -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Dani         | —                                      | Pide, decide y aprueba. Prueba a mano (`docs/pendiente-dani.md`).                        |
+| Planificador | Sesión 1 (antes, peticiones)           | Convierte peticiones en fichas. Decide en nombre de Dani si lo delega.                   |
+| Orquestador  | Sesión 2 (worktree propio)             | `/tarea NNNN` y `/cerrar-version`. Coordina; no escribe código.                          |
+| test-writer  | Subagente del Orquestador              | Tests desde la ficha, antes del código. Tienen que fallar.                               |
+| developer    | Subagente del Orquestador              | Implementa hasta verde. No toca los tests.                                               |
+| reviewer     | Subagente del Orquestador              | Revisa el diff sin contexto previo. Solo lectura. (Antes, senior.)                       |
+| verifier     | Subagente del Orquestador              | Repite `check` y los e2e afectados en un worktree limpio. (Antes, test.)                 |
+| doc-writer   | Subagente del Orquestador              | CHANGELOG, BACKLOG, ADR, ARCHITECTURE y el resultado de la ficha.                        |
+| Hooks de git | `.githooks/` (sin IA)                  | Pre-commit: lint, tipos, formato y unitarios relacionados. Pre-push: escaneo del tenant. |
+| CI           | GitHub Actions (sin IA)                | `check`, e2e completo y `dist:win` en Windows en cada push a `main`.                     |
+| Aviso        | `scripts/notify-telegram.mjs` (sin IA) | Mensaje a Telegram al terminar `/tarea` o `/cerrar-version`. Opcional.                   |
 
 Cada subagente es una instancia nueva: el reviewer de la ronda 2 no es el de la ronda 1. El encargo
 que les pasa el Orquestador es corto (la ruta de la ficha y, si acaso, una nota); el resto lo leen.
@@ -132,6 +133,30 @@ Lo hace `/cerrar-version` en la sesión 2 cuando Dani (o peticiones) lo pide:
 4. "Estado" del `CLAUDE.md` raíz y, si cambia algo de lo acordado, `docs/especificacion.md`.
 5. Un solo resumen para Dani, sin esperar su respuesta: lo hecho, las decisiones tomadas y lo que
    tiene que probar a mano. Tags, releases y subir el zip se escalan a Dani.
+
+## Avisos por Telegram
+
+Opcional (ADR-0009). El Orquestador llama a `node scripts/notify-telegram.mjs <json>` al terminar:
+
+- `/tarea`: `hecha` (tras el push, con el enlace del CI), `bloqueada` (tres rondas sin aprobar, con
+  el motivo) o `parada` (esperando una decisión de Dani, con la pregunta). Un `[ALCANCE]` que
+  decide el Planificador por delegación no avisa.
+- `/cerrar-version`: `cerrada` o `fallida` (con el motivo).
+
+El mensaje es texto plano y corto: ficha o versión, título, estado, rondas, resultado del verifier,
+la decisión que se espera de Dani si la hay, un resumen y el enlace del CI. Lo redacta el
+Orquestador sin datos del tenant ni nombres de clientes; además, el script lo pasa por el filtro de
+`scan:tenant` y, si encuentra algo, no lo envía.
+
+- **Variables** (de usuario de Windows, nunca en el repositorio): `VIGIA_TELEGRAM_TOKEN` (token del
+  bot) y `VIGIA_TELEGRAM_CHAT_ID`. Se fijan con `setx` (ver el README). Si la sesión se abrió antes,
+  el script las lee del registro.
+- **Nunca para el flujo:** sin variables, sin red o con un error de Telegram, sale con 0 y lo dice
+  en la terminal con el prefijo `[aviso telegram]`, sin el token ni el chat_id.
+- **Probarlo:** los tests (`npx vitest run scripts/notify-telegram.test.ts`) no usan la red. Para
+  un envío real, un JSON en el scratchpad, por ejemplo
+  `{ "tipo": "tarea", "ficha": "0000", "titulo": "Prueba", "estado": "hecha", "resumen": "Aviso de prueba", "rondas": 1, "verifier": "VERDE" }`,
+  y `node scripts/notify-telegram.mjs <ruta-del-json>`.
 
 ## Pruebas en vivo
 

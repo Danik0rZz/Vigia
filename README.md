@@ -54,6 +54,20 @@ Se trabaja con fichas (`tasks/`) y agentes de Claude Code (`.claude/agents/`): v
 `docs/flujo.md` y el ADR-0007. El CI (`.github/workflows/ci.yml`) pasa `check`, el e2e completo y
 `dist:win` en Windows en cada push a `main`.
 
+### Aviso por Telegram (opcional)
+
+`/tarea` y `/cerrar-version` pueden avisar por Telegram al terminar (`docs/flujo.md`, ADR-0009).
+Para activarlo, en una terminal:
+
+```
+setx VIGIA_TELEGRAM_TOKEN "<token-del-bot>"
+setx VIGIA_TELEGRAM_CHAT_ID "<chat-id>"
+```
+
+`setx` solo llega a los procesos que se abren después: hace falta una terminal nueva. En Windows el
+script también las lee del registro, así que una sesión de Claude Code ya abierta las encuentra. Sin
+ellas no se envía nada y el flujo sigue igual.
+
 ## Comandos
 
 | Comando                     | Qué hace                                              |
