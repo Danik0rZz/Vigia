@@ -1,14 +1,14 @@
 ---
 id: '0004'
 titulo: Aviso por Telegram al terminar /tarea o /cerrar-version
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0004-aviso-telegram
 adrs: [7]
 adr_nuevo: Avisos del flujo de agentes por Telegram (servicio externo, opcional y filtrado)
 api: ninguna de Dynatrace. Telegram Bot API, método `sendMessage` (https://core.telegram.org/bots/api#sendmessage)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -120,10 +120,12 @@ Todos en `scripts/notify-telegram.test.ts`, con `fetch` simulado y sin red.
 
 - CA1: con token, chat_id y datos de una tarea hecha, se hace un único `POST` a
   `https://api.telegram.org/bot<token>/sendMessage` con `chat_id`, `text` y
-  `disable_web_page_preview: true`, y el resultado es éxito.
+  `link_preview_options: { is_disabled: true }` (sin `disable_web_page_preview`, que ya no está en
+  la Bot API; cambio de la ronda 1, aprobado por Dani el 2026-10-07), y el resultado es éxito.
 - CA2: `buildMessage` produce, para `hecha`, `bloqueada`, `parada` (con `decision`), `cerrada` y
-  `fallida`, la primera línea con su icono, número o versión, título y estado; la línea de rondas
-  y verifier; `Decide Dani:` solo si hay `decision`; y la URL del CI solo si hay `ci`.
+  `fallida`, la primera línea con su icono, número o versión, título y estado (también en las
+  versiones: `📦 v0.11.0 · <título> — cerrada`); la línea de rondas y verifier; `Decide Dani:` solo
+  si hay `decision`; y la URL del CI solo si hay `ci`.
 - CA3: un resumen largo deja el mensaje en 1 500 caracteres como mucho, acabado en «…», sin
   perder la primera línea ni la del CI.
 - CA4: sin `VIGIA_TELEGRAM_TOKEN` o sin `VIGIA_TELEGRAM_CHAT_ID` (ni en el entorno ni en el
@@ -144,6 +146,12 @@ Todos en `scripts/notify-telegram.test.ts`, con `fetch` simulado y sin red.
   llama a `node scripts/notify-telegram.mjs` en cada punto de la especificación (hecha, bloqueada,
   parada; cerrada y fallida), y `.claude/settings.json` lo permite. (Test que lee los ficheros y
   busca la llamada y los estados.)
+- CA12 (ronda 1, aprobado por Dani): el filtro del tenant se aplica también a los campos completos
+  (`titulo`, `resumen`, `decision`, `ci`) antes de recortar. Un valor del `.env` de prueba que el
+  recorte a 1 500 caracteres partiría por la mitad bloquea el envío igual (no se llama a `fetch`).
+- CA13 (ronda 1, aprobado por Dani): en Windows, la lectura del registro ejecuta `reg.exe` por su
+  ruta absoluta (`%SystemRoot%\System32\reg.exe`), nunca por nombre, con los argumentos en array y
+  sin shell.
 
 ## Pruebas a mano para Dani
 
@@ -166,7 +174,22 @@ Todos en `scripts/notify-telegram.test.ts`, con `fetch` simulado y sin red.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO, con cambios aceptados por Dani para una ronda 2
+
+- Criterios: los 11 CA con su test; los tests no cambian después de `1380222`. Diff limitado al script,
+  los dos comandos, `settings.json` (solo las dos reglas allow) y la ficha.
+- Seguridad: toda salida pasa por `redact` (split/join, sin regex): token, su parte tras `:` y
+  chat_id. De los errores solo la primera línea de `message`, sin stack ni `cause`. El filtro mira el
+  mensaje que se envía y solo imprime el `kind`. `.env.live.local` se lee como en `scan-tenant.mjs`;
+  si falla, no se envía. `reg` y `git` con `execFileSync`, argumentos en array y sin shell.
+- API: contrastada de memoria. El Orquestador la comprobó en https://core.telegram.org/bots/api
+  (2026-10-07): `sendMessage` ya no lista `disable_web_page_preview`; se usa
+  `link_preview_options` (`LinkPreviewOptions.is_disabled`).
+- Sugerencias que Dani aceptó (2026-10-07) para la ronda 2:
+  1. [ALCANCE] `link_preview_options: { is_disabled: true }` en lugar de `disable_web_page_preview` (CA1).
+  2. [Seguridad] Filtrar también los campos completos antes de recortar (CA12).
+  3. [Seguridad] `reg.exe` por ruta absoluta (CA13).
+  4. [Legibilidad] El título también en la primera línea de las versiones (CA2).
 
 ## Verificación
 
