@@ -18,6 +18,13 @@ Sin migraciones nuevas.
   solo los enlaces web se abren (en el navegador del sistema) y las imágenes no se cargan: se ve su
   texto alternativo o su dirección. (fichas 0001 y 0002: la 0002 quitó, a petición de Dani, el
   conmutador «Con formato · Texto original» que añadía la 0001 antes de publicarse)
+- Detalle del problema: al desplegar una evidencia que tiene entidad, un botón «Analizar entidad»
+  lleva a una página de análisis de esa entidad, una por tipo (Host, Servicio, Proceso, Process
+  group, Browser monitor, HTTP monitor, Aplicación web, Cloud application y Entorno); cualquier otro
+  tipo, también los personalizados, abre una página genérica con el código del tipo. De momento
+  todas están en construcción: enseñan el nombre de la entidad, su tipo y su id, sin pedir nada a
+  Dynatrace. «Volver» regresa al problema con la evidencia aún desplegada y sin volver a cargarlo.
+  (ficha 0003)
 
 ### Cambiado
 

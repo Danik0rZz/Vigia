@@ -17,3 +17,7 @@
 - Contenido del tenant con formato (Markdown): solo con `MarkdownText`, nunca
   `dangerouslySetInnerHTML` ni `rehype-raw`; sin HTML en crudo, solo enlaces http/https y sin
   imágenes (ADR-0008).
+- React Router 8.4.0 convierte `%2F` en `/` al leer un parámetro de ruta: un `/` codificado en un
+  segmento no hace ida y vuelta (`entity-route.ts`). Los ids de Dynatrace no lo llevan.
+- Para pintar un componente sacado de un registro (`tipo → componente`), `createElement`: con JSX,
+  `react-hooks/static-components` lo toma por un componente creado en el render (`EntityPage.tsx`).

@@ -1,7 +1,7 @@
 ---
 id: '0003'
 titulo: Página de análisis de la entidad desde el detalle de una evidencia (en construcción, una por tipo)
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0003-pagina-analisis-entidad
 adrs: [2, 4]
@@ -222,4 +222,12 @@ src/renderer/src/pages/entities/registry.test.ts`: los 2 ficheros fallan al impo
 
 ## Resultado
 
-(pendiente)
+- Commits: `9becbc9` y `10fad39` (tests), `21f107d` (páginas de entidad, registro y ruta) y
+  `d4935c4` (botón «Analizar entidad»), más los de la ficha.
+- Ficheros principales: `src/renderer/src/pages/entities/` (registro, `EntityPage`,
+  `EntityPageFrame`, una página por tipo y la genérica), `src/renderer/src/app/entity-route.ts`,
+  `src/renderer/src/app/router.tsx`, `src/renderer/src/components/PageHeader.tsx` (`subtitle`,
+  `actions` y `titleRef`), `src/renderer/src/components/EvidenceSection.tsx` y los locales es/en.
+- Rondas de revisión: 1 (aprobada).
+- ADR nuevo: ninguno. Sin migraciones, IPC, API ni dependencias nuevas.
+- Glosario: Host, Process group, Browser monitor, HTTP monitor y Cloud application.

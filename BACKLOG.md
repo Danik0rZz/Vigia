@@ -6,9 +6,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- [0003](tasks/0003-pagina-analisis-entidad.md): «Analizar entidad» en el detalle de las evidencias,
-  con una página en construcción por tipo de entidad. Aprobada por Dani el 2026-10-06. La 0002
-  (que también toca el detalle de la evidencia) ya está hecha.
+(nada)
 
 ## Próximo
 
@@ -34,16 +32,21 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 - **e2e de `views.spec.ts` que dependen de la máquina** (primer candidato a ficha). Fallan en el
   primer CI (`windows-latest`, run 37506732054, 2026-10-06) y en la VPS, sin cambios de código:
-  Líneas del spec tras la ficha 0001 (en el `main` anterior eran `:1605`, `:1413`, `:3857` y
+  Líneas del spec tras la ficha 0003 (antes de la ficha 0001 eran `:1605`, `:1413`, `:3857` y
   `:3962`):
-  - `:1721` (300 filas virtualizadas): espera la fila 150 y ve la 146 en el CI y la 140 en la VPS.
-  - `:1529` (Problemas, detalle): la cabecera arrastrable (`app-drag`) intercepta el clic en la
+  - `:1724` (300 filas virtualizadas): espera la fila 150 y ve la 146 en el CI y la 140 en la VPS.
+  - `:1532` (Problemas, detalle): la cabecera arrastrable (`app-drag`) intercepta el clic en la
     ruta de la barra superior.
-  - `:3978` (i18n con el gráfico de Métricas): la serie llega vacía. También falla aislado de
+  - `:3981` (i18n con el gráfico de Métricas): la serie llega vacía. También falla aislado de
     forma intermitente (2/3 en la rama de la ficha 0002 y 1/3 en `main`), así que no depende solo
     del orden. Deducción del verifier en la ficha 0001, sin comprobar: lee `data-series` sin `expect.poll` justo después de `runMetric`, mientras aún se
     rehace el gráfico del test anterior.
-  - `:4083` (SLO de Inicio): se agota la espera de 5 s.
+  - `:4086` (SLO de Inicio): se agota la espera de 5 s.
+  - `:3620` (exporta problemas a XLSX … y a TXT): intermitente, lee el fichero vacío. Causa probable,
+    sin comprobar: `exportTo` (`e2e/views.spec.ts:1366`) da el fichero por listo en cuanto aparece su
+    nombre, y main lo escribe con `writeFile` directo (`src/main/ipc/handlers/export.ts:104`).
+    Arreglo: esperar a que tenga contenido. Repro:
+    `npx playwright test e2e/views.spec.ts:3620 --repeat-each 3 --workers=1`. (surgió en 0003)
     Apuntan a la geometría de la ventana y a los tiempos del runner. Mientras no se arreglen, el CI
     sale en rojo. De paso: `actions/checkout` y `actions/setup-node` a una versión con Node 24 (aviso
     de deprecación de Node 20).
@@ -66,6 +69,13 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   pantallas de error); valorar que desaparezca solo. (surgió en 0001)
 - e2e de la descripción del evento: activar «Copiar» también con Espacio, no solo con Enter (antes
   se probaba sobre los botones del conmutador). (surgió en 0002)
+- La barra superior no enseña ruta en `#/entities/...` (no cuelga de ninguna sección de
+  `NAV_SECTIONS`): se podría poner "Problemas › P-NNN › nombre de la entidad" cuando se llega desde
+  un problema. (surgió en 0003)
+- `EntityPage.tsx:8`: nombrar la regla `react-hooks/static-components` en el comentario que
+  explica el `createElement`. (surgió en 0003)
+- `EntityPageFrame`: sacar el nombre del tipo de la `labelKey` del registro, para tener una sola
+  fuente. (surgió en 0003)
 
 ## Aparcado
 
@@ -82,3 +92,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   el detalle del problema, con «Copiar» (ADR-0008).
 - [0002](tasks/0002-descripcion-siempre-markdown.md): la descripción del evento siempre con
   formato; se quitó el conmutador de la 0001 y se queda «Copiar».
+- [0003](tasks/0003-pagina-analisis-entidad.md): «Analizar entidad» en el detalle de las
+  evidencias, con una página en construcción por tipo de entidad (y una genérica para el resto).
