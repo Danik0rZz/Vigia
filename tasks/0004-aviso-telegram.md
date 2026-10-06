@@ -1,7 +1,7 @@
 ---
 id: '0004'
 titulo: Aviso por Telegram al terminar /tarea o /cerrar-version
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0004-aviso-telegram
 adrs: [7]
@@ -285,6 +285,13 @@ Ronda 2 (developer, código en `47259b9`; los 73 tests pasan):
 - La ruta de `reg.exe` sale de `SystemRoot` (si no está, de `windir`). Si no hay ninguna de las dos,
   no se lee el registro: nunca se llama a `reg` por nombre.
 - Una versión sin `titulo` deja la primera línea como antes (`📦 v0.11.0 — cerrada`).
+
+### Verifier, 2026-10-07, commit `8e52e50`, rango `main..feat/0004-aviso-telegram`: VERDE
+
+- check: 1986 tests en 93 ficheros, cobertura ok; `scripts/notify-telegram.test.ts` solo: 73/73, con
+  todo simulado.
+- e2e: no hace falta ninguno (`test:e2e:affected`: solo docs o tests unitarios).
+- Sin envíos reales ni lectura de variables reales o `.env.live.local`.
 
 ## Resultado
 
