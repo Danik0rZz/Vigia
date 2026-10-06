@@ -1,7 +1,7 @@
 ---
 id: '0001'
 titulo: Descripción del evento con formato Markdown en el detalle del problema
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0001-descripcion-evento-markdown
 adrs: [2, 4, 5]
@@ -211,6 +211,15 @@ Tests escritos en `ea0fcf2` (test-writer, antes del código; fallan por falta de
   original» con ella.
 - Ajustados a la ficha: los e2e «v0.10.0: desplegar con clic…» y «v0.9.1: tarjetas de cambio…»
   esperan `dt.event.description` en su sección y no en las propiedades.
+
+### Verifier, 2026-10-06, commit `ee842d0`, rango `main..feat/0001-descripcion-evento-markdown`: VERDE
+
+- check: 1874 tests en 89 ficheros, cobertura ok; lint, tipos y formato limpios.
+- e2e completo (el diff toca `package*.json`): 167 pasan y 2 fallan, los dos preexistentes en `main`
+  y anotados en BACKLOG.md: `views.spec.ts:1721` (antes `:1605`, fila 140 en vez de 150) y
+  `views.spec.ts:3978` (antes `:3857`, serie vacía; pasa 3/3 aislado, depende del orden).
+- `views.spec.ts` con `--repeat-each 3 --workers=1`: los 24 tests nuevos (0001) pasan en todas las
+  repeticiones; en `main` (`b9eac63`) fallan los mismos dos con las mismas aserciones.
 
 ## Resultado
 
