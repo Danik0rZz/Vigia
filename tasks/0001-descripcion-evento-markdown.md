@@ -1,7 +1,7 @@
 ---
 id: '0001'
 titulo: Descripción del evento con formato Markdown en el detalle del problema
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0001-descripcion-evento-markdown
 adrs: [2, 4, 5]
@@ -162,7 +162,26 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `ea0fcf2` (test-writer, antes del código; fallan por falta de implementación):
+
+- CA1: `src/main/modules/problems-event-description.live.test.ts` (`CA1 (0001)`). Se ejecutó en
+  esta máquina (solo lectura, 11 peticiones) y dejó su informe en `live-reports/`.
+- CA2, CA3 y CA4: `src/main/modules/problems-event-description.test.ts` (un `describe` por
+  criterio). Esperan `MAX_DESCRIPTION_LENGTH` exportada de `src/shared/problem-evidence.ts` y el
+  campo `description: { text, truncated } | null` en la evidencia.
+- CA5: `src/shared/problem-evidence-description.test.ts`.
+- CA10, CA11 y CA12 (y un apoyo unitario de CA6): `src/renderer/src/components/MarkdownText.test.ts`.
+  Contrato que fija el test: `export function MarkdownText({ text }: { text: string })` en
+  `src/renderer/src/components/MarkdownText.tsx`, sin proveedores (se pinta con
+  `renderToStaticMarkup`).
+- CA6, CA7, CA8, CA9, CA10, CA13, CA14 y CA15: `e2e/views.spec.ts`, tests `CAn (0001)` sobre el
+  problema simulado P-785 (`pd-desc`). data-testid que esperan: `evidence-description`,
+  `evidence-description-mode-formatted` y `evidence-description-mode-original` (con
+  `aria-pressed`), `evidence-description-copy`, `evidence-description-copy-status` (texto de
+  `errorScreen.copied`) y `evidence-description-truncated`. CA14 ya pasa: comprueba que sin
+  descripción no cambia nada. CA15 lo cubre además la paridad de `locales.test.ts` en `check`.
+- Ajustados a la ficha: los e2e «v0.10.0: desplegar con clic…» y «v0.9.1: tarjetas de cambio…»
+  esperan `dt.event.description` en su sección y no en las propiedades.
 
 ## Resultado
 
