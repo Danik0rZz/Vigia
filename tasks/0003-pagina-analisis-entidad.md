@@ -1,7 +1,7 @@
 ---
 id: '0003'
 titulo: Página de análisis de la entidad desde el detalle de una evidencia (en construcción, una por tipo)
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0003-pagina-analisis-entidad
 adrs: [2, 4]
@@ -124,7 +124,9 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) La barra superior no enseña ruta en `#/entities/...` (no cuelga de ninguna sección de
+  `NAV_SECTIONS`): se podría poner "Problemas › P-786 › nombre de la entidad" cuando se llega
+  desde un problema.
 
 ## Notas del revisor
 
@@ -179,6 +181,19 @@ src/renderer/src/pages/entities/registry.test.ts`: los 2 ficheros fallan al impo
   (`./entity-route` y `./registry` no existen). `npm run test:e2e -- e2e/views.spec.ts -g
 "0003"`: 7 fallan, todos por no encontrar `evidence-analyze-entity` o `entity-page-*` (el
   problema P-786 y sus filas cargan y se despliegan).
+- CA5: en `10fad39` se quitó el `%2F` literal del id del caso SERVICE, porque React Router 8.4.0
+  lo convierte en "/" (utils.js:504) y los ids de Dynatrace no llevan `%`. El criterio no cambia.
+
+## Notas del developer
+
+- «Volver» va en las acciones de la cabecera, a la derecha del título (`PageHeader` admite ahora
+  `subtitle`, `actions` y `titleRef`); al entrar, el foco va al título (como en el detalle del
+  problema), así Tab llega a «Volver» al primer paso.
+- «Analizar entidad» va arriba del detalle desplegado, en todos los tipos de evidencia con
+  entidad y tipo. El nombre viaja en el estado (`EntityLocationState` de `entity-route.ts`).
+- Una página por tipo en su propio fichero (`src/renderer/src/pages/entities/`) sobre un armazón
+  común (`EntityPageFrame`); `EntityPage` elige la del registro con `createElement` (con JSX,
+  la regla `react-hooks/static-components` lo marca como componente creado en el render).
 
 ## Resultado
 
