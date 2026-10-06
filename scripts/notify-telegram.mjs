@@ -12,7 +12,7 @@
 // envía.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, win32 } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { extractNeedles } from './scan-tenant.mjs'
 
@@ -50,7 +50,8 @@ function firstLine(datos) {
   const label = estado === 'parada' ? 'parada: decisión de Dani' : estado
   if (datos.tipo === 'version') {
     const version = text(datos.version).replace(/^v+/i, '')
-    return `${icon} v${version} — ${label}`
+    const titulo = text(datos.titulo)
+    return `${icon} v${version}${titulo ? ` · ${titulo}` : ''} — ${label}`
   }
   return `${icon} ${text(datos.ficha)} · ${text(datos.titulo)} — ${label}`
 }
@@ -90,6 +91,13 @@ export function checkTenantLeftovers(value, needles) {
   return [...kinds]
 }
 
+/** Los campos del aviso tal como llegan, sin recortar (para el filtro del tenant). */
+function fieldValues(datos) {
+  return ['ficha', 'titulo', 'version', 'estado', 'resumen', 'rondas', 'verifier', 'ci', 'decision']
+    .map((key) => text(datos[key]))
+    .filter((value) => value !== '')
+}
+
 /** Sustituye por *** el token (entero y su parte secreta) y el chat_id. */
 export function redact(value, secrets) {
   let result = String(value)
@@ -116,7 +124,11 @@ export async function sendTelegram({ token, chatId, text: message, fetchImpl }) 
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: message, disable_web_page_preview: true }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        link_preview_options: { is_disabled: true }
+      }),
       signal: AbortSignal.timeout(TIMEOUT_MS)
     })
     let body
@@ -205,7 +217,9 @@ export async function main(argv, deps) {
     if (needles.length === 0) {
       warn(`sin ${ENV_FILE} con valores: no se ha podido filtrar el texto; se envía igualmente.`)
     } else {
-      const kinds = checkTenantLeftovers(message, needles)
+      // Sobre el mensaje y sobre los campos completos: el recorte a 1 500
+      // caracteres podría partir un valor y dejarlo pasar a medias.
+      const kinds = checkTenantLeftovers([message, ...fieldValues(datos)].join('\n'), needles)
       if (kinds.length > 0) {
         warn(`el texto lleva restos del tenant (${kinds.join(', ')}): no se envía.`)
         return 0
@@ -223,13 +237,21 @@ export async function main(argv, deps) {
   }
 }
 
-/** Valor de una variable de usuario de Windows (`setx` no llega a los procesos ya abiertos). */
-function readRegistry(name) {
+/**
+ * Valor de una variable de usuario de Windows (`setx` no llega a los procesos
+ * ya abiertos). Ejecuta reg.exe por su ruta absoluta (%SystemRoot%\System32),
+ * nunca por nombre, con los argumentos en array y sin shell. No lanza.
+ */
+export function readRegistry(name, { execFile = execFileSync, env = process.env } = {}) {
+  const systemRoot = text(env.SystemRoot ?? env.SYSTEMROOT ?? env.windir)
+  if (!systemRoot) return undefined
   try {
-    const output = execFileSync('reg', ['query', 'HKCU\\Environment', '/v', name], {
+    const regExe = win32.join(systemRoot, 'System32', 'reg.exe')
+    const output = execFile(regExe, ['query', 'HKCU\\Environment', '/v', name], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true
+      windowsHide: true,
+      shell: false
     })
     const line = output.split(/\r?\n/).find((l) => l.trim().startsWith(`${name} `))
     const match = line && /\sREG_(?:EXPAND_)?SZ\s+(.*)$/.exec(line)
