@@ -11,6 +11,7 @@ import {
   Check,
   ChevronDown,
   Repeat,
+  ScanSearch,
   Wrench
 } from 'lucide-react'
 import { formatDateTime } from '@shared/format-date'
@@ -35,6 +36,7 @@ import {
   type EvidenceSortKey,
   type EvidenceView
 } from '@shared/problem-evidence'
+import { entityPath, type EntityLocationState } from '../app/entity-route'
 import {
   INITIAL_EVIDENCE_TABLE,
   evidenceTableKey,
@@ -274,8 +276,53 @@ function EventDetail({
   )
 }
 
-/** Lo que va debajo de una fila desplegada, según el tipo. */
+/**
+ * «Analizar entidad»: abre la página de análisis de la entidad de la evidencia
+ * (ficha 0003). Solo con entidad y tipo; el nombre viaja en el estado de
+ * navegación para no pedírselo a Dynatrace.
+ */
+function AnalyzeEntityButton({ view }: { view: EvidenceView }): JSX.Element | null {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const entity = view.entity
+  if (entity === null || entity.type === null || entity.id === '' || entity.type === '') {
+    return null
+  }
+  const path = entityPath(entity.type, entity.id)
+  const state: EntityLocationState = { fromProblem: true, name: entity.label }
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid="evidence-analyze-entity"
+        onClick={() => void navigate(path, { state })}
+        className={BUTTON_SECONDARY}
+      >
+        <ScanSearch aria-hidden="true" className="size-4" />
+        {t('entities.analyze')}
+      </button>
+    </div>
+  )
+}
+
+/** Lo que va debajo de una fila desplegada: el botón de la entidad y el detalle según el tipo. */
 function EvidenceDetail({
+  view,
+  problem
+}: {
+  view: EvidenceView
+  problem: ProblemContext
+}): JSX.Element {
+  return (
+    <div className="grid gap-2">
+      <AnalyzeEntityButton view={view} />
+      <EvidenceDetailBody view={view} problem={problem} />
+    </div>
+  )
+}
+
+/** El detalle de una fila desplegada, según el tipo. */
+function EvidenceDetailBody({
   view,
   problem
 }: {
