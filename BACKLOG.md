@@ -30,10 +30,16 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 ## Mejoras anotadas
 
-- e2e `views.spec.ts:1605` ("volver del detalle conserva … 300 filas virtualizadas") falla siempre
-  en la VPS de 2026-10-06 (2560×1440): espera la fila 150 y ve la 140. No viene de un cambio de
-  código (el commit del flujo no toca `src/` ni los specs); depende de la geometría de la ventana.
-  Ver qué dice el CI en `windows-latest` antes de hacer la ficha.
+- **e2e de `views.spec.ts` que dependen de la máquina** (primer candidato a ficha). Fallan en el
+  primer CI (`windows-latest`, run 37506732054, 2026-10-06) y en la VPS, sin cambios de código:
+  - `:1605` (300 filas virtualizadas): espera la fila 150 y ve la 146 en el CI y la 140 en la VPS.
+  - `:1413` (Problemas, detalle): la cabecera arrastrable (`app-drag`) intercepta el clic en la
+    ruta de la barra superior.
+  - `:3857` (i18n con el gráfico de Métricas): la serie llega vacía.
+  - `:3962` (SLO de Inicio): se agota la espera de 5 s.
+    Apuntan a la geometría de la ventana y a los tiempos del runner. Mientras no se arreglen, el CI
+    sale en rojo. De paso: `actions/checkout` y `actions/setup-node` a una versión con Node 24 (aviso
+    de deprecación de Node 20).
 
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec,
   "Funcionalidades").
