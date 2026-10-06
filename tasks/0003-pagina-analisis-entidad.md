@@ -1,7 +1,7 @@
 ---
 id: '0003'
 titulo: Página de análisis de la entidad desde el detalle de una evidencia (en construcción, una por tipo)
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0003-pagina-analisis-entidad
 adrs: [2, 4]
@@ -208,6 +208,17 @@ src/renderer/src/pages/entities/registry.test.ts`: los 2 ficheros fallan al impo
 - Una página por tipo en su propio fichero (`src/renderer/src/pages/entities/`) sobre un armazón
   común (`EntityPageFrame`); `EntityPage` elige la del registro con `createElement` (con JSX,
   la regla `react-hooks/static-components` lo marca como componente creado en el render).
+
+### Verifier, 2026-10-06, commit `df3c5eb`, rango `main..feat/0003-pagina-analisis-entidad`: VERDE
+
+- check: 1913 tests en 92 ficheros, cobertura ok.
+- e2e completo (router transversal), dos pasadas. 1.ª: 6 cuelgues en el mismo minuto en cuatro specs
+  (`errors:174`, `tenants:704`, `tls:279`, `views:2133`, `views:2717` y `views:1724`); repetidos, pasan
+  todos salvo `views:1724` (preexistente). Probable carga momentánea de la máquina. 2.ª: 174 ok y 2
+  fallos: `views:1724` (preexistente, fila 140) y `views:3620` (exportación TXT, intermitente: lee el
+  fichero vacío; ajeno al diff, anotado para el BACKLOG).
+- `views.spec.ts` con `--repeat-each 3 --workers=1`: 261 ok y 3 fallos, los tres de `views:1724`.
+  CA6-CA9 de la 0003 pasan siempre (también CA8 con `waitForTimeout`).
 
 ## Resultado
 
