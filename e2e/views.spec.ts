@@ -497,9 +497,17 @@ detailOnly.push({
 /** Si una consulta de /metrics/query es la de un mini gráfico (y no la vista Métricas). */
 function isEventSelector(selector: string): boolean {
   return (
-    [SEL_OK, SEL_BAD, SEL_FORBIDDEN, SEL_EMPTY, SEL_MANY, SEL_DONE, SEL_ACTIVE, SEL_LONG].includes(
-      selector
-    ) || /:e2elazy\d+$/.test(selector)
+    [
+      SEL_OK,
+      SEL_BAD,
+      SEL_FORBIDDEN,
+      SEL_EMPTY,
+      SEL_MANY,
+      SEL_DONE,
+      SEL_ACTIVE,
+      SEL_LONG,
+      SEL_DESC
+    ].includes(selector) || /:e2elazy\d+$/.test(selector)
   )
 }
 
@@ -707,6 +715,106 @@ detailOnly.push({
         valueBeforeChangePoint: 100_000,
         valueAfterChangePoint: 300_000
       }
+    ]
+  }
+})
+
+/**
+ * Ficha 0001: descripción del evento (dt.event.description) en Markdown. Problema ABIERTO con
+ * cinco EVENT: uno con título, lista, negrita, código y tabla, DESPUÉS de la octava propiedad;
+ * otro corto; uno de más de 20 000 caracteres (recortado sea cual sea MAX_DESCRIPTION_LENGTH);
+ * uno con HTML en crudo; y uno sin descripción con propiedades, zonas, tags y mini gráfico.
+ */
+const DESC_ID = 'pd-desc'
+const DESC_MD = [
+  '# Uso de CPU alto',
+  '',
+  'El proceso supera el umbral con **negrita** y `código`.',
+  '',
+  '- primer paso',
+  '- segundo paso',
+  '',
+  '| Métrica | Valor |',
+  '| --- | --- |',
+  '| CPU | 97 % |'
+].join('\n')
+const DESC_SHORT_MD = '## Segundo evento\n\n- **uno**\n- dos'
+const DESC_LONG = `# Descripción larga\n\n${'palabra '.repeat(3200)}`
+const DESC_HTML = [
+  '# Aviso',
+  '',
+  '<img src=x onerror="window.__xssDesc=1">',
+  '',
+  'Texto <script>window.__xssDesc=2</script> fin'
+].join('\n')
+const SEL_DESC = 'builtin:host.cpu.usage:avg:e2edescripcion'
+const DESC_SERVICE = { entityId: { id: 'SERVICE-DS1', type: 'SERVICE' }, name: 'svc-descripcion' }
+const descEvent = (
+  name: string,
+  index: number,
+  properties: { key: string; value: unknown }[],
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> => ({
+  evidenceType: 'EVENT',
+  displayName: name,
+  eventType: 'CUSTOM_ALERT',
+  entity: DESC_SERVICE,
+  startTime: NOW - (60 + index) * 60_000,
+  endTime: -1,
+  data: {
+    eventId: `desc-${index}`,
+    status: 'OPEN',
+    endTime: -1,
+    title: name,
+    ...noFlags,
+    properties,
+    ...extra
+  }
+})
+/** Nueve propiedades genéricas: la descripción va después de la octava. */
+const DESC_OTHERS = Array.from({ length: 9 }, (_, i) => ({ key: `paso.${i}`, value: `valor-${i}` }))
+detailOnly.push({
+  problemId: DESC_ID,
+  displayId: 'P-785',
+  title: 'Problema con descripciones en Markdown',
+  status: 'OPEN',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [DESC_SERVICE],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 5,
+    details: [
+      descEvent('Descripción con formato', 1, [
+        ...DESC_OTHERS,
+        { key: 'dt.event.description', value: DESC_MD }
+      ]),
+      descEvent('Otra con descripción', 2, [{ key: 'dt.event.description', value: DESC_SHORT_MD }]),
+      descEvent('Descripción recortada', 3, [{ key: 'dt.event.description', value: DESC_LONG }]),
+      descEvent('Descripción con HTML', 4, [{ key: 'dt.event.description', value: DESC_HTML }]),
+      descEvent(
+        'Sin descripción',
+        5,
+        [
+          { key: 'exit.code', value: 137 },
+          { key: 'dt.event.metric_selector', value: SEL_DESC }
+        ],
+        {
+          entityTags: [
+            {
+              context: 'CONTEXTLESS',
+              key: 'equipo',
+              value: 'pagos',
+              stringRepresentation: 'equipo:pagos'
+            }
+          ],
+          managementZones: [{ id: 'mz-d1', name: 'Zona descripción' }]
+        }
+      )
     ]
   }
 })
@@ -2221,9 +2329,12 @@ test('v0.10.0: desplegar con clic y con Enter, aria-expanded y aria-controls, Ta
   // Propiedades siempre visibles, como texto (el HTML no se interpreta ni se ejecuta).
   const properties = detail.getByTestId('evidence-properties')
   await expect(properties).toBeVisible()
-  await expect(properties).toContainText(TABLE_HTML)
   await expect(properties).toContainText('97')
-  await expect(properties.locator('b, img')).toHaveCount(0)
+  // Ficha 0001: dt.event.description va en su sección (el HTML, como texto) y no en propiedades.
+  await expect(properties).not.toContainText(TABLE_HTML)
+  const description = detail.getByTestId('evidence-description')
+  await expect(description).toContainText(TABLE_HTML)
+  await expect(detail.locator('b, img')).toHaveCount(0)
   expect(await page.evaluate(() => (window as { __xss?: unknown }).__xss ?? null)).toBeNull()
   await expect(detail.getByTestId('evidence-zones')).toContainText('Producción')
   for (const tag of ['equipo:pagos', 'zona:eu', 'critico', 'capa:infra']) {
@@ -2341,9 +2452,11 @@ test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y propiedades de 
   const event = await item('Reinicio del proceso')
   await expect(event.getByTestId('evidence-more')).toHaveCount(0)
   const properties = event.getByTestId('evidence-properties')
-  await expect(properties.locator('dt')).toHaveText(['dt.event.description', 'exit.code'])
-  await expect(properties.locator('dd')).toHaveText([EV_PROPERTY, '137'])
-  await expect(properties.locator('b')).toHaveCount(0)
+  // Ficha 0001: dt.event.description sale en su sección, no en las propiedades.
+  await expect(properties.locator('dt')).toHaveText(['exit.code'])
+  await expect(properties.locator('dd')).toHaveText(['137'])
+  await expect(event.getByTestId('evidence-description')).toContainText(EV_PROPERTY)
+  await expect(event.locator('b')).toHaveCount(0)
   // EVENT sin propiedades: sin bloque de propiedades.
   await expect(evidenceRow('Despliegue')).toContainText('CUSTOM_DEPLOYMENT')
   await expect((await item('Despliegue')).getByTestId('evidence-properties')).toHaveCount(0)
@@ -4118,4 +4231,287 @@ test('Métricas no disponible: sin metrics.read tras probar la conexión, o sin 
   await expect(page.getByTestId('module-unavailable')).toContainText(
     'Este módulo usa el token clásico'
   )
+})
+
+/** Ficha 0001: abre P-785 (descripciones en Markdown) por URL y espera sus 5 evidencias. */
+async function openDescriptionProblem(): Promise<void> {
+  await goToRoute(`/problems/${DESC_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-785')
+  await expect(evidenceRows()).toHaveCount(5)
+}
+
+/** Ficha 0001: las partes de la sección «Descripción» de un detalle desplegado. */
+function descriptionParts(detail: Locator): {
+  section: Locator
+  formatted: Locator
+  original: Locator
+  copy: Locator
+  status: Locator
+  truncated: Locator
+} {
+  const section = detail.getByTestId('evidence-description')
+  return {
+    section,
+    formatted: section.getByTestId('evidence-description-mode-formatted'),
+    original: section.getByTestId('evidence-description-mode-original'),
+    copy: section.getByTestId('evidence-description-copy'),
+    status: section.getByTestId('evidence-description-copy-status'),
+    truncated: detail.getByTestId('evidence-description-truncated')
+  }
+}
+
+/** Elementos que solo existen si el Markdown se ha renderizado (CA6 y CA7). */
+const RENDERED = 'h1, h2, h3, h4, h5, h6, li, strong, table'
+
+/** Lee el portapapeles del sistema (desde main), con los saltos de línea normalizados. */
+async function clipboardText(): Promise<string> {
+  const text = await app.evaluate(({ clipboard }) =>
+    (clipboard as unknown as { readText: () => Promise<string> | string }).readText()
+  )
+  // Windows puede devolver \r\n: el texto es el mismo.
+  return text.replace(/\r\n/g, '\n')
+}
+
+async function clearClipboard(): Promise<void> {
+  await app.evaluate(({ clipboard }) => (clipboard as unknown as ElectronClipboard).clear())
+}
+
+/** data-testid del elemento con el foco. */
+const focusedTestId = (): Promise<string | null> =>
+  page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? null)
+
+/** Pulsa Tab (o Mayús+Tab) hasta que el foco llegue a ese data-testid; falla si no llega. */
+async function tabTo(testId: string, key = 'Tab', max = 25): Promise<void> {
+  for (let i = 0; i < max; i += 1) {
+    if ((await focusedTestId()) === testId) return
+    await page.keyboard.press(key)
+  }
+  expect(await focusedTestId(), `${key} hasta ${testId}`).toBe(testId)
+}
+
+test('CA6 (0001): al desplegar un evento con descripción, «Descripción» sale la primera y renderizada', async () => {
+  await openDescriptionProblem()
+  const detail = await expandRow('Descripción con formato')
+  const { section } = descriptionParts(detail)
+  await expect(section).toBeVisible()
+  await expect(section).toContainText('Descripción')
+
+  // La primera sección del detalle del evento.
+  const order = await detail.evaluate((root) =>
+    [...root.querySelectorAll('[data-testid]')]
+      .map((element) => element.getAttribute('data-testid') ?? '')
+      .filter((id) =>
+        [
+          'evidence-description',
+          'evidence-properties',
+          'evidence-zones',
+          'evidence-all-tags',
+          'evidence-metric-chart',
+          'evidence-metric-too-long',
+          'evidence-change'
+        ].includes(id)
+      )
+  )
+  expect(order[0]).toBe('evidence-description')
+  expect(order).toContain('evidence-properties')
+
+  // Los elementos renderizados, no los símbolos.
+  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Uso de CPU alto'])
+  await expect(section.locator('li')).toHaveText(['primer paso', 'segundo paso'])
+  await expect(section.locator('strong')).toHaveText(['negrita'])
+  await expect(section.locator('code')).toHaveText(['código'])
+  await expect(section.locator('table')).toHaveCount(1)
+  await expect(section.locator('table th')).toHaveText(['Métrica', 'Valor'])
+  await expect(section.locator('table td')).toHaveText(['CPU', '97 %'])
+  const text = await section.innerText()
+  expect(text).not.toContain('**')
+  expect(text).not.toContain('`')
+  expect(text).not.toMatch(/^\s*#/m)
+  expect(text).not.toMatch(/^\s*- /m)
+  expect(text).not.toContain('| --- |')
+
+  // CA2 visto en la interfaz: la descripción iba después de la octava propiedad y ya no se
+  // repite en la lista de propiedades.
+  const keys = await detail.getByTestId('evidence-properties').locator('dt').allInnerTexts()
+  expect(keys).not.toContain('dt.event.description')
+  expect(keys).toContain('paso.0')
+})
+
+test('CA7 (0001): «Texto original» enseña el Markdown tal cual; «Con formato» lo vuelve a pintar; plegar lo reinicia', async () => {
+  await openDescriptionProblem()
+  const row = evidenceRow('Descripción con formato')
+  const detail = await expandRow('Descripción con formato')
+  const parts = descriptionParts(detail)
+  await expect(parts.formatted).toHaveText('Con formato')
+  await expect(parts.original).toHaveText('Texto original')
+  // Por defecto, con formato.
+  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
+  await expect(parts.original).toHaveAttribute('aria-pressed', 'false')
+  await expect(parts.section.locator('strong')).toHaveCount(1)
+
+  // Texto original: el Markdown con sus símbolos y saltos de línea, sin elementos.
+  await parts.original.click()
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  await expect(parts.original).toHaveAttribute('aria-pressed', 'true')
+  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'false')
+  await expect(parts.section.locator(RENDERED)).toHaveCount(0)
+  const raw = await parts.section.innerText()
+  expect(raw).toContain('# Uso de CPU alto')
+  expect(raw).toContain('**negrita**')
+  expect(raw).toContain('`código`')
+  expect(raw).toContain('- primer paso\n- segundo paso')
+  expect(raw).toContain('| --- | --- |')
+
+  // La elección es por evento: otro evento desplegado empieza con formato y este no cambia.
+  const other = descriptionParts(await expandRow('Otra con descripción'))
+  await expect(other.formatted).toHaveAttribute('aria-pressed', 'true')
+  await expect(other.section.locator('strong')).toHaveText(['uno'])
+  await expect(parts.original).toHaveAttribute('aria-pressed', 'true')
+
+  // Con formato: vuelve a renderizarlo.
+  await parts.formatted.click()
+  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
+  await expect(parts.section.locator('strong')).toHaveText(['negrita'])
+  await expect(parts.section.locator('table')).toHaveCount(1)
+
+  // Plegar y volver a desplegar: otra vez con formato.
+  await parts.original.click()
+  await expect(parts.section.locator(RENDERED)).toHaveCount(0)
+  await row.click()
+  await expect(row).toHaveAttribute('aria-expanded', 'false')
+  const again = descriptionParts(await expandRow('Descripción con formato'))
+  await expect(again.formatted).toHaveAttribute('aria-pressed', 'true')
+  await expect(again.original).toHaveAttribute('aria-pressed', 'false')
+  await expect(again.section.locator('strong')).toHaveText(['negrita'])
+})
+
+test('CA8 (0001): «Copiar» copia el texto original exacto (también con formato) y avisa de que se ha copiado', async () => {
+  // Va en views porque es el spec que guarda y restaura el portapapeles de quien usa el PC.
+  // El renderer no tiene permiso de portapapeles: lo que llega al del sistema solo puede venir
+  // de app:copyText.
+  await openDescriptionProblem()
+  const parts = descriptionParts(await expandRow('Descripción con formato'))
+  await expect(parts.copy).toHaveText('Copiar')
+  await expect(parts.status).toHaveCount(0)
+
+  // Con formato (por defecto): se copia el Markdown, no lo que se ve.
+  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
+  await clearClipboard()
+  await parts.copy.click()
+  await expect(parts.status).toHaveText(es.errorScreen.copied)
+  expect(await clipboardText()).toBe(DESC_MD)
+
+  // En texto original, lo mismo.
+  await parts.original.click()
+  await clearClipboard()
+  await parts.copy.click()
+  await expect(parts.status).toHaveText(es.errorScreen.copied)
+  expect(await clipboardText()).toBe(DESC_MD)
+})
+
+test('CA9 (0001): con el teclado, Tab llega al conmutador y a «Copiar», Enter y Espacio los activan y Escape pliega', async () => {
+  await openDescriptionProblem()
+  const row = evidenceRow('Descripción con formato')
+  await row.scrollIntoViewIfNeeded()
+  await row.focus()
+  await page.keyboard.press('Enter')
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  const detail = await detailOf(row)
+  const parts = descriptionParts(detail)
+
+  // Tab hasta «Texto original» y Enter: cambia de modo sin plegar la fila.
+  await tabTo('evidence-description-mode-original')
+  await page.keyboard.press('Enter')
+  await expect(parts.original).toHaveAttribute('aria-pressed', 'true')
+  await expect(parts.section.locator(RENDERED)).toHaveCount(0)
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+
+  // Tab hasta «Copiar» y Espacio: copia sin plegar la fila.
+  await clearClipboard()
+  await tabTo('evidence-description-copy')
+  await page.keyboard.press('Space')
+  await expect(parts.status).toHaveText(es.errorScreen.copied)
+  expect(await clipboardText()).toBe(DESC_MD)
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+
+  // Mayús+Tab hasta «Con formato» y Espacio: vuelve a renderizar.
+  await tabTo('evidence-description-mode-formatted', 'Shift+Tab')
+  await page.keyboard.press('Space')
+  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
+  await expect(parts.section.locator('strong')).toHaveText(['negrita'])
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+
+  // Escape desde dentro del detalle: pliega y devuelve el foco a la fila.
+  await page.keyboard.press('Escape')
+  await expect(row).toHaveAttribute('aria-expanded', 'false')
+  await expect(row).toBeFocused()
+})
+
+test('CA10 (0001): el HTML en crudo de la descripción se ve como texto y no crea img ni script', async () => {
+  await openDescriptionProblem()
+  const detail = await expandRow('Descripción con HTML')
+  const { section } = descriptionParts(detail)
+  await expect(section).toContainText('<img src=x onerror="window.__xssDesc=1">')
+  await expect(section).toContainText('<script>window.__xssDesc=2</script>')
+  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Aviso'])
+  await expect(detail.locator('img, script, iframe')).toHaveCount(0)
+  expect(
+    await page.evaluate(() => (window as { __xssDesc?: unknown }).__xssDesc ?? null)
+  ).toBeNull()
+})
+
+test('CA13 (0001): una descripción recortada lleva la nota de recorte; una entera, no', async () => {
+  await openDescriptionProblem()
+  const long = descriptionParts(await expandRow('Descripción recortada'))
+  await expect(long.section).toContainText('Descripción larga')
+  await expect(long.truncated).toBeVisible()
+  await expect(long.truncated).not.toHaveText('')
+
+  const whole = descriptionParts(await expandRow('Descripción con formato'))
+  await expect(whole.section).toBeVisible()
+  await expect(whole.truncated).toHaveCount(0)
+})
+
+test('CA14 (0001): un evento sin descripción no tiene la sección y el resto del detalle sigue igual', async () => {
+  await openDescriptionProblem()
+  const detail = await expandRow('Sin descripción')
+  await expect(detail.getByTestId('evidence-description')).toHaveCount(0)
+  await expect(detail.getByTestId('evidence-description-truncated')).toHaveCount(0)
+  const properties = detail.getByTestId('evidence-properties')
+  await expect(properties).toContainText('exit.code')
+  await expect(properties).toContainText('137')
+  await expect(detail.getByTestId('evidence-zones')).toContainText('Zona descripción')
+  await expect(detail.getByTestId('evidence-all-tags')).toContainText('equipo:pagos')
+  // El mini gráfico de su selector se pide y se pinta.
+  await expect(detail.getByTestId('evidence-metric-chart')).toBeVisible()
+  await expect(detail.getByTestId('evidence-metric').locator('canvas').first()).toBeVisible()
+  await expect
+    .poll(() => sim.eventMetricQueries.some((q) => q.get('metricSelector') === SEL_DESC))
+    .toBe(true)
+})
+
+test('CA15 (0001): los textos nuevos de la sección también están en inglés', async () => {
+  await page.getByRole('button', { name: es.topbar.language }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await openDescriptionProblem()
+  const parts = descriptionParts(await expandRow('Descripción con formato'))
+  await expect(parts.section).toBeVisible()
+  const spanish: Record<string, string> = {
+    formatted: 'Con formato',
+    original: 'Texto original',
+    copy: 'Copiar'
+  }
+  for (const [name, locator] of [
+    ['formatted', parts.formatted],
+    ['original', parts.original],
+    ['copy', parts.copy]
+  ] as const) {
+    const label = (await locator.innerText()).trim()
+    expect(label, name).not.toBe('')
+    expect(label, name).not.toBe(spanish[name])
+    // Ni una clave sin traducir (problems.algo.otra).
+    expect(label, name).not.toMatch(/^[\w-]+(\.[\w-]+)+$/)
+  }
+  await parts.copy.click()
+  await expect(parts.status).toHaveText(en.errorScreen.copied)
 })
