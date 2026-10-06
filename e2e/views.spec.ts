@@ -931,7 +931,9 @@ const defaultSim = () => ({
   /** AUD-13: warnings de /metrics/query. */
   metricWarnings: [] as string[],
   /** SLOs: «Errores de login» con relatedOpenProblems -1 (no calculado) o 0. */
-  sloRelatedFailed: true
+  sloRelatedFailed: true,
+  /** Ficha 0003: todas las peticiones que llegan al simulador («MÉTODO /ruta»), en orden. */
+  requests: [] as string[]
 })
 const sim = defaultSim()
 
@@ -1001,6 +1003,7 @@ async function startServer(): Promise<void> {
     }
     req.resume()
     req.on('end', () => {
+      sim.requests.push(`${req.method ?? ''} ${url.pathname}`)
       if (![TOKEN_A, TOKEN_B, TOKEN_NO_METRICS, TOKEN_FORBIDDEN].includes(token)) {
         return send(401, { error: { code: 401, message: 'Missing or invalid token' } })
       }
@@ -4502,4 +4505,245 @@ test('CA1 (0002): sin conmutador de modo; la descripción sale siempre renderiza
   expect(text).not.toMatch(/^\s*#/m)
   expect(text).not.toMatch(/^\s*- /m)
   expect(text).not.toContain('| --- |')
+})
+
+/**
+ * Ficha 0003: página de análisis de la entidad. Problema ABIERTO (P-786) con cuatro evidencias:
+ * un EVENT sobre un HOST (sin selector de métrica: desplegarlo no pide nada), un METRIC sobre un
+ * SERVICE, un EVENT sin entidad y uno con entidad sin tipo. Solo tipos estándar.
+ */
+const ENT_ID = 'pd-entity'
+const ENT_HOST_ID = 'HOST-AN1'
+const ENT_HOST_NAME = 'host-analisis'
+const ENT_HOST = { entityId: { id: ENT_HOST_ID, type: 'HOST' }, name: ENT_HOST_NAME }
+const ENT_SERVICE = { entityId: { id: 'SERVICE-AN1', type: 'SERVICE' }, name: 'servicio-analisis' }
+const ENT_EV_HOST = 'Evento en el host'
+const ENT_EV_METRIC = 'Métrica del servicio'
+const ENT_EV_NONE = 'Evento sin entidad'
+const ENT_EV_NOTYPE = 'Entidad sin tipo'
+const entityEvent = (
+  name: string,
+  index: number,
+  entity: Record<string, unknown> | null
+): Record<string, unknown> => ({
+  evidenceType: 'EVENT',
+  displayName: name,
+  eventType: 'CUSTOM_ALERT',
+  ...(entity === null ? {} : { entity }),
+  startTime: NOW - (60 + index) * 60_000,
+  endTime: -1,
+  data: {
+    eventId: `ent-${index}`,
+    status: 'OPEN',
+    endTime: -1,
+    title: name,
+    ...noFlags,
+    properties: [{ key: 'paso', value: `valor-${index}` }]
+  }
+})
+detailOnly.push({
+  problemId: ENT_ID,
+  displayId: 'P-786',
+  title: 'Problema para analizar entidades',
+  status: 'OPEN',
+  severityLevel: 'AVAILABILITY',
+  impactLevel: 'INFRASTRUCTURE',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [ENT_HOST],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 4,
+    details: [
+      entityEvent(ENT_EV_HOST, 1, ENT_HOST),
+      {
+        evidenceType: 'METRIC',
+        displayName: ENT_EV_METRIC,
+        entity: ENT_SERVICE,
+        startTime: NOW - 70 * 60_000,
+        endTime: -1,
+        metricId: 'builtin:service.response.time',
+        unit: 'MicroSecond',
+        valueBeforeChangePoint: 100_000,
+        valueAfterChangePoint: 300_000
+      },
+      entityEvent(ENT_EV_NONE, 3, null),
+      entityEvent(ENT_EV_NOTYPE, 4, { entityId: { id: 'HOST-AN2' }, name: 'sin-tipo' })
+    ]
+  }
+})
+
+/** Ficha 0003: abre P-786 por URL y espera sus 4 evidencias. */
+async function openEntityProblem(): Promise<void> {
+  await goToRoute(`/problems/${ENT_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-786')
+  await expect(evidenceRows()).toHaveCount(4)
+}
+
+/** Ficha 0003: el botón «Analizar entidad» dentro del detalle desplegado de una evidencia. */
+const analyzeButton = (detail: Locator): Locator => detail.getByTestId('evidence-analyze-entity')
+
+/** Ficha 0003: peticiones al detalle (GET /problems/{id}) que ha recibido el simulador. */
+const detailRequests = (): number =>
+  sim.requests.filter((request) => /^GET \/api\/v2\/problems\/[^/]+$/.test(request)).length
+
+/** Ficha 0003: espera a que el simulador deje de recibir peticiones y devuelve cuántas lleva. */
+async function settledRequests(): Promise<number> {
+  let last = -1
+  await expect
+    .poll(
+      () => {
+        const now = sim.requests.length
+        const stable = now === last
+        last = now
+        return stable
+      },
+      { intervals: [400] }
+    )
+    .toBe(true)
+  return sim.requests.length
+}
+
+test('CA1 (0003): «Analizar entidad» sale en las evidencias con entidad (EVENT y METRIC) y no en las que no tienen entidad o tipo', async () => {
+  await openEntityProblem()
+  for (const title of [ENT_EV_HOST, ENT_EV_METRIC]) {
+    const button = analyzeButton(await expandRow(title))
+    await expect(button, title).toBeVisible()
+    await expect(button, title).toHaveText('Analizar entidad')
+    await expect(button, title).toHaveRole('button')
+  }
+  for (const title of [ENT_EV_NONE, ENT_EV_NOTYPE]) {
+    const detail = await expandRow(title)
+    // El detalle sí se pinta (sus propiedades), pero sin el botón.
+    await expect(detail.getByTestId('evidence-properties'), title).toBeVisible()
+    await expect(analyzeButton(detail), title).toHaveCount(0)
+    await expect(detail.getByText('Analizar entidad'), title).toHaveCount(0)
+  }
+})
+
+test('CA2 (0003): «Analizar entidad» en una evidencia HOST lleva a #/entities/HOST/<id> con su página en construcción', async () => {
+  await openEntityProblem()
+  await analyzeButton(await expandRow(ENT_EV_HOST)).click()
+  const hostPage = page.getByTestId('entity-page-host')
+  await expect(hostPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${ENT_HOST_ID}`)
+  await expect(page.getByTestId('problem-page')).toHaveCount(0)
+  await expect(page.getByTestId('entity-page-generic')).toHaveCount(0)
+  // Cabecera: el nombre como título y, debajo, el tipo y el id.
+  await expect(hostPage.getByRole('heading', { level: 1 })).toHaveText(ENT_HOST_NAME)
+  await expect(hostPage.getByTestId('entity-page-type')).toHaveText('Host')
+  await expect(hostPage.getByTestId('entity-page-id')).toHaveText(ENT_HOST_ID)
+  // Bloque «Página en construcción» con el faro.
+  const construction = hostPage.getByTestId('entity-under-construction')
+  await expect(construction).toBeVisible()
+  await expect(construction).toContainText('Página en construcción')
+  await expect(construction.getByTestId('lighthouse')).toBeVisible()
+})
+
+test('CA4 (0003): un tipo que no está en el registro (inventado o personalizado) va a la página genérica, nunca al 404', async () => {
+  for (const type of ['TIPO_ESTANDAR_INVENTADO', 'algo:otro']) {
+    const id = `ID-${type.length}`
+    await goToRoute(`/entities/${encodeURIComponent(type)}/${encodeURIComponent(id)}`)
+    const generic = page.getByTestId('entity-page-generic')
+    await expect(generic, type).toBeVisible()
+    await expect(generic.getByTestId('entity-page-type'), type).toHaveText(type)
+    await expect(generic.getByTestId('entity-page-id'), type).toHaveText(id)
+    await expect(generic.getByTestId('entity-under-construction'), type).toBeVisible()
+    await expect(page.getByTestId('error-screen'), type).toHaveCount(0)
+    // Ninguna página por tipo a la vez que la genérica.
+    await expect(page.getByTestId('entity-page-host'), type).toHaveCount(0)
+  }
+})
+
+test('CA6 (0003): «Volver» regresa al detalle del problema con la fila desplegada y sin volver a pedir el detalle', async () => {
+  await openEntityProblem()
+  await expandRow(ENT_EV_HOST)
+  await settledRequests()
+  const detailsBefore = detailRequests()
+  await analyzeButton(await detailOf(evidenceRow(ENT_EV_HOST))).click()
+  const hostPage = page.getByTestId('entity-page-host')
+  await expect(hostPage).toBeVisible()
+
+  await hostPage.getByTestId('entity-back').click()
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  expect(await currentRoute()).toBe(`/problems/${ENT_ID}`)
+  await expect(evidenceRow(ENT_EV_HOST)).toHaveAttribute('aria-expanded', 'true')
+  await expect(analyzeButton(await detailOf(evidenceRow(ENT_EV_HOST)))).toBeVisible()
+  await settledRequests()
+  expect(detailRequests(), 'peticiones nuevas del detalle').toBe(detailsBefore)
+})
+
+test('CA7 (0003): con la ruta abierta directamente, el título es el id y «Volver» lleva a Problemas', async () => {
+  // Desde Inicio (resetState), sin pasar por el problema: sin estado de navegación.
+  await goToRoute(`/entities/HOST/${ENT_HOST_ID}`)
+  const hostPage = page.getByTestId('entity-page-host')
+  await expect(hostPage).toBeVisible()
+  await expect(hostPage.getByRole('heading', { level: 1 })).toHaveText(ENT_HOST_ID)
+  await expect(hostPage.getByTestId('entity-page-type')).toHaveText('Host')
+  await expect(hostPage.getByTestId('entity-page-id')).toHaveText(ENT_HOST_ID)
+
+  // Volver atrás en el historial llevaría a Inicio: tiene que ir a Problemas.
+  await hostPage.getByTestId('entity-back').click()
+  await expect(page.getByTestId('problem-row')).toHaveCount(3)
+  expect(await currentRoute()).toBe('/problems')
+})
+
+test('CA8 (0003): mientras está en la página de entidad, el simulador no recibe ninguna petición', async () => {
+  await openEntityProblem()
+  await expandRow(ENT_EV_HOST)
+  const before = await settledRequests()
+  await analyzeButton(await detailOf(evidenceRow(ENT_EV_HOST))).click()
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+  // Un rato en la página (y lo que tarde en pintarse): nada sale hacia Dynatrace.
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones en la página de entidad').toEqual([])
+
+  // Y por URL, sin venir del problema (genérica y por tipo): tampoco.
+  const direct = await settledRequests()
+  await goToRoute(`/entities/${encodeURIComponent('algo:otro')}/ID-1`)
+  await expect(page.getByTestId('entity-page-generic')).toBeVisible()
+  await goToRoute('/entities/SERVICE/SERVICE-AN1')
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(direct), 'peticiones en la página por URL').toEqual([])
+})
+
+test('CA9 (0003): «Analizar entidad» y «Volver» se alcanzan con Tab y se activan con Enter; Escape sigue plegando la fila', async () => {
+  await openEntityProblem()
+  const row = evidenceRow(ENT_EV_HOST)
+  await row.scrollIntoViewIfNeeded()
+  await row.focus()
+  await page.keyboard.press('Enter')
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+
+  /** Tab hasta el elemento con ese data-testid (como mucho 40 pasos). */
+  async function tabTo(testId: string): Promise<void> {
+    for (let i = 0; i < 40 && (await focusedTestId()) !== testId; i += 1) {
+      await page.keyboard.press('Tab')
+    }
+    expect(await focusedTestId(), `Tab hasta ${testId}`).toBe(testId)
+  }
+
+  // Con el foco en el botón, Escape pliega la fila y devuelve el foco a la fila.
+  await tabTo('evidence-analyze-entity')
+  await page.keyboard.press('Escape')
+  await expect(row).toHaveAttribute('aria-expanded', 'false')
+  await expect(row).toBeFocused()
+
+  // Enter despliega otra vez; Tab hasta el botón y Enter lo activa.
+  await page.keyboard.press('Enter')
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  await tabTo('evidence-analyze-entity')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+
+  // En la página de entidad: Tab hasta «Volver» y Enter vuelve al problema.
+  await tabTo('entity-back')
+  await expect(page.getByTestId('entity-back')).toContainText('Volver')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  expect(await currentRoute()).toBe(`/problems/${ENT_ID}`)
+  await expect(row).toHaveAttribute('aria-expanded', 'true')
 })
