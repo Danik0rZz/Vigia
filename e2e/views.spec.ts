@@ -4248,11 +4248,9 @@ async function openDescriptionProblem(): Promise<void> {
   await expect(evidenceRows()).toHaveCount(5)
 }
 
-/** Ficha 0001: las partes de la sección «Descripción» de un detalle desplegado. */
+/** Fichas 0001 y 0002: las partes de la sección «Descripción» de un detalle desplegado. */
 function descriptionParts(detail: Locator): {
   section: Locator
-  formatted: Locator
-  original: Locator
   copy: Locator
   status: Locator
   truncated: Locator
@@ -4260,16 +4258,21 @@ function descriptionParts(detail: Locator): {
   const section = detail.getByTestId('evidence-description')
   return {
     section,
-    formatted: section.getByTestId('evidence-description-mode-formatted'),
-    original: section.getByTestId('evidence-description-mode-original'),
     copy: section.getByTestId('evidence-description-copy'),
     status: section.getByTestId('evidence-description-copy-status'),
     truncated: detail.getByTestId('evidence-description-truncated')
   }
 }
 
-/** Elementos que solo existen si el Markdown se ha renderizado (CA6 y CA7). */
-const RENDERED = 'h1, h2, h3, h4, h5, h6, li, strong, table'
+/** Ficha 0002: textos del conmutador que ya no existe (es y en), para comprobar que no está. */
+const MODE_LABELS = [
+  'Con formato',
+  'Texto original',
+  'Cómo se ve la descripción',
+  'Formatted',
+  'Original text',
+  'How the description is shown'
+]
 
 /** Lee el portapapeles del sistema (desde main), con los saltos de línea normalizados. */
 async function clipboardText(): Promise<string> {
@@ -4287,15 +4290,6 @@ async function clearClipboard(): Promise<void> {
 /** data-testid del elemento con el foco. */
 const focusedTestId = (): Promise<string | null> =>
   page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? null)
-
-/** Pulsa Tab (o Mayús+Tab) hasta que el foco llegue a ese data-testid; falla si no llega. */
-async function tabTo(testId: string, key = 'Tab', max = 25): Promise<void> {
-  for (let i = 0; i < max; i += 1) {
-    if ((await focusedTestId()) === testId) return
-    await page.keyboard.press(key)
-  }
-  expect(await focusedTestId(), `${key} hasta ${testId}`).toBe(testId)
-}
 
 test('CA6 (0001): al desplegar un evento con descripción, «Descripción» sale la primera y renderizada', async () => {
   await openDescriptionProblem()
@@ -4352,59 +4346,7 @@ test('CA6 (0001): al desplegar un evento con descripción, «Descripción» sale
   expect(keys).toContain('paso.0')
 })
 
-test('CA7 (0001): «Texto original» enseña el Markdown tal cual; «Con formato» lo vuelve a pintar; plegar lo reinicia', async () => {
-  await openDescriptionProblem()
-  const row = evidenceRow('Descripción con formato')
-  const detail = await expandRow('Descripción con formato')
-  const parts = descriptionParts(detail)
-  await expect(parts.formatted).toHaveText('Con formato')
-  await expect(parts.original).toHaveText('Texto original')
-  // Por defecto, con formato.
-  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
-  await expect(parts.original).toHaveAttribute('aria-pressed', 'false')
-  await expect(parts.section.locator('strong')).toHaveCount(1)
-
-  // Texto original: el Markdown con sus símbolos y saltos de línea, sin elementos.
-  await parts.original.click()
-  await expect(row).toHaveAttribute('aria-expanded', 'true')
-  await expect(parts.original).toHaveAttribute('aria-pressed', 'true')
-  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'false')
-  await expect(parts.section.locator(RENDERED)).toHaveCount(0)
-  const raw = await parts.section.innerText()
-  expect(raw).toContain('# Uso de CPU alto')
-  expect(raw).toContain('**negrita**')
-  expect(raw).toContain('`código`')
-  expect(raw).toContain('- primer paso\n- segundo paso')
-  expect(raw).toContain('| --- | --- |')
-  // La barra invertida de los escapes y la tabla compacta, tal cual.
-  expect(raw).toContain('Umbral superado en 9\\.5 puntos')
-  expect(raw).toContain('|:--|--:|:-:|')
-  expect(raw).toContain('|web|9|alto \\(9\\)|')
-
-  // La elección es por evento: otro evento desplegado empieza con formato y este no cambia.
-  const other = descriptionParts(await expandRow('Otra con descripción'))
-  await expect(other.formatted).toHaveAttribute('aria-pressed', 'true')
-  await expect(other.section.locator('strong')).toHaveText(['uno'])
-  await expect(parts.original).toHaveAttribute('aria-pressed', 'true')
-
-  // Con formato: vuelve a renderizarlo.
-  await parts.formatted.click()
-  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
-  await expect(parts.section.locator('strong')).toHaveText(['negrita'])
-  await expect(parts.section.locator('table')).toHaveCount(2)
-
-  // Plegar y volver a desplegar: otra vez con formato.
-  await parts.original.click()
-  await expect(parts.section.locator(RENDERED)).toHaveCount(0)
-  await row.click()
-  await expect(row).toHaveAttribute('aria-expanded', 'false')
-  const again = descriptionParts(await expandRow('Descripción con formato'))
-  await expect(again.formatted).toHaveAttribute('aria-pressed', 'true')
-  await expect(again.original).toHaveAttribute('aria-pressed', 'false')
-  await expect(again.section.locator('strong')).toHaveText(['negrita'])
-})
-
-test('CA8 (0001): «Copiar» copia el texto original exacto (también con formato) y avisa de que se ha copiado', async () => {
+test('CA8 (0001) y CA2 (0002): «Copiar» copia el texto original exacto y avisa de que se ha copiado', async () => {
   // Va en views porque es el spec que guarda y restaura el portapapeles de quien usa el PC.
   // El renderer no tiene permiso de portapapeles: lo que llega al del sistema solo puede venir
   // de app:copyText.
@@ -4412,53 +4354,51 @@ test('CA8 (0001): «Copiar» copia el texto original exacto (también con format
   const parts = descriptionParts(await expandRow('Descripción con formato'))
   await expect(parts.copy).toHaveText('Copiar')
   await expect(parts.status).toHaveCount(0)
-
-  // Con formato (por defecto): se copia el Markdown, no lo que se ve.
-  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
+  // Se ve con formato (ficha 0002: siempre) y se copia el Markdown, no lo que se ve.
+  await expect(parts.section.locator('strong')).toHaveText(['negrita'])
   await clearClipboard()
   await parts.copy.click()
   await expect(parts.status).toHaveText(es.errorScreen.copied)
   expect(await clipboardText()).toBe(DESC_MD)
 
-  // En texto original, lo mismo.
-  await parts.original.click()
+  // Otro evento copia el suyo.
+  const other = descriptionParts(await expandRow('Otra con descripción'))
   await clearClipboard()
-  await parts.copy.click()
-  await expect(parts.status).toHaveText(es.errorScreen.copied)
-  expect(await clipboardText()).toBe(DESC_MD)
+  await other.copy.click()
+  await expect(other.status).toHaveText(es.errorScreen.copied)
+  expect(await clipboardText()).toBe(DESC_SHORT_MD)
 })
 
-test('CA9 (0001): con el teclado, Tab llega al conmutador y a «Copiar», Enter y Espacio los activan y Escape pliega', async () => {
+test('CA9 (0001) y CA3 (0002): con el teclado, Tab llega a «Copiar», Enter lo activa y Escape pliega', async () => {
   await openDescriptionProblem()
   const row = evidenceRow('Descripción con formato')
   await row.scrollIntoViewIfNeeded()
   await row.focus()
   await page.keyboard.press('Enter')
   await expect(row).toHaveAttribute('aria-expanded', 'true')
-  const detail = await detailOf(row)
-  const parts = descriptionParts(detail)
+  const parts = descriptionParts(await detailOf(row))
+  await expect(parts.copy).toBeVisible()
 
-  // Tab hasta «Texto original» y Enter: cambia de modo sin plegar la fila.
-  await tabTo('evidence-description-mode-original')
-  await page.keyboard.press('Enter')
-  await expect(parts.original).toHaveAttribute('aria-pressed', 'true')
-  await expect(parts.section.locator(RENDERED)).toHaveCount(0)
-  await expect(row).toHaveAttribute('aria-expanded', 'true')
+  // Tab desde la fila hasta «Copiar», sin pasar por ningún control de modo.
+  const visited: (string | null)[] = []
+  for (let i = 0; i < 25; i += 1) {
+    const current = await focusedTestId()
+    visited.push(current)
+    if (current === 'evidence-description-copy') break
+    await page.keyboard.press('Tab')
+  }
+  expect(await focusedTestId(), 'Tab hasta evidence-description-copy').toBe(
+    'evidence-description-copy'
+  )
+  expect(visited.filter((id) => id?.startsWith('evidence-description-mode'))).toEqual([])
 
-  // Tab hasta «Copiar» y Espacio: copia sin plegar la fila.
+  // Enter copia sin plegar la fila.
   await clearClipboard()
-  await tabTo('evidence-description-copy')
-  await page.keyboard.press('Space')
+  await page.keyboard.press('Enter')
   await expect(parts.status).toHaveText(es.errorScreen.copied)
   expect(await clipboardText()).toBe(DESC_MD)
   await expect(row).toHaveAttribute('aria-expanded', 'true')
-
-  // Mayús+Tab hasta «Con formato» y Espacio: vuelve a renderizar.
-  await tabTo('evidence-description-mode-formatted', 'Shift+Tab')
-  await page.keyboard.press('Space')
-  await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
   await expect(parts.section.locator('strong')).toHaveText(['negrita'])
-  await expect(row).toHaveAttribute('aria-expanded', 'true')
 
   // Escape desde dentro del detalle: pliega y devuelve el foco a la fila.
   await page.keyboard.press('Escape')
@@ -4515,16 +4455,8 @@ test('CA15 (0001): los textos nuevos de la sección también están en inglés',
   await openDescriptionProblem()
   const parts = descriptionParts(await expandRow('Descripción con formato'))
   await expect(parts.section).toBeVisible()
-  const spanish: Record<string, string> = {
-    formatted: 'Con formato',
-    original: 'Texto original',
-    copy: 'Copiar'
-  }
-  for (const [name, locator] of [
-    ['formatted', parts.formatted],
-    ['original', parts.original],
-    ['copy', parts.copy]
-  ] as const) {
+  const spanish: Record<string, string> = { copy: 'Copiar' }
+  for (const [name, locator] of [['copy', parts.copy]] as const) {
     const label = (await locator.innerText()).trim()
     expect(label, name).not.toBe('')
     expect(label, name).not.toBe(spanish[name])
@@ -4533,4 +4465,41 @@ test('CA15 (0001): los textos nuevos de la sección también están en inglés',
   }
   await parts.copy.click()
   await expect(parts.status).toHaveText(en.errorScreen.copied)
+})
+
+test('CA1 (0002): sin conmutador de modo; la descripción sale siempre renderizada', async () => {
+  await openDescriptionProblem()
+  for (const name of ['Descripción con formato', 'Otra con descripción']) {
+    const detail = await expandRow(name)
+    const { section } = descriptionParts(detail)
+    await expect(section).toBeVisible()
+    // Ningún control de modo: ni sus data-testid, ni un grupo o botón con sus textos.
+    await expect(detail.locator('[data-testid^="evidence-description-mode"]')).toHaveCount(0)
+    await expect(section.locator('[aria-pressed]')).toHaveCount(0)
+    for (const label of MODE_LABELS) {
+      await expect(section.getByRole('group', { name: label })).toHaveCount(0)
+      await expect(section.getByRole('radiogroup', { name: label })).toHaveCount(0)
+      await expect(section.getByRole('button', { name: label })).toHaveCount(0)
+      await expect(section.getByRole('radio', { name: label })).toHaveCount(0)
+      await expect(section.getByRole('tab', { name: label })).toHaveCount(0)
+      await expect(section).not.toContainText(label)
+    }
+    // Solo queda «Copiar» como control de la sección.
+    await expect(section.getByRole('button')).toHaveCount(1)
+    await expect(section.getByRole('button')).toHaveText('Copiar')
+  }
+
+  // Renderizada: los elementos, no los símbolos de Markdown.
+  const { section } = descriptionParts(await expandRow('Descripción con formato'))
+  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Uso de CPU alto'])
+  await expect(section.locator('li')).toHaveText(['primer paso', 'segundo paso'])
+  await expect(section.locator('strong')).toHaveText(['negrita'])
+  await expect(section.locator('code')).toHaveText(['código'])
+  await expect(section.locator('table')).toHaveCount(2)
+  const text = await section.innerText()
+  expect(text).not.toContain('**')
+  expect(text).not.toContain('`')
+  expect(text).not.toMatch(/^\s*#/m)
+  expect(text).not.toMatch(/^\s*- /m)
+  expect(text).not.toContain('| --- |')
 })
