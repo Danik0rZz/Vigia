@@ -1,7 +1,7 @@
 ---
 id: '0003'
 titulo: Página de análisis de la entidad desde el detalle de una evidencia (en construcción, una por tipo)
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0003-pagina-analisis-entidad
 adrs: [2, 4]
@@ -132,7 +132,53 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `9becbc9` (test-writer, antes del código).
+
+Nombres que fijan los tests (la ficha no los daba):
+
+- Registro: `src/renderer/src/pages/entities/registry.ts` exporta `ENTITY_PAGES` (objeto
+  `tipo → { Page, labelKey }`, con `labelKey` una clave de `common`, con o sin prefijo
+  `common:`), `GenericEntityPage` y `entityPageFor(type)` (la página del tipo o, si no está en
+  el registro, `GenericEntityPage`; también para claves del prototipo como `constructor` o
+  `__proto__`).
+- Ruta: `src/renderer/src/app/entity-route.ts` exporta `entityPath(type, id)`, que devuelve
+  `/entities/<encodeURIComponent(type)>/<encodeURIComponent(id)>`; la ruta está en
+  `buildRoutes` con los params `entityType` y `entityId`.
+- `data-testid`: botón `evidence-analyze-entity` (dentro de `evidence-detail`); en la página,
+  `entity-page-<tipo en minúsculas>` o `entity-page-generic`, `entity-page-type`,
+  `entity-page-id`, `entity-under-construction` (con el `lighthouse` dentro) y `entity-back`;
+  el título es el `h1` de la página.
+- Simulador de `views.spec.ts`: `sim.requests` guarda cada petición («MÉTODO /ruta»).
+
+Criterio → test (e2e en `e2e/views.spec.ts`, fixture P-786 `pd-entity`: EVENT sobre HOST,
+METRIC sobre SERVICE, EVENT sin entidad y EVENT con entidad sin tipo):
+
+- CA1: e2e `CA1 (0003)`: botón en EVENT/HOST y METRIC/SERVICE; ni en la sin entidad ni en la sin
+  tipo.
+- CA2: e2e `CA2 (0003)`: ruta `/entities/HOST/HOST-AN1`, `entity-page-host`, `h1` con el
+  nombre, «Host», el id y «Página en construcción» con el faro.
+- CA3: `src/renderer/src/pages/entities/registry.test.ts`, `CA3 (0003)`: los 9 tipos con
+  página propia, distinta de la genérica y distintas entre sí, y su nombre exacto en es y en.
+- CA4: e2e `CA4 (0003)` (`TIPO_ESTANDAR_INVENTADO` y `algo:otro` por URL:
+  `entity-page-generic` con el código tal cual, sin `error-screen`) y unitario `CA4 (0003)`
+  en `registry.test.ts` (`entityPageFor` → `GenericEntityPage`).
+- CA5: `src/renderer/src/app/entity-route.test.ts`, `CA5 (0003)`: `entityPath` codifica y
+  `matchRoutes(buildRoutes(...))` devuelve el tipo y el id de partida (`:`, `/`, `%`, `#`,
+  `?`, `&`, espacios y tildes).
+- CA6: e2e `CA6 (0003)`: «Volver» → `/problems/pd-entity` con la fila desplegada y sin más
+  `GET /problems/{id}`.
+- CA7: e2e `CA7 (0003)`: por URL desde Inicio, `h1` = id y «Volver» → `/problems`.
+- CA8: e2e `CA8 (0003)`: ninguna petición al simulador en 1,5 s en la página (desde el botón y por
+  URL, genérica y SERVICE).
+- CA9: e2e `CA9 (0003)`: Tab hasta el botón, Escape pliega y devuelve el foco a la fila; Enter
+  activa el botón; Tab hasta «Volver» y Enter vuelve al problema con la fila desplegada.
+- CA10: `registry.test.ts`, `CA10 (0003)`: «Analizar entidad», «Página en construcción» y los 9
+  nombres existen en es y en (traducidos). La paridad completa la cubre `locales.test.ts`.
+- Ejecución: `npx vitest run src/renderer/src/app/entity-route.test.ts
+src/renderer/src/pages/entities/registry.test.ts`: los 2 ficheros fallan al importar
+  (`./entity-route` y `./registry` no existen). `npm run test:e2e -- e2e/views.spec.ts -g
+"0003"`: 7 fallan, todos por no encontrar `evidence-analyze-entity` o `entity-page-*` (el
+  problema P-786 y sus filas cargan y se despliegan).
 
 ## Resultado
 
