@@ -8,7 +8,7 @@ adrs: [8]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -64,7 +64,17 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: los cuatro CA con su test y su número; CA1, CA3 y CA4 fallan con el código anterior y CA2
+  es de no regresión (Markdown exacto de dos eventos).
+- Tests sin tocar después de `975a21d`. Los ajustes a la 0001 (CA7 borrado, CA8, CA9 y CA15, y
+  `RENDERED` y `tabTo` sin uso) son solo los que obliga quitar el conmutador.
+- Código: se quitan el estado `mode`, los botones, el `pre` y el import de `cn`; siempre
+  `MarkdownText` (ADR-0008); «Copiar» igual; claves borradas en es y en; sin IPC, API, dependencias
+  ni áreas nuevas; sin datos del tenant.
+- No bloquea: ADR-0008 (línea 28), CHANGELOG y BACKLOG nombran el conmutador (para el doc-writer).
+- Opcional: añadir Espacio sobre «Copiar» en el e2e (antes se probaba).
 
 ## Verificación
 
