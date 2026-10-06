@@ -23,7 +23,9 @@ const CASES = [
   { type: 'HOST', id: 'HOST-0123456789ABCDEF' },
   { type: 'algo:otro', id: 'ALGO-1' },
   { type: 'custom:tipo:con:varios', id: 'id/con barra y espacios' },
-  { type: 'SERVICE', id: 'a%2Fb %25 #hash ?q=1&x=2 áéñ' },
+  // Sin `%2F` literal: React Router lo convierte en "/" en cada param ya decodificado
+  // (lib/router/utils.js:504, `.replace(/%2F/g, "/")`), y los ids de Dynatrace no llevan `%`.
+  { type: 'SERVICE', id: 'ab %25 #hash ?q=1&x=2 áéñ' },
   { type: 'PROCESS_GROUP_INSTANCE', id: 'PGI-1:2+3' }
 ] as const
 
