@@ -1,7 +1,7 @@
 ---
 id: '0002'
 titulo: La descripción del evento siempre con formato (sin «Con formato · Texto original»)
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0002-descripcion-siempre-markdown
 adrs: [8]
@@ -96,6 +96,14 @@ Tests escritos en `975a21d` (test-writer, antes del código):
 - Ejecución: `npx vitest run src/renderer/src/locales/` (2 fallos, los de CA4; paridad en verde);
   `npm run test:e2e -- e2e/views.spec.ts -g "0002|0001"`: 6 pasan y 2 fallan (CA1 y CA3 de la
   0002, por la aserción del conmutador).
+
+### Verifier, 2026-10-06, commit `ca9f5a5`, rango `main..feat/0002-descripcion-siempre-markdown`: VERDE
+
+- check: 1878 tests en 90 ficheros, cobertura ok; lint, tipos y formato limpios.
+- e2e afectados (shell, smoke y views): 113 pasan y 2 fallan, los dos preexistentes de la VPS
+  (BACKLOG.md): `views.spec.ts:1721` (fila 140 en vez de 150, 3/3 aislado) y `:3978` (serie vacía;
+  intermitente también aislado: 2/3 en la rama y 1/3 en `main` 7a083a0). Todos los CA de la 0002
+  pasan.
 
 ## Resultado
 
