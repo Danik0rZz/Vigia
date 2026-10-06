@@ -6,7 +6,12 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-(vacío)
+- [0002](tasks/0002-descripcion-siempre-markdown.md): la descripción del evento siempre con
+  formato, sin el conmutador «Con formato · Texto original». Aprobada por Dani el 2026-10-06. Va
+  primero.
+- [0003](tasks/0003-pagina-analisis-entidad.md): «Analizar entidad» en el detalle de las evidencias,
+  con una página en construcción por tipo de entidad. Aprobada por Dani el 2026-10-06. Después de
+  la 0002 (las dos tocan el detalle de la evidencia).
 
 ## Próximo
 
