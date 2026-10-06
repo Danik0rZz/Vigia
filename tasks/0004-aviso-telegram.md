@@ -1,7 +1,7 @@
 ---
 id: '0004'
 titulo: Aviso por Telegram al terminar /tarea o /cerrar-version
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0004-aviso-telegram
 adrs: [7]
@@ -170,7 +170,49 @@ Todos en `scripts/notify-telegram.test.ts`, con `fetch` simulado y sin red.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `1380222` (test-writer, antes del código), todos en
+`scripts/notify-telegram.test.ts`.
+
+Firmas que fijan los tests (la ficha no las daba):
+
+- `buildMessage(datos)` devuelve un string. En `version`, el campo `version` va sin «v»
+  (`0.11.0`); la primera línea de una versión no se comprueba con el título (el ejemplo de la ficha
+  no lo lleva).
+- `checkTenantLeftovers(texto, needles)` devuelve la lista de tipos (`kind`) que coinciden; vacía
+  si no hay nada.
+- `sendTelegram({ token, chatId, text, fetchImpl })` no lanza: devuelve `{ ok: true }` o
+  `{ ok: false, error }` (sin token ni chat_id en `error`). Envía con cabecera
+  `content-type: application/json` y un `signal` (`AbortSignal`).
+- `main(argv, deps)` (síncrona o asíncrona) devuelve 0. `argv[0]` es la ruta del JSON.
+  `deps = { env, platform, readRegistry(nombre), cwd, mainCheckout(), fetchImpl, stdout(texto), stderr(texto) }`:
+  `env` en lugar de `process.env`; `readRegistry` en lugar de `reg query HKCU\Environment`
+  (string, undefined o su promesa; solo con `platform: 'win32'`); `.env.live.local` se busca en
+  `cwd` y si no en `mainCheckout()` (ruta del checkout principal o undefined); los avisos van por
+  `deps.stderr` (los tests también recogen `console.*` y `process.std*.write`).
+- Textos comprobados: prefijo `[aviso telegram]`; «sin VIGIA_TELEGRAM_TOKEN o
+  VIGIA_TELEGRAM_CHAT_ID: no se envía»; aviso de no filtrado que contenga «filtr»; el tipo de
+  coincidencia (`host` o `id-de-entorno`) al bloquear.
+- CA11: los estados se buscan a 6 líneas o menos de una mención de `notify-telegram.mjs`; en
+  `tarea.md`, también la palabra `decision`. Permisos exactos `Bash(node scripts/notify-telegram.mjs *)`
+  y `PowerShell(node scripts/notify-telegram.mjs *)`.
+
+Criterio → test (`describe` con el número):
+
+- CA1: `CA1 (0004): envío correcto` (sendTelegram y main).
+- CA2: `CA2 (0004): buildMessage` (cinco estados, línea 2, `Decide Dani:` y CI).
+- CA3: `CA3 (0004): longitud máxima`.
+- CA4: `CA4 (0004): sin credenciales` (sin token, sin chat_id, sin ninguna).
+- CA5: `CA5 (0004): credenciales del registro`.
+- CA6: `CA6 (0004): fallos del envío` (red, tiempo agotado, 401, `ok: false`).
+- CA7: `CA7 (0004): filtro de restos del tenant` (directorio actual y checkout principal).
+- CA8: `CA8 (0004): sin .env.live.local`.
+- CA9: `CA9 (0004): el token y el chat_id no salen nunca` (todos los escenarios anteriores, más el
+  error con la URL y un `description` que repite token y chat_id).
+- CA10: `CA10 (0004): JSON de entrada` (inexistente, no válido, sin argumento).
+- CA11: `CA11 (0004): pasos en los comandos y permiso`.
+
+Ejecución antes del código: 64 tests, 64 fallan; 60 por «No existe scripts/notify-telegram.mjs» y
+los 4 de CA11 porque los comandos y `settings.json` aún no tienen el paso.
 
 ## Resultado
 
