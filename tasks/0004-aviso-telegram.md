@@ -1,7 +1,7 @@
 ---
 id: '0004'
 titulo: Aviso por Telegram al terminar /tarea o /cerrar-version
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0004-aviso-telegram
 adrs: [7]
@@ -213,6 +213,17 @@ Criterio → test (`describe` con el número):
 
 Ejecución antes del código: 64 tests, 64 fallan; 60 por «No existe scripts/notify-telegram.mjs» y
 los 4 de CA11 porque los comandos y `settings.json` aún no tienen el paso.
+
+Decisiones del developer (código en `8dcce79` y `286649b`; los 64 tests pasan):
+
+- Un `.env.live.local` sin valores cuenta como "no se ha podido filtrar" (se envía y se avisa),
+  igual que `scan:tenant` avisa de que su revisión no está activa.
+- `redact` tapa el token entero, su parte tras `:` y el chat_id; sin credenciales leídas no hay nada
+  que tapar. El chat_id nunca se imprime, ni siquiera en el aviso de éxito.
+- El JSON se rechaza (aviso y 0) si no es un objeto o `tipo` no es `tarea` ni `version`; el resto de
+  campos ausentes salen vacíos. Un estado sin icono propio lleva `•`. El `version` se escribe con
+  una sola «v» aunque venga con ella.
+- Las credenciales se leen antes del filtro: sin ellas no se lee `.env.live.local`.
 
 ## Resultado
 
