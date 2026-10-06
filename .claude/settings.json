@@ -1,0 +1,57 @@
+{
+  "env": {
+    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run check)",
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run format:check)",
+      "Bash(npm run test:e2e:affected *)",
+      "Bash(npm run scan:tenant)",
+      "Bash(npx vitest *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git worktree list *)",
+      "PowerShell(npm run check)",
+      "PowerShell(npm run test:e2e:affected *)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)",
+      "PowerShell(git show *)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push --force-with-lease *)",
+      "Bash(git push * --force *)",
+      "Bash(git push * --force)",
+      "Bash(git push * -f *)",
+      "Bash(git push * -f)",
+      "Bash(git push * --force-with-lease*)",
+      "Bash(git push * --tags*)",
+      "Bash(git push * --delete *)",
+      "Bash(git tag *)",
+      "Bash(gh release *)",
+      "Bash(* --no-verify*)",
+      "PowerShell(git push --force *)",
+      "PowerShell(git push -f *)",
+      "PowerShell(git push --force-with-lease *)",
+      "PowerShell(git push * --force *)",
+      "PowerShell(git push * --force)",
+      "PowerShell(git push * -f *)",
+      "PowerShell(git push * -f)",
+      "PowerShell(git push * --force-with-lease*)",
+      "PowerShell(git push * --tags*)",
+      "PowerShell(git push * --delete *)",
+      "PowerShell(git tag *)",
+      "PowerShell(gh release *)",
+      "PowerShell(* --no-verify*)",
+      "Read(./.env*)",
+      "Read(**/.env.live.local)"
+    ]
+  }
+}

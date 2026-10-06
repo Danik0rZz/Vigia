@@ -3,6 +3,15 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Cambiado
+
+- Forma de trabajar del proyecto (no cambia la app): fichas de tarea con criterios de aceptación,
+  agentes especializados de Claude Code, hooks de git de pre-commit y pre-push, y CI en GitHub
+  Actions sobre Windows (`check`, e2e completo y `dist:win`) en cada push a `main`. Ver
+  `docs/flujo.md` y el ADR-0007.
+
 ## [0.10.2] - 2026-10-04
 
 Arreglo del eje de tiempo de los gráficos, visto por Dani en un problema real. Sin migraciones

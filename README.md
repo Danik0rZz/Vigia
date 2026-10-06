@@ -3,9 +3,9 @@
 App de escritorio para Windows (Electron + React + TypeScript) para trabajar con Dynatrace.
 No afiliada ni respaldada por Dynatrace.
 
-Estado: **v0.7.0**. Inicio, Problemas y Métricas contra la API clásica de Dynatrace, con
-exportación (CSV, XLSX, TXT) y capturas; clientes, entornos y credenciales cifradas en local. Ver
-`CHANGELOG.md`.
+Estado: **v0.10.2**. Inicio, Problemas (con su detalle) y Métricas contra la API clásica de
+Dynatrace, con exportación (CSV, XLSX, TXT) y capturas; clientes, entornos y credenciales cifradas
+en local. Ver `CHANGELOG.md`.
 
 ## Requisitos
 
@@ -17,6 +17,7 @@ exportación (CSV, XLSX, TXT) y capturas; clientes, entornos y credenciales cifr
 ```powershell
 npm ci --ignore-scripts
 npx install-electron
+git config core.hooksPath .githooks
 npm run dev
 ```
 
@@ -36,6 +37,22 @@ Squirrel, que no se usa, y `fsevents` es solo de macOS.
 Comprobado el 2026-10-04 en un clon limpio con Node 22.22, con npm 10.9 y con npm 11.21:
 `npm ci --ignore-scripts`, `npx install-electron`, `npm run check`, `npm run test:e2e` completo y
 `npm run dist:win`.
+
+Si `npx install-electron` falla con "Cannot find native binding", a Windows le falta el runtime
+de Visual C++ (Microsoft Visual C++ Redistributable x64), que necesita el extractor del zip de
+Electron. Se instala el redistribuible, o se descomprime a mano el zip de la caché
+(`%LOCALAPPDATA%\electron\Cache`) en `node_modules\electron\dist` y se escribe `electron.exe` en
+`node_modules\electron\path.txt`.
+
+`git config core.hooksPath .githooks` activa los hooks de git del proyecto (una vez por clon): el
+pre-commit pasa lint, tipos, formato y los tests relacionados, y el pre-push busca restos del
+tenant de pruebas.
+
+## Flujo de trabajo
+
+Se trabaja con fichas (`tasks/`) y agentes de Claude Code (`.claude/agents/`): ver
+`docs/flujo.md` y el ADR-0007. El CI (`.github/workflows/ci.yml`) pasa `check`, el e2e completo y
+`dist:win` en Windows en cada push a `main`.
 
 ## Comandos
 

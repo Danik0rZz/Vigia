@@ -1,0 +1,47 @@
+#!/bin/sh
+# Puerta sin IA (ADR-0007): si algo falla, el commit no se crea.
+# Se activa una vez por clon: git config core.hooksPath .githooks
+
+files=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$files" ] && exit 0
+
+fail() {
+  echo "pre-commit: $1. El commit no se crea."
+  exit 1
+}
+run() {
+  echo "pre-commit › $*"
+  "$@" || fail "falló «$*»"
+}
+
+code=$(printf '%s\n' "$files" | grep -v '\.md$')
+
+if [ ! -d node_modules ]; then
+  # Sin dependencias instaladas no se puede comprobar nada. Un commit solo de Markdown (fichas,
+  # BACKLOG, docs) pasa: su formato lo vuelven a comprobar el siguiente commit de código y el CI.
+  [ -z "$code" ] && { echo "pre-commit: solo Markdown y sin node_modules; se comprobará en el CI."; exit 0; }
+  fail "no hay node_modules (instalación del README)"
+fi
+
+# Formato de lo que se commitea (Prettier ignora lo de .prettierignore y lo que no sabe leer).
+# shellcheck disable=SC2086
+run npx prettier --check --ignore-unknown $files
+[ -z "$code" ] && exit 0
+
+# Commit solo de tests escritos antes del código (test-writer): pueden importar lo que aún no
+# existe y fallar. Se comprueba el lint de esos ficheros y nada más.
+non_tests=$(printf '%s\n' "$code" | grep -Ev '(\.test\.tsx?$|^e2e/|^src/test/)')
+lintable=$(printf '%s\n' "$code" | grep -E '\.(ts|tsx|js|cjs|mjs)$')
+if [ -z "$non_tests" ]; then
+  echo "pre-commit: solo tests; no se exige que pasen."
+  # shellcheck disable=SC2086
+  [ -n "$lintable" ] && run npx eslint --cache $lintable
+  exit 0
+fi
+
+run npm run --silent lint
+run npm run --silent typecheck
+related=$(printf '%s\n' "$code" | grep -E '^(src|scripts)/.*\.(ts|tsx|cjs|mjs)$')
+# shellcheck disable=SC2086
+[ -n "$related" ] && run npx vitest related --run --passWithNoTests $related
+exit 0

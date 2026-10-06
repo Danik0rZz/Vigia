@@ -1,0 +1,41 @@
+# Puerta sin IA (ADR-0007): cada push a main pasa check, el e2e completo y el empaquetado en
+# Windows. Sin test:live ni secretos: los logs de un repositorio público son públicos. El zip no se
+# sube (publicarlo lo decide Dani).
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'tasks/**'
+      - '.claude/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # affected-e2e y sus tests leen el historial.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Instalación del README: sin scripts (better-sqlite3 no necesita compilar) y Electron aparte.
+      - run: npm ci --ignore-scripts
+      - run: npx install-electron
+      - run: npm run check
+      - run: npm run test:e2e
+      - run: npm run dist:win

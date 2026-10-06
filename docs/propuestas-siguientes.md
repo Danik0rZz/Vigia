@@ -148,6 +148,8 @@ canales y pruebas nuevas, o una pieza de infraestructura).
 
 ## 5. CI en GitHub Actions
 
+**Hecha el 2026-10-06** (ADR-0007): push a `main` y a mano, con `dist:win` sin subir el zip.
+
 - **Qué aporta al usuario:** que cada push a `main` pase `check` y los e2e en Windows sin depender
   de que una sesión los lance, y que una regresión se vea en el repositorio.
 - **API y endpoints:** ninguno de Dynatrace. Un workflow en `.github/workflows/` sobre

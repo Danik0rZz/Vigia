@@ -14,7 +14,10 @@
     ".prettierignore",
     ".prettierrc.yaml",
     ".editorconfig",
-    "eslint.config.mjs"
+    "eslint.config.mjs",
+    ".claude/**",
+    ".githooks/**",
+    ".github/**"
   ],
   "transversal": [
     "src/shared/ipc.ts",
