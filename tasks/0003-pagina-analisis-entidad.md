@@ -8,7 +8,7 @@ adrs: [2, 4]
 adr_nuevo:
 api: ninguna (usa el `entityId.id` y `entityId.type` que ya trae la evidencia; sin peticiones nuevas)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -130,7 +130,21 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: los 10 CA con su test y su número; fallarían sin el código (testids, rutas y
+  `sim.requests` en CA6 y CA8). `git diff 10fad39..HEAD` no toca tests. `10fad39` solo cambia un id de
+  CA5 y el criterio sigue cubierto (`/` como `%2F`, `%25`, `:` del tipo, `# ? & +` y tildes).
+- `createElement` en `EntityPage.tsx`: justificado; `entityPageFor` devuelve componentes de módulo, la
+  `key` reinicia la página entre entidades y `Object.hasOwn` evita resolver por el prototipo.
+- `PageHeader.tsx`: compatible con las 5 páginas que lo usan; `titleRef` sigue el patrón de
+  `ProblemDetailPage`.
+- Sin IPC, red ni API nuevos (CA6 y CA8 lo comprueban); textos es/en con nombres propios iguales;
+  áreas bien; sin dependencias ni esquema; sin datos del tenant.
+- Opcionales: nombrar la regla `react-hooks/static-components` en el comentario de `EntityPage.tsx:8`;
+  sacar el nombre del tipo de `labelKey` en `EntityPageFrame` para tener una sola fuente.
+- Para el verifier: e2e completo (router transversal) y `--repeat-each 3` de `views.spec.ts` con
+  `--workers=1` (cambia la navegación y CA8 usa `waitForTimeout`).
 
 ## Verificación
 
