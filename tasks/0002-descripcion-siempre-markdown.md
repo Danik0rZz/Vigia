@@ -1,7 +1,7 @@
 ---
 id: '0002'
 titulo: La descripción del evento siempre con formato (sin «Con formato · Texto original»)
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0002-descripcion-siempre-markdown
 adrs: [8]
@@ -57,7 +57,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) ADR-0008 dice «Siempre hay forma de ver y copiar el texto original («Texto original»
+  y «Copiar»)»; desde esta ficha solo se puede copiar. Según `docs/adr/README.md` no se edita: lo
+  decide el Orquestador (ADR que lo sustituya o nota del doc-writer). El CHANGELOG de la 0001 también
+  menciona el conmutador; es tarea del doc-writer.
 
 ## Notas del revisor
 
@@ -92,4 +95,11 @@ Tests escritos en `975a21d` (test-writer, antes del código):
   `CA15 (0001)` (solo comprueba «Copiar» en inglés), que usaban los botones de modo; se quitaron
   `RENDERED` y `tabTo`, que se quedaban sin uso.
 
-(pendiente del developer)
+- (developer) `17d3344`: fuera el conmutador de `EvidenceDescription.tsx` (estado `mode`,
+  botones `evidence-description-mode-*` y el `pre` del texto original); la descripción va siempre
+  con `MarkdownText` y se queda «Copiar». Fuera `mode`, `formatted` y `original` de es y en.
+  No se tocaron los tests de la ficha.
+- `npm run check`: 1878 tests en verde. `npm run test:e2e:affected -- main..HEAD` (shell, smoke y
+  views): 113 pasan y 2 fallan, `views.spec.ts:1721` (300 filas virtualizadas) y `:3978` (i18n con
+  el gráfico de Métricas), los dos preexistentes en BACKLOG.md y ajenos a esta ficha. Los tests
+  de la 0001 y la 0002 pasan.
