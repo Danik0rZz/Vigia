@@ -65,6 +65,13 @@ type Api = {
     fetchImpl: FetchImpl
   }) => Promise<SendResult>
   main: (argv: string[], deps: Deps) => number | Promise<number>
+  readRegistry: (
+    name: string,
+    options: {
+      execFile: (file: string, args: string[], options?: Record<string, unknown>) => string
+      env: Record<string, string | undefined>
+    }
+  ) => string | undefined
 }
 
 // Si el script aún no existe, solo fallan los tests que lo usan (CA11 no lo necesita).
@@ -228,7 +235,7 @@ function lines(text: string): string[] {
 }
 
 describe('CA1 (0004): envío correcto', () => {
-  it('CA1 (0004): sendTelegram hace un único POST a sendMessage con chat_id, text y disable_web_page_preview, y es éxito', async () => {
+  it('CA1 (0004): sendTelegram hace un único POST a sendMessage con chat_id, text y link_preview_options desactivado (sin disable_web_page_preview), y es éxito', async () => {
     const fetchImpl = vi.fn(() => Promise.resolve(okResponse()))
     const result = await api().sendTelegram({
       token: TOKEN,
@@ -243,7 +250,12 @@ describe('CA1 (0004): envío correcto', () => {
     expect(init.method).toBe('POST')
     expect(new Headers(init.headers).get('content-type')).toContain('application/json')
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
-    expect(body).toMatchObject({ chat_id: CHAT_ID, text: 'hola', disable_web_page_preview: true })
+    expect(body).toMatchObject({
+      chat_id: CHAT_ID,
+      text: 'hola',
+      link_preview_options: { is_disabled: true }
+    })
+    expect(body).not.toHaveProperty('disable_web_page_preview')
     // Texto plano: sin parse_mode.
     expect(body).not.toHaveProperty('parse_mode')
     // Con tiempo máximo (AbortSignal.timeout).
@@ -262,8 +274,9 @@ describe('CA1 (0004): envío correcto', () => {
     expect(body).toMatchObject({
       chat_id: CHAT_ID,
       text: api().buildMessage(datos),
-      disable_web_page_preview: true
+      link_preview_options: { is_disabled: true }
     })
+    expect(body).not.toHaveProperty('disable_web_page_preview')
     expect(globalFetch).not.toHaveBeenCalled()
   })
 })
@@ -301,15 +314,20 @@ describe('CA2 (0004): buildMessage', () => {
     ['cerrada', version({ estado: 'cerrada' }), '📦'],
     ['fallida', version({ estado: 'fallida', verifier: 'ROJO' }), '❌']
   ])(
-    'CA2 (0004): versión %s: icono, versión y estado en la primera línea',
+    'CA2 (0004): versión %s: icono, versión, título y estado en la primera línea',
     (estado, datos, icon) => {
       const first = lines(api().buildMessage(datos))[0] ?? ''
       expect(first.startsWith(icon)).toBe(true)
       expect(first).toContain('0.11.0')
       expect(first).not.toContain('vv0.11.0')
+      expect(first).toContain('Versión de prueba')
       expect(first).toContain(estado)
     }
   )
+
+  it('CA2 (0004): la primera línea de una versión cerrada tiene la forma de la ficha', () => {
+    expect(lines(api().buildMessage(version()))[0]).toBe('📦 v0.11.0 · Versión de prueba — cerrada')
+  })
 
   it.each([
     ['hecha', tarea(), 'Rondas: 2 · Verifier: VERDE'],
@@ -681,5 +699,99 @@ describe('CA11 (0004): pasos en los comandos y permiso', () => {
     }
     expect(settings.permissions.allow).toContain(`Bash(${CALL} *)`)
     expect(settings.permissions.allow).toContain(`PowerShell(${CALL} *)`)
+  })
+})
+
+describe('CA12 (0004): filtro sobre los campos completos, antes de recortar', () => {
+  // El valor del .env se coloca en muchas posiciones alrededor del punto donde el recorte a
+  // 1 500 caracteres parte el resumen: en alguna de ellas el mensaje solo lleva medio valor.
+  const offsets = Array.from({ length: 61 }, (_, i) => 1200 + i * 5)
+  const resumenAt = (offset: number): string => `${'x'.repeat(offset)} ${HOST} ${'y'.repeat(2000)}`
+
+  it('CA12 (0004): en alguna de las posiciones probadas el recorte parte el valor (el test ejercita el caso)', () => {
+    const split = offsets.some((offset) => {
+      const message = api().buildMessage(tarea({ resumen: resumenAt(offset) }))
+      return !message.toLowerCase().includes(HOST)
+    })
+    expect(split).toBe(true)
+  })
+
+  it('CA12 (0004): un valor del .env que el recorte partiría bloquea el envío igual (sin fetch)', async () => {
+    for (const offset of offsets) {
+      const { code, fetchImpl, all } = await run({
+        datos: tarea({ resumen: resumenAt(offset) }),
+        cwdEnv: ENV_LIVE
+      })
+      expect(code, `posición ${offset}`).toBe(0)
+      expect(fetchImpl, `posición ${offset}`).not.toHaveBeenCalled()
+      expect(all.toLowerCase(), `posición ${offset}`).not.toContain(HOST)
+    }
+  })
+
+  it.each([
+    ['titulo', { titulo: `Arreglo para ${HOST}` }],
+    ['decision', { estado: 'parada', decision: `¿Se prueba en ${HOST}?` }],
+    ['ci', { ci: `https://${HOST}/ci/1` }]
+  ] as [string, Partial<Datos>][])(
+    'CA12 (0004): un valor del .env en %s bloquea el envío',
+    async (_campo, overrides) => {
+      const { fetchImpl, all } = await run({ datos: tarea(overrides), cwdEnv: ENV_LIVE })
+      expect(fetchImpl).not.toHaveBeenCalled()
+      expect(all.toLowerCase()).not.toContain('zz99fake')
+    }
+  )
+})
+
+describe('CA13 (0004): lectura del registro con reg.exe por ruta absoluta', () => {
+  const SYSTEM_ROOT = 'D:\\WinFalso'
+  const REG_OUTPUT = [
+    '',
+    'HKEY_CURRENT_USER\\Environment',
+    `    VIGIA_TELEGRAM_TOKEN    REG_SZ    ${REG_TOKEN}`,
+    '',
+    ''
+  ].join('\r\n')
+
+  it('CA13 (0004): ejecuta %SystemRoot%\\System32\\reg.exe con los argumentos en array y sin shell, y devuelve el valor', () => {
+    const execFile = vi.fn<
+      (file: string, args: string[], options?: Record<string, unknown>) => string
+    >(() => REG_OUTPUT)
+    const value = api().readRegistry('VIGIA_TELEGRAM_TOKEN', {
+      execFile,
+      env: { SystemRoot: SYSTEM_ROOT }
+    })
+    expect(value).toBe(REG_TOKEN)
+    expect(execFile).toHaveBeenCalledTimes(1)
+    const [file, args, options] = execFile.mock.calls[0] as [
+      string,
+      unknown,
+      Record<string, unknown> | undefined
+    ]
+    expect(file.replace(/\//g, '\\').toLowerCase()).toBe(
+      `${SYSTEM_ROOT}\\System32\\reg.exe`.toLowerCase()
+    )
+    expect(Array.isArray(args)).toBe(true)
+    expect(args).toEqual(['query', 'HKCU\\Environment', '/v', 'VIGIA_TELEGRAM_TOKEN'])
+    expect(options?.shell).toBeFalsy()
+  })
+
+  it('CA13 (0004): nunca llama a reg por nombre', () => {
+    const execFile = vi.fn<
+      (file: string, args: string[], options?: Record<string, unknown>) => string
+    >(() => REG_OUTPUT)
+    api().readRegistry('VIGIA_TELEGRAM_CHAT_ID', { execFile, env: { SystemRoot: SYSTEM_ROOT } })
+    for (const [file] of execFile.mock.calls) {
+      expect(file.toLowerCase()).not.toBe('reg')
+      expect(file.toLowerCase()).not.toBe('reg.exe')
+    }
+  })
+
+  it('CA13 (0004): si reg.exe falla (variable que no existe), devuelve undefined sin lanzar', () => {
+    const execFile = vi.fn((): string => {
+      throw new Error('ERROR: El sistema no pudo encontrar la clave o el valor especificado.')
+    })
+    expect(
+      api().readRegistry('VIGIA_TELEGRAM_TOKEN', { execFile, env: { SystemRoot: SYSTEM_ROOT } })
+    ).toBeUndefined()
   })
 })
