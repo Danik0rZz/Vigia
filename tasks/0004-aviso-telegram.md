@@ -1,7 +1,7 @@
 ---
 id: '0004'
 titulo: Aviso por Telegram al terminar /tarea o /cerrar-version
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0004-aviso-telegram
 adrs: [7]
@@ -261,6 +261,14 @@ Decisiones del developer (código en `8dcce79` y `286649b`; los 64 tests pasan):
   campos ausentes salen vacíos. Un estado sin icono propio lleva `•`. El `version` se escribe con
   una sola «v» aunque venga con ella.
 - Las credenciales se leen antes del filtro: sin ellas no se lee `.env.live.local`.
+
+Ronda 2 (developer, código en `47259b9`; los 73 tests pasan):
+
+- El filtro mira el mensaje y todos los campos de texto del JSON sin recortar (`ficha`, `titulo`,
+  `version`, `estado`, `resumen`, `rondas`, `verifier`, `ci` y `decision`).
+- La ruta de `reg.exe` sale de `SystemRoot` (si no está, de `windir`). Si no hay ninguna de las dos,
+  no se lee el registro: nunca se llama a `reg` por nombre.
+- Una versión sin `titulo` deja la primera línea como antes (`📦 v0.11.0 — cerrada`).
 
 ## Resultado
 
