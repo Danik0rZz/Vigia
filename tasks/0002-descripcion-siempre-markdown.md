@@ -1,7 +1,7 @@
 ---
 id: '0002'
 titulo: La descripción del evento siempre con formato (sin «Con formato · Texto original»)
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0002-descripcion-siempre-markdown
 adrs: [8]
@@ -65,8 +65,31 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `975a21d` (test-writer, antes del código):
+
+- CA1: `e2e/views.spec.ts`, `CA1 (0002)` (P-785, dos eventos con descripción): sin
+  `[data-testid^="evidence-description-mode"]`, sin `aria-pressed`, sin grupo, radio, pestaña ni
+  botón con los textos del conmutador (es y en); el único botón de la sección es «Copiar», y salen
+  `h*`, `li`, `strong`, `code` y `table` sin símbolos. Falla hoy (2 controles de modo).
+- CA2: `e2e/views.spec.ts`, `CA8 (0001) y CA2 (0002)`: «Copiar» deja en el portapapeles el
+  Markdown exacto (y el de otro evento, el suyo) y se ve el aviso. Pasa ya: es de no regresión.
+- CA3: `e2e/views.spec.ts`, `CA9 (0001) y CA3 (0002)`: Tab desde la fila llega a «Copiar» sin
+  pasar por ningún `evidence-description-mode-*`, Enter copia sin plegar y Escape pliega con el
+  foco en la fila. Falla hoy (el Tab pasa por los dos botones de modo).
+- CA4: `src/renderer/src/locales/description-mode.test.ts`: sin `mode`, `formatted` ni
+  `original` en `problems.eventTable.description` de es y en, y siguen `title`, `copy` y
+  `truncated`. La paridad la cubre `locales.test.ts` en `check`. Falla hoy (las claves
+  existen).
+- Ejecución: `npx vitest run src/renderer/src/locales/` (2 fallos, los de CA4; paridad en verde);
+  `npm run test:e2e -- e2e/views.spec.ts -g "0002|0001"`: 6 pasan y 2 fallan (CA1 y CA3 de la
+  0002, por la aserción del conmutador).
 
 ## Resultado
 
-(pendiente)
+- (test-writer) Tests de la 0001 ajustados en `975a21d`: `CA7 (0001)` borrado; `CA9 (0001)`
+  pasa a ser `CA9 (0001) y CA3 (0002)` (Tab llega a «Copiar», sin conmutador); también
+  `CA8 (0001)` (ahora `CA8 (0001) y CA2 (0002)`, sin pasar por «Texto original») y
+  `CA15 (0001)` (solo comprueba «Copiar» en inglés), que usaban los botones de modo; se quitaron
+  `RENDERED` y `tabTo`, que se quedaban sin uso.
+
+(pendiente del developer)
