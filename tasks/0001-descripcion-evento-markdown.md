@@ -8,7 +8,7 @@ adrs: [2, 4, 5]
 adr_nuevo: Contenido del tenant con formato (Markdown) en la interfaz — sin HTML, sin recursos remotos
 api: v2 (sin endpoints nuevos; `GET /problems` y `GET /problems/{problemId}?fields=evidenceDetails`, ya en uso; `evidenceDetails.details[].data.properties[]`; `docs/notas-api-v2.md`, "Eventos con dt.event.metric_selector")
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -156,10 +156,32 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 - (developer) La nota de recorte podría ofrecer pedir la descripción entera a main bajo demanda si
   algún día aparecen descripciones de más de 5 000 caracteres.
+- (reviewer) Guarda de las pruebas en vivo (`src/test/live-usage.test.ts`): limitar los patrones de
+  módulos de red a `from`, `import(` y `require(`, y prohibir en `*.live.test.ts` un `import(` o
+  `require(` con argumento no literal. Quita falsos positivos y cierra el atajo del nombre calculado.
+- (reviewer) El recorte de la descripción (`slice`) puede partir un emoji por la mitad; retroceder
+  una posición si cae en un sustituto alto. Poco probable con el tope de 5 000.
+- (reviewer) `remark-gfm` pinta las notas al pie con textos fijos en inglés (`Footnotes` y
+  aria-label); se pueden pasar sus etiquetas con `t()`.
+- (reviewer) El aviso de «Copiado» no se borra hasta plegar la fila (coherente con las pantallas de
+  error).
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1-CA15 con su test y su número; los tests fallarían sin el código. El developer no
+  tocó los tests nuevos; a los fixtures anteriores solo se añade `description: null` (obligatorio en
+  el esquema). `3f07bf8` y `f4f7119` no cambian criterios.
+- Arquitectura y seguridad: extracción en main sobre las propiedades en crudo, con `.max()` en Zod y
+  sin ir al log; sin `rehype-raw` ni `dangerouslySetInnerHTML`; `urlTransform` y el componente `a`
+  solo dejan http/https; imágenes como texto; CSP y `harden.ts` sin cambios. Dependencias exactas en
+  devDependencies. Áreas de e2e, textos es/en, sin migración, sin datos del tenant.
+- API: sin endpoints ni parámetros nuevos (los mismos que ya se usan). No se pudo buscar en
+  `..API` porque no existe junto al worktree del Orquestador; no bloquea.
+- El `split` de `f4f7119` es aceptable: las cadenas son etiquetas de clasificación, no llegan a
+  ningún import; la debilidad está en la guarda (idea surgida).
+- Opcionales (no bloquean): pasados a "Ideas surgidas".
 
 ## Verificación
 
