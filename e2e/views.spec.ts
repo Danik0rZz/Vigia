@@ -736,7 +736,15 @@ const DESC_MD = [
   '',
   '| Métrica | Valor |',
   '| --- | --- |',
-  '| CPU | 97 % |'
+  '| CPU | 97 % |',
+  '',
+  // Forma vista en un problema real: escapes con barra invertida y tabla compacta (sin
+  // espacios junto a las barras) con fila de alineación.
+  'Umbral superado en 9\\.5 puntos',
+  '',
+  '|Host|Valor|Estado|',
+  '|:--|--:|:-:|',
+  '|web|9|alto \\(9\\)|'
 ].join('\n')
 const DESC_SHORT_MD = '## Segundo evento\n\n- **uno**\n- dos'
 const DESC_LONG = `# Descripción larga\n\n${'palabra '.repeat(3200)}`
@@ -4320,10 +4328,17 @@ test('CA6 (0001): al desplegar un evento con descripción, «Descripción» sale
   await expect(section.locator('li')).toHaveText(['primer paso', 'segundo paso'])
   await expect(section.locator('strong')).toHaveText(['negrita'])
   await expect(section.locator('code')).toHaveText(['código'])
-  await expect(section.locator('table')).toHaveCount(1)
-  await expect(section.locator('table th')).toHaveText(['Métrica', 'Valor'])
-  await expect(section.locator('table td')).toHaveText(['CPU', '97 %'])
+  await expect(section.locator('table')).toHaveCount(2)
+  await expect(section.locator('table').nth(0).locator('th')).toHaveText(['Métrica', 'Valor'])
+  await expect(section.locator('table').nth(0).locator('td')).toHaveText(['CPU', '97 %'])
+  // Tabla compacta con alineación, y escapes que se ven sin la barra invertida.
+  const compact = section.locator('table').nth(1)
+  await expect(compact.locator('th')).toHaveText(['Host', 'Valor', 'Estado'])
+  await expect(compact.locator('td')).toHaveText(['web', '9', 'alto (9)'])
+  await expect(section).toContainText('Umbral superado en 9.5 puntos')
   const text = await section.innerText()
+  expect(text).not.toContain('\\')
+  expect(text).not.toContain('|:--|')
   expect(text).not.toContain('**')
   expect(text).not.toContain('`')
   expect(text).not.toMatch(/^\s*#/m)
@@ -4361,6 +4376,10 @@ test('CA7 (0001): «Texto original» enseña el Markdown tal cual; «Con formato
   expect(raw).toContain('`código`')
   expect(raw).toContain('- primer paso\n- segundo paso')
   expect(raw).toContain('| --- | --- |')
+  // La barra invertida de los escapes y la tabla compacta, tal cual.
+  expect(raw).toContain('Umbral superado en 9\\.5 puntos')
+  expect(raw).toContain('|:--|--:|:-:|')
+  expect(raw).toContain('|web|9|alto \\(9\\)|')
 
   // La elección es por evento: otro evento desplegado empieza con formato y este no cambia.
   const other = descriptionParts(await expandRow('Otra con descripción'))
@@ -4372,7 +4391,7 @@ test('CA7 (0001): «Texto original» enseña el Markdown tal cual; «Con formato
   await parts.formatted.click()
   await expect(parts.formatted).toHaveAttribute('aria-pressed', 'true')
   await expect(parts.section.locator('strong')).toHaveText(['negrita'])
-  await expect(parts.section.locator('table')).toHaveCount(1)
+  await expect(parts.section.locator('table')).toHaveCount(2)
 
   // Plegar y volver a desplegar: otra vez con formato.
   await parts.original.click()

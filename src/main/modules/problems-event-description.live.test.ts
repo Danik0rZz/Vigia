@@ -62,15 +62,25 @@ const LENGTH_BUCKETS: [string, number][] = [
 const lengthBucket = (length: number): string =>
   LENGTH_BUCKETS.find(([, limit]) => length <= limit)?.[0] ?? 'más de 20 000'
 
+/** Celda de la fila de alineación de una tabla GFM: `---`, `:--`, `--:` o `:-:`. */
+const DELIMITER_CELL = String.raw`[ \t]*:?-+:?[ \t]*`
+const TABLE = new RegExp(
+  String.raw`^[^\n]*\|[^\n]*\r?\n[ \t]*(?=[^\n]*\|)\|?${DELIMITER_CELL}(?:\|${DELIMITER_CELL})*\|?[ \t]*\r?$`,
+  'm'
+)
+
 /** Rasgos de Markdown que se cuentan (solo si aparecen, nunca qué dicen). */
 const MARKDOWN_FEATURES: Record<string, RegExp> = {
   títulos: /^\s{0,3}#{1,6}\s/m,
   listas: /^\s*(?:[-*+]|\d+[.)])\s+\S/m,
   negrita: /(\*\*|__)(?=\S)[\s\S]*?\S\1/,
   código: /`[^`\n]+`|^\s*(?:```|~~~)/m,
-  tablas: /^\s*\|?[^\n]*\|[^\n]*\n\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$/m,
+  // GFM: cabecera con alguna barra y fila de alineación (con o sin espacios: `|:--|--:|:-:|`).
+  tablas: TABLE,
   enlaces: /(?<!!)\[[^\]\n]*\]\([^)\s]+[^)]*\)|<[a-z][a-z0-9+.-]*:[^>\s]+>|\bhttps?:\/\/\S/i,
-  imágenes: /!\[[^\]\n]*\]\([^)]+\)/
+  imágenes: /!\[[^\]\n]*\]\([^)]+\)/,
+  // Barra invertida delante de un signo de puntuación ASCII (`\.`, `\(`, `\|`…).
+  escapes: /\\[!-/:-@[-`{-~]/
 }
 const RAW_HTML = /<[a-zA-Z][\w-]*(?=[\s>/])/
 

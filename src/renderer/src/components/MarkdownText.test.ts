@@ -54,6 +54,29 @@ describe('CA6 (0001), apoyo unitario: CommonMark + GFM como elementos', () => {
     expect(tags(html, 'table')).toHaveLength(1)
     expect(visibleText(html)).not.toContain('**')
   })
+
+  it('tabla compacta (sin espacios junto a las barras) con fila de alineación, y escapes', () => {
+    // Forma vista en un problema real (con otro texto).
+    const html = render(
+      [
+        'Umbral superado en 9\\.5 puntos',
+        '',
+        '|Host|Valor|Estado|',
+        '|:--|--:|:-:|',
+        '|web|9|alto \\(9\\)|',
+        '|db|7|bajo \\(7\\)|'
+      ].join('\n')
+    )
+    expect(tags(html, 'table')).toHaveLength(1)
+    expect(tags(html, 'th')).toHaveLength(3)
+    expect(tags(html, 'td')).toHaveLength(6)
+    const text = visibleText(html)
+    expect(text).toContain('Umbral superado en 9.5 puntos')
+    expect(text).toContain('alto (9)')
+    expect(text).toContain('bajo (7)')
+    expect(text).not.toContain('\\')
+    expect(text).not.toContain(':--')
+  })
 })
 
 describe('CA10 (0001): el HTML en crudo de la descripción se ve como texto', () => {
