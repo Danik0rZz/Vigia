@@ -654,5 +654,25 @@
     "copy": "Copiar detalles",
     "copied": "Copiado",
     "copyFailed": "No se pudo copiar"
+  },
+  "entities": {
+    "analyze": "Analizar entidad",
+    "back": "Volver",
+    "typeLabel": "Tipo",
+    "idLabel": "ID",
+    "underConstruction": "Página en construcción",
+    "underConstructionText": "El análisis de este tipo de entidad llegará más adelante.",
+    "genericText": "El análisis de los tipos de entidad personalizados o de extensión llegará más adelante.",
+    "types": {
+      "HOST": "Host",
+      "SERVICE": "Servicio",
+      "PROCESS_GROUP_INSTANCE": "Proceso",
+      "PROCESS_GROUP": "Process group",
+      "SYNTHETIC_TEST": "Browser monitor",
+      "HTTP_CHECK": "HTTP monitor",
+      "APPLICATION": "Aplicación web",
+      "CLOUD_APPLICATION": "Cloud application",
+      "ENVIRONMENT": "Entorno"
+    }
   }
 }

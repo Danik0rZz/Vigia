@@ -6,6 +6,8 @@ import { ProblemDetailPage } from '../pages/ProblemDetailPage'
 import { ProblemsPage } from '../pages/ProblemsPage'
 import { SectionPage } from '../pages/SectionPage'
 import { SettingsPage } from '../pages/SettingsPage'
+import { EntityPage } from '../pages/entities/EntityPage'
+import { ENTITY_ROUTE } from './entity-route'
 import { ErrorTrigger } from './ErrorTrigger'
 import { Layout } from './Layout'
 import { NAV_SECTIONS } from './navigation'
@@ -49,6 +51,8 @@ export function buildRoutes({ errorTrigger }: { errorTrigger: boolean }): RouteO
           element: <ProblemDetailPage />,
           errorElement: <RouteError />
         },
+        // Análisis de una entidad (ficha 0003): tampoco es una sección del menú.
+        { path: ENTITY_ROUTE, element: <EntityPage />, errorElement: <RouteError /> },
         ...(errorTrigger
           ? [{ path: '__errors/:variant', element: <ErrorTrigger />, errorElement: <RouteError /> }]
           : []),

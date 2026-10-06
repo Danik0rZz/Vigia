@@ -107,6 +107,7 @@
         "src/renderer/src/components/MarkdownText.tsx",
         "src/renderer/src/components/PanelBoundary.tsx",
         "src/renderer/src/app/evidence-table.ts",
+        "src/renderer/src/app/entity-route.ts",
         "src/renderer/src/components/TopBar.tsx",
         "src/renderer/src/app/problem-filters.ts",
         "src/renderer/src/app/page-crumb.ts",
