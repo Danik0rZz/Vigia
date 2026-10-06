@@ -11,10 +11,12 @@ import {
 } from '@shared/modules'
 import { eventMetricInfo } from '@shared/event-metric'
 import {
+  MAX_DESCRIPTION_LENGTH,
   MAX_EVENT_TAGS,
   MAX_EVENT_TAG_LENGTH,
   MAX_EVENT_ZONES,
   type EventData,
+  type EventDescription,
   type EvidenceEntity,
   type EvidenceWire
 } from '@shared/problem-evidence'
@@ -186,6 +188,28 @@ function rawProperties(data: Raw | null): { key: string; value: unknown }[] {
   })
 }
 
+/** Propiedad observada del evento con su descripción en Markdown (ficha 0001). */
+const DESCRIPTION_KEY = 'dt.event.description'
+
+/**
+ * La primera `dt.event.description` con texto no vacío (sin contar espacios),
+ * sobre las propiedades EN CRUDO y tal cual (sin recortar espacios), recortada
+ * a MAX_DESCRIPTION_LENGTH. Sin ella, null. Nunca va al log.
+ */
+export function eventDescription(
+  properties: readonly { key: string; value: unknown }[]
+): EventDescription | null {
+  for (const property of properties) {
+    if (property.key !== DESCRIPTION_KEY) continue
+    const text = property.value
+    if (typeof text !== 'string' || text.trim() === '') continue
+    return text.length > MAX_DESCRIPTION_LENGTH
+      ? { text: text.slice(0, MAX_DESCRIPTION_LENGTH), truncated: true }
+      : { text, truncated: false }
+  }
+  return null
+}
+
 /** Tag como texto: stringRepresentation o, si falta o está vacía, key:value o key. */
 function tagText(entry: unknown): string | null {
   const tag = asObject(entry)
@@ -251,7 +275,9 @@ export function toEvidenceWire(item: z.output<typeof evidenceItemSchema>): Evide
     startTime: item.startTime ?? null,
     endTime: item.endTime ?? null,
     eventType: item.eventType ?? null,
+    // En un EVENT, la descripción va en su campo y no ocupa sitio entre las 8.
     properties: properties
+      .filter((property) => !isEvent || property.key !== DESCRIPTION_KEY)
       .slice(0, MAX_EVENT_PROPERTIES)
       .map((property) => ({ key: property.key, text: propertyText(property.value) })),
     metricId: item.metricId ?? null,
@@ -260,6 +286,7 @@ export function toEvidenceWire(item: z.output<typeof evidenceItemSchema>): Evide
     valueAfter: item.valueAfterChangePoint ?? null,
     // Sobre las propiedades EN CRUDO: el selector no cabe en el recorte de arriba.
     eventMetric: isEvent ? eventMetricInfo(properties) : null,
+    description: isEvent ? eventDescription(properties) : null,
     data: isEvent ? toEventData(item.data) : null
   }
 }

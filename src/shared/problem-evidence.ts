@@ -42,6 +42,25 @@ export const eventDataSchema = z.object({
 export type EventData = z.output<typeof eventDataSchema>
 
 /**
+ * Tope de la descripción del evento (`dt.event.description`), ficha 0001. Regla:
+ * el doble de la máxima observada en vivo, redondeado hacia arriba al millar,
+ * entre 5 000 y 20 000 (el límite de `app:copyText`). Medido el 2026-10-06: la
+ * máxima fue 245 caracteres, así que queda en el mínimo.
+ */
+export const MAX_DESCRIPTION_LENGTH = 5000
+
+/**
+ * Descripción del evento (Markdown del tenant, sin interpretar en main): el
+ * texto, recortado a MAX_DESCRIPTION_LENGTH, y si se recortó. El campo es
+ * `text` y no `value` por la guarda del IPC.
+ */
+export const eventDescriptionSchema = z.object({
+  text: z.string().max(MAX_DESCRIPTION_LENGTH),
+  truncated: z.boolean()
+})
+export type EventDescription = z.output<typeof eventDescriptionSchema>
+
+/**
  * Evidencia de un problema tal como la manda main: los campos de los 5 tipos
  * de la OpenAPI, todos opcionales salvo el tipo y el nombre. El tipo es texto
  * libre (un tipo nuevo de Dynatrace se muestra tal cual) y la unidad también.
@@ -68,6 +87,8 @@ export const evidenceWireSchema = z.object({
   valueAfter: z.number().nullable(),
   /** Solo en EVENT: el selector de métrica (extraído en main, entero) y su umbral. */
   eventMetric: eventMetricSchema.nullable(),
+  /** Solo en EVENT: `dt.event.description` (extraída en main, fuera de `properties`). */
+  description: eventDescriptionSchema.nullable(),
   /** Solo en EVENT con `data`. */
   data: eventDataSchema.nullable()
 })
@@ -117,6 +138,8 @@ export interface EvidenceView {
     properties: { key: string; text: string }[]
     /** Métrica del evento (dt.event.metric_selector), si la trae. */
     metric: EventMetric | null
+    /** Descripción del evento (dt.event.description), si la trae. */
+    description: EventDescription | null
   } | null
   metricId: string | null
   unit: string | null
@@ -189,7 +212,8 @@ export function toEvidenceView(evidence: EvidenceWire, index = 0): EvidenceView 
         ? {
             eventType: evidence.eventType,
             properties: evidence.properties,
-            metric: evidence.eventMetric
+            metric: evidence.eventMetric,
+            description: evidence.description
           }
         : null,
     metricId: evidence.metricId,

@@ -112,6 +112,7 @@ function wire(overrides: Partial<EvidenceWire> = {}): EvidenceWire {
     valueBefore: null,
     valueAfter: null,
     eventMetric: null,
+    description: null,
     data: null,
     ...overrides
   }
@@ -214,7 +215,12 @@ describe('toEvidenceView', () => {
   it('EVENT: el tipo de evento y sus propiedades', () => {
     const properties = [{ key: 'dt.event.description', text: 'Reinicio' }]
     const result = toEvidenceView(wire({ eventType: 'PROCESS_RESTART', properties }))
-    expect(result.event).toEqual({ eventType: 'PROCESS_RESTART', properties, metric: null })
+    expect(result.event).toEqual({
+      eventType: 'PROCESS_RESTART',
+      properties,
+      metric: null,
+      description: null
+    })
   })
 
   it('v0.9.2: EVENT con métrica: event.metric es la eventMetric de main, tal cual', () => {

@@ -275,6 +275,7 @@ describe('problemDetailSchema y toProblemDetail', () => {
     valueBefore: null,
     valueAfter: null,
     eventMetric: null,
+    description: null,
     data: null
   }
 
@@ -580,6 +581,7 @@ describe('toEvidenceWire (v0.9.1)', () => {
       valueBefore: 1200.5,
       valueAfter: 9800,
       eventMetric: null,
+      description: null,
       data: null
     })
   })
