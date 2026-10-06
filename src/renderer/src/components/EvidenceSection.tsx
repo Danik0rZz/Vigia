@@ -50,6 +50,7 @@ import {
   type DataGridHandle,
   type RowStatus
 } from './DataGrid'
+import { EvidenceDescription } from './EvidenceDescription'
 import { EvidenceMetricChart } from './EvidenceMetricChart'
 import { PanelBoundary } from './PanelBoundary'
 import { BUTTON_SECONDARY, INPUT } from './styles'
@@ -191,7 +192,7 @@ function ChangeCard({
   )
 }
 
-/** Detalle de un EVENT: propiedades, zonas, todas las etiquetas y el mini gráfico. */
+/** Detalle de un EVENT: descripción, propiedades, zonas, todas las etiquetas y el mini gráfico. */
 function EventDetail({
   view,
   problem
@@ -202,8 +203,10 @@ function EventDetail({
   const { t } = useTranslation()
   const properties = view.event?.properties ?? []
   const metric = view.event?.metric ?? null
+  const description = view.event?.description ?? null
   return (
     <div className="grid gap-2">
+      {description !== null && <EvidenceDescription description={description} />}
       {properties.length > 0 && (
         <section className="grid gap-0.5">
           <h4 className="text-xs font-medium text-muted-foreground">
