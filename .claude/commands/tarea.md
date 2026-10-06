@@ -23,7 +23,9 @@ flujo está en `docs/flujo.md`.
    - Si cambian criterios, vuelve al test-writer (solo los tests nuevos) y después al developer; si
      no, directamente al developer con la ruta de la ficha. Estado `en_desarrollo`.
    - Máximo 3 rondas. Si la tercera no se aprueba: `estado: bloqueada`, y se lo dices a Dani con el
-     motivo.
+     motivo y el **Aviso** (abajo).
+   - Si el `[ALCANCE]` espera a Dani (no está delegado), **Aviso** con `estado: parada` antes de
+     esperar. Si lo decide el Planificador por delegación, no se avisa.
 7. Con APROBADO, **verifier** en modo `ficha` con la rama, el rango `main..<rama>` y una carpeta de
    tu scratchpad. Copia su resultado en "Verificación". Si es ROJO, vuelve al developer con el
    fallo (cuenta como una ronda más) y repite la revisión. Si es VERDE: `estado: verificada`.
@@ -33,7 +35,23 @@ flujo está en `docs/flujo.md`.
    repite el verifier. Después `git -C <checkout principal> push origin main` (el pre-push pasa
    `scan:tenant`) y borra la rama local.
 10. Muestra a Dani el briefing del doc-writer, más las rondas, el resultado del verifier y el enlace
-    al CI del push (`gh run list --branch main --limit 1`, si `gh` está disponible).
+    al CI del push (`gh run list --branch main --limit 1`, si `gh` está disponible), y manda el
+    **Aviso** con `estado: hecha`.
 
 No saltes pasos ni hooks. Si algo no está escrito en el repositorio y hace falta decidirlo, para y
-pregunta.
+pregunta (con el **Aviso** de `parada`).
+
+**Aviso** (`docs/flujo.md`; opcional, nunca para el flujo): escribe un JSON en tu scratchpad y
+ejecuta `node scripts/notify-telegram.mjs <ruta-del-json>`. Campos: `tipo: "tarea"`, `ficha`,
+`titulo`, `estado`, `resumen`, `rondas`, `verifier` (`VERDE` | `ROJO` | `sin pasar`), `ci` y
+`decision`. Cuándo:
+
+- `estado: hecha`: tras el push del paso 9, con el enlace del CI del paso 10 en `ci`.
+- `estado: bloqueada`: tres rondas sin aprobar (también si la última fue un ROJO del verifier), con
+  el motivo en `resumen` y el último resultado en `verifier`.
+- `estado: parada`: esperando a Dani (`[ALCANCE]` no delegado o cualquier "para y pregunta"), con la
+  pregunta en `decision`.
+
+El `resumen` lo redactas tú desde el briefing del doc-writer (o el motivo), en pocas líneas, sin
+datos del tenant ni nombres de clientes: el filtro del script es la red de seguridad, no la única
+defensa. Si el script avisa en la terminal, se lo dices a Dani y sigues.

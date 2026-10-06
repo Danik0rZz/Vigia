@@ -24,3 +24,12 @@ Eres el Orquestador. Sigue "Cerrar una versión" de `docs/flujo.md`.
 5. Resumen para Dani, sin esperar respuesta: lo hecho, las decisiones tomadas, lo que tiene que
    probar a mano y dónde está el zip (la ruta que dio el verifier). Tags, releases y subir el zip a GitHub no se hacen:
    son de Dani.
+6. **Aviso** (`docs/flujo.md`; opcional, nunca para el flujo), salga bien o no: escribe un JSON en
+   tu scratchpad y ejecuta `node scripts/notify-telegram.mjs <ruta-del-json>`, con `tipo: "version"`,
+   `version` (sin «v»), `titulo`, `estado`, `resumen`, `rondas: 0`, `verifier`, `ci` y `decision`.
+   - `estado: cerrada`: tras el push, con el enlace del CI (`gh run list --branch main --limit 1`).
+     Sin la ruta del zip: es una ruta local.
+   - `estado: fallida`: ROJO del verifier u otra parada, con el motivo en `resumen`.
+
+   El `resumen`, en pocas líneas y sin datos del tenant ni nombres de clientes. Si el script avisa
+   en la terminal, se lo dices a Dani y sigues.
