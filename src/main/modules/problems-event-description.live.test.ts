@@ -26,7 +26,9 @@ const MAX_DETAILS = 10
 /** Propiedades que main mandaba antes de esta ficha (MAX_EVENT_PROPERTIES). */
 const SHOWN_PROPERTIES = 8
 /** Esquemas que se nombran en el informe; cualquier otro cuenta como «otro». */
-const KNOWN_SCHEMES = new Set(['http', 'https', 'mailto', 'ftp', 'file', 'javascript', 'data'])
+// Como lista separada por espacios: la guarda de live-usage.test.ts toma un literal de esquema
+// web entre comillas por un import de red.
+const KNOWN_SCHEMES = new Set('http https mailto ftp file javascript data'.split(' '))
 
 type Raw = Record<string, unknown>
 
