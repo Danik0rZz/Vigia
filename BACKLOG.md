@@ -30,6 +30,11 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 ## Mejoras anotadas
 
+- e2e `views.spec.ts:1605` ("volver del detalle conserva … 300 filas virtualizadas") falla siempre
+  en la VPS de 2026-10-06 (2560×1440): espera la fila 150 y ve la 140. No viene de un cambio de
+  código (el commit del flujo no toca `src/` ni los specs); depende de la geometría de la ventana.
+  Ver qué dice el CI en `windows-latest` antes de hacer la ficha.
+
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec,
   "Funcionalidades").
 - Particiones de red sin liberar (AUD-21, ADR-0003): cada `reset` deja la sesión anterior hasta
