@@ -40,3 +40,9 @@ Cualquier otro contenido del tenant con formato reutiliza `MarkdownText` y estas
 (imágenes, otros esquemas, HTML) necesita un ADR que sustituya a este. Las dos librerías van en
 devDependencies (solo al bundle del renderer, unos 48 kB gzip). `remark-gfm` trae textos fijos en
 inglés para las notas al pie.
+
+## Actualización (2026-10-06, ficha 0002)
+
+A petición de Dani se quitó el conmutador «Con formato · Texto original»: la descripción se pinta
+siempre con `MarkdownText`. El texto original se obtiene con «Copiar», que copia el Markdown tal
+cual. Las reglas de seguridad de este ADR no cambian.

@@ -11,12 +11,13 @@ Sin migraciones nuevas.
 
 - Detalle del problema: al desplegar un evento de la tabla de evidencias, su descripción sale la
   primera, en una sección «Descripción» con formato (títulos, listas, negrita, código, tablas, citas
-  y enlaces). Un conmutador «Con formato · Texto original» enseña el texto tal cual (vuelve a «Con
-  formato» al plegar la fila) y «Copiar» copia el texto original. La descripción ya no se repite en
+  y enlaces), siempre con formato: no hay un modo para ver el texto tal cual, y «Copiar» copia el
+  texto original (el Markdown sin pintar). La descripción ya no se repite en
   la lista de propiedades y llega entera aunque el evento tenga muchas propiedades (hasta 5 000
   caracteres; si se recorta, una nota lo dice). Por seguridad, el HTML que traiga se ve como texto,
   solo los enlaces web se abren (en el navegador del sistema) y las imágenes no se cargan: se ve su
-  texto alternativo o su dirección. (ficha 0001)
+  texto alternativo o su dirección. (fichas 0001 y 0002: la 0002 quitó, a petición de Dani, el
+  conmutador «Con formato · Texto original» que añadía la 0001 antes de publicarse)
 
 ### Cambiado
 

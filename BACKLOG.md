@@ -6,12 +6,9 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- [0002](tasks/0002-descripcion-siempre-markdown.md): la descripción del evento siempre con
-  formato, sin el conmutador «Con formato · Texto original». Aprobada por Dani el 2026-10-06. Va
-  primero.
 - [0003](tasks/0003-pagina-analisis-entidad.md): «Analizar entidad» en el detalle de las evidencias,
-  con una página en construcción por tipo de entidad. Aprobada por Dani el 2026-10-06. Después de
-  la 0002 (las dos tocan el detalle de la evidencia).
+  con una página en construcción por tipo de entidad. Aprobada por Dani el 2026-10-06. La 0002
+  (que también toca el detalle de la evidencia) ya está hecha.
 
 ## Próximo
 
@@ -42,9 +39,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   - `:1721` (300 filas virtualizadas): espera la fila 150 y ve la 146 en el CI y la 140 en la VPS.
   - `:1529` (Problemas, detalle): la cabecera arrastrable (`app-drag`) intercepta el clic en la
     ruta de la barra superior.
-  - `:3978` (i18n con el gráfico de Métricas): la serie llega vacía. Pasa aislado (3/3) y falla en
-    el spec completo, así que depende del orden. Deducción del verifier en la ficha 0001, sin
-    comprobar: lee `data-series` sin `expect.poll` justo después de `runMetric`, mientras aún se
+  - `:3978` (i18n con el gráfico de Métricas): la serie llega vacía. También falla aislado de
+    forma intermitente (2/3 en la rama de la ficha 0002 y 1/3 en `main`), así que no depende solo
+    del orden. Deducción del verifier en la ficha 0001, sin comprobar: lee `data-series` sin `expect.poll` justo después de `runMetric`, mientras aún se
     rehace el gráfico del test anterior.
   - `:4083` (SLO de Inicio): se agota la espera de 5 s.
     Apuntan a la geometría de la ventana y a los tiempos del runner. Mientras no se arreglen, el CI
@@ -67,6 +64,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   pueden pasar sus etiquetas con `t()`. (surgió en 0001)
 - El aviso de «Copiado» de la descripción no se borra hasta plegar la fila (coherente con las
   pantallas de error); valorar que desaparezca solo. (surgió en 0001)
+- e2e de la descripción del evento: activar «Copiar» también con Espacio, no solo con Enter (antes
+  se probaba sobre los botones del conmutador). (surgió en 0002)
 
 ## Aparcado
 
@@ -80,4 +79,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   0.10.2: ver `CHANGELOG.md`.
 - CI en GitHub Actions sobre Windows (propuesta 5), montado con el flujo de agentes (ADR-0007).
 - [0001](tasks/0001-descripcion-evento-markdown.md): descripción del evento con formato Markdown en
-  el detalle del problema, con «Con formato · Texto original» y «Copiar» (ADR-0008).
+  el detalle del problema, con «Copiar» (ADR-0008).
+- [0002](tasks/0002-descripcion-siempre-markdown.md): la descripción del evento siempre con
+  formato; se quitó el conmutador de la 0001 y se queda «Copiar».

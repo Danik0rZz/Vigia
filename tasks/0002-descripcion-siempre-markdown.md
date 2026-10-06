@@ -1,7 +1,7 @@
 ---
 id: '0002'
 titulo: La descripción del evento siempre con formato (sin «Con formato · Texto original»)
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0002-descripcion-siempre-markdown
 adrs: [8]
@@ -121,3 +121,12 @@ Tests escritos en `975a21d` (test-writer, antes del código):
   views): 113 pasan y 2 fallan, `views.spec.ts:1721` (300 filas virtualizadas) y `:3978` (i18n con
   el gráfico de Métricas), los dos preexistentes en BACKLOG.md y ajenos a esta ficha. Los tests
   de la 0001 y la 0002 pasan.
+
+- (doc-writer) Cierre. Commits: `975a21d` (tests), `17d3344` (código) y los de la ficha
+  (`445a7e3`, `51c29fb`, `ca9f5a5`, `50734b9`). Ficheros principales:
+  `src/renderer/src/components/EvidenceDescription.tsx`, `src/renderer/src/locales/{es,en}/common.json`,
+  `src/renderer/src/locales/description-mode.test.ts` y `e2e/views.spec.ts`. Una ronda de revisión
+  (aprobada). Sin ADR nuevo: se añadió una sección «Actualización (2026-10-06, ficha 0002)» al
+  ADR-0008 (el texto original se obtiene con «Copiar»). CHANGELOG: la entrada de la 0001 se unió con
+  esta y ya no nombra el conmutador. Sin migraciones nuevas. La sugerencia opcional del revisor
+  (Espacio sobre «Copiar» en el e2e) va a "Mejoras anotadas" del BACKLOG.
