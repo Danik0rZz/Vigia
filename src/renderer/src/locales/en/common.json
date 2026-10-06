@@ -414,9 +414,6 @@
       },
       "description": {
         "title": "Description",
-        "mode": "How the description is shown",
-        "formatted": "Formatted",
-        "original": "Original text",
         "copy": "Copy",
         "truncated": "The description is longer: only its first {{max}} characters are shown, and “Copy” copies those."
       }

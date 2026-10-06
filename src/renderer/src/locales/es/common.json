@@ -414,9 +414,6 @@
       },
       "description": {
         "title": "Descripción",
-        "mode": "Cómo se ve la descripción",
-        "formatted": "Con formato",
-        "original": "Texto original",
         "copy": "Copiar",
         "truncated": "La descripción es más larga: se ven sus primeros {{max}} caracteres, y «Copiar» copia esos."
       }
