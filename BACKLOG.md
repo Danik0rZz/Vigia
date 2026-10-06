@@ -6,7 +6,9 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-(ninguna)
+- [0001](tasks/0001-descripcion-evento-markdown.md): descripción del evento
+  (`dt.event.description`) con formato Markdown en el detalle del problema, con «Con formato ·
+  Texto original» y «Copiar». Aprobada por Dani el 2026-10-06.
 
 ## Próximo
 

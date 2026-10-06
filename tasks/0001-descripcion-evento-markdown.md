@@ -1,0 +1,169 @@
+---
+id: '0001'
+titulo: Descripción del evento con formato Markdown en el detalle del problema
+estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
+rama: feat/0001-descripcion-evento-markdown
+adrs: [2, 4, 5]
+adr_nuevo: Contenido del tenant con formato (Markdown) en la interfaz — sin HTML, sin recursos remotos
+api: v2 (sin endpoints nuevos; `GET /problems` y `GET /problems/{problemId}?fields=evidenceDetails`, ya en uso; `evidenceDetails.details[].data.properties[]`; `docs/notas-api-v2.md`, "Eventos con dt.event.metric_selector")
+migracion: no
+rondas_revision: 0
+---
+
+## Petición original
+
+"Dentro de problemas, cuando se consulta el detalle de uno, cuando se hace el desglose por cada
+entidad afectada, hay un property de `dt.event.description` que estaría guay mostrarla con un lector
+de markdown, ya que vienen en ese formato y hay veces que verlo bonito es una mejora chula."
+
+Después, sobre el límite de longitud: "Mídelo". Y sobre el conmutador entre formato y texto
+original: que vaya en esa parte del desplegable que se abre al pulsar la fila.
+
+## Especificación
+
+**Dónde.** Tabla de evidencias del detalle del problema (v0.10.0), fila desplegada (al pulsarla) de
+una evidencia `EVENT` (`EventDetail` en `src/renderer/src/components/EvidenceSection.tsx`).
+
+**Qué llega hoy.** Main manda como mucho 8 propiedades de `data.properties`, cada una recortada a 300
+caracteres (`MAX_EVENT_PROPERTIES` y `MAX_PROPERTY_LENGTH` en `src/main/modules/problems.ts`), y la
+interfaz las pinta siempre como texto. `dt.event.description` no está en la OpenAPI como clave fija:
+es una propiedad observada (`docs/notas-api-v2.md`), con `value` de texto. Con el recorte actual una
+descripción larga llega cortada (Markdown roto) o ni llega si va después de la octava propiedad.
+
+**0. Medir primero (lo pidió Dani).** Antes de fijar el tope, el test-writer escribe
+`src/main/modules/problems-event-description.live.test.ts` con el mismo patrón que
+`problems-event-metric.live.test.ts`: solo lectura, `GET /problems` (`from: now-7d`) y como mucho 10
+`GET /problems/{problemId}?fields=evidenceDetails`. El informe (`live-reports/`, ignorado) guarda
+**solo comportamientos, nunca el texto ni un id**:
+
+- proporción de evidencias `EVENT` con `dt.event.description` y si su `value` es siempre texto;
+- su posición en `data.properties` (proporción de las que quedan después de la octava);
+- longitudes: mínima, mediana, máxima y tramos (≤300, ≤1 000, ≤5 000, ≤10 000, ≤20 000, más);
+- proporción con rasgos de Markdown (títulos, listas, negrita, código, tablas, enlaces, imágenes)
+  y con HTML en crudo (`<etiqueta`);
+- esquemas de los enlaces que aparezcan (`http`, `https`, otros), solo el esquema;
+- si la descripción sale en alguna línea del log del cliente.
+
+El developer lo lanza con `npm run test:live` y fija `MAX_DESCRIPTION_LENGTH` así: **el doble de la
+máxima observada, redondeado hacia arriba al millar, con un mínimo de 5 000 y un máximo de 20 000**
+(el límite del canal `app:copyText`, que no se amplía). Si la máxima observada pasa de 20 000, se
+para y se escala a Dani. El valor elegido y su porqué quedan en "Resultado" y en una sección nueva
+de `docs/notas-api-v2.md` (lo escribe el doc-writer, sin datos del tenant).
+
+**1. Main extrae la descripción aparte**, igual que ya se hace con `dt.event.metric_selector`: sobre
+las propiedades en crudo, el primer `dt.event.description` cuyo `value` sea texto no vacío (sin
+contar espacios), recortado a `MAX_DESCRIPTION_LENGTH` y marcado `truncated: true` si se recorta. Va
+en un campo nuevo de la evidencia (por ejemplo `description: { text, truncated } | null`), con su
+esquema Zod en `src/shared/problem-evidence.ts` (el campo no puede llamarse `value`: la guarda del
+IPC lo bloquea). La clave deja de ocupar sitio en las 8 propiedades genéricas.
+
+**2. Sección «Descripción» dentro del desplegable**, la primera del detalle del evento:
+
+- Por defecto, **con formato**: Markdown CommonMark + GFM (títulos, listas, negrita y cursiva,
+  código en línea y en bloque, tablas, citas y enlaces).
+- Un conmutador **«Con formato · Texto original»** en la cabecera de la sección. «Texto original»
+  enseña el Markdown tal cual (monoespaciado, respetando saltos de línea). La elección es por
+  evento y no se guarda: al plegar y volver a desplegar, o en otro evento, vuelve a «Con formato».
+- Un botón **«Copiar»** que copia el texto original (el que llegó de main) por `app:copyText`, con
+  el mismo aviso de copiado que «Copiar detalles» de las pantallas de error.
+- Con el teclado: el conmutador y «Copiar» son alcanzables con Tab dentro del detalle y no rompen
+  Enter (desplegar) ni Escape (plegar) de la fila.
+- Si viene recortada, una nota debajo lo dice.
+- Ya no se repite en la lista de propiedades. Textos nuevos en es y en.
+
+**3. Seguridad (contenido del tenant, no fiable):**
+
+- El HTML en crudo dentro del Markdown no se interpreta: se muestra como texto (nunca
+  `dangerouslySetInnerHTML` ni `rehype-raw`).
+- Enlaces: solo `http:` y `https:` son clicables y se abren en el navegador del sistema
+  (`target="_blank"` + `rel="noopener noreferrer"`, que ya recoge `setWindowOpenHandler` de
+  `src/main/security/harden.ts`). Otros esquemas (`javascript:`, `file:`, `data:`…) se muestran
+  como texto, sin enlace.
+- Imágenes: no se cargan nunca; se muestra su texto alternativo o, si no tiene, la URL como texto.
+- La CSP y `harden.ts` no cambian.
+
+**4. Librería propuesta:** `react-markdown` + `remark-gfm`, con versión exacta y como dependencias
+de desarrollo (van al bundle del renderer, como el resto de librerías de interfaz). Motivo: construye
+elementos de React sin pasar por HTML, escapa el HTML por defecto y deja sustituir los componentes
+de enlace e imagen. Si el developer ve un problema con el React Compiler o con el tamaño, lo anota y
+lo plantea en revisión.
+
+**5. Estilos:** los del tema actual (`text-xs` como el resto del detalle, colores del tema para que
+pase el test de contraste), sin plugin de tipografía nuevo. Tablas y bloques de código con scroll
+horizontal propio para no romper el ancho de la fila.
+
+**ADR nuevo** (lo escribe el doc-writer): regla general para pintar contenido del tenant con
+formato: sin HTML en crudo, solo enlaces http/https al navegador del sistema, sin recursos remotos y
+sin tocar la CSP.
+
+## Criterios de aceptación
+
+Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
+`MAX_DESCRIPTION_LENGTH` es la constante fijada en el paso 0.
+
+- CA1 (live, solo lectura): `problems-event-description.live.test.ts` genera su informe con los
+  campos del paso 0 y sin texto de descripciones, ids ni nombres (el test comprueba que ningún
+  valor del informe contiene una descripción observada). Se salta sin `.env.live.local`, como los
+  demás.
+- CA2 (unitario, main): de unas propiedades en crudo con `dt.event.description` en cualquier
+  posición (también después de la octava), la evidencia trae la descripción entera en su campo
+  propio, y esa clave no aparece en la lista de propiedades genéricas.
+- CA3 (unitario, main): una descripción de más de `MAX_DESCRIPTION_LENGTH` caracteres llega
+  recortada a esa longitud con `truncated: true`; una de esa longitud o menos llega entera con
+  `truncated: false`. `MAX_DESCRIPTION_LENGTH` está entre 5 000 y 20 000.
+- CA4 (unitario, main): sin la clave, con `value` que no es texto o con texto vacío o solo
+  espacios, el campo es `null`.
+- CA5 (unitario, shared): el esquema Zod de la evidencia acepta el campo nuevo y rechaza un texto
+  de más de `MAX_DESCRIPTION_LENGTH` caracteres.
+- CA6 (e2e): al desplegar un evento con descripción en Markdown (fixture con título, lista,
+  negrita, código y tabla), la sección «Descripción» sale la primera y contiene los elementos
+  renderizados (`h*`, `li`, `strong`, `code`, `table`), no los símbolos de Markdown.
+- CA7 (e2e): «Texto original» enseña el Markdown tal cual (con sus `#`, `-`, `**`) y sin esos
+  elementos; «Con formato» vuelve a renderizarlo. Al plegar y volver a desplegar la fila, sale
+  otra vez «Con formato».
+- CA8 (e2e): «Copiar» llama a `app:copyText` con el texto original exacto (también estando en «Con
+  formato») y se ve el aviso de copiado.
+- CA9 (e2e): con el teclado, Tab llega al conmutador y a «Copiar» dentro del detalle, se activan
+  con Enter o Espacio, y Escape sigue plegando la fila.
+- CA10 (e2e o unitario de componente): el HTML en crudo de la descripción (por ejemplo
+  `<img src=x onerror=…>` o `<script>`) se ve como texto y no crea esos elementos en el DOM.
+- CA11 (unitario de componente): un enlace `https:` se pinta con `target="_blank"` y
+  `rel="noopener noreferrer"`; uno `javascript:` o `file:` se pinta como texto sin `a`.
+- CA12 (unitario de componente): una imagen de Markdown no crea ningún `img`; se ve su texto
+  alternativo o, si no tiene, la URL.
+- CA13 (e2e): con una descripción recortada se ve la nota de recorte; sin recorte, no.
+- CA14 (e2e): un evento sin descripción no muestra la sección «Descripción» y el resto del detalle
+  (propiedades, zonas, etiquetas, mini gráfico) sigue igual.
+- CA15 (unitario): los textos nuevos existen en es y en (lo cubre el test de paridad de `check`).
+
+## Pruebas a mano para Dani
+
+- Con problemas reales del tenant, que las descripciones se ven bien (listas, tablas, enlaces), que
+  los enlaces abren el navegador del sistema y que «Copiar» pega el texto original.
+- Que ninguna descripción real sale con la nota de recorte (si alguna sale, avisar).
+
+## Fuera de alcance
+
+- Otras propiedades en Markdown (solo `dt.event.description`).
+- Descripción en otros sitios (lista de Problemas, Eventos, exportación a Excel: la exportación no
+  lleva propiedades y no cambia).
+- Recordar la elección «Con formato / Texto original» entre eventos o sesiones.
+- Resaltado de sintaxis en los bloques de código.
+- Cambios en la CSP, en `harden.ts` o en el límite de `app:copyText`.
+
+## Ideas surgidas (fuera de alcance)
+
+(ninguna)
+
+## Notas del revisor
+
+(sin revisar)
+
+## Verificación
+
+(pendiente)
+
+## Resultado
+
+(pendiente)
