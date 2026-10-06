@@ -199,8 +199,12 @@ Tests escritos en `1380222` (test-writer, antes del código), todos en
 Firmas que fijan los tests (la ficha no las daba):
 
 - `buildMessage(datos)` devuelve un string. En `version`, el campo `version` va sin «v»
-  (`0.11.0`); la primera línea de una versión no se comprueba con el título (el ejemplo de la ficha
-  no lo lleva).
+  (`0.11.0`). Desde la ronda 2, la primera línea de una versión lleva el título
+  (`📦 v0.11.0 · <título> — cerrada`).
+- `readRegistry(nombre, { execFile, env })` exportada (ronda 2, CA13): `execFile(fichero, args,
+opciones)` hace de `execFileSync` (devuelve la salida de texto de `reg.exe`) y `env` de
+  `process.env` (de él sale `SystemRoot`). Devuelve el valor de `REG_SZ` o `undefined` si
+  `execFile` lanza; no lanza.
 - `checkTenantLeftovers(texto, needles)` devuelve la lista de tipos (`kind`) que coinciden; vacía
   si no hay nada.
 - `sendTelegram({ token, chatId, text, fetchImpl })` no lanza: devuelve `{ ok: true }` o
@@ -233,9 +237,19 @@ Criterio → test (`describe` con el número):
   error con la URL y un `description` que repite token y chat_id).
 - CA10: `CA10 (0004): JSON de entrada` (inexistente, no válido, sin argumento).
 - CA11: `CA11 (0004): pasos en los comandos y permiso`.
+- CA12: `CA12 (0004): filtro sobre los campos completos, antes de recortar` (el valor en 61
+  posiciones alrededor del recorte, con un test que comprueba que en alguna queda partido, y en
+  `titulo`, `decision` y `ci`).
+- CA13: `CA13 (0004): lectura del registro con reg.exe por ruta absoluta` (con `SystemRoot`
+  inventado, `D:\WinFalso`).
 
 Ejecución antes del código: 64 tests, 64 fallan; 60 por «No existe scripts/notify-telegram.mjs» y
 los 4 de CA11 porque los comandos y `settings.json` aún no tienen el paso.
+
+Ronda 2 (tests en `19ad163`, CA1, CA2, CA12 y CA13): sobre el código de la ronda 1, 73 tests, 9
+fallan por lo esperado. CA1 ×2 por el cuerpo, que aún lleva `disable_web_page_preview`; CA2 ×3
+porque las versiones van sin título; CA12 ×1 porque, con el valor partido en la posición 1370, se
+envía; CA13 ×3 porque `readRegistry` no está exportada.
 
 Decisiones del developer (código en `8dcce79` y `286649b`; los 64 tests pasan):
 
