@@ -180,6 +180,12 @@ Tests escritos en `ea0fcf2` (test-writer, antes del código; fallan por falta de
   `aria-pressed`), `evidence-description-copy`, `evidence-description-copy-status` (texto de
   `errorScreen.copied`) y `evidence-description-truncated`. CA14 ya pasa: comprueba que sin
   descripción no cambia nada. CA15 lo cubre además la paridad de `locales.test.ts` en `check`.
+- Corrección en `3f07bf8` (sin cambiar criterios): el detector del test live no veía tablas GFM
+  compactas (`|a|b|` con `|:--|`) ni contaba los escapes con barra invertida; ahora sí. Medido de
+  nuevo: 25 % de las descripciones con rasgos de Markdown (tablas y escapes), máxima de 245
+  caracteres. CA6, CA7 y `MarkdownText.test.ts` prueban esa forma: tabla compacta con fila de
+  alineación y escapes `\.` y `\(9\)`, que con formato se ven sin la barra invertida y en «Texto
+  original» con ella.
 - Ajustados a la ficha: los e2e «v0.10.0: desplegar con clic…» y «v0.9.1: tarjetas de cambio…»
   esperan `dt.event.description` en su sección y no en las propiedades.
 
