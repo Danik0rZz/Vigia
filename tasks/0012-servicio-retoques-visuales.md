@@ -71,10 +71,7 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-- (developer) Algunos avisos interpolan números crudos en i18next sin `formatNumber` (`{{total}}`
-  de comentarios, evidencias, series de Métricas y la franja de problemas del servicio): con
-  totales de 4 cifras saldrían sin punto. Pasarlos por `formatNumber` (sin tocar `count`, que
-  i18next usa para el plural), o un formateador global de i18next.
+(ninguna)
 
 ## Notas del revisor
 
@@ -90,6 +87,8 @@ Ficha ligera: tests del developer en `7d37030` (`test(servicio): criterios de la
   (960×600, 2 columnas), sobre el servicio SVC_ID.
 - CA4 y CA5: `src/shared/format-number.test.ts`.
 - CA6: `e2e/views.spec.ts`, servicio nuevo del simulador con 9907 KO.
+- Textos de i18next (a petición del Orquestador, commit de tests `c3fcb17`): `src/renderer/src/app/i18n-numbers.test.ts`
+  y el e2e «CA5 (0012): los números de los avisos…» (P-792, con 1234 comentarios → «1.234»).
 
 Al escribirlos fallaban por falta de código (módulos inexistentes, `splitLine.show` undefined,
 desvíos de 12 a 98 px y «9907»).
@@ -118,5 +117,12 @@ Decisiones del developer (refinables, delegadas por el Orquestador):
 - El cambio de `formatNumber` y el de la rejilla van en un solo commit (`864c193`): el pre-commit
   corre los tests relacionados de `service-charts.ts`, que tiene las dos cosas.
 
-`npm run check`: 2150 tests en verde (líneas 91,76 %). `npm run test:e2e` completo (toca
-`e2e/areas.json`, transversal): 214 en verde.
+- Números interpolados en los textos de i18next (avisos, «Ver todos (N)», recuentos con plural):
+  un formateador de i18next (`app/i18n-numbers.ts`, con `alwaysFormat`) pasa cada número por
+  `formatNumber`, sin tocar los textos de los locales ni cada llamada a `t()`. Lo que ya llega
+  como texto (formateado o de Dynatrace) queda igual y `count` sigue eligiendo el plural. Con
+  esto, `ModuleState` ya no formatea por su cuenta. También afecta a los avisos de la hoja Info
+  de la exportación de un problema (son texto); las celdas con números no cambian.
+
+`npm run check`: 2154 tests en verde. `npm run test:e2e` completo (toca `e2e/areas.json`,
+transversal): 215 en verde.
