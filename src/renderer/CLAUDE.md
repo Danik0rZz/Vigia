@@ -24,3 +24,4 @@
 - El aviso de error de un panel o marcador enseña `errorDetail` (`lib/error-detail.ts`) visible y
   lleva `role="alert"`, como `ModuleError`; no basta el código traducido ni un `title`.
 - Un color nuevo de serie de gráfico: token en `main.css` (claro y oscuro), campo en `ChartColors` y caso en `src/main/env-colors.test.ts` (contraste ≥ 3:1 frente al fondo).
+- Abrir un detalle desde un tramo o fila de otra página con el estado `fromList` de `ProblemDetailPage`: así «Volver» hace `back()` en el historial y no recarga lo de la página de origen (franja de `ProblemBand.tsx`).

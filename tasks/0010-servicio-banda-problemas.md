@@ -1,7 +1,7 @@
 ---
 id: '0010'
 titulo: 'SERVICE: franja de los problemas de la entidad sobre el gráfico de tasa de error'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -187,4 +187,11 @@ con el simulador ampliado.
 
 ## Resultado
 
-(pendiente)
+- Commits: `e78dae2` (tests), `8007aea` (canal `entities:problems`), `03ba518` (cálculo de tramos) y
+  `7a5e00a` (franja), más los de la ficha y el cierre.
+- Ficheros principales: `src/shared/ipc.ts` y `modules.ts`, `src/main/ipc/handlers/modules.ts`,
+  `src/main/modules/problems.ts`, `pages/entities/ProblemBand.tsx`, `problem-band.ts`,
+  `ServiceCharts.tsx` y `ServiceEntityPage.tsx`, `ProblemDetailPage.tsx`, locales es y en.
+- Rondas de revisión: 1 (APROBADO). Verifier en verde. ADR nuevo: ninguno. Sin migraciones.
+- Pendiente de Dani: la prueba a mano con un servicio real (ver arriba).
+- Con esta ficha queda completo el lote «servicio» (0006 a 0010).

@@ -6,11 +6,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- Lote **servicio** (página de análisis de una entidad SERVICE), aprobado por Dani el 2026-10-07.
-  Orden: [0006](tasks/0006-servicio-datos-metricas.md) datos de métricas (hecha),
-  [0007](tasks/0007-servicio-problemas.md) recuentos de problemas (hecha),
-  [0008](tasks/0008-servicio-marcadores.md) marcadores (hecha), [0009](tasks/0009-servicio-graficos.md)
-  gráficos (hecha) y [0010](tasks/0010-servicio-banda-problemas.md) franja de problemas.
+(nada)
 
 ## Próximo
 
@@ -92,6 +88,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Clave `entities.service.charts.loadError` sin usar en es y en: usarla o quitarla. (surgió en 0009)
 - «Abrir en Métricas» de Actividad: la API v2 admite expresiones aritméticas, así que podría abrir OK
   como `(peticiones)-(errores)`; probarlo en vivo antes. (surgió en 0009)
+- Franja de problemas: no pedir la lista de problemas cuando no hay acceso a Métricas
+  (`ServiceEntityPage.tsx:34`). (surgió en 0010)
+- Franja de problemas: un texto propio de la franja en el aviso de error, en vez del genérico
+  (`ProblemBand.tsx:46-58`). (surgió en 0010)
 
 ## Aparcado
 
@@ -124,3 +124,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   falso de «solo parte de los puntos» en Métricas.
 - [0009](tasks/0009-servicio-graficos.md) (lote servicio): cuatro gráficos en la página del SERVICE
   (tiempos, actividad OK/KO, tasa de error y errores) con «Abrir en Métricas» y exportación.
+- [0010](tasks/0010-servicio-banda-problemas.md) (lote servicio): franja con los problemas de la
+  entidad sobre el gráfico de tasa de error, con tooltip y enlace al problema. Con ella queda
+  completo el lote «servicio» (0006 a 0010).

@@ -9,23 +9,25 @@ Sin migraciones nuevas.
 
 ### Añadido
 
-- Página de un servicio: debajo de los marcadores, una sección «Métricas de peticiones» con cuatro
-  gráficos en rejilla de 2×2 (una columna si la ventana es estrecha): tiempo de respuesta (mediana,
-  p90 y p99), actividad (OK y KO apiladas, por minuto), tasa de error y errores por minuto. Los
-  huecos sin datos se ven como huecos, no como 0; el tooltip da la fecha completa y el valor de cada
-  serie, y la leyenda oculta series. Cada gráfico se carga y falla por su lado (aviso con
-  «Reintentar»), tiene «Abrir en Métricas» (con el rango que se ve; el de Actividad abre peticiones y
-  errores) y se exporta como imagen o XLSX. Usan los mismos datos y el mismo rango que los
-  marcadores, sin llamadas extra. Dos colores nuevos del tema para las series (claro y oscuro). Parte
-  del lote «servicio»; sin migraciones nuevas. (ficha 0009)
-- Página de un servicio (desde «Analizar entidad» en el detalle de un problema): ya enseña arriba
-  los cinco marcadores del rango de la barra superior: peticiones OK y KO, tasa de error, tiempo de
-  respuesta (mediana grande, con p90 y p99 debajo) y problemas abiertos y cerrados. Cada marcador se
-  carga por su lado: si falla uno, su aviso lleva el detalle y «Reintentar» y el resto sigue. Sin
-  datos sale «—», no 0. Una línea indica el rango y la resolución («Últimas 2 h · datos por minuto»),
-  y «Actualizar» vuelve a pedir los datos. Las páginas de los otros tipos de entidad siguen en
-  construcción. Es la primera parte visible del lote «servicio» (0006 a 0010); sin migraciones nuevas.
-  (ficha 0008)
+- Página del servicio (desde «Analizar entidad» en el detalle de un problema), completa con el lote
+  «servicio» (fichas 0006 a 0010). Arriba, cinco marcadores del rango de la barra superior:
+  peticiones OK y KO, tasa de error, tiempo de respuesta (mediana grande, con p90 y p99 debajo) y
+  problemas abiertos y cerrados; sin datos sale «—», no 0. Una línea indica el rango y la resolución
+  («Últimas 2 h · datos por minuto»), y «Actualizar» vuelve a pedir los datos. Debajo, «Métricas de
+  peticiones» con cuatro gráficos en rejilla de 2×2 (una columna si la ventana es estrecha): tiempo
+  de respuesta (mediana, p90 y p99), actividad (OK y KO apiladas, por minuto), tasa de error y
+  errores por minuto. Los huecos sin datos se ven como huecos; el tooltip da la fecha y el valor de
+  cada serie, y la leyenda oculta series. Cada gráfico se carga y falla por su lado (aviso con
+  «Reintentar»), tiene «Abrir en Métricas» (con el rango que se ve) y se exporta como imagen o XLSX.
+  Sobre el gráfico de tasa de error, una franja con un tramo por cada problema de la entidad en el
+  rango, abiertos y cerrados (los abiertos en rojo y los cerrados apagados, siempre con icono y
+  texto), repartidos en filas si se solapan (hasta 3; si hay más, «+N»). Cada tramo enseña al pasar
+  el ratón o al enfocarlo el id, el título, el estado, el inicio y el fin (o «Activo»), y al
+  pulsarlo abre el problema; «Volver» regresa a la página del servicio sin volver a cargarla. Sin
+  problemas en el rango no hay franja; si falla, un aviso compacto con «Reintentar» y el gráfico
+  sigue; si la lista viene recortada, una nota lo dice. Las páginas de los otros tipos de entidad
+  siguen en construcción. Dos colores nuevos del tema para las series. Sin migraciones nuevas.
+  (fichas 0008, 0009 y 0010)
 - Detalle del problema: al desplegar un evento de la tabla de evidencias, su descripción sale la
   primera, en una sección «Descripción» con formato (títulos, listas, negrita, código, tablas, citas
   y enlaces), siempre con formato: no hay un modo para ver el texto tal cual, y «Copiar» copia el

@@ -259,6 +259,18 @@ peticiones):_
   (lo ignora). La página 2: **según la OpenAPI (solo `nextPageKey`); sin observar en vivo**, porque
   no había ningún problema con 2 comentarios o más en la muestra.
 
+### Problemas de una entidad: `GET /problems` con `affectedEntities` (ficha 0010, observado en vivo, solo lectura)
+
+Muestra: tres entidades (un SERVICE, un ENVIRONMENT y una PROCESS_GROUP_INSTANCE), con rango.
+
+- **Consulta:** `problemSelector=affectedEntities("<id>")` más `from`, `to`, `pageSize=100` y
+  `sort=-startTime` da 200, con `totalCount` y sin elementos fuera del esquema.
+- **Orden:** `-startTime` devuelve de más nuevo a más antiguo.
+- **Entidades afectadas:** todos los problemas devueltos incluyen la entidad pedida.
+- **`endTime`:** en los problemas abiertos llega **`-1`** (ninguno `null` en la muestra), así que la
+  app lo normaliza a `null`. En los cerrados, `endTime` no es anterior a `startTime`.
+- Sin `status` en el selector la lista trae abiertos y cerrados a la vez.
+
 ## b) Entities y entityTypes
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/entities-explore.live.test.ts` (11 lecturas).
