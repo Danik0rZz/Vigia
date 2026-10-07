@@ -1,7 +1,7 @@
 ---
 id: '0016'
 titulo: 'HOST: exploración en vivo de las métricas y canal de series y marcadores (CPU, memoria, red y disco)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -220,6 +220,11 @@ iowait` no suma el total en 2 de los 3 hosts (hay más componentes de CPU): el d
   el esquema de serie del servicio (tipo `HostSeries`).
 - El canal se añade a los registros de cobertura `channel-coverage.test.ts` y `modules.test.ts`
   («todos los canales»), como se hizo con `entities:serviceMetrics` en la 0006.
+
+### Verifier, 2026-10-08, commit `168b429`, rango `main..168b429`: VERDE
+
+- check: 2244 tests en 116 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 224/224.
 
 ## Resultado
 
