@@ -1,7 +1,7 @@
 ---
 id: '0011'
 titulo: Tests que dependen de la zona horaria o del escalado del escritorio
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -119,4 +119,7 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Resultado
 
-(pendiente)
+- Commits: tests `4644e49`, arreglo `0f290bb`; fichas `acebd5b`, `b96b7fc`, `5e0e6ab`.
+- Ficheros principales: `e2e/local-time.ts`, `e2e/window-size.ts`, `e2e/views.spec.ts`,
+  `src/test/e2e-support.test.ts`.
+- Rondas de revisión: 1 (aprobado). ADR nuevo: ninguno. Sin migraciones.

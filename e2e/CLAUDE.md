@@ -31,3 +31,8 @@
 - No hacer clic en una fila mientras la página se recoloca (por ejemplo, al salir la barra de
   scroll): `locator.click` reintenta desplazando la lista y cambia la fila de arriba. Usar
   `clickInPlace` sobre una fila del centro.
+- Una hora escrita en un campo de fecha se interpreta en la zona del equipo: lo esperado se calcula
+  con `wallTimeToEpoch` en la zona del renderer, nunca suponiendo Madrid (el CI está en UTC).
+- `withContentSize` acepta hasta 2 px de redondeo de Windows al escalar y pasa el tamaño real al cuerpo.
+- En Windows, desde Git Bash `TZ=Europe/Madrid` no llega al proceso (MSYS lo descarta; `TZ=UTC` sí): para
+  zonas con barra, PowerShell (`$env:TZ`) o Node.

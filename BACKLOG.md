@@ -92,6 +92,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   (`ServiceEntityPage.tsx:34`). (surgió en 0010)
 - Franja de problemas: un texto propio de la franja en el aviso de error, en vez del genérico
   (`ProblemBand.tsx:46-58`). (surgió en 0010)
+- `withContentSize` (`e2e/views.spec.ts`): comentar que hoy ningún cuerpo usa el tamaño real
+  (`actual`) que recibe. (surgió en 0011)
 
 ## Aparcado
 
@@ -127,3 +129,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0010](tasks/0010-servicio-banda-problemas.md) (lote servicio): franja con los problemas de la
   entidad sobre el gráfico de tasa de error, con tooltip y enlace al problema. Con ella queda
   completo el lote «servicio» (0006 a 0010).
+- [0011](tasks/0011-tests-hora-y-escalado.md) (lote servicio-2): e2e independientes de la zona
+  horaria y del escalado del escritorio; CI en verde.

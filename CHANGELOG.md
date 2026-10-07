@@ -64,6 +64,10 @@ Sin migraciones nuevas.
   de punta a punta que fallaban según la máquina (en el CI y en el servidor de pruebas) se han
   sustituido por versiones estables que comprueban lo mismo, con la ventana a un tamaño fijo, y las
   acciones `checkout` y `setup-node` del CI pasan a la v7 (Node 24). (ficha 0005)
+- Forma de trabajar del proyecto (no cambia la app): los tests de punta a punta ya no dependen de la
+  zona horaria ni del escalado del escritorio, y el CI vuelve a salir en verde. El de la fecha
+  personalizada calcula lo esperado en la zona del equipo (el CI está en UTC) y la espera del tamaño
+  de ventana admite hasta 2 px de redondeo de Windows al escalar. Sin migraciones nuevas. (ficha 0011)
 
 ### Corregido
 
