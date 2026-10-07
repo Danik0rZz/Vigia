@@ -1,5 +1,6 @@
 import i18n, { type Resource } from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { I18N_INTERPOLATION, numberFormatter } from './i18n-numbers'
 import { usePreferences, type Language } from './preferences'
 
 /** Namespace de la navegación, la barra superior, Ajustes y la tarjeta de estado. */
@@ -34,13 +35,17 @@ function applyLanguage(language: Language): void {
  */
 export function initI18n(): void {
   const { language } = usePreferences.getState()
-  void i18n.use(initReactI18next).init({
-    resources: loadResources(),
-    defaultNS: DEFAULT_NAMESPACE,
-    lng: language,
-    fallbackLng: 'es',
-    interpolation: { escapeValue: false }
-  })
+  void i18n
+    .use(initReactI18next)
+    // Números de los textos con separador de miles (ficha 0012).
+    .use(numberFormatter)
+    .init({
+      resources: loadResources(),
+      defaultNS: DEFAULT_NAMESPACE,
+      lng: language,
+      fallbackLng: 'es',
+      interpolation: I18N_INTERPOLATION
+    })
   applyLanguage(language)
 
   usePreferences.subscribe((state, previous) => {

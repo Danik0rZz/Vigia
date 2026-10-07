@@ -133,6 +133,7 @@
         "src/shared/problem-evidence.ts",
         "src/shared/event-metric.ts",
         "src/shared/format-number.ts",
+        "src/renderer/src/app/i18n-numbers.ts",
         "src/shared/error-reasons.ts"
       ],
       "specs": ["e2e/views.spec.ts"]
@@ -162,6 +163,7 @@
         "src/renderer/src/components/styles.ts",
         "src/renderer/src/app/theme.ts",
         "src/renderer/src/app/i18n.ts",
+        "src/renderer/src/app/i18n-numbers.ts",
         "src/renderer/src/app/preferences.ts",
         "src/renderer/src/app/time-range.ts",
         "src/renderer/src/pages/SectionPage.tsx",

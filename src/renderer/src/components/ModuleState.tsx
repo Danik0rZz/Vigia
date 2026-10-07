@@ -7,7 +7,6 @@ import { errorDetail } from '../lib/error-detail'
 import { listNotice } from '../lib/list-notice'
 import { IpcError } from '../lib/ipc'
 import { BUTTON_SECONDARY } from './styles'
-import { formatNumber } from '@shared/format-number'
 
 /** Módulo desactivado, con la explicación (no es un error). */
 export function ModuleUnavailable({
@@ -113,19 +112,13 @@ export function TruncatedNotice({
   truncated?: boolean
   filtered?: boolean
 }): JSX.Element | null {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const notice = listNotice({ shown, loaded, total, truncated, filtered })
   if (notice === null) return null
-  // `count` va sin formato: i18next lo usa para elegir el plural.
-  const params = Object.fromEntries(
-    Object.entries(notice.params).map(([key, value]) => [
-      key,
-      key === 'count' ? value : formatNumber(value, i18n.language)
-    ])
-  )
+  // Los números van tal cual: i18next los formatea con separador de miles (`app/i18n-numbers.ts`).
   return (
     <p data-testid="list-truncated" className="text-xs text-muted-foreground">
-      {t(notice.key, params)}
+      {t(notice.key, notice.params)}
     </p>
   )
 }
