@@ -1414,6 +1414,156 @@ function serviceMetricResponse(query: URLSearchParams): [number, unknown] {
 }
 
 /**
+ * Ficha 0016: métricas de una entidad HOST (canal entities:hostMetrics), con un id inventado.
+ * Imita lo observado en vivo (paso 0): un resultado por expresión, en el orden pedido y con el
+ * metricId igual a la expresión; % en 0–100, bytes y bits/s; red y disco con una serie por
+ * interfaz o disco salvo con splitBy() (suma o máximo por punto); fold con resolution=Inf da 400.
+ */
+const HOST_METRICS_ID = 'HOST-00000000000E2E30'
+const HOST_T0 = Date.parse('2026-10-03T08:00:00.000Z')
+const HOST_TIMESTAMPS = [0, 1, 2].map((i) => HOST_T0 + i * 60_000)
+type HostSeriesKind =
+  | 'cpu'
+  | 'user'
+  | 'system'
+  | 'iowait'
+  | 'memory'
+  | 'memUsed'
+  | 'memTotal'
+  | 'netIn'
+  | 'netOut'
+  | 'disk'
+type HostMarkerKind = 'cpuAvg' | 'cpuMax' | 'memoryAvg' | 'netIn' | 'netOut' | 'diskMax' | 'load'
+/** Series ya juntas (lo que da splitBy():sum en la red y splitBy():max en el disco). */
+const HOST_SERIES: Record<HostSeriesKind, (number | null)[]> = {
+  cpu: [12, null, 48],
+  user: [8, null, 30],
+  system: [3, null, 15],
+  iowait: [1, null, 3],
+  memory: [50, null, 62.5],
+  memUsed: [8_000_000_000, null, 10_000_000_000],
+  memTotal: [16_000_000_000, null, 16_000_000_000],
+  netIn: [2000, null, 5000],
+  netOut: [400, null, 900],
+  disk: [81, null, 91]
+}
+/** Una serie por interfaz o por disco, si no se juntan con splitBy(). */
+const HOST_PER_ITEM: Record<'netIn' | 'netOut' | 'disk', (number | null)[][]> = {
+  netIn: [
+    [1500, null, 4000],
+    [500, null, 1000]
+  ],
+  netOut: [
+    [300, null, 600],
+    [100, null, 300]
+  ],
+  disk: [
+    [81, null, 40],
+    [20, null, 91]
+  ]
+}
+const HOST_MARKERS: Record<HostMarkerKind, number> = {
+  cpuAvg: 33.5,
+  cpuMax: 95,
+  memoryAvg: 57,
+  netIn: 3600,
+  netOut: 650,
+  diskMax: 92,
+  load: 2.25
+}
+
+/** Clave de la métrica (lo que va antes de la primera transformación). */
+const hostMetricKey = (expression: string): string =>
+  /^builtin:[A-Za-z.]+/.exec(expression)?.[0].replace(/\.$/, '') ?? ''
+const hostMerged = (expression: string): boolean =>
+  /:splitBy\((\s*|"dt\.entity\.host")\)/.test(expression)
+const hostAgg = (expression: string, aggregation: string): boolean =>
+  new RegExp(`:${aggregation}\\b`).test(expression)
+
+function hostSeriesKind(expression: string): HostSeriesKind | null {
+  const kinds: Record<string, HostSeriesKind> = {
+    'builtin:host.cpu.usage': 'cpu',
+    'builtin:host.cpu.user': 'user',
+    'builtin:host.cpu.system': 'system',
+    'builtin:host.cpu.iowait': 'iowait',
+    'builtin:host.mem.usage': 'memory',
+    'builtin:host.mem.used': 'memUsed',
+    'builtin:host.mem.total': 'memTotal'
+  }
+  const key = hostMetricKey(expression)
+  const plain = kinds[key]
+  if (plain !== undefined) return hostAgg(expression, 'max') ? null : plain
+  if (!hostMerged(expression)) return null
+  if (key === 'builtin:host.net.nic.trafficIn' && hostAgg(expression, 'sum')) return 'netIn'
+  if (key === 'builtin:host.net.nic.trafficOut' && hostAgg(expression, 'sum')) return 'netOut'
+  if (key === 'builtin:host.disk.usedPct' && hostAgg(expression, 'max')) return 'disk'
+  return null
+}
+
+function hostMarkerKind(expression: string): HostMarkerKind | null {
+  const key = hostMetricKey(expression)
+  if (key === 'builtin:host.cpu.usage') return hostAgg(expression, 'max') ? 'cpuMax' : 'cpuAvg'
+  if (key === 'builtin:host.mem.usage') return 'memoryAvg'
+  if (key === 'builtin:host.cpu.load') return 'load'
+  if (!hostMerged(expression)) return null
+  if (key === 'builtin:host.net.nic.trafficIn' && hostAgg(expression, 'sum')) return 'netIn'
+  if (key === 'builtin:host.net.nic.trafficOut' && hostAgg(expression, 'sum')) return 'netOut'
+  if (key === 'builtin:host.disk.usedPct' && hostAgg(expression, 'max')) return 'diskMax'
+  return null
+}
+
+/** ¿Es una consulta de métricas del host inventado (series o marcadores)? */
+function isHostMetricsQuery(query: URLSearchParams): boolean {
+  const selector = query.get('metricSelector') ?? ''
+  return (
+    selector.startsWith('builtin:host.') &&
+    ((query.get('entitySelector') ?? '').includes(`entityId("${HOST_METRICS_ID}")`) ||
+      selector.includes(HOST_METRICS_ID))
+  )
+}
+
+/** Respuesta del simulador a una consulta de métricas del host inventado. */
+function hostMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && selector.includes(':fold(')) {
+    return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
+  }
+  const marker = inf || selector.includes(':fold(')
+  const expressions = splitSelector(selector)
+  const dataOf = (expression: string): (number | null)[][] => {
+    if (marker) {
+      const kind = hostMarkerKind(expression)
+      return kind === null ? [] : [[HOST_MARKERS[kind]]]
+    }
+    const kind = hostSeriesKind(expression)
+    if (kind !== null) return [HOST_SERIES[kind]]
+    const key = hostMetricKey(expression)
+    if (key === 'builtin:host.net.nic.trafficIn') return HOST_PER_ITEM.netIn
+    if (key === 'builtin:host.net.nic.trafficOut') return HOST_PER_ITEM.netOut
+    if (key === 'builtin:host.disk.usedPct') return HOST_PER_ITEM.disk
+    return []
+  }
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '1m',
+      result: expressions.map((expression) => ({
+        metricId: expression.split(`"${HOST_METRICS_ID}"`).join(HOST_METRICS_ID),
+        data: dataOf(expression).map((values, i) => ({
+          dimensionMap: { 'dt.entity.host': HOST_METRICS_ID, item: `ITEM-${i}` },
+          dimensions: [HOST_METRICS_ID, `ITEM-${i}`],
+          timestamps: marker ? [HOST_T0 + 180_000] : HOST_TIMESTAMPS,
+          values
+        }))
+      }))
+    }
+  ]
+}
+
+/**
  * Estado y registro del Dynatrace simulado. Cada test parte de estos valores
  * (`resetState` los restaura); los contadores solo se comparan con un «antes»
  * tomado dentro del propio test.
@@ -1461,6 +1611,8 @@ const defaultSim = () => ({
   requests: [] as string[],
   /** Ficha 0006: consultas de métricas del servicio inventado (sus query). */
   serviceMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0016: consultas de métricas del host inventado (sus query). */
+  hostMetricQueries: [] as URLSearchParams[],
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
   serviceMetricsFail: false,
   /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
@@ -1712,6 +1864,12 @@ async function startServer(): Promise<void> {
             send(status, body)
           }, sim.eventMetricDelayMs)
           return
+        }
+        // Ficha 0016: las del canal entities:hostMetrics, aparte (antes que la vista Métricas).
+        if (isHostMetricsQuery(url.searchParams)) {
+          sim.hostMetricQueries.push(url.searchParams)
+          const [status, body] = hostMetricResponse(url.searchParams)
+          return send(status, body)
         }
         // Ficha 0006: las del canal entities:serviceMetrics, aparte.
         if (isServiceSelector(eventSelector)) {
@@ -5697,6 +5855,51 @@ test('CA7 (0006): entities:serviceMetrics por IPC con un id inventado: dos consu
       ok: 135,
       errorRate: 10,
       responseTime: { median: 105, p90: 305, p99: 820 }
+    },
+    warnings: [],
+    partial: []
+  })
+})
+
+test('CA7 (0016): entities:hostMetrics por IPC con un id inventado: dos consultas, series y totales', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:hostMetrics', {
+    environmentId: env['Producción'],
+    entityId: HOST_METRICS_ID,
+    timeRange: '2h'
+  })
+  // Dos consultas al simulador (series y marcadores con Inf), las dos con el rango global.
+  expect(sim.hostMetricQueries).toHaveLength(2)
+  for (const query of sim.hostMetricQueries) expect(query.get('from')).toBe('now-2h')
+  expect(sim.hostMetricQueries.map((q) => q.get('resolution') ?? 'API').sort()).toEqual([
+    'API',
+    'Inf'
+  ])
+
+  const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: HOST_TIMESTAMPS,
+    values
+  })
+  expect(data).toMatchObject({
+    resolution: '1m',
+    series: {
+      cpu: series([12, null, 48]),
+      cpuBreakdown: {
+        user: series([8, null, 30]),
+        system: series([3, null, 15]),
+        iowait: series([1, null, 3])
+      },
+      memory: series([50, null, 62.5]),
+      // Todas las interfaces sumadas (bits/s) y el disco más lleno en cada punto (%).
+      network: { in: series([2000, null, 5000]), out: series([400, null, 900]) },
+      disk: series([81, null, 91])
+    },
+    totals: {
+      cpu: { avg: 33.5, max: 95 },
+      // Usada y total del último punto con dato, en bytes.
+      memory: { avg: 57, used: 10_000_000_000, total: 16_000_000_000 },
+      network: { in: 3600, out: 650 },
+      disk: { max: 92 },
+      load: { avg: 2.25 }
     },
     warnings: [],
     partial: []
