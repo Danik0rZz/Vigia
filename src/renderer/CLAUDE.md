@@ -26,3 +26,4 @@
 - Un color nuevo de serie de gráfico: token en `main.css` (claro y oscuro), campo en `ChartColors` y caso en `src/main/env-colors.test.ts` (contraste ≥ 3:1 frente al fondo).
 - Abrir un detalle desde un tramo o fila de otra página con el estado `fromList` de `ProblemDetailPage`: así «Volver» hace `back()` en el historial y no recarga lo de la página de origen (franja de `ProblemBand.tsx`).
 - Todo número que se enseña pasa por `formatNumber` (`src/shared/format-number.ts`): en ejes y tooltips de ECharts, con `formatter` (si no, ECharts pone comas); los textos de i18next ya lo hacen con el formateador global (`app/i18n-numbers.ts`). Un test vigila que no haya `new Intl.NumberFormat` por libre.
+- Una consulta que depende de un scope espera a conocer `connection:status` (`useConnectionStatusKnown`, `data/tenants.ts`): `useModuleAccess` da el módulo por disponible hasta entonces y se pediría sin permiso (`ServiceInfo.tsx`).

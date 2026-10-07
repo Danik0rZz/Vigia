@@ -1,7 +1,7 @@
 ---
 id: '0015'
 titulo: 'SERVICE: sección «Información» con propiedades, zonas, etiquetas y relaciones (nombres a demanda)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -221,4 +221,7 @@ revisor de la 0014); ese ya pasa, porque el hook es de la 0014.
 
 ## Resultado
 
-(pendiente)
+- Commits: `172c2f7` (tests), `a338167`, `b55bb1f`, `499919e` y `6ebafc6` (código), `82930b0` (revisión). Sin migraciones ni ADR nuevo.
+- Ficheros principales: `src/renderer/src/pages/entities/ServiceInfo.tsx` y `service-info.ts`, `ServiceEntityPage.tsx`, `data/modules.ts` y `data/tenants.ts` (`useConnectionStatusKnown`), textos `entities.service.info` en es y en, y los e2e de `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (aprobada). Verifier en verde: 2211 tests unitarios, e2e 223/223.
+- Pendiente de Dani: la prueba a mano con servicios reales (ver «Pruebas a mano para Dani»).

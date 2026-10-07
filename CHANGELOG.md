@@ -28,6 +28,7 @@ Sin migraciones nuevas.
   sigue; si la lista viene recortada, una nota lo dice. Las páginas de los otros tipos de entidad
   siguen en construcción. Dos colores nuevos del tema para las series. Sin migraciones nuevas.
   (fichas 0008, 0009 y 0010)
+- Página del servicio: tarjeta «Información» entre la cabecera y los marcadores, en dos columnas (una con la ventana estrecha). «Servicio» enseña, solo con lo que venga, el tipo, las tecnologías, dónde escucha, la aplicación, la nube, cuándo se vio por primera y última vez, las zonas y las etiquetas (seis y «+N» para el resto). «Relaciones» las agrupa en «Se ejecuta en», «Llama a», «Lo llaman» y «Otras relaciones», cada grupo con su número; al desplegarlo sale la lista (hasta 50, con «Mostrando 50 de N»), y «Ver nombres» pide los nombres solo entonces. Cada entidad es un enlace a su página y «Volver» regresa al servicio. «Todas las propiedades» queda plegada al final. Sin el permiso de lectura de entidades, la tarjeta dice qué falta y marcadores y gráficos siguen; si falla, aviso con «Reintentar». Sin migraciones nuevas. (ficha 0015)
 - Detalle del problema: al desplegar un evento de la tabla de evidencias, su descripción sale la
   primera, en una sección «Descripción» con formato (títulos, listas, negrita, código, tablas, citas
   y enlaces), siempre con formato: no hay un modo para ver el texto tal cual, y «Copiar» copia el

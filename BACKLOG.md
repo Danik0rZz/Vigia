@@ -6,8 +6,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): servicio-2 (lo que quede) →
-  [0021](tasks/0021-e2e-ventana-del-ci.md) → host (0016–0020) → lote **monitores**
+- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020) → lote **monitores**
   ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
   browser y HTTP monitor) → lote **proceso**
   ([0027](tasks/0027-proceso-exploracion-datos.md)–[0029](tasks/0029-proceso-informacion.md)).
@@ -15,10 +14,6 @@ bueno de Dani o de peticiones en su nombre.
   [0016](tasks/0016-host-datos-metricas.md), [0017](tasks/0017-host-discos-procesos-datos.md),
   [0018](tasks/0018-host-marcadores-graficos.md), [0019](tasks/0019-host-discos-procesos-vista.md) y
   [0020](tasks/0020-host-informacion.md). La 0020 depende de la 0015 (lote servicio-2).
-- Lote **servicio-2** (arreglos de tests, retoques del servicio e información de la entidad),
-  aprobado por Dani el 2026-10-07. Orden: [0011](tasks/0011-tests-hora-y-escalado.md),
-  [0012](tasks/0012-servicio-retoques-visuales.md), [0013](tasks/0013-servicio-franja-entera.md),
-  [0014](tasks/0014-entidad-datos-api.md) y [0015](tasks/0015-servicio-informacion.md).
 
 ## Próximo
 
@@ -116,10 +111,15 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   (surgió en 0021)
 - `entityTypeOf` (`src/main/modules/entities.ts`): con un id sin guion recorta el último carácter;
   usar `requestedId` o devolver el texto entero. (surgió en 0014)
-- Test de `useModuleAccess("entities")` (scope `entities.read`) al hacer la vista de la 0015.
-  (surgió en 0014)
 - e2e intermitente «v0.9.0 … exportación del detalle de un problema»: falló una vez en una tirada
   completa y pasó al repetir; no salió en la verificación. Causa sin investigar. (surgió en 0014)
+- Marcadores y gráficos del servicio (métricas y problemas) pueden pedir datos antes de conocer el
+  scope, porque `useModuleAccess` da el módulo por disponible hasta que responde `connection:status`;
+  resolverlo en el propio hook para todos los módulos. (surgió en 0015)
+- `ServiceInfo.tsx:351`: crear el enlace a la entidad relacionada solo si su id pasa
+  `entityIdSchema`. (surgió en 0015)
+- Sacar las opciones comunes de `useConnectionStatus` y `useConnectionStatusKnown`
+  (`data/tenants.ts`). (surgió en 0015)
 
 ## Aparcado
 
@@ -164,3 +164,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0021](tasks/0021-e2e-ventana-del-ci.md): todos los e2e arrancan con la ventana del CI (1024×720).
 - [0014](tasks/0014-entidad-datos-api.md) (lote servicio-2): canales `entities:get` y `entities:names` y
   scope `entities.read` en «Probar conexión». Sin interfaz hasta la 0015.
+- [0015](tasks/0015-servicio-informacion.md) (lote servicio-2): tarjeta «Información» en la página del
+  servicio, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades. Con ella
+  queda completo el lote «servicio-2» (0011 a 0015).
