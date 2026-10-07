@@ -965,6 +965,11 @@ const SVC_EMPTY_ID = 'SERVICE-00000000000E2E03'
  */
 const SVC_BAND_ID = 'SERVICE-00000000000E2E04'
 const SVC_QUIET_ID = 'SERVICE-00000000000E2E05'
+/**
+ * Ficha 0013: servicio con dos problemas cerrados de pocos minutos (shortProblems): en un rango
+ * de 7 días, sus tramos son muy estrechos; uno de ellos, pegado al final del rango.
+ */
+const SVC_SHORT_ID = 'SERVICE-00000000000E2E06'
 const SVC_DATA: Record<
   string,
   { series: Record<SvcKind, (number | null)[]>; markers: Record<SvcKind, number> }
@@ -972,6 +977,7 @@ const SVC_DATA: Record<
   [SVC_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_BAND_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_QUIET_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
+  [SVC_SHORT_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_BIG_ID]: {
     series: {
       median: [800_000, 900_000, null, 850_000],
@@ -1030,6 +1036,43 @@ function bandProblems(): FakeProblem[] {
     startTime,
     endTime,
     affectedEntities: [{ entityId: { id: SVC_BAND_ID, type: 'SERVICE' }, name: 'servicio-franja' }],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: [],
+    evidenceDetails: { totalCount: 0, details: [] }
+  }))
+}
+
+const BAND_SHORT = {
+  problemId: 'pd-band-short',
+  displayId: 'P-E2E43',
+  title: 'Corte breve en la franja'
+}
+const BAND_SHORT_END = {
+  problemId: 'pd-band-short-end',
+  displayId: 'P-E2E44',
+  title: 'Corte breve al final de la franja'
+}
+
+/**
+ * Ficha 0013: los dos problemas de SVC_SHORT_ID, cerrados y de 4 minutos: uno de hace 3 días y
+ * otro que acabó hace 2 minutos (pegado al final del rango).
+ */
+function shortProblems(): FakeProblem[] {
+  const now = sim.bandNow
+  return (
+    [
+      [BAND_SHORT, now - 3 * 24 * 60 * 60_000, now - 3 * 24 * 60 * 60_000 + 4 * 60_000],
+      [BAND_SHORT_END, now - 6 * 60_000, now - 2 * 60_000]
+    ] as const
+  ).map(([ids, startTime, endTime]) => ({
+    ...ids,
+    status: 'CLOSED',
+    severityLevel: 'ERROR',
+    impactLevel: 'SERVICES',
+    startTime,
+    endTime,
+    affectedEntities: [{ entityId: { id: SVC_SHORT_ID, type: 'SERVICE' }, name: 'servicio-corto' }],
     impactedEntities: [],
     managementZones: [],
     problemFilters: [],
@@ -1315,7 +1358,13 @@ async function startServer(): Promise<void> {
             })
           }
           const matching = applySelector(
-            [...problemsFor(token), ...entityCountProblems, ...markerProblems(), ...bandProblems()],
+            [
+              ...problemsFor(token),
+              ...entityCountProblems,
+              ...markerProblems(),
+              ...bandProblems(),
+              ...shortProblems()
+            ],
             selector
           )
           const pageSize = Number(url.searchParams.get('pageSize') ?? '50')
@@ -1758,8 +1807,17 @@ async function settledBox(
  * Clic con el ratón en el centro del elemento, donde está, cuando ya no se mueve y nada lo tapa.
  * Locator.click, si el primer intento no acierta (la página aún se recoloca), reintenta haciendo
  * scroll para alinear el elemento abajo, y ese scroll cambia lo que se está probando.
+ *
+ * Con `scroll` (ficha 0013), antes desplaza sus contenedores para traerlo al centro de la vista,
+ * como haría el usuario: con una ventana pequeña (la del CI) el elemento puede empezar fuera.
+ * Sin él, un elemento fuera de la vista hace fallar el test: es lo que se quiere en las listas.
  */
-async function clickInPlace(target: Locator): Promise<void> {
+async function clickInPlace(target: Locator, options: { scroll?: boolean } = {}): Promise<void> {
+  if (options.scroll === true) {
+    await target.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', inline: 'nearest' })
+    )
+  }
   const box = await settledBox(target)
   expect(await receivesClick(target), 'el elemento recibe el clic donde está').toBe(true)
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
@@ -6092,7 +6150,7 @@ test('CA5 (0010): pulsar un tramo (y Enter con el foco) abre el detalle de ese p
   expect(before).toEqual([2, 2, 1])
 
   // Clic en el cerrado.
-  await clickInPlace(bandSegment(BAND_CLOSED.problemId))
+  await clickInPlace(bandSegment(BAND_CLOSED.problemId), { scroll: true })
   await expect(page.getByTestId('problem-page')).toBeVisible()
   await expect(page.getByTestId('problem-page-title')).toContainText(BAND_CLOSED.displayId)
   expect(await currentRoute()).toBe(`/problems/${BAND_CLOSED.problemId}`)
@@ -6163,4 +6221,240 @@ test('CA6 (0010): si el canal de la lista falla, la franja enseña el aviso con 
   await expect(problemBand().getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
   await expect(problemBand().getByRole('alert')).toHaveCount(0)
   expect(sim.entityProblemListQueries).toHaveLength(2)
+})
+
+/**
+ * Ficha 0013: la franja de problemas se ve entera. Lo que se mide de cada tramo: su caja, la del
+ * icono (el `svg`) y la del texto que se ve (sus nodos de texto, con un Range). Un texto cuenta
+ * como visible si su caja toca la del tramo; si la toca, tiene que caber entera en ella (un texto
+ * cortado por el tramo es un recorte). Con zoom 1,5 (`setZoomFactor`, como el escalado al 150 %
+ * de la VPS) y con la ventana del CI (pantalla de 1024×768: contenido de unos 1008×705).
+ */
+const CI_WINDOW = { width: 1008, height: 705 }
+
+interface Rect {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+interface SegmentFit {
+  problemId: string
+  segment: Rect
+  icon: Rect | null
+  /** Caja del texto que toca el tramo; null si no se ve ningún texto. */
+  text: Rect | null
+  band: Rect
+}
+
+/** Ficha 0013: cajas de cada tramo de la franja, de su icono y de su texto visible. */
+async function segmentFits(): Promise<SegmentFit[]> {
+  return problemBand().evaluate((band) => {
+    const rect = (r: DOMRect): Rect => ({
+      left: r.left,
+      top: r.top,
+      right: r.right,
+      bottom: r.bottom
+    })
+    const touches = (a: Rect, b: Rect): boolean =>
+      a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+    return [...band.querySelectorAll<HTMLElement>('[data-testid="service-problem-segment"]')].map(
+      (segment) => {
+        const box = rect(segment.getBoundingClientRect())
+        const svg = segment.querySelector('svg')
+        const walker = document.createTreeWalker(segment, NodeFilter.SHOW_TEXT)
+        let text: Rect | null = null
+        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+          if ((node.textContent ?? '').trim() === '') continue
+          if (node.parentElement?.checkVisibility({ visibilityProperty: true }) !== true) continue
+          const range = document.createRange()
+          range.selectNodeContents(node)
+          const r = rect(range.getBoundingClientRect())
+          if (r.right - r.left === 0 || !touches(r, box)) continue
+          text =
+            text === null
+              ? r
+              : {
+                  left: Math.min(text.left, r.left),
+                  top: Math.min(text.top, r.top),
+                  right: Math.max(text.right, r.right),
+                  bottom: Math.max(text.bottom, r.bottom)
+                }
+        }
+        return {
+          problemId: segment.dataset['problemId'] ?? '',
+          segment: box,
+          icon: svg === null ? null : rect(svg.getBoundingClientRect()),
+          text,
+          band: rect(band.getBoundingClientRect())
+        }
+      }
+    )
+  })
+}
+
+/** Ficha 0013: `inner` dentro de `outer`, con medio px de margen por el redondeo. */
+function expectInside(inner: Rect, outer: Rect, what: string): void {
+  expect(inner.left, `${what} (izquierda)`).toBeGreaterThanOrEqual(outer.left - 0.5)
+  expect(inner.right, `${what} (derecha)`).toBeLessThanOrEqual(outer.right + 0.5)
+  expect(inner.top, `${what} (arriba)`).toBeGreaterThanOrEqual(outer.top - 0.5)
+  expect(inner.bottom, `${what} (abajo)`).toBeLessThanOrEqual(outer.bottom + 0.5)
+}
+
+/** Ficha 0013: ejecuta `body` con el zoom de la página a `factor` y lo deja en 1 aunque falle. */
+async function withZoom(factor: number, body: () => Promise<void>): Promise<void> {
+  const dpr = (): Promise<number> => page.evaluate(() => window.devicePixelRatio)
+  const base = await dpr()
+  const setZoom = (value: number): Promise<void> =>
+    app.evaluate(({ BrowserWindow }, z) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.setZoomFactor(z)
+    }, value)
+  await setZoom(factor)
+  try {
+    if (factor !== 1) await expect.poll(dpr).not.toBe(base)
+    await nextFrames()
+    await body()
+  } finally {
+    await setZoom(1)
+    await nextFrames()
+  }
+}
+
+/** Ficha 0013: cambia el rango de tiempo global y espera los tramos de la franja. */
+async function bandRange(range: '2h' | '7d', segments: number): Promise<void> {
+  await page.getByTestId(`time-range-${range}`).click()
+  await expect(bandSegments()).toHaveCount(segments)
+  await settledBox(problemBand())
+}
+
+/** Ficha 0013: comprueba que cada tramo, su icono y su texto visible se ven enteros. */
+async function expectSegmentsWhole(label: string): Promise<SegmentFit[]> {
+  await settledBox(problemBand())
+  const fits = await segmentFits()
+  expect(fits.length, label).toBeGreaterThan(0)
+  for (const fit of fits) {
+    const name = `${label} · ${fit.problemId}`
+    expect(fit.icon, `${name}: icono`).not.toBeNull()
+    expectInside(fit.icon as Rect, fit.segment, `${name}: icono dentro del tramo`)
+    if (fit.text !== null) expectInside(fit.text, fit.segment, `${name}: texto dentro del tramo`)
+    expectInside(fit.segment, fit.band, `${name}: tramo dentro de la franja`)
+  }
+  return fits
+}
+
+test('CA1 (0013): con zoom 1 y 1,5, el icono y el texto de cada tramo quedan dentro de su tramo, y cada tramo dentro de la franja', async () => {
+  try {
+    for (const zoom of [1, 1.5]) {
+      await withZoom(zoom, async () => {
+        // Tramos anchos (2 h): con icono y texto.
+        await openBandService(SVC_BAND_ID)
+        await bandRange('2h', 2)
+        const wide = await expectSegmentsWhole(`zoom ${zoom}, 2 h`)
+        for (const fit of wide) {
+          expect(
+            fit.text,
+            `zoom ${zoom}: el tramo ancho ${fit.problemId} enseña su id`
+          ).not.toBeNull()
+        }
+        // Tramos estrechos (7 días), también el pegado al final del rango.
+        await openBandService(SVC_SHORT_ID)
+        await bandRange('7d', 2)
+        await expectSegmentsWhole(`zoom ${zoom}, 7 días`)
+        await bandRange('2h', 1)
+      })
+    }
+  } finally {
+    await page.getByTestId('time-range-2h').click()
+  }
+})
+
+test('CA2 (0013): con zoom 1 y 1,5, la franja no se solapa con el canvas del gráfico de tasa de error', async () => {
+  await openBandService(SVC_BAND_ID)
+  for (const zoom of [1, 1.5]) {
+    await withZoom(zoom, async () => {
+      await expect(bandSegments()).toHaveCount(2)
+      const band = await settledBox(problemBand())
+      const canvas = await settledBox(chartPlot('error-rate').locator('canvas').first())
+      const label = `zoom ${zoom}`
+      // La franja acaba antes de que empiece el gráfico: no se mete en él.
+      expect(
+        band.y + band.height,
+        `${label}: la franja acaba antes del canvas`
+      ).toBeLessThanOrEqual(canvas.y + 0.5)
+      // Y el gráfico no la tapa: en el centro de cada tramo está el propio tramo.
+      for (const id of [BAND_OPEN.problemId, BAND_CLOSED.problemId]) {
+        const segment = bandSegment(id)
+        await segment.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+        await settledBox(segment)
+        expect(await receivesClick(segment), `${label}: ${id} no está tapado`).toBe(true)
+      }
+    })
+  }
+})
+
+test('CA3 (0013): un problema de pocos minutos en un rango de 7 días enseña su icono entero y centrado, sin texto, y su nombre accesible lleva el id', async () => {
+  try {
+    await openBandService(SVC_SHORT_ID)
+    await bandRange('7d', 2)
+    const fits = await expectSegmentsWhole('7 días')
+    for (const ids of [BAND_SHORT, BAND_SHORT_END]) {
+      const fit = fits.find((item) => item.problemId === ids.problemId)
+      expect(fit, ids.problemId).toBeDefined()
+      const { segment, icon, text } = fit as SegmentFit
+      const name = ids.displayId
+      // Sin texto visible en el tramo; el icono, entero y centrado.
+      expect(text, `${name}: sin texto`).toBeNull()
+      const iconRect = icon as Rect
+      expect(iconRect.right - iconRect.left, `${name}: icono con ancho`).toBeGreaterThan(0)
+      const centre = (a: number, b: number): number => (a + b) / 2
+      expect(
+        Math.abs(centre(iconRect.left, iconRect.right) - centre(segment.left, segment.right)),
+        `${name}: icono centrado en horizontal`
+      ).toBeLessThanOrEqual(1)
+      expect(
+        Math.abs(centre(iconRect.top, iconRect.bottom) - centre(segment.top, segment.bottom)),
+        `${name}: icono centrado en vertical`
+      ).toBeLessThanOrEqual(1)
+      // El id sigue en el nombre accesible.
+      await expect(bandSegment(ids.problemId), name).toHaveAccessibleName(new RegExp(name))
+    }
+  } finally {
+    await page.getByTestId('time-range-2h').click()
+  }
+})
+
+test('CA4 (0013): con la ventana del CI, donde la franja empieza fuera de la vista, los tramos de la 0010 siguen en su sitio, con tooltip, y el clic (trayéndolos a la vista) abre el problema', async () => {
+  await withContentSize(CI_WINDOW, async (actual) => {
+    await openBandService(SVC_BAND_ID)
+    await expect(bandSegments()).toHaveCount(2)
+    const closed = bandSegment(BAND_CLOSED.problemId)
+    const open = bandSegment(BAND_OPEN.problemId)
+    // Es la situación del CI: al abrir la página, el tramo está por debajo del borde visible.
+    const start = await settledBox(closed)
+    expect(start.y, 'el tramo empieza fuera de la vista').toBeGreaterThan(actual.height)
+
+    // Estado y posición, como en la 0010: el cerrado (más antiguo) a la izquierda del abierto.
+    await expect(closed).toHaveAttribute('data-status', 'closed')
+    await expect(open).toHaveAttribute('data-status', 'open')
+    const openBox = await settledBox(open)
+    expect(start.x + start.width).toBeLessThanOrEqual(openBox.x + 1)
+
+    // Tooltip con el foco, ya a la vista (Radix cierra el tooltip si su contenedor se desplaza, y
+    // el foco desplaza para enseñar el tramo).
+    await closed.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+    await settledBox(closed)
+    await closed.focus()
+    await expect(bandTooltip()).toContainText(BAND_CLOSED.displayId)
+    await closed.blur()
+    await expect(bandTooltip()).toHaveCount(0)
+
+    // Clic donde está, tras traerlo a la vista: abre su detalle.
+    await clickInPlace(closed, { scroll: true })
+    await expect(page.getByTestId('problem-page')).toBeVisible()
+    await expect(page.getByTestId('problem-page-title')).toContainText(BAND_CLOSED.displayId)
+    expect(await currentRoute()).toBe(`/problems/${BAND_CLOSED.problemId}`)
+    await page.getByTestId('problem-back').click()
+    await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  })
 })
