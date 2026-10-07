@@ -949,6 +949,38 @@ const SVC_MARKERS: Record<SvcKind, number> = {
   rate: 5
 }
 
+/**
+ * Ficha 0008: más servicios inventados para los marcadores. Uno con muchas peticiones, ningún
+ * error y tiempos de más de un segundo (separador de miles y «s»), y otro sin datos (no está en
+ * esta tabla: el simulador le da `data: []`). SVC_ID es el de la 0006 (con errores).
+ */
+const SVC_BIG_ID = 'SERVICE-00000000000E2E02'
+const SVC_EMPTY_ID = 'SERVICE-00000000000E2E03'
+const SVC_DATA: Record<
+  string,
+  { series: Record<SvcKind, (number | null)[]>; markers: Record<SvcKind, number> }
+> = {
+  [SVC_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
+  [SVC_BIG_ID]: {
+    series: {
+      median: [800_000, 900_000, null, 850_000],
+      p90: [1_100_000, 1_300_000, null, 1_200_000],
+      p99: [2_400_000, 2_600_000, null, 2_500_000],
+      requests: [20_000, 15_000, null, 10_000],
+      errors: [0, 0, null, 0],
+      rate: [0, 0, null, 0]
+    },
+    markers: {
+      median: 850_000,
+      p90: 1_200_000,
+      p99: 2_500_000,
+      requests: 45_000,
+      errors: 0,
+      rate: 0
+    }
+  }
+}
+
 /** Separa un metricSelector por las comas de primer nivel (no las de dentro de paréntesis). */
 function splitSelector(selector: string): string[] {
   const parts: string[] = []
@@ -994,8 +1026,18 @@ function serviceMetricResponse(query: URLSearchParams): [number, unknown] {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
   const marker = inf || selector.includes(':fold(')
-  const scoped = (query.get('entitySelector') ?? '').includes(`entityId("${SVC_ID}")`)
+  if (sim.serviceMetricsFail) {
+    return [
+      400,
+      { error: { code: 400, message: 'Métricas del servicio no disponibles (simulado)' } }
+    ]
+  }
+  const entitySelector = query.get('entitySelector') ?? ''
   const expressions = splitSelector(selector)
+  const serviceOf = (expression: string): string | undefined =>
+    Object.keys(SVC_DATA).find(
+      (id) => entitySelector.includes(`entityId("${id}")`) || expression.includes(id)
+    )
   return [
     200,
     {
@@ -1004,19 +1046,21 @@ function serviceMetricResponse(query: URLSearchParams): [number, unknown] {
       resolution: marker ? (inf ? 'Inf' : '1m') : '1m',
       result: expressions.map((expression) => {
         const kind = serviceKind(expression)
-        const known = kind !== null && (scoped || expression.includes(SVC_ID))
+        const id = serviceOf(expression)
+        const known = kind !== null && id !== undefined ? SVC_DATA[id] : undefined
         return {
-          metricId: expression.split(`"${SVC_ID}"`).join(SVC_ID),
-          data: known
-            ? [
-                {
-                  dimensionMap: { 'dt.entity.service': SVC_ID },
-                  dimensions: [SVC_ID],
-                  timestamps: marker ? [SVC_T0 + 240_000] : SVC_TIMESTAMPS,
-                  values: marker ? [SVC_MARKERS[kind]] : SVC_SERIES[kind]
-                }
-              ]
-            : []
+          metricId: id === undefined ? expression : expression.split(`"${id}"`).join(id),
+          data:
+            known !== undefined && kind !== null && id !== undefined
+              ? [
+                  {
+                    dimensionMap: { 'dt.entity.service': id },
+                    dimensions: [id],
+                    timestamps: marker ? [SVC_T0 + 240_000] : SVC_TIMESTAMPS,
+                    values: marker ? [known.markers[kind]] : known.series[kind]
+                  }
+                ]
+              : []
         }
       })
     }
@@ -1070,7 +1114,11 @@ const defaultSim = () => ({
   /** Ficha 0003: todas las peticiones que llegan al simulador («MÉTODO /ruta»), en orden. */
   requests: [] as string[],
   /** Ficha 0006: consultas de métricas del servicio inventado (sus query). */
-  serviceMetricQueries: [] as URLSearchParams[]
+  serviceMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
+  serviceMetricsFail: false,
+  /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
+  entityProblemsFail: false
 })
 const sim = defaultSim()
 
@@ -1188,7 +1236,15 @@ async function startServer(): Promise<void> {
         // totalCount sigue siendo el total.
         if (selector !== null && selector.includes('affectedEntities(')) {
           sim.entityProblemQueries.push(url.searchParams)
-          const matching = applySelector([...problemsFor(token), ...entityCountProblems], selector)
+          if (sim.entityProblemsFail) {
+            return send(400, {
+              error: { code: 400, message: 'Recuento de problemas no disponible (simulado)' }
+            })
+          }
+          const matching = applySelector(
+            [...problemsFor(token), ...entityCountProblems, ...markerProblems()],
+            selector
+          )
           const pageSize = Number(url.searchParams.get('pageSize') ?? '50')
           return send(200, {
             totalCount: matching.length,
@@ -5197,4 +5253,361 @@ test('CA7 (0006): entities:serviceMetrics por IPC con un id inventado: dos consu
     warnings: [],
     partial: []
   })
+})
+
+/**
+ * Ficha 0008: marcadores de la página de un SERVICE. Tres servicios inventados (SVC_ID con
+ * errores, SVC_BIG_ID sin errores y con miles de peticiones, SVC_EMPTY_ID sin datos) y sus
+ * problemas para los recuentos (affectedEntities). Se llega a sus páginas desde «Analizar
+ * entidad» de un problema solo del detalle (P-791) o por URL.
+ *
+ * Nombres que fijan estos tests: la fila `service-markers`; cada marcador `service-marker-<id>`
+ * (ok, ko, error-rate, response-time, problems); dentro, el valor en `service-marker-value`
+ * (ok, ko y tasa), `service-marker-median`, `-p90` y `-p99` (tiempos) y `service-marker-open` y
+ * `-closed` (problemas). El color de error es la clase `text-danger`.
+ */
+function markerProblems(): FakeProblem[] {
+  return (
+    [
+      ['OPEN', SVC_ID],
+      ['CLOSED', SVC_ID],
+      ['CLOSED', SVC_ID],
+      ['CLOSED', SVC_BIG_ID],
+      ['CLOSED', SVC_BIG_ID],
+      ['CLOSED', SVC_BIG_ID]
+    ] as const
+  ).map(([status, entityId], i) => ({
+    problemId: `pm-${i + 1}`,
+    displayId: `P-M${i + 1}`,
+    title: `Problema de marcadores ${i + 1}`,
+    status,
+    severityLevel: 'ERROR',
+    impactLevel: 'SERVICES',
+    startTime: NOW - (i + 2) * HOUR,
+    endTime: status === 'OPEN' ? -1 : NOW - (i + 1) * HOUR,
+    affectedEntities: [{ entityId: { id: entityId, type: 'SERVICE' }, name: `marcadores-${i}` }],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: []
+  }))
+}
+
+const MK_PROBLEM_ID = 'pd-markers'
+const MK_EV_ERRORS = 'Errores en el servicio'
+const MK_EV_BIG = 'Servicio con mucho tráfico'
+const MK_EV_EMPTY = 'Servicio sin datos'
+const MK_EV_HOST = 'Evento en otro host'
+detailOnly.push({
+  problemId: MK_PROBLEM_ID,
+  displayId: 'P-791',
+  title: 'Problema para los marcadores de servicio',
+  status: 'OPEN',
+  severityLevel: 'ERROR',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 4,
+    details: [
+      entityEvent(MK_EV_ERRORS, 11, {
+        entityId: { id: SVC_ID, type: 'SERVICE' },
+        name: 'servicio-errores'
+      }),
+      entityEvent(MK_EV_BIG, 12, {
+        entityId: { id: SVC_BIG_ID, type: 'SERVICE' },
+        name: 'servicio-grande'
+      }),
+      entityEvent(MK_EV_EMPTY, 13, {
+        entityId: { id: SVC_EMPTY_ID, type: 'SERVICE' },
+        name: 'servicio-vacio'
+      }),
+      entityEvent(MK_EV_HOST, 14, {
+        entityId: { id: 'HOST-00000000000E2E81', type: 'HOST' },
+        name: 'host-marcadores'
+      })
+    ]
+  }
+})
+
+const serviceMarker = (id: string): Locator => page.getByTestId(`service-marker-${id}`)
+const METRIC_MARKERS = ['ok', 'ko', 'error-rate', 'response-time'] as const
+
+/** Ficha 0008: el número suelto dentro del texto (no parte de otro número). */
+const loneNumber = (value: string): RegExp =>
+  new RegExp(`(^|[^\\d.,])${value.replace(/\./g, '\\.')}([^\\d.,]|$)`)
+
+/** Ficha 0008: abre P-791 y «Analizar entidad» de la evidencia; espera la página del servicio. */
+async function analyzeMarkersEvidence(title: string): Promise<Locator> {
+  await goToRoute(`/problems/${MK_PROBLEM_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-791')
+  await expect(evidenceRows()).toHaveCount(4)
+  await analyzeButton(await expandRow(title)).click()
+  const servicePage = page.getByTestId('entity-page-service')
+  await expect(servicePage).toBeVisible()
+  return servicePage
+}
+
+/** Ficha 0008: espera los valores de los marcadores de SVC_ID (con errores y 1 abierto). */
+async function expectErrorServiceValues(): Promise<void> {
+  await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^135$/)
+  await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveText(/^15$/)
+  await expect(serviceMarker('error-rate').getByTestId('service-marker-value')).toHaveText(
+    /^10,0\s?%$/
+  )
+  const times = serviceMarker('response-time')
+  await expect(times.getByTestId('service-marker-median')).toContainText(/105\sms/)
+  await expect(times.getByTestId('service-marker-p90')).toContainText(/305\sms/)
+  await expect(times.getByTestId('service-marker-p99')).toContainText(/820\sms/)
+  const problems = serviceMarker('problems')
+  await expect(problems.getByTestId('service-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('2'))
+}
+
+test('CA1 (0008): desde «Analizar entidad», la página del SERVICE enseña los cinco marcadores con los valores del simulador ya formateados, sin «Página en construcción»', async () => {
+  const servicePage = await analyzeMarkersEvidence(MK_EV_BIG)
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${SVC_BIG_ID}`)
+  const row = servicePage.getByTestId('service-markers')
+  await expect(row).toBeVisible()
+
+  // Los cinco, con su nombre.
+  const labels = [
+    ['ok', 'Peticiones OK'],
+    ['ko', 'Peticiones KO'],
+    ['error-rate', 'Tasa de error'],
+    ['response-time', 'Tiempo de respuesta'],
+    ['problems', 'Problemas']
+  ] as const
+  for (const [id, label] of labels) {
+    await expect(row.getByTestId(`service-marker-${id}`), id).toBeVisible()
+    await expect(row.getByTestId(`service-marker-${id}`), id).toContainText(label)
+  }
+
+  // Valores: suma de la serie (45 000 peticiones, 0 errores), tasa con un decimal, tiempos en
+  // ms o en s según el valor y los recuentos de problemas (0 abiertos, 3 cerrados).
+  await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^45\.000$/)
+  await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveText(/^0$/)
+  await expect(serviceMarker('error-rate').getByTestId('service-marker-value')).toHaveText(
+    /^0,0\s?%$/
+  )
+  const times = serviceMarker('response-time')
+  await expect(times.getByTestId('service-marker-median')).toContainText(/850\sms/)
+  await expect(times.getByTestId('service-marker-p90')).toContainText(/1,2\ss/)
+  await expect(times.getByTestId('service-marker-p99')).toContainText(/2,5\ss/)
+  const problems = serviceMarker('problems')
+  await expect(problems.getByTestId('service-marker-open')).toHaveText(loneNumber('0'))
+  await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('3'))
+
+  // Ni el bloque ni el texto de «Página en construcción».
+  await expect(servicePage.getByTestId('entity-under-construction')).toHaveCount(0)
+  await expect(servicePage).not.toContainText('Página en construcción')
+})
+
+test('CA3 (0008): con KO > 0 y problemas abiertos > 0 esos marcadores llevan la clase de error y texto; con 0, no', async () => {
+  // SVC_ID: 15 KO y 1 problema abierto.
+  await analyzeMarkersEvidence(MK_EV_ERRORS)
+  await expectErrorServiceValues()
+  for (const id of ['ko', 'problems']) {
+    const danger = serviceMarker(id).locator('.text-danger')
+    await expect(danger.first(), id).toBeVisible()
+    // El color nunca es la única señal: lo que va en rojo lleva texto.
+    await expect(danger.first(), id).toHaveText(/\S/)
+  }
+  await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveClass(
+    /\btext-danger\b/
+  )
+  await expect(serviceMarker('problems').getByTestId('service-marker-open')).toHaveClass(
+    /\btext-danger\b/
+  )
+  // Los cerrados no van en rojo.
+  await expect(serviceMarker('problems').getByTestId('service-marker-closed')).not.toHaveClass(
+    /\btext-danger\b/
+  )
+
+  // SVC_BIG_ID: 0 KO y 0 abiertos (3 cerrados): ninguno de los dos lleva la clase.
+  await page.getByTestId('entity-back').click()
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await analyzeButton(await expandRow(MK_EV_BIG)).click()
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveText(/^0$/)
+  await expect(serviceMarker('problems').getByTestId('service-marker-open')).toHaveText(
+    loneNumber('0')
+  )
+  for (const id of ['ko', 'problems']) {
+    await expect(serviceMarker(id).locator('.text-danger'), id).toHaveCount(0)
+  }
+})
+
+test('CA4 (0008): cambiar el rango global vuelve a pedir los dos canales con el rango nuevo; volver a la página sin cambiar nada no pide; «Actualizar» sí', async () => {
+  await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  await expectErrorServiceValues()
+  await settledRequests()
+  // Al entrar: una vez cada canal (2 consultas de métricas y 2 de problemas), con el rango global.
+  expect(sim.serviceMetricQueries).toHaveLength(2)
+  expect(sim.entityProblemQueries).toHaveLength(2)
+  for (const query of [...sim.serviceMetricQueries, ...sim.entityProblemQueries]) {
+    expect(query.get('from')).toBe('now-2h')
+  }
+
+  // Rango nuevo: los dos canales otra vez, con now-24h.
+  await page.getByTestId('time-range-24h').click()
+  await expect.poll(() => sim.serviceMetricQueries.length).toBe(4)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(4)
+  const afterRange = [...sim.serviceMetricQueries.slice(2), ...sim.entityProblemQueries.slice(2)]
+  for (const query of afterRange) expect(query.get('from')).toBe('now-24h')
+  await expectErrorServiceValues()
+  await settledRequests()
+  expect(sim.serviceMetricQueries).toHaveLength(4)
+  expect(sim.entityProblemQueries).toHaveLength(4)
+
+  // Fuera y vuelta, sin cambiar nada: ninguna petición nueva.
+  await goTo('metrics')
+  await expect(page.getByTestId('entity-page-service')).toHaveCount(0)
+  const before = await settledRequests()
+  await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  await expectErrorServiceValues()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver a la página').toEqual([])
+  expect(sim.serviceMetricQueries).toHaveLength(4)
+  expect(sim.entityProblemQueries).toHaveLength(4)
+
+  // «Actualizar», en la cabecera de la página: los dos canales, con el rango actual.
+  await page.getByTestId('entity-page-service').getByTestId('module-refresh').click()
+  await expect.poll(() => sim.serviceMetricQueries.length).toBe(6)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(6)
+  const afterRefresh = [...sim.serviceMetricQueries.slice(4), ...sim.entityProblemQueries.slice(4)]
+  for (const query of afterRefresh) expect(query.get('from')).toBe('now-24h')
+  await expectErrorServiceValues()
+})
+
+test('CA5 (0008): si falla el canal de métricas, sus marcadores enseñan el aviso con Reintentar y el de problemas sigue con su dato', async () => {
+  sim.serviceMetricsFail = true
+  await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+
+  // El de problemas, con sus recuentos y sin aviso.
+  const problems = serviceMarker('problems')
+  await expect(problems.getByTestId('service-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('2'))
+  await expect(problems.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  // Cada marcador de métricas, en su sitio, con el aviso y Reintentar y sin valor.
+  for (const id of METRIC_MARKERS) {
+    const marker = serviceMarker(id)
+    await expect(marker, id).toBeVisible()
+    await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toBeVisible()
+    await expect(marker.getByTestId('service-marker-value'), id).toHaveCount(0)
+    await expect(marker.getByTestId('service-marker-median'), id).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llegan los valores.
+  sim.serviceMetricsFail = false
+  await serviceMarker('ok').getByRole('button', { name: 'Reintentar' }).click()
+  await expectErrorServiceValues()
+  for (const id of METRIC_MARKERS) {
+    await expect(serviceMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
+})
+
+test('CA5 (0008): si falla el canal de problemas, su marcador enseña el aviso con Reintentar y los de métricas siguen con su dato', async () => {
+  sim.entityProblemsFail = true
+  await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+
+  // Los de métricas, con sus valores y sin aviso.
+  await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^135$/)
+  await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveText(/^15$/)
+  await expect(serviceMarker('error-rate').getByTestId('service-marker-value')).toHaveText(
+    /^10,0\s?%$/
+  )
+  await expect(serviceMarker('response-time').getByTestId('service-marker-median')).toContainText(
+    /105\sms/
+  )
+  for (const id of METRIC_MARKERS) {
+    await expect(serviceMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
+
+  // El de problemas, en su sitio, con el aviso y Reintentar y sin recuentos.
+  const problems = serviceMarker('problems')
+  await expect(problems).toBeVisible()
+  await expect(problems.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  await expect(problems.getByTestId('service-marker-open')).toHaveCount(0)
+  await expect(problems.getByTestId('service-marker-closed')).toHaveCount(0)
+
+  sim.entityProblemsFail = false
+  await problems.getByRole('button', { name: 'Reintentar' }).click()
+  await expectErrorServiceValues()
+  await expect(problems.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('CA6 (0008): un servicio sin datos enseña «—» en los marcadores de métricas, no 0', async () => {
+  await analyzeMarkersEvidence(MK_EV_EMPTY)
+  // Las consultas se han hecho y han vuelto (vacías).
+  await expect.poll(() => sim.serviceMetricQueries.length).toBe(2)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(2)
+
+  for (const id of ['ok', 'ko', 'error-rate'] as const) {
+    await expect(serviceMarker(id).getByTestId('service-marker-value'), id).toHaveText('—')
+  }
+  const times = serviceMarker('response-time')
+  for (const id of ['median', 'p90', 'p99'] as const) {
+    await expect(times.getByTestId(`service-marker-${id}`), id).toContainText('—')
+  }
+  for (const id of METRIC_MARKERS) {
+    const marker = serviceMarker(id)
+    await expect(marker, id).not.toContainText(/(^|[^\d.,])0([^\d.,]|$)/)
+    await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
+  // Problemas: Dynatrace sí dice 0 y 0, y eso se enseña.
+  const problems = serviceMarker('problems')
+  await expect(problems.getByTestId('service-marker-open')).toHaveText(loneNumber('0'))
+  await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('0'))
+})
+
+test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcción, sin marcadores ni peticiones', async () => {
+  // Desde «Analizar entidad» de una evidencia HOST del mismo problema.
+  await goToRoute(`/problems/${MK_PROBLEM_ID}`)
+  await expect(evidenceRows()).toHaveCount(4)
+  await expandRow(MK_EV_HOST)
+  const fromProblem = await settledRequests()
+  await analyzeButton(await detailOf(evidenceRow(MK_EV_HOST))).click()
+  const hostPage = page.getByTestId('entity-page-host')
+  await expect(hostPage).toBeVisible()
+  await expect(hostPage.getByTestId('entity-under-construction')).toContainText(
+    'Página en construcción'
+  )
+  await expect(page.getByTestId('service-markers')).toHaveCount(0)
+  await page.waitForTimeout(1000)
+  expect(sim.requests.slice(fromProblem), 'peticiones en la página del host').toEqual([])
+
+  // Por URL, el resto de tipos del registro y uno que no está (genérica).
+  const others = [
+    ['HOST', 'host'],
+    ['PROCESS_GROUP_INSTANCE', 'process_group_instance'],
+    ['PROCESS_GROUP', 'process_group'],
+    ['SYNTHETIC_TEST', 'synthetic_test'],
+    ['HTTP_CHECK', 'http_check'],
+    ['APPLICATION', 'application'],
+    ['CLOUD_APPLICATION', 'cloud_application'],
+    ['ENVIRONMENT', 'environment'],
+    ['TIPO_ESTANDAR_INVENTADO', 'generic']
+  ] as const
+  const before = await settledRequests()
+  for (const [type, suffix] of others) {
+    await goToRoute(`/entities/${type}/${type}-00000000000E2E82`)
+    const entityPage = page.getByTestId(`entity-page-${suffix}`)
+    await expect(entityPage, type).toBeVisible()
+    await expect(entityPage.getByTestId('entity-under-construction'), type).toContainText(
+      'Página en construcción'
+    )
+    await expect(page.getByTestId('service-markers'), type).toHaveCount(0)
+    await expect(page.locator('[data-testid^="service-marker-"]'), type).toHaveCount(0)
+  }
+  await page.waitForTimeout(1000)
+  expect(sim.requests.slice(before), 'peticiones en las otras páginas').toEqual([])
 })
