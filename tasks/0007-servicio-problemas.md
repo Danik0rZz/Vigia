@@ -1,7 +1,7 @@
 ---
 id: '0007'
 titulo: 'SERVICE: problemas abiertos y cerrados de la entidad en el rango'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -146,6 +146,14 @@ días (tipos SERVICE, SYNTHETIC_TEST y CLOUD_APPLICATION), con `status("open")` 
   (`^[A-Z][A-Z0-9_]*-[0-9A-F]{16}$`).
 
 - `tokenEnLog: false`; ningún id ni nombre en el informe.
+
+### Verifier, 2026-10-07, commit `654e84a`, rango `main..654e84a`: VERDE
+
+- check: 2027 tests en 96 ficheros, cobertura ok.
+- e2e completo (`ipc.ts` transversal), dos pasadas: 177 pasan y 3 fallan, los de la 0005 con
+  `withContentSize` (CA1, CA2 y CA4), por el escalado al 150 % del escritorio remoto de la VPS
+  (ventana 960×602). Sobre `main` (`e421e7b`) fallan los mismos 3: no vienen de esta ficha. CA6
+  (0007) pasa.
 
 ## Resultado
 
