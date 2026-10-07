@@ -153,4 +153,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   horaria y del escalado del escritorio; CI en verde.
 - [0013](tasks/0013-servicio-franja-entera.md) (lote servicio-2): la franja de problemas del
   servicio se ve entera con cualquier zoom.
+- [0012](tasks/0012-servicio-retoques-visuales.md) (lote servicio-2): gráficos del servicio sin rejilla,
+  marcadores centrados y separador de miles siempre en toda la interfaz (`formatNumber`).
 - [0021](tasks/0021-e2e-ventana-del-ci.md): todos los e2e arrancan con la ventana del CI (1024×720).

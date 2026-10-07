@@ -1,7 +1,7 @@
 ---
 id: '0012'
 titulo: 'SERVICE: gráficos sin líneas de rejilla, marcadores centrados y miles siempre con separador'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -124,6 +124,8 @@ desvíos de 12 a 98 px y «9907»).
 - `-g "(0012)" --repeat-each 3 --workers=1`: 18/18.
 
 ## Resultado
+
+Commits (rama `feat/0012-servicio-retoques-visuales`): tests `7d37030`, `c3fcb17` y `3bd7071`; código `864c193`, `030ecb9`, `63bb039`, `72339a0` y `b65a72f`. Ficheros principales: `src/shared/format-number.ts`, `src/renderer/src/app/i18n-numbers.ts`, `src/renderer/src/pages/entities/service-charts.ts`, `ServiceMarkers.tsx` y `pages/metrics/metric-chart-option.ts`. Rondas de revisión: 2. ADR nuevo: ninguno. Sin migraciones.
 
 Decisiones del developer (refinables, delegadas por el Orquestador):
 

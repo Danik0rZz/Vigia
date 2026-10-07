@@ -71,6 +71,12 @@ Sin migraciones nuevas.
 - Forma de trabajar del proyecto (no cambia la app): todos los tests de punta a punta arrancan con la
   ventana del tamaño del CI (1024×720), así que lo que pasa en local pasa en el CI. Sin migraciones
   nuevas. (ficha 0021)
+- Página del servicio: los gráficos ya no llevan líneas horizontales de rejilla (se mantienen las
+  etiquetas del eje) y el texto de las cinco tarjetas de marcadores queda centrado, también en las
+  filas de p90/p99 y de abiertos/cerrados y con la ventana estrecha. Los números de cuatro cifras o
+  más llevan siempre separador de miles en toda la interfaz («9.907» en español, «9,907» en inglés),
+  también en los ejes, los tooltips y los avisos. Las exportaciones a Excel no cambian. Sin
+  migraciones nuevas. (ficha 0012)
 
 ### Corregido
 
