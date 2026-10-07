@@ -295,7 +295,7 @@ porcentaje (con 1,5 habría dicho «150 %»): dice la parte que sí llegó, apro
 mínimo 1 %): «la API ha devuelto solo parte de los puntos (alrededor del 67 % de los pedidos)» y
 «… (about 67 % of those requested)» (`MetricChartPanel.tsx`).
 
-**Comprobación.** `npm run check` en verde (95 ficheros, 2019 tests; cobertura 91,3 % de
-sentencias). e2e completo (`src/shared/ipc.ts` es transversal): 177 en verde y 3 fallos, los
+**Comprobación.** `npm run check` en verde (tras rebasar sobre `main` con la 0007: 97 ficheros, 2057 tests; cobertura 91,3 % de
+sentencias). e2e completo (`src/shared/ipc.ts` es transversal): 178 en verde y 3 fallos, los
 conocidos de la VPS con `withContentSize` (ventana 960×602 con el escritorio al 150 %): CA2, CA1 y
 CA4 de la 0005, que fallan igual en `main`. «CA7 (0006)» y «AUD-13 y CA8 (0006)», en verde.
