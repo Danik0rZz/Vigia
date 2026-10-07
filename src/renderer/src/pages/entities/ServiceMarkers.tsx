@@ -8,6 +8,7 @@ import { useTimeRangeValue } from '../../app/time-range'
 import { BUTTON_SECONDARY } from '../../components/styles'
 import { cn } from '../../lib/cn'
 import { dateLang } from '../../lib/date-lang'
+import { errorDetail } from '../../lib/error-detail'
 import { IpcError } from '../../lib/ipc'
 import {
   formatCount,
@@ -284,7 +285,10 @@ function MarkerSkeleton(): JSX.Element {
   )
 }
 
-/** Aviso compacto de un canal que ha fallado, con Reintentar (solo ese canal). */
+/**
+ * Aviso compacto de un canal que ha fallado, con Reintentar (solo ese canal): el
+ * código traducido y, debajo y en pequeño, el detalle (motivo o texto de Dynatrace).
+ */
 function MarkerError({
   error,
   busy,
@@ -298,10 +302,14 @@ function MarkerError({
   const code = error instanceof IpcError ? error.code : null
   const translated = code !== null ? t(`dtErrors.${code}`, { defaultValue: '' }) : ''
   return (
-    <div className="grid justify-items-start gap-2 text-sm">
+    <div role="alert" className="grid min-w-0 justify-items-start gap-2 text-sm">
       <p className="text-danger">
         {translated !== '' ? translated : t('entities.service.markers.loadError')}
       </p>
+      {/* El motivo traducido o el texto de Dynatrace (ADR-0005), como en ModuleError. */}
+      {error instanceof IpcError && (
+        <p className="text-xs wrap-anywhere text-muted-foreground">{errorDetail(t, error)}</p>
+      )}
       <button type="button" onClick={onRetry} disabled={busy} className={BUTTON_SECONDARY}>
         {t('errorScreen.retry')}
       </button>
