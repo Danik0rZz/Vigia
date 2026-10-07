@@ -5611,3 +5611,278 @@ test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcc
   await page.waitForTimeout(1000)
   expect(sim.requests.slice(before), 'peticiones en las otras páginas').toEqual([])
 })
+
+/**
+ * Ficha 0009: los cuatro gráficos de la página de un SERVICE, bajo los marcadores, con los datos
+ * de SVC_ID (resolución 1m; tiempos de 100 a 900 ms, peticiones, errores y tasa con un hueco en
+ * el tercer punto).
+ *
+ * Nombres que fijan estos tests: la sección `service-charts`; cada gráfico en un
+ * `service-chart-panel` con `data-kind` (response-time, activity, error-rate y errors, en ese
+ * orden), con su título en un encabezado; dentro, el `Chart` con testid `service-chart-<kind>`
+ * (con `data-series` y su `canvas`), que es también el `target` de su `ExportMenu`, y el botón
+ * `service-chart-open` («Abrir en Métricas»).
+ */
+const CHART_KINDS = ['response-time', 'activity', 'error-rate', 'errors'] as const
+type ChartKind = (typeof CHART_KINDS)[number]
+const CHART_TITLES: Record<ChartKind, string> = {
+  'response-time': 'Tiempo de respuesta',
+  activity: 'Actividad',
+  'error-rate': 'Tasa de error',
+  errors: 'Errores'
+}
+/** Las series de cada gráfico, en su orden: [mediana, p90, p99], [OK, KO], [tasa] y [KO]. */
+const CHART_SERIES: Record<ChartKind, RegExp[]> = {
+  'response-time': [/mediana/i, /p90/i, /p99/i],
+  activity: [/\bOK\b/, /\bKO\b/],
+  'error-rate': [/tasa/i],
+  errors: [/\bKO\b/]
+}
+
+const chartPanel = (kind: ChartKind): Locator =>
+  page.locator(`[data-testid="service-chart-panel"][data-kind="${kind}"]`)
+const chartPlot = (kind: ChartKind): Locator =>
+  chartPanel(kind).getByTestId(`service-chart-${kind}`)
+
+/** Ficha 0009: abre la página de SVC_ID por URL y espera la sección de gráficos. */
+async function openServiceCharts(): Promise<Locator> {
+  await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  const section = page.getByTestId('service-charts')
+  await expect(section).toBeVisible()
+  return section
+}
+
+/** Ficha 0009: espera a que el gráfico tenga sus series (se monta vacío mientras carga). */
+async function chartSeries(kind: ChartKind): Promise<string[]> {
+  const plot = chartPlot(kind)
+  await expect(plot.locator('canvas').first()).toBeVisible()
+  await expect(plot).toHaveAttribute('data-series', /\[.+\]/)
+  return JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
+}
+
+test('CA1 (0009): en la página de un SERVICE salen los cuatro gráficos en su orden, con su título, su canvas y sus series', async () => {
+  const section = await openServiceCharts()
+  await expect(section).toContainText('Métricas de peticiones')
+
+  const panels = section.getByTestId('service-chart-panel')
+  await expect(panels).toHaveCount(4)
+  for (const [index, kind] of CHART_KINDS.entries()) {
+    const panel = panels.nth(index)
+    await expect(panel, `posición ${index + 1}`).toHaveAttribute('data-kind', kind)
+    await expect(panel.getByRole('heading').first(), kind).toContainText(CHART_TITLES[kind])
+    const series = await chartSeries(kind)
+    expect(series, kind).toHaveLength(CHART_SERIES[kind].length)
+    for (const [i, pattern] of CHART_SERIES[kind].entries()) {
+      expect(series[i], `${kind}[${i}]`).toMatch(pattern)
+    }
+  }
+
+  // Los cuatro gráficos y los marcadores comparten una sola llamada al canal (sus dos consultas).
+  await settledRequests()
+  expect(sim.serviceMetricQueries).toHaveLength(2)
+})
+
+test('CA5 (0009): «Abrir en Métricas» de cada gráfico abre Métricas con la consulta de ese gráfico y el rango que se ve', async () => {
+  // Con el rango relativo (2 h): el que se ve, en fechas, hasta ahora.
+  const openedAt = Date.now()
+  await openServiceCharts()
+  await chartSeries('response-time')
+  let before = sim.metricsQueries
+  await expect(chartPanel('response-time').getByTestId('service-chart-open')).toHaveText(
+    'Abrir en Métricas'
+  )
+  await chartPanel('response-time').getByTestId('service-chart-open').click()
+  await expect.poll(currentRoute).toBe('/metrics')
+  await expect.poll(() => sim.metricsQueries).toBeGreaterThan(before)
+  const relFrom = Date.parse(sim.lastMetricsQuery.get('from') ?? '')
+  const relTo = Date.parse(sim.lastMetricsQuery.get('to') ?? '')
+  expect(relTo).toBeGreaterThanOrEqual(openedAt - 1000)
+  expect(relTo).toBeLessThanOrEqual(Date.now())
+  expect(relTo - relFrom).toBe(2 * HOUR)
+
+  // Con un rango personalizado: exactamente el del canal, para cada gráfico.
+  await openServiceCharts()
+  const queriesBefore = sim.serviceMetricQueries.length
+  await page.getByTestId('time-range-custom').click()
+  const popover = page.getByTestId('custom-range')
+  await popover.getByTestId('custom-range-from').fill('2026-10-03T09:00')
+  await popover.getByTestId('custom-range-to').fill('2026-10-03T13:00')
+  await popover.getByTestId('form-save').click()
+  await expect(popover).toBeHidden()
+  await expect.poll(() => sim.serviceMetricQueries.length).toBeGreaterThan(queriesBefore)
+  const channelQuery = sim.serviceMetricQueries.at(-1) as URLSearchParams
+  const from = Date.parse(channelQuery.get('from') ?? '')
+  const to = Date.parse(channelQuery.get('to') ?? '')
+  // 09:00 y 13:00 en Madrid (UTC+2 en octubre).
+  expect(from).toBe(Date.UTC(2026, 9, 3, 7, 0))
+  expect(to).toBe(Date.UTC(2026, 9, 3, 11, 0))
+
+  const expected: Record<ChartKind, { has: string[]; not: string[] }> = {
+    'response-time': {
+      has: ['builtin:service.response.server', ':median', ':percentile(90', ':percentile(99'],
+      not: ['requestCount', 'errors.server']
+    },
+    activity: {
+      has: ['builtin:service.requestCount.server', 'builtin:service.errors.server.count'],
+      not: ['response.server', 'errors.server.rate']
+    },
+    'error-rate': {
+      has: ['builtin:service.errors.server.rate'],
+      not: ['requestCount', 'response.server', 'errors.server.count']
+    },
+    errors: {
+      has: ['builtin:service.errors.server.count'],
+      not: ['requestCount', 'response.server', 'errors.server.rate']
+    }
+  }
+  for (const kind of CHART_KINDS) {
+    await openServiceCharts()
+    await chartSeries(kind)
+    before = sim.metricsQueries
+    await chartPanel(kind).getByTestId('service-chart-open').click()
+    await expect.poll(currentRoute, kind).toBe('/metrics')
+    await expect.poll(() => sim.metricsQueries, kind).toBeGreaterThan(before)
+    // El rango que se ve.
+    expect(Date.parse(sim.lastMetricsQuery.get('from') ?? ''), kind).toBe(from)
+    expect(Date.parse(sim.lastMetricsQuery.get('to') ?? ''), kind).toBe(to)
+    // La consulta de ese gráfico, con el id del servicio, en el formulario y en la petición.
+    const selector = sim.lastMetricsQuery.get('metricSelector') ?? ''
+    await expect(page.getByTestId('metric-selector'), kind).toHaveValue(selector)
+    expect(selector, kind).toContain(SVC_ID)
+    for (const part of expected[kind].has) expect(selector, `${kind}: ${part}`).toContain(part)
+    for (const part of expected[kind].not) expect(selector, `${kind}: ${part}`).not.toContain(part)
+  }
+})
+
+/**
+ * Ficha 0009: ancho del contenido de la ventana fijado desde main (setContentSize), con el alto
+ * de FIXED_WINDOW, y restaurado al final aunque el test falle. Solo se espera al ancho: es lo
+ * único de lo que dependen las columnas. withContentSize espera además al alto exacto, y en la
+ * VPS (escritorio remoto al 150 %) el alto sale con 1 o 2 px de más (fallos de la 0005).
+ */
+async function withContentWidth(width: number, body: () => Promise<void>): Promise<void> {
+  const original = await app.evaluate(
+    ({ BrowserWindow }, wanted) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win === undefined) throw new Error('withContentWidth: no hay ventana')
+      const [w = 0, h = 0] = win.getContentSize()
+      win.setContentSize(wanted.width, wanted.height)
+      return { width: w, height: h }
+    },
+    { width, height: FIXED_WINDOW.height }
+  )
+  try {
+    await expect.poll(async () => (await viewportSize()).width).toBe(width)
+    await body()
+  } finally {
+    await app.evaluate(({ BrowserWindow }, back) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(back.width, back.height)
+    }, original)
+    await expect.poll(async () => (await viewportSize()).width).toBe(original.width)
+  }
+}
+
+/** Ficha 0009: posición (redondeada) de cada gráfico, en su orden, cuando ya no se mueven. */
+async function chartBoxes(): Promise<{ x: number; y: number }[]> {
+  const boxes: { x: number; y: number }[] = []
+  for (const kind of CHART_KINDS) {
+    const box = await settledBox(chartPanel(kind))
+    boxes.push({ x: Math.round(box.x), y: Math.round(box.y) })
+  }
+  return boxes
+}
+
+test('CA6 (0009): con la ventana estrecha (la mínima de la app, 960 de ancho), una columna; con la normal (1024), dos', async () => {
+  await openServiceCharts()
+  for (const kind of CHART_KINDS) await chartSeries(kind)
+
+  await withContentWidth(SMALL_WINDOW.width, async () => {
+    const [a, b, c, d] = await chartBoxes()
+    // Una columna: todos a la misma x, uno debajo de otro.
+    expect(b?.x, 'actividad bajo tiempos').toBe(a?.x)
+    expect(c?.x).toBe(a?.x)
+    expect(d?.x).toBe(a?.x)
+    expect(b?.y ?? 0).toBeGreaterThan(a?.y ?? 0)
+    expect(c?.y ?? 0).toBeGreaterThan(b?.y ?? 0)
+    expect(d?.y ?? 0).toBeGreaterThan(c?.y ?? 0)
+  })
+
+  await withContentWidth(FIXED_WINDOW.width, async () => {
+    const [a, b, c, d] = await chartBoxes()
+    // Dos columnas: 1 y 2 en la primera fila, 3 y 4 en la segunda.
+    expect(b?.y, 'actividad junto a tiempos').toBe(a?.y)
+    expect(b?.x ?? 0).toBeGreaterThan(a?.x ?? 0)
+    expect(c?.x).toBe(a?.x)
+    expect(c?.y ?? 0).toBeGreaterThan(a?.y ?? 0)
+    expect(d?.y).toBe(c?.y)
+    expect(d?.x).toBe(b?.x)
+  })
+})
+
+test('CA7 (0009): si el canal falla, los cuatro gráficos enseñan el aviso con Reintentar y los problemas de los marcadores siguen', async () => {
+  sim.serviceMetricsFail = true
+  await openServiceCharts()
+
+  // El marcador de problemas, con sus recuentos y sin aviso.
+  const problems = serviceMarker('problems')
+  await expect(problems.getByTestId('service-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('2'))
+  await expect(problems.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  // Cada gráfico, en su sitio, con su aviso (role=alert) y Reintentar, sin gráfico.
+  for (const kind of CHART_KINDS) {
+    const panel = chartPanel(kind)
+    await expect(panel, kind).toBeVisible()
+    await expect(panel.getByRole('alert').first(), kind).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Reintentar' }), kind).toBeVisible()
+    await expect(panel.getByTestId(`service-chart-${kind}`), kind).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llega el gráfico.
+  sim.serviceMetricsFail = false
+  await chartPanel('errors').getByRole('button', { name: 'Reintentar' }).click()
+  expect(await chartSeries('errors')).toHaveLength(1)
+  await expect(chartPanel('errors').getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('CA8 (0009): la exportación XLSX de un gráfico trae sus series y la hoja Info con el rango', async () => {
+  await openServiceCharts()
+  await chartSeries('response-time')
+  const file = await exportSaved('service-chart-response-time', 'export-xlsx')
+  const book = new ExcelJS.Workbook()
+  await book.xlsx.load(readFileSync(file) as unknown as ArrayBuffer)
+
+  // Datos: los valores de mediana, p90 y p99 (en ms) y sus nombres; nada de las otras series.
+  const data = book.getWorksheet('Datos')
+  expect(data, 'hoja Datos').toBeDefined()
+  const numbers: number[] = []
+  const texts: string[] = []
+  data?.eachRow((row) => {
+    row.eachCell((cell) => {
+      if (typeof cell.value === 'number') numbers.push(cell.value)
+      else if (typeof cell.value === 'string') texts.push(cell.value)
+    })
+  })
+  for (const value of [100, 120, 110, 300, 320, 310, 800, 900, 850]) {
+    expect(numbers, `valor ${value}`).toContain(value)
+  }
+  for (const value of [45, 50, 60]) {
+    expect(numbers, `no es de tiempos: ${value}`).not.toContain(value)
+  }
+  const allText = texts.join('\n')
+  expect(allText).toMatch(/mediana/i)
+  expect(allText).toMatch(/p90/i)
+  expect(allText).toMatch(/p99/i)
+
+  // Info: el rango global y sus fechas.
+  const info: Record<string, unknown> = {}
+  book.getWorksheet('Info')?.eachRow((row) => {
+    info[String(row.getCell(1).value)] = row.getCell(2).value
+  })
+  expect(info['Rango']).toBe('now-2h')
+  expect(info['Desde']).toBeInstanceOf(Date)
+  expect(info['Hasta']).toBeInstanceOf(Date)
+  const span = (info['Hasta'] as Date).getTime() - (info['Desde'] as Date).getTime()
+  expect(span).toBe(2 * HOUR)
+})
