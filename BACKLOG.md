@@ -6,7 +6,10 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-(nada)
+- Lote **servicio-2** (arreglos de tests, retoques del servicio e información de la entidad),
+  aprobado por Dani el 2026-10-07. Orden: [0011](tasks/0011-tests-hora-y-escalado.md),
+  [0012](tasks/0012-servicio-retoques-visuales.md), [0013](tasks/0013-servicio-franja-entera.md),
+  [0014](tasks/0014-entidad-datos-api.md) y [0015](tasks/0015-servicio-informacion.md).
 
 ## Próximo
 
