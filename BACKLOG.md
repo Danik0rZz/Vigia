@@ -106,8 +106,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Franja de problemas: con el ancho mínimo, dos problemas cortos y seguidos en la misma fila pueden
   quedar uno encima del otro (el reparto de filas cuenta el tiempo, no el ancho pintado). (surgió
   en 0013)
-- Franja de problemas: un tramo de 80-90 px con un id real largo no enseña el id y deja el icono a
-  la izquierda en vez de centrado (`ProblemBand.tsx:179`). (surgió en 0013)
 - e2e «CA4 (0013)»: repetir también las comprobaciones de filas con la ventana del CI. (surgió en 0013)
 
 ## Aparcado

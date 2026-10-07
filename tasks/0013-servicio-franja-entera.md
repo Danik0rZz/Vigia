@@ -1,7 +1,7 @@
 ---
 id: '0013'
 titulo: 'SERVICE: la franja de problemas se ve entera y clara'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -233,3 +233,10 @@ ninguno. Sin migraciones.
   commitear). `npm run test:e2e:affected -- main..HEAD`: 124 passed. Tras el arreglo de la app, lo
   mismo: check en verde (2134), 24/24 en las tres ventanas y 124 en los afectados.
   Tras `aa9afa7`: check en verde (2134) y 24/24 con la ventana de la VPS y a 1024×720.
+
+**Cierre de la reapertura (doc-writer, 2026-10-07).** Commits: `270a8b2` (CA1 mide el ancho real de
+cada tramo), `5cdab04` (test del id largo), `be29817` (arreglo de la app) y `aa9afa7` (precondición
+sin depender de la fuente). Causa: CA1 suponía un ancho de ventana; en la app, el icono queda siempre
+centrado cuando el id no cabe, sin umbral de ancho. Ficheros principales:
+`src/renderer/src/pages/entities/ProblemBand.tsx` y `e2e/views.spec.ts`. Rondas de revisión de la
+reapertura: 1 (aprobada; 2 en total en la ficha). ADR nuevo: ninguno. Sin migraciones.

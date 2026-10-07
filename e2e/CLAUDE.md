@@ -40,3 +40,4 @@
   fuera de la vista; antes de pulsar, traerlo a la vista (`clickInPlace(…, { scroll: true })`).
 - El tooltip de Radix se cierra si se desplaza su contenedor, y `focus()` desplaza: primero traer el
   elemento a la vista y después abrir el tooltip.
+- Un test no debe suponer el ancho de la ventana para decidir qué se ve: medir el sitio real del elemento (como `expectIdRule` en la 0013). Una precondición que dependa de la fuente del sistema puede fallar en el runner (Windows Server).
