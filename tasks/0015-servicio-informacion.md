@@ -1,7 +1,7 @@
 ---
 id: '0015'
 titulo: 'SERVICE: sección «Información» con propiedades, zonas, etiquetas y relaciones (nombres a demanda)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -114,7 +114,64 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `172c2f7` (`test(servicio): criterios de la ficha 0015`). Ahora fallan porque
+el código no existe (no hay tarjeta `service-info`, ni `service-info.ts`, ni textos
+`entities.service.info`), no por el test.
+
+| Criterio | Test                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| CA1      | `e2e/views.spec.ts` › `CA1 (0015): con un servicio con todas las propiedades, la columna «Servicio» enseña sus datos en su orden…`         |
+| CA2      | `e2e/views.spec.ts` › `CA2 (0015): con un servicio con pocas propiedades solo salen las filas con dato…`                                   |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0015): las relaciones salen en sus grupos y en su orden, con su número…`                                       |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0015): al abrir la página no se pide ningún nombre; «Ver nombres» llama a entities:names una vez por tipo…`    |
+| CA5      | `e2e/views.spec.ts` › `CA5 (0015): pulsar una entidad relacionada abre su página… y «Volver» regresa al servicio sin volver a pedir…`      |
+| CA6      | `e2e/views.spec.ts` › `CA6 (0015): sin entities.read, la tarjeta dice qué scope falta y marcadores y gráficos siguen; con el canal caído…` |
+| CA7      | `e2e/views.spec.ts` › `CA7 (0015): con la ventana estrecha, «Servicio» y «Relaciones» en una columna; con la normal, en dos`               |
+| CA8      | `src/renderer/src/pages/entities/service-info.test.ts` › `CA8 (0015): filas de «Servicio» y grupos de relaciones a partir de entities:get` |
+| CA9      | `src/renderer/src/locales/service-info.test.ts` › `CA9 (0015): textos de la tarjeta «Información» en es y en`                              |
+
+Además, `src/renderer/src/data/modules.test.ts` › `useModuleAccess('entities')` (lo pidió el
+revisor de la 0014); ese ya pasa, porque el hook es de la 0014.
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- Función de CA8: `buildServiceInfo(data: EntityData): { rows, groups }` en
+  `src/renderer/src/pages/entities/service-info.ts`. Fila: `{ key, kind: 'text', text }`,
+  `{ key, kind: 'chips', chips }` o `{ key, kind: 'date', time }` (epoch ms). Grupo:
+  `{ key, total, entities: { id, type, relation, direction }[] }`.
+- Claves de fila, en este orden: `serviceType`, `technologies`, `webServerName`, `webService`
+  (nombre y namespace en una sola fila), `contextRoot`, `port`, `isExternalService`,
+  `remoteEndpoint`, `databaseVendor`, `databaseName`, `applicationName`,
+  `applicationEnvironment`, `applicationReleaseVersion`, `publicCloudId`, `publicCloudRegion`,
+  `firstSeen`, `lastSeen`, `managementZones`, `tags`. Solo con dato: texto vacío o en blanco no
+  cuenta; `isExternalService` solo sale con `"true"` (la fila dice «Externo»), con `"false"` no.
+- Tecnologías: el texto de `serviceTechnologyTypes` y luego el de `softwareTechnologies`
+  (formato de main en la 0014), partidos por «, », un chip por trozo.
+- Grupos (`key`): `runsOn` («Se ejecuta en»: hosts, procesos y process group, en ese orden),
+  `calls` («Llama a», `calls` de from), `calledBy` («Lo llaman», `calls` de to) y `other` (el
+  resto, de las dos direcciones, con el nombre tal cual, también `runsOn` e `isServiceOf`). Solo
+  los que tengan alguna; `total` suma los `total` de sus relaciones.
+- El puerto del simulador es de 3 cifras (443): no se fija si un puerto de 4 lleva separador.
+- Textos en `entities.service.info` (common): `title`, `service`, `relations`, `allProperties`,
+  `showNames`, `noName`, `groups.<key>` con los textos de la ficha y `rows.<key>` por fila. El
+  «Mostrando 50 de N» puede reutilizar `module.truncatedOf`.
+- Testids: tarjeta `service-info`; columnas `service-info-service` y `service-info-relations`;
+  fila `service-info-row` con `data-key`, su valor `service-info-value` y chips
+  `service-info-chip`; «+N» de etiquetas `service-info-tags-more`; grupo `service-info-group`
+  con `data-group`, `service-info-group-count`, `service-info-group-toggle` (con
+  `aria-expanded`), `service-info-group-truncated` y «Ver nombres» `service-info-names`;
+  entidad `service-info-entity` (enlace con `href` `#/entities/<tipo>/<id>` y `data-entity-id`)
+  con su nombre en `service-info-entity-name`; «Todas las propiedades»:
+  `service-info-properties-toggle` y `service-info-property` con `data-key`. Sin scope, el
+  `module-unavailable` de siempre dentro de la tarjeta; con error, `role="alert"` y «Reintentar».
+- Sin el scope no se pide `entities:get`. «Otras relaciones» empieza plegada; los demás grupos se
+  despliegan si no lo están (no se fija si empiezan abiertos). «Todas las propiedades» empieza
+  plegada.
+- Simulador (`e2e/views.spec.ts`): servicios `INFO_FULL_ID` (todo, 55 en «Llama a», tipos
+  mezclados en «Lo llaman», un id sin nombre) e `INFO_FEW_ID`; `SVC_ID` (el de los marcadores)
+  devuelve las pocas propiedades, para que su página tenga tarjeta; `sim.entityInfoFail` (400) y
+  el token `TOKEN_NO_ENTITIES` (sin `entities.read`), con su entorno creado y borrado dentro de
+  CA6.
 
 ## Resultado
 
