@@ -1,7 +1,7 @@
 ---
 id: '0014'
 titulo: 'Entidades: datos de una entidad y nombres de sus relaciones (scope entities.read)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -133,7 +133,66 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `b58a0c8` (`test(entidades): criterios de la ficha 0014`). Ahora fallan porque
+el código no existe (canal desconocido, `MODULE_SCOPES.entities` sin definir), no por el test.
+
+| Criterio | Test                                                                                                                                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/entity-detail-explore.live.test.ts` › `CA1 (0014): el informe no contiene ningún id ni nombre observado` (ejecutada en vivo el 2026-10-08: pasa; informe en `live-reports/entity-detail-explore.json`, ignorado) |
+| CA2      | `src/shared/dynatrace.test.ts` › `CA2 (0014): el módulo entities y sus scopes`                                                                                                                                                     |
+| CA3      | `src/main/dynatrace/connection-test.test.ts` › `CA3 (0014): «Probar conexión» avisa si falta entities.read`                                                                                                                        |
+| CA4      | `src/main/ipc/handlers/entity-detail.test.ts` › `CA4 (0014): entities:get pide /entities/<id> con los fields y transforma la respuesta`                                                                                            |
+| CA5      | `src/main/ipc/handlers/entity-detail.test.ts` › `CA5 (0014): un 404 de entities:get acaba en error con su reason`                                                                                                                  |
+| CA6      | `src/shared/ipc.test.ts` › `CA6 (0014): entrada de entities:names`                                                                                                                                                                 |
+| CA7      | `src/main/ipc/handlers/entity-detail.test.ts` › `CA7 (0014): entities:names construye entityId(...), devuelve nombres y missing`                                                                                                   |
+| CA8      | `e2e/views.spec.ts` › `CA8 (0014): entities:get y entities:names por IPC con ids inventados…` (simulador: `GET /api/v2/entities/{id}` y `GET /api/v2/entities`, `sim.entityInfoQueries` y `sim.entityNamesQueries`)                |
+
+**Paso 0 en vivo (2026-10-08, 40 lecturas, mediana 337 ms, máximo 775 ms; 3 servicios de los
+problemas de 7 días; solo comportamientos):**
+
+- `GET /entities/{id}` con los `fields` de la ficha trae `displayName`, `entityId`, `type`,
+  `firstSeenTms`, `lastSeenTms` (números, `firstSeen ≤ lastSeen`), `icon`, `managementZones`,
+  `tags`, `properties`, `fromRelationships` y `toRelationships`.
+- `icon`: objeto solo con `primaryIconType` (texto en minúsculas y guiones; sin
+  `customIconPath` ni `secondaryIconType` en los vistos).
+- `managementZones`: vacías en los 3. `tags`: entre 10 y 50, todas con `stringRepresentation`
+  (claves `context`, `key`, `source`, `stringRepresentation`, `value`).
+- `properties`: objeto de 10 a 50 claves. Texto: `serviceType`, `agentTechnologyType`,
+  `conditionalName`, `detectedName`, `contextRoot`, `externalDependency`, `webServerName`,
+  `remoteEndpoint`, `remoteServiceName`; lista de texto: `serviceTechnologyTypes`,
+  `applicationName`, `applicationEnvironment`, `applicationReleaseVersion`; booleano:
+  `isExternalService`; `softwareTechnologies`: **lista de objetos** `{ type, edition?, version? }`,
+  que como JSON mide entre 101 y 300 caracteres (el resto, 100 o menos).
+- Relaciones `{ id, type }`, tipos estándar. Tramos: `calls` (from) de 2 a 50 ids; `calls` (to) y
+  `isGroupOf` de 1 a 9; las demás (`runsOn`, `runsOnHost`, `runsOnProcessGroupInstance`,
+  `isServiceOf`, `isServiceOfProcessGroup`, `isInstanceOf`, `isClusterOfService`,
+  `isNamespaceOfService`, `isServiceMethodOfService`), 1. **`to.calls` puede mezclar dos tipos**
+  en una misma relación: la vista tendrá que agrupar por tipo antes de llamar a `entities:names`.
+- Un id con el formato bien que no existe: **404** (`NOT_FOUND`).
+- `GET /entities?entitySelector=entityId(...)` con el `from` por defecto (`now-3d`) resolvió el
+  100 % de los ids en las 34 relaciones probadas (de 1 a 50 ids), con `displayName`, `totalCount`
+  igual al número devuelto y sin `nextPageKey`. **No hace falta un `from` mayor.** Ids de tipos
+  mezclados en el selector: **400**.
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- `entities:names` no exige `from` (el paso 0 dice que el de por defecto basta).
+- `firstSeen` y `lastSeen` en epoch ms (número), como las demás fechas de los canales.
+- Sin `icon` ni partes opcionales: `iconType` null y `managementZones`, `tags`, `properties` y
+  `relationships` como listas vacías.
+- Valores de propiedades a texto: número con `String` (`8080` → `"8080"`), booleano `"true"` o
+  `"false"`; listas y objetos, un texto que contenga sus valores (nunca `[object Object]`). El
+  recorte deja 300 caracteres exactos.
+- Con más de 50 ids, la relación se queda con los 50 primeros en el orden de la respuesta.
+- El 404 lleva un `reason` propio (no `problemNotFound`) cuyo texto en español dice «entidad» y
+  «no existe», con texto en inglés.
+- Los dos canales van en `createModuleHandlers` (`channel-coverage.test.ts` y `modules.test.ts`
+  ya los esperan ahí).
+- Tests existentes ajustados al scope nuevo: `src/shared/dynatrace.test.ts`,
+  `src/main/dynatrace/connection-test.test.ts`, `src/main/ipc/handlers/connection.test.ts` y los
+  simuladores de `e2e/views.spec.ts` y `e2e/tls.spec.ts` (el token de prueba ya lleva
+  `entities.read`). Hasta que exista el módulo, `tls.spec` › «con la huella fijada conecta» falla
+  porque ve `entities.read` como extra.
 
 ## Resultado
 
