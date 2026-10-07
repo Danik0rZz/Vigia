@@ -6438,10 +6438,11 @@ function expectIdRule(fit: SegmentFit, label: string): 'id' | 'icon' | null {
 }
 
 /**
- * Ficha 0013: un id del largo real (P- y 8 cifras) en un tramo de 5rem o más (el umbral del
- * centrado de la app) donde el id no cabe: solo el icono, centrado. La duración del problema se
- * calcula con lo medido (px por minuto y lo que pide el id, que depende de la fuente del equipo)
- * para que el tramo caiga en medio de esa franja de anchos, con cualquier ventana.
+ * Ficha 0013: un id del largo real (P- y 8 cifras) en un tramo casi tan ancho como lo que pide
+ * el id, pero sin sitio para él: solo el icono, centrado. La duración del problema se calcula con
+ * lo medido (px por minuto y lo que pide el id, que depende de la fuente del equipo) para que el
+ * sitio quede 3 px por debajo de lo que pide, con cualquier ventana y cualquier fuente. Que nunca
+ * se vea medio id lo garantiza expectSegmentsWhole (el texto que se ve, entero dentro del tramo).
  */
 async function expectLongIdCentred(): Promise<void> {
   await openBandService(SVC_LONG_ID)
@@ -6450,9 +6451,9 @@ async function expectLongIdCentred(): Promise<void> {
   expect(wide, 'tramo del id largo').toBeDefined()
   const { segment, room, needed } = wide as SegmentFit
   const outer = segment.right - segment.left
-  expect(needed, 'el id largo pide más de 5rem + 2 px').toBeGreaterThan(82 + 1)
-  // El sitio buscado: en medio de [5rem, lo que pide - 1 px]; el borde se suma aparte.
-  const target = (80 + needed - 1) / 2 + (outer - room)
+  // El sitio buscado: 3 px menos de lo que pide el id (2 px por debajo del margen de redondeo de
+  // expectIdRule); el borde se suma aparte.
+  const target = needed - 3 + (outer - room)
   sim.bandLongMinutes = (target / outer) * sim.bandLongMinutes
   await reloadUi()
   await openBandService(SVC_LONG_ID)
@@ -6461,7 +6462,6 @@ async function expectLongIdCentred(): Promise<void> {
   const [fit] = await expectSegmentsWhole(label)
   const narrow = fit as SegmentFit
   const where = `${label} (sitio ${narrow.room.toFixed(1)} px, pide ${narrow.needed.toFixed(1)} px)`
-  expect(narrow.room, `${where}: el tramo mide 5rem o más`).toBeGreaterThanOrEqual(80)
   expect(narrow.room, `${where}: el id no cabe`).toBeLessThanOrEqual(narrow.needed - 1)
   expect(expectIdRule(narrow, label)).toBe('icon')
 }
