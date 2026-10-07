@@ -185,12 +185,17 @@ ninguno. Sin migraciones.
   en 2 h y en 7 días, y exige haber visto en 2 h los dos casos (con la ventana del CI salen
   siempre). Comprobado que falla al quitar el centrado (`@max-[5rem]:justify-center`) y el
   `flex-wrap` de `ProblemBand.tsx` (sin commitear).
-- **Regla de la app frente al ancho (sin tocar).** El centrado depende de `@max-[5rem]` (contenedor
-  de menos de 80 px) y ocultar el id, de que no quepan relleno (6 px) + icono (12) + hueco (4) +
-  id. Con ids de más de unos 58 px (los reales, de 8 cifras o más, rondan los 65), un tramo de entre
-  82 px y 24 px + el id no enseña el id y deja el icono a la izquierda: es el opcional del revisor
-  (`ProblemBand.tsx:179`). Con los ids de los fixtures (41 y 43 px) no se da, y el test lo cazaría
-  con un fixture de id largo. Lo decide el Orquestador.
+- **Regla de la app frente al ancho (decisión del Orquestador: entra en la reapertura).** El
+  centrado dependía de `@max-[5rem]` (contenedor de menos de 80 px) y ocultar el id, de que no
+  cupieran relleno (6 px) + icono (12) + hueco (4) + id: con un id de más de unos 58 px (los reales,
+  P- y 8 cifras, rondan los 61-65), un tramo de 82 px o más sin sitio para el id dejaba el icono a
+  la izquierda (el opcional del revisor). Test en `5cdab04`: servicio nuevo del simulador
+  (`SVC_LONG_ID`, problema `P-24109876`) cuya duración se calcula con lo medido (px por minuto y lo
+  que pide el id, que depende de la fuente del equipo) para que el sitio caiga en medio de [80 px,
+  lo que pide − 1]; en la VPS, sitio 81 px y pide 83,4. Fallaba con el código de entonces (icono a
+  31 px del centro). Arreglo en `be29817`: la línea va siempre centrada y el id lleva `grow`; con
+  el id al lado no sobra sitio y quedan a la izquierda; con el id en la segunda línea, el icono
+  queda solo y centrado, sin umbral de ancho. Sin `@container`.
 - **Otras suposiciones de ventana (0009, 0010 y 0013), sin tocar porque no fallan.** CA6 (0010),
   sin hueco: compara la tasa de error con «el de al lado» (Errores); con una columna está debajo,
   pero la comparación es dentro de su panel y sigue valiendo. CA6 (0009) fija 1024 de ancho con
@@ -200,4 +205,5 @@ ninguno. Sin migraciones.
 - **Ejecución.** `npm run check` en verde (2134 unitarios). Con
   `views.spec.ts -g "(0010)|(0013)" --repeat-each 3 --workers=1`: 24 passed con la ventana de la
   VPS, 24 con el contenido a 1008×705 y 24 a 1024×720 (fijado en un `beforeEach` temporal, sin
-  commitear). `npm run test:e2e:affected -- main..HEAD`: 124 passed.
+  commitear). `npm run test:e2e:affected -- main..HEAD`: 124 passed. Tras el arreglo de la app, lo
+  mismo: check en verde (2134), 24/24 en las tres ventanas y 124 en los afectados.
