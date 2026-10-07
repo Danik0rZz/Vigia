@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { parseItems } from '../dynatrace/parse-items'
 import {
   problemStatuses,
+  type EntityProblem,
   type EntityRef,
   type ImpactLevel,
   type ProblemComment,
@@ -61,6 +62,41 @@ export function buildProblemSelector(filters: ProblemFilters): string | undefine
  */
 export function entityProblemSelector(entityId: string, status: 'open' | 'closed'): string {
   return `affectedEntities(${quote(entityId)}),status(${quote(status)})`
+}
+
+/**
+ * Selector de todos los problemas que afectan a una entidad, sin filtrar por estado
+ * (lista de la franja, ficha 0010). El id ya viene validado con `entityIdSchema`.
+ */
+export function entityProblemListSelector(entityId: string): string {
+  return `affectedEntities(${quote(entityId)})`
+}
+
+/**
+ * Problem de la API v2 con solo los campos de la franja (ficha 0010): el resto no se
+ * valida, para que un cambio en campos que no se usan no descarte el problema.
+ * `endTime` es -1 si sigue abierto (OpenAPI); se acepta también null.
+ */
+export const entityProblemItemSchema = z.looseObject({
+  problemId: z.string(),
+  displayId: z.string(),
+  title: z.string(),
+  status: z.enum(problemStatuses),
+  severityLevel: z.string(),
+  startTime: z.number(),
+  endTime: z.number().nullable()
+})
+
+export function toEntityProblem(problem: z.output<typeof entityProblemItemSchema>): EntityProblem {
+  return {
+    problemId: problem.problemId,
+    displayId: problem.displayId,
+    title: problem.title,
+    status: problem.status,
+    severityLevel: problem.severityLevel,
+    startTime: problem.startTime,
+    endTime: problem.endTime === null || problem.endTime === -1 ? null : problem.endTime
+  }
 }
 
 /** Respuesta de /problems de la que solo se usa `totalCount` (el resto puede variar). */

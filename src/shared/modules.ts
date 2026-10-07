@@ -31,6 +31,32 @@ export const entityProblemCountsSchema = z.object({
 export type EntityProblemCounts = z.output<typeof entityProblemCountsSchema>
 
 /**
+ * Problema que afecta a una entidad, con lo justo para la franja del gráfico
+ * «Tasa de error» (ficha 0010). `endTime` es null si sigue abierto.
+ */
+export const entityProblemSchema = z.object({
+  problemId: z.string(),
+  displayId: z.string(),
+  title: z.string(),
+  status: z.enum(problemStatuses),
+  severityLevel: z.string(),
+  startTime: z.number(),
+  endTime: z.number().nullable()
+})
+export type EntityProblem = z.output<typeof entityProblemSchema>
+
+/** Lista de problemas de una entidad en el rango (canal `entities:problems`). */
+export const entityProblemListSchema = z.object({
+  problems: z.array(entityProblemSchema),
+  /** Total real según la API (puede ser mayor que lo traído); null si no lo da. */
+  totalCount: z.number().nullable(),
+  truncated: z.boolean(),
+  /** Elementos descartados por no cumplir el esquema. */
+  invalid: z.number().int().min(0)
+})
+export type EntityProblemList = z.output<typeof entityProblemListSchema>
+
+/**
  * Orden de gravedad, de peor a menos grave (severityLevels es alfabético, el
  * del enum de la API, y no sirve para ordenar). Lo decidió peticiones.
  */

@@ -33,6 +33,7 @@ export const errorReasonKeys = [
   'connectionUnexpected',
   'problemNotFound',
   'entityProblemsRejected',
+  'entityProblemListRejected',
   'serviceMetricsRejected',
   // Datos locales
   'clientMissing',

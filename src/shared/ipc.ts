@@ -17,6 +17,7 @@ import {
   MAX_EXPORT_ROWS,
   entityIdSchema,
   entityProblemCountsSchema,
+  entityProblemListSchema,
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
@@ -265,6 +266,18 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: entityProblemCountsSchema
+  },
+  /**
+   * Problemas que afectan a una entidad en el rango, para la franja del gráfico
+   * «Tasa de error» (ficha 0010). Una sola página de 100, los más recientes primero.
+   */
+  'entities:problems': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: entityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: entityProblemListSchema
   },
   /** Detalle con evidencias, impacto y comentarios recientes. */
   'problems:get': {

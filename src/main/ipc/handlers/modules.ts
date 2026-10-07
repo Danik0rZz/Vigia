@@ -14,10 +14,13 @@ import {
 import {
   buildProblemSelector,
   commentItemSchema,
+  entityProblemItemSchema,
+  entityProblemListSelector,
   entityProblemSelector,
   problemCountPageSchema,
   problemDetailSchema,
   problemSchema,
+  toEntityProblem,
   toProblemComment,
   toProblemDetail,
   toProblemCount,
@@ -34,6 +37,7 @@ type ModuleChannels =
   | 'problems:get'
   | 'problems:comments'
   | 'entities:problemCounts'
+  | 'entities:problems'
   | 'metrics:query'
   | 'metrics:search'
   | 'entities:serviceMetrics'
@@ -45,6 +49,8 @@ type ModuleChannels =
 /** Problemas: hasta 5 páginas de 100 (500); más allá se avisa de que la lista está truncada. */
 const PROBLEMS_PAGE_SIZE = 100
 const PROBLEMS_MAX_PAGES = 5
+/** Franja de problemas de una entidad (ficha 0010): una sola página de 100. */
+const ENTITY_PROBLEMS_PAGE_SIZE = 100
 /** Partes del detalle que no vienen por defecto en GET /problems/{id}. */
 const PROBLEM_DETAIL_FIELDS = 'evidenceDetails,recentComments'
 /** "Ver todos" los comentarios: hasta 4 páginas de 500 (el máximo de la API). */
@@ -182,6 +188,49 @@ export function createModuleHandlers(
       }
       const [open, closed] = await Promise.all([count('open'), count('closed')])
       return { open, closed }
+    },
+
+    'entities:problems': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      try {
+        // Una sola página: si hay más, se dice (truncated) y no se pide el resto.
+        const page = await client.paginate({
+          envId: environmentId,
+          api: 'classic',
+          endpoint: DT_ENDPOINTS.problems,
+          query: {
+            ...timeRangeToDt(timeRange),
+            problemSelector: entityProblemListSelector(entityId),
+            // Los más recientes primero: si se recorta, lo que falta es lo más antiguo.
+            sort: '-startTime',
+            pageSize: ENTITY_PROBLEMS_PAGE_SIZE
+          },
+          schema: entityProblemItemSchema,
+          maxPages: 1
+        })
+        const received = page.items.length + page.invalid
+        return {
+          problems: page.items.map(toEntityProblem),
+          totalCount: page.totalCount,
+          truncated: page.truncated || (page.totalCount !== null && page.totalCount > received),
+          invalid: page.invalid
+        }
+      } catch (error) {
+        // Un rechazo de Dynatrace (por ejemplo, 400) llega con su texto y sin motivo:
+        // se le da uno para la interfaz, con ese texto como detalle.
+        if (error instanceof DtError && error.reason === undefined && error.status !== undefined) {
+          throw new DtError(
+            error.code,
+            `Dynatrace ha rechazado la lista de problemas de la entidad: ${error.message}`,
+            error.status,
+            {
+              key: 'entityProblemListRejected',
+              params: { status: error.status, detail: error.message }
+            }
+          )
+        }
+        throw error
+      }
     },
 
     'metrics:query': async ({ environmentId, timeRange, metricSelector, resolution }) => {
