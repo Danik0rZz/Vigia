@@ -20,7 +20,7 @@
   e2e completo). `--repeat-each 3` solo si se toca temporización (esperas, animaciones,
   virtualización, navegación) o hubo un fallo intermitente.
 - Lo que dependa de la geometría se prueba con el contenido de la ventana fijado desde el test
-  (`withContentSize` en `views.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
+  (`withContentSize` y `withContentWidth`, en `views.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
   ventana, así que sin fijarla ve otra geometría que la VPS.
 - Si la cabecera u otro elemento «intercepta» un clic, mirar antes si con esa ventana el control se
   ve de verdad: en la 0005 era un fallo de la app (la ruta quedaba en 0 px), no del test.
@@ -33,6 +33,7 @@
   `clickInPlace` sobre una fila del centro.
 - Una hora escrita en un campo de fecha se interpreta en la zona del equipo: lo esperado se calcula
   con `wallTimeToEpoch` en la zona del renderer, nunca suponiendo Madrid (el CI está en UTC).
+- Todos los specs llaman a `useCiWindow` (`e2e/window-size.ts`) justo después de arrancar la app: la ventana es 1024×720 como en el CI, y `withContentSize`/`withContentWidth` vuelven a `FIXED_WINDOW` al acabar. Un test de `scripts/` lo vigila.
 - `withContentSize` acepta hasta 2 px de redondeo de Windows al escalar y pasa el tamaño real al cuerpo.
 - En Windows, desde Git Bash `TZ=Europe/Madrid` no llega al proceso (MSYS lo descarta; `TZ=UTC` sí): para
   zonas con barra, PowerShell (`$env:TZ`) o Node.

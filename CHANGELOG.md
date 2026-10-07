@@ -68,6 +68,9 @@ Sin migraciones nuevas.
   zona horaria ni del escalado del escritorio, y el CI vuelve a salir en verde. El de la fecha
   personalizada calcula lo esperado en la zona del equipo (el CI está en UTC) y la espera del tamaño
   de ventana admite hasta 2 px de redondeo de Windows al escalar. Sin migraciones nuevas. (ficha 0011)
+- Forma de trabajar del proyecto (no cambia la app): todos los tests de punta a punta arrancan con la
+  ventana del tamaño del CI (1024×720), así que lo que pasa en local pasa en el CI. Sin migraciones
+  nuevas. (ficha 0021)
 
 ### Corregido
 

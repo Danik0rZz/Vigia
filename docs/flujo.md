@@ -130,6 +130,7 @@ Para ir más rápido sin perder las puertas (ADR-0010):
 
 - **Durante el desarrollo (developer):** `npm run check` y `npm run test:e2e:affected` (mientras se
   itera, `vitest related <ficheros>` o `--changed`).
+- El e2e local ya corre con la ventana del CI (1024×720): los specs la fijan al arrancar la app.
 - **Por ficha (verifier):** en un worktree propio en su scratchpad, `npm run check` y
   `npm run test:e2e:affected -- main..feat/NNNN-slug`. No repite lo que ya está en verde si el rango
   no cambió.

@@ -1,7 +1,7 @@
 ---
 id: '0021'
 titulo: Todos los e2e con la ventana del tamaño del CI, también en la VPS
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -100,3 +100,4 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - (developer) CA3 en dos tests seguidos de `views`: el primero parte de 1000×650 (otro tamaño dentro de los mínimos) para distinguir «vuelve a FIXED_WINDOW» de «vuelve a como estaba»; el segundo comprueba al empezar que hereda 1024×720.
 - (developer) `eslint.config.mjs`: `react-hooks/rules-of-hooks` desactivada en `e2e/**` (sin React); si no, marca `useCiWindow` dentro del `launch()` de tenants por empezar por «use».
 - (developer) Con la ventana a 1024×720 no falló ningún test que hubiera que ajustar ni salió ningún fallo de la app: e2e completo en la VPS, 209 de 209, dos veces.
+- Commits: `14e74a1` (tests), `91280ec` (specs con la ventana del CI). Ficheros principales: `e2e/window-size.ts`, `scripts/e2e-ci-window.test.ts`, los seis specs de `e2e/` y `eslint.config.mjs`. Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones.

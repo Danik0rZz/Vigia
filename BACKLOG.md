@@ -107,6 +107,13 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   quedar uno encima del otro (el reparto de filas cuenta el tiempo, no el ancho pintado). (surgió
   en 0013)
 - e2e «CA4 (0013)»: repetir también las comprobaciones de filas con la ventana del CI. (surgió en 0013)
+- e2e: renombrar `useCiWindow` (empieza por «use» y obliga a la excepción de lint
+  `react-hooks/rules-of-hooks` en `e2e/**`) y quitar la excepción. Cambia el texto del CA1 de la
+  0021: lo decide Dani. (surgió en 0021)
+- `views.spec.ts`: reflujo de los JSDoc de `withContentSize` y `withContentWidth` (~1747 y ~5970).
+  (surgió en 0021)
+- `scripts/e2e-ci-window.test.ts`: `isUseCiWindow` no comprueba el argumento de la llamada.
+  (surgió en 0021)
 
 ## Aparcado
 
@@ -146,3 +153,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   horaria y del escalado del escritorio; CI en verde.
 - [0013](tasks/0013-servicio-franja-entera.md) (lote servicio-2): la franja de problemas del
   servicio se ve entera con cualquier zoom.
+- [0021](tasks/0021-e2e-ventana-del-ci.md): todos los e2e arrancan con la ventana del CI (1024×720).
