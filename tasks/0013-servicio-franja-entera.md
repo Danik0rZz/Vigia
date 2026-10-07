@@ -1,7 +1,7 @@
 ---
 id: '0013'
 titulo: 'SERVICE: la franja de problemas se ve entera y clara'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -112,6 +112,12 @@ Tests (ficha ligera, del developer): commit 4553cd5, en `e2e/views.spec.ts`.
 Ejecución: `npm run check` en verde (2134 unitarios); `npm run test:e2e:affected -- main..HEAD`,
 124 passed; «CA5 (0010)» envuelto a mano (sin commitear) en la ventana del CI más los cuatro de la
 0013, `--repeat-each 3 --workers=1`: 15 passed.
+
+### Verifier, 2026-10-07, commit `e37209c`, rango `main..e37209c`: VERDE
+
+- check: 2134 tests en 106 ficheros, cobertura ok.
+- e2e completo: **201/201**, sin fallos.
+- `views.spec.ts -g "(0010)|(0013)" --repeat-each 3 --workers=1`: 24/24.
 
 ## Resultado
 
