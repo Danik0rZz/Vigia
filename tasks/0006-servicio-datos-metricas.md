@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics/query` (`metricSelector` hasta 10 métricas, `resolution`, `from`, `to`, `entitySelector`) y `GET /metrics/{metricId}` (unidad y `resolutionInfSupported`); `..\API\Dynatrace Environment APIv2\APIv2.json`. Transformaciones (`splitBy`, `median`, `percentile`, `fold`) en la documentación oficial de Dynatrace, "Metrics selector transformations" (enlace de la propia OpenAPI). Scope `metrics.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -180,7 +180,20 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1-CA8 con su test; prueban de verdad (en CA4 y CA7 el simulador da otros recuentos en la
+  consulta de marcadores, así que los totales salen de la serie; CA3 exige `resolution=Inf` y ningún
+  `:fold(`). Desde `e75f635` solo cambia `channel-coverage.test.ts` (inventario). Los cambios de
+  `e75f635` en tests anteriores se limitan a la regla nueva.
+- Regla del recorte bien aplicada según la OpenAPI (`APIv2.json:28136-28144`, pedido / máximo): en un
+  solo sitio (`truncatedResults`), usada por `metrics:query` y el canal nuevo. Aviso con 1/ratio,
+  correcto, en es y en.
+- Seguridad: `entityId` validado antes del selector (CA2 cubre inyección); Zod en entrada y salida;
+  `serviceMetricsRejected` con `detail` enmascarado. Live solo GET y sin datos del tenant.
+- API y unidades contra la OpenAPI y el informe en vivo. Rebase sin pérdidas de la 0007.
+- Opcionales: fijar en el e2e el porcentaje del aviso («alrededor del 67 %» con ratio 1,5); prefijar
+  en español el `message` del `catch` de `entities:serviceMetrics`, como en la 0007.
 
 ## Verificación
 
