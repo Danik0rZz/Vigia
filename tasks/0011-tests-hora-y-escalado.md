@@ -12,7 +12,7 @@ adrs: [6]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -87,7 +87,17 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO (ficha ligera)
+
+- Los tests del developer (`4644e49`) cubren CA1 y CA2 tal como están escritos y fallaban sin el código;
+  no se tocan después. CA3 y CA4 los confirma el verifier.
+- Escalado: el margen solo afecta a la espera del tamaño; ninguna aserción de los cuerpos se ablanda;
+  `body` recibe el tamaño real.
+- Zona horaria: lo esperado se calcula en la zona del renderer; no se fija `TZ`; no esconde un fallo de
+  la app. No queda otro test que suponga Madrid.
+- Ayudas en `e2e/` probadas desde `src/test/`: razonable.
+- Opcionales: el verifier lanza también el e2e CA5 (0009) con `TZ=UTC` y `TZ=Europe/Madrid` (desde
+  Node o PowerShell); comentario en `withContentSize` de que hoy ningún cuerpo usa `actual`.
 
 ## Verificación
 
