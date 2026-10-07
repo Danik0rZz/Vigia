@@ -1,7 +1,7 @@
 ---
 id: '0011'
 titulo: Tests que dependen de la zona horaria o del escalado del escritorio
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -70,7 +70,20 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Decisión: las ayudas puras viven en `e2e/local-time.ts` y `e2e/window-size.ts`
+  (las usa Playwright) y se prueban en `src/test/e2e-support.test.ts`, porque Vitest solo recoge
+  `src/` y `scripts/` y Playwright recogería un `*.test.ts` dentro de `e2e/`. Al no tener
+  área en `e2e/areas.json` (como `hover.ts`), tocarlas lanza el e2e completo.
+- (developer) Decisión: el CA5 (0009) calcula lo esperado con la zona del renderer
+  (`Intl.DateTimeFormat().resolvedOptions().timeZone`), que es en la que la app lee el campo
+  `datetime-local`. No se fija `TZ` en el lanzamiento de la app.
+- (developer) Electron en Windows sí respeta `TZ` (main y renderer; probado con UTC, Asia/Tokyo y
+  America/New_York). Ojo: desde Git Bash, `TZ=Europe/Madrid` (con barra) no llega al proceso
+  (MSYS lo descarta y queda la zona del sistema); `TZ=UTC` sí. Para otra zona, lanzarlo desde
+  Node (`spawnSync(..., { env: { ...process.env, TZ } })`) o PowerShell.
+- (developer) CA1 en Vitest: `vitest.config.ts` fija `TZ=Europe/Madrid` para todo el proceso,
+  así que `TZ=UTC npx vitest` no cambia nada. El test cambia `process.env.TZ` él mismo (Node la
+  relee) y comprueba en UTC y en Europe/Madrid, incluido que coincide con `new Date(local)`.
 
 ## Notas del revisor
 
@@ -78,7 +91,13 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+- Tests (ficha ligera): commit 4644e49. Arreglo: 0f290bb.
+- CA1 → `src/test/e2e-support.test.ts`, «CA1 (0011): …» (UTC y Europe/Madrid dentro del test).
+- CA2 → `src/test/e2e-support.test.ts`, «CA2 (0011): …».
+- CA3 → los e2e «(0005)» de `e2e/views.spec.ts` con `withContentSize` (CA1 ×2, CA2 ×2, CA4 ×2).
+- Developer (VPS al 150 %): `-g "(0005)" --repeat-each 5 --workers=1`: 40 passed. e2e completo:
+  197 passed; con `TZ=UTC`: 197 passed. CA5 (0009) con `TZ=America/New_York` (desde Node): ok.
+  `npm run check`: 2134 tests en verde.
 
 ## Resultado
 
