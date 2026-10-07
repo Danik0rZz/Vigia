@@ -7,6 +7,7 @@ import {
   metricDataSchema,
   metricDescriptorSchema,
   metricSearchRawPageSchema,
+  type MetricData,
   toMetricInfo,
   toMetricSeries
 } from '../../modules/metrics'
@@ -22,6 +23,7 @@ import {
   toProblemCount,
   toProblemSummary
 } from '../../modules/problems'
+import { markerSelector, seriesSelector, toServiceMetrics } from '../../modules/service-metrics'
 import type { SavedQueryStore } from '../../modules/saved-queries'
 import { sloSchema, toSloSummary } from '../../modules/slos'
 import type { TenantRepository } from '../../tenants/repository'
@@ -34,6 +36,7 @@ type ModuleChannels =
   | 'entities:problemCounts'
   | 'metrics:query'
   | 'metrics:search'
+  | 'entities:serviceMetrics'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -191,6 +194,39 @@ export function createModuleHandlers(
         schema: metricDataSchema
       })
       return toMetricSeries(data)
+    },
+
+    'entities:serviceMetrics': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Series con la resolución que elija la API; tiempos del rango con Inf (sin fold:
+        // mezclarlos da 400). Los recuentos totales salen de sumar la serie.
+        const [series, markers] = await Promise.all([
+          query(seriesSelector(entityId)),
+          query(markerSelector(entityId), 'Inf')
+        ])
+        return toServiceMetrics(series, markers)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'serviceMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
     },
 
     'metrics:search': async ({ environmentId, text }) => {

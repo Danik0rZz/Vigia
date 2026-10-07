@@ -25,6 +25,8 @@ import {
   problemSummarySchema,
   resolutionSchema,
   savedQuerySchema,
+  serviceEntityIdSchema,
+  serviceMetricsResultSchema,
   severityLevels,
   sloSummarySchema,
   xlsxLabelsSchema
@@ -287,6 +289,18 @@ export const ipcContract = {
       resolution: resolutionSchema.optional()
     }),
     output: metricResultSchema
+  },
+  /**
+   * Métricas de una entidad SERVICE en el rango (ficha 0006): series y totales para
+   * los marcadores. La interfaz manda el id, nunca un selector: main lo construye.
+   */
+  'entities:serviceMetrics': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: serviceEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: serviceMetricsResultSchema
   },
   'metrics:search': {
     input: z.object({ environmentId: z.uuid(), text: z.string().trim().min(1).max(100) }),

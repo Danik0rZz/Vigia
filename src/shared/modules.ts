@@ -124,7 +124,10 @@ export const metricResultSchema = z.object({
     })
   ),
   warnings: z.array(z.string()),
-  /** Resultados que la API ha recortado (ratio de puntos o de dimensiones < 1). */
+  /**
+   * Resultados que la API ha recortado: ratio de puntos o de dimensiones > 1
+   * (la OpenAPI los define como «pedido / máximo permitido»; ficha 0006).
+   */
   partial: z.array(
     z.object({
       metricId: z.string(),
@@ -134,6 +137,55 @@ export const metricResultSchema = z.object({
   )
 })
 export type MetricResult = z.output<typeof metricResultSchema>
+
+/**
+ * Id de una entidad SERVICE de Dynatrace. Main construye los selectores con él,
+ * así que el formato estricto impide inyectar nada en ellos (ficha 0006).
+ */
+export const serviceEntityIdSchema = z.string().regex(/^SERVICE-[0-9A-F]{16}$/)
+
+/** Una serie del servicio: `values[i]` es el valor en `timestamps[i]` (null sin dato). */
+const serviceSeriesSchema = z.object({
+  timestamps: z.array(z.number()),
+  values: z.array(z.number().nullable())
+})
+export type ServiceSeries = z.output<typeof serviceSeriesSchema>
+
+/** Métricas de un servicio en el rango (canal `entities:serviceMetrics`). */
+export const serviceMetricsResultSchema = z.object({
+  /** Resolución que devolvió la API para las series (por ejemplo, 1m o 1h). */
+  resolution: z.string(),
+  series: z.object({
+    /** Tiempos de respuesta en milisegundos. */
+    responseTime: z.object({
+      median: serviceSeriesSchema,
+      p90: serviceSeriesSchema,
+      p99: serviceSeriesSchema
+    }),
+    requests: serviceSeriesSchema,
+    errors: serviceSeriesSchema,
+    /** Peticiones sin error (peticiones − errores, nunca negativo). */
+    ok: serviceSeriesSchema,
+    /** Tasa de error en porcentaje (0–100). */
+    errorRate: serviceSeriesSchema
+  }),
+  totals: z.object({
+    requests: z.number().min(0),
+    errors: z.number().min(0),
+    ok: z.number().min(0),
+    /** errors / requests × 100; null sin peticiones. */
+    errorRate: z.number().nullable(),
+    /** Tiempos del rango completo, en milisegundos; null sin dato. */
+    responseTime: z.object({
+      median: z.number().nullable(),
+      p90: z.number().nullable(),
+      p99: z.number().nullable()
+    })
+  }),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type ServiceMetricsResult = z.output<typeof serviceMetricsResultSchema>
 
 export const metricInfoSchema = z.object({
   metricId: z.string(),

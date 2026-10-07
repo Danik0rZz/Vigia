@@ -255,6 +255,7 @@
     "connectionUnexpected": "Error inesperado al probar la conexión.",
     "problemNotFound": "No existe un problema con ese ID en este entorno.",
     "entityProblemsRejected": "Dynatrace ha rechazado el recuento de problemas de la entidad ({{status}}): {{detail}}",
+    "serviceMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del servicio ({{status}}): {{detail}}",
     "clientMissing": "El cliente no existe.",
     "clientNameTaken": "Ya existe un cliente con ese nombre.",
     "environmentNameTaken": "Ya existe un entorno con ese nombre en el cliente.",
