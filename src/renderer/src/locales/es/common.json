@@ -752,7 +752,49 @@
         "more": "+{{count}} más",
         "truncated": "Solo se muestran los {{count}} problemas más recientes de {{total}}."
       },
-      "invalidId": "Este ID no tiene el formato de un servicio de Dynatrace (SERVICE- y 16 caracteres hexadecimales): no se piden sus datos."
+      "invalidId": "Este ID no tiene el formato de un servicio de Dynatrace (SERVICE- y 16 caracteres hexadecimales): no se piden sus datos.",
+      "info": {
+        "title": "Información",
+        "label": "Información del servicio",
+        "service": "Servicio",
+        "relations": "Relaciones",
+        "allProperties": "Todas las propiedades",
+        "showNames": "Ver nombres",
+        "loadingNames": "Buscando nombres…",
+        "namesError": "No se pudieron cargar los nombres.",
+        "noName": "sin nombre",
+        "yes": "Sí",
+        "loading": "Cargando la información…",
+        "noRelations": "Sin relaciones.",
+        "tagsMore": "Ver las {{count}} etiquetas restantes",
+        "groups": {
+          "runsOn": "Se ejecuta en",
+          "calls": "Llama a",
+          "calledBy": "Lo llaman",
+          "other": "Otras relaciones"
+        },
+        "rows": {
+          "serviceType": "Tipo",
+          "technologies": "Tecnologías",
+          "webServerName": "Servidor web",
+          "webService": "Servicio web",
+          "contextRoot": "Context root",
+          "port": "Puerto",
+          "isExternalService": "Externo",
+          "remoteEndpoint": "Endpoint remoto",
+          "databaseVendor": "Base de datos",
+          "databaseName": "Nombre de la base de datos",
+          "applicationName": "Aplicación",
+          "applicationEnvironment": "Entorno de la aplicación",
+          "applicationReleaseVersion": "Versión",
+          "publicCloudId": "Nube",
+          "publicCloudRegion": "Región",
+          "firstSeen": "Visto por primera vez",
+          "lastSeen": "Visto por última vez",
+          "managementZones": "Management zones",
+          "tags": "Etiquetas"
+        }
+      }
     }
   }
 }

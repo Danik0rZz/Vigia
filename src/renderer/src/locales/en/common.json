@@ -752,7 +752,49 @@
         "more": "+{{count}} more",
         "truncated": "Only the {{count}} most recent problems of {{total}} are shown."
       },
-      "invalidId": "This ID doesn't have the format of a Dynatrace service (SERVICE- and 16 hexadecimal characters): its data isn't requested."
+      "invalidId": "This ID doesn't have the format of a Dynatrace service (SERVICE- and 16 hexadecimal characters): its data isn't requested.",
+      "info": {
+        "title": "Information",
+        "label": "Service information",
+        "service": "Service",
+        "relations": "Relationships",
+        "allProperties": "All properties",
+        "showNames": "Show names",
+        "loadingNames": "Looking up names…",
+        "namesError": "Could not load the names.",
+        "noName": "no name",
+        "yes": "Yes",
+        "loading": "Loading the information…",
+        "noRelations": "No relationships.",
+        "tagsMore": "Show the remaining {{count}} tags",
+        "groups": {
+          "runsOn": "Runs on",
+          "calls": "Calls",
+          "calledBy": "Called by",
+          "other": "Other relationships"
+        },
+        "rows": {
+          "serviceType": "Type",
+          "technologies": "Technologies",
+          "webServerName": "Web server",
+          "webService": "Web service",
+          "contextRoot": "Context root",
+          "port": "Port",
+          "isExternalService": "External",
+          "remoteEndpoint": "Remote endpoint",
+          "databaseVendor": "Database",
+          "databaseName": "Database name",
+          "applicationName": "Application",
+          "applicationEnvironment": "Application environment",
+          "applicationReleaseVersion": "Version",
+          "publicCloudId": "Cloud",
+          "publicCloudRegion": "Region",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen",
+          "managementZones": "Management zones",
+          "tags": "Tags"
+        }
+      }
     }
   }
 }
