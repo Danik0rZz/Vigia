@@ -275,6 +275,59 @@ export const serviceMetricsResultSchema = z.object({
 })
 export type ServiceMetricsResult = z.output<typeof serviceMetricsResultSchema>
 
+/**
+ * Id de una entidad HOST de Dynatrace (ficha 0016). Como el del servicio: main
+ * construye el entitySelector con él y el formato estricto impide inyectar nada.
+ */
+export const hostEntityIdSchema = z.string().regex(/^HOST-[0-9A-F]{16}$/)
+
+/** Una serie del host: `values[i]` es el valor en `timestamps[i]` (null sin dato). */
+export type HostSeries = ServiceSeries
+
+/**
+ * Métricas de un host en el rango (canal `entities:hostMetrics`, ficha 0016).
+ * Unidades sin convertir: % en 0–100, bytes y bits/s (la interfaz los formatea).
+ */
+export const hostMetricsResultSchema = z.object({
+  /** Resolución que devolvió la API para las series (por ejemplo, 1m o 1h). */
+  resolution: z.string(),
+  series: z.object({
+    /** CPU total, en %. */
+    cpu: serviceSeriesSchema,
+    /** Componentes de la CPU, en %; no suman el total (hay más componentes). */
+    cpuBreakdown: z.object({
+      user: serviceSeriesSchema,
+      system: serviceSeriesSchema,
+      iowait: serviceSeriesSchema
+    }),
+    /** Memoria usada, en %. */
+    memory: serviceSeriesSchema,
+    /** Tráfico de todas las interfaces sumadas, en bits/s. */
+    network: z.object({ in: serviceSeriesSchema, out: serviceSeriesSchema }),
+    /** El % de uso del disco más lleno en cada punto. */
+    disk: serviceSeriesSchema
+  }),
+  /** Marcadores del rango completo; null sin dato. */
+  totals: z.object({
+    cpu: z.object({ avg: z.number().nullable(), max: z.number().nullable() }),
+    /** avg en %; used y total en bytes, del último punto con dato. */
+    memory: z.object({
+      avg: z.number().nullable(),
+      used: z.number().nullable(),
+      total: z.number().nullable()
+    }),
+    /** Medias del rango, en bits/s. */
+    network: z.object({ in: z.number().nullable(), out: z.number().nullable() }),
+    /** Máximo del rango del disco más lleno, en %. */
+    disk: z.object({ max: z.number().nullable() }),
+    /** Carga media (sin unidad). */
+    load: z.object({ avg: z.number().nullable() })
+  }),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type HostMetricsResult = z.output<typeof hostMetricsResultSchema>
+
 export const metricInfoSchema = z.object({
   metricId: z.string(),
   displayName: z.string().nullable(),

@@ -21,6 +21,8 @@ import {
   entityNamesSchema,
   entityProblemCountsSchema,
   entityProblemListSchema,
+  hostEntityIdSchema,
+  hostMetricsResultSchema,
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
@@ -333,6 +335,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: serviceMetricsResultSchema
+  },
+  /**
+   * Métricas de una entidad HOST en el rango (ficha 0016): series de CPU, memoria,
+   * red y disco y totales para los marcadores. Como el del servicio, la interfaz
+   * manda el id y main construye los selectores.
+   */
+  'entities:hostMetrics': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: hostEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: hostMetricsResultSchema
   },
   'metrics:search': {
     input: z.object({ environmentId: z.uuid(), text: z.string().trim().min(1).max(100) }),
