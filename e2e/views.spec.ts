@@ -983,6 +983,11 @@ const SVC_SHORT_ID = 'SERVICE-00000000000E2E06'
  * mida 5rem o más sin sitio para el id.
  */
 const SVC_LONG_ID = 'SERVICE-00000000000E2E09'
+/**
+ * Ficha 0012: servicio cuyas peticiones KO suman 9907 (5000 + 4000 + 907): el marcador lleva el
+ * separador de miles aunque el número tenga solo 4 cifras.
+ */
+const SVC_KO_THOUSANDS_ID = 'SERVICE-0000000000E2E012'
 const SVC_DATA: Record<
   string,
   { series: Record<SvcKind, (number | null)[]>; markers: Record<SvcKind, number> }
@@ -992,6 +997,14 @@ const SVC_DATA: Record<
   [SVC_QUIET_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_SHORT_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_LONG_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
+  [SVC_KO_THOUSANDS_ID]: {
+    series: {
+      ...SVC_SERIES,
+      requests: [20_000, 15_000, null, 10_000],
+      errors: [5000, 4000, null, 907]
+    },
+    markers: { ...SVC_MARKERS, requests: 45_000, errors: 9907 }
+  },
   [SVC_BIG_ID]: {
     series: {
       median: [800_000, 900_000, null, 850_000],
@@ -6624,4 +6637,98 @@ test('CA4 (0013): con la ventana del CI, donde la franja empieza fuera de la vis
     await page.getByTestId('problem-back').click()
     await expect(page.getByTestId('entity-page-service')).toBeVisible()
   })
+})
+
+/**
+ * Ficha 0012: marcadores del servicio centrados. Se mide el contenido de verdad (un Range sobre
+ * lo que hay dentro), no la caja del elemento: un título o un valor de bloque ocupan todo el ancho
+ * de la tarjeta aunque su texto vaya a la izquierda.
+ */
+const CENTER_TOLERANCE_PX = 4
+
+/** Centro horizontal (px) de lo que hay dentro de `inner` (un Range sobre su contenido). */
+async function contentCenter(inner: Locator): Promise<number> {
+  await expect(inner).toBeVisible()
+  const content = await inner.evaluate((element) => {
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    const rect = range.getBoundingClientRect()
+    return { left: rect.left, width: rect.width }
+  })
+  expect(content.width, 'el contenido tiene ancho').toBeGreaterThan(0)
+  return content.left + content.width / 2
+}
+
+/** Distancia (px) entre el centro horizontal del contenido de `inner` y el de la tarjeta `card`. */
+async function centerOffset(card: Locator, inner: Locator): Promise<number> {
+  const cardBox = await card.boundingBox()
+  if (cardBox === null) throw new Error('centerOffset: la tarjeta no tiene caja')
+  return Math.abs((await contentCenter(inner)) - (cardBox.x + cardBox.width / 2))
+}
+
+/** Ficha 0012: el valor principal de cada marcador. */
+function mainValue(id: string): Locator {
+  const card = serviceMarker(id)
+  if (id === 'response-time') return card.getByTestId('service-marker-median')
+  // Problemas: el grupo de los dos recuentos.
+  if (id === 'problems') return card.getByTestId('service-marker-open').locator('xpath=..')
+  return card.getByTestId('service-marker-value')
+}
+
+const ALL_MARKERS = ['ok', 'ko', 'error-rate', 'response-time', 'problems'] as const
+
+for (const size of [FIXED_WINDOW, SMALL_WINDOW]) {
+  test(`CA2 (0012): en las cinco tarjetas, el título y el valor principal están centrados (${size.width}×${size.height})`, async () => {
+    await withContentSize(size, async () => {
+      await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+      await expect(page.getByTestId('entity-page-service')).toBeVisible()
+      await expectErrorServiceValues()
+      for (const id of ALL_MARKERS) {
+        const card = serviceMarker(id)
+        await card.scrollIntoViewIfNeeded()
+        const title = card.getByRole('heading')
+        expect(await centerOffset(card, title), `título de ${id}`).toBeLessThanOrEqual(
+          CENTER_TOLERANCE_PX
+        )
+        expect(await centerOffset(card, mainValue(id)), `valor de ${id}`).toBeLessThanOrEqual(
+          CENTER_TOLERANCE_PX
+        )
+      }
+    })
+  })
+
+  test(`CA3 (0012): las filas secundarias (p90/p99 y abiertos/cerrados) también están centradas (${size.width}×${size.height})`, async () => {
+    await withContentSize(size, async () => {
+      await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+      await expect(page.getByTestId('entity-page-service')).toBeVisible()
+      await expectErrorServiceValues()
+      const times = serviceMarker('response-time')
+      await times.scrollIntoViewIfNeeded()
+      const percentiles = times.getByTestId('service-marker-p90').locator('xpath=..')
+      expect(await centerOffset(times, percentiles), 'p90/p99').toBeLessThanOrEqual(
+        CENTER_TOLERANCE_PX
+      )
+      const problems = serviceMarker('problems')
+      await problems.scrollIntoViewIfNeeded()
+      for (const id of ['service-marker-open', 'service-marker-closed']) {
+        // Cada recuento, centrado en su columna: su número y su nombre, uno encima del otro.
+        const count = problems.getByTestId(id)
+        const number = await contentCenter(count.locator('span').nth(0))
+        const label = await contentCenter(count.locator('span').nth(1))
+        expect(Math.abs(number - label), id).toBeLessThanOrEqual(CENTER_TOLERANCE_PX)
+      }
+      const counts = problems.getByTestId('service-marker-open').locator('xpath=..')
+      expect(await centerOffset(problems, counts), 'abiertos/cerrados').toBeLessThanOrEqual(
+        CENTER_TOLERANCE_PX
+      )
+    })
+  })
+}
+
+test('CA6 (0012): el marcador «Peticiones KO» con 9907 enseña «9.907»', async () => {
+  await goToRoute(`/entities/SERVICE/${SVC_KO_THOUSANDS_ID}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveText(/^9\.907$/)
+  // El de OK, con 5 cifras, ya llevaba separador: 45.000 − 9.907 = 35.093.
+  await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^35\.093$/)
 })

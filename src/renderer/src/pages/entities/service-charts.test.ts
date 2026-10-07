@@ -311,3 +311,25 @@ describe('CA4 (0009): unidades del eje Y, en es y en', () => {
     }
   })
 })
+
+/**
+ * Ficha 0012: los cuatro gráficos del servicio, sin líneas de rejilla en el eje Y. Se quedan las
+ * etiquetas del eje Y y el eje X. (El gráfico de Métricas, en `metric-chart-option.test.ts`.)
+ */
+describe('CA1 (0012): sin líneas de rejilla en los gráficos del servicio', () => {
+  it('CA1 (0012): yAxis.splitLine.show === false en los cuatro, con sus etiquetas y su eje X', () => {
+    for (const kind of ['responseTime', 'activity', 'errorRate', 'errors'] as const) {
+      const option = optionOf(kind, metrics())
+      const yAxis = option['yAxis'] as {
+        splitLine?: { show?: unknown }
+        axisLabel?: { show?: unknown; formatter?: unknown }
+      }
+      expect(yAxis.splitLine?.show, kind).toBe(false)
+      expect(yAxis.axisLabel?.show, kind).not.toBe(false)
+      expect(typeof yAxis.axisLabel?.formatter, kind).toBe('function')
+      const xAxis = option['xAxis'] as { show?: unknown; type?: unknown }
+      expect(xAxis.show, kind).not.toBe(false)
+      expect(xAxis.type, kind).toBe('time')
+    }
+  })
+})
