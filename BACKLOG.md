@@ -6,7 +6,11 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-(ninguna)
+- Lote **servicio** (página de análisis de una entidad SERVICE), aprobado por Dani el 2026-10-07.
+  Orden: [0006](tasks/0006-servicio-datos-metricas.md) datos de métricas,
+  [0007](tasks/0007-servicio-problemas.md) recuentos de problemas,
+  [0008](tasks/0008-servicio-marcadores.md) marcadores, [0009](tasks/0009-servicio-graficos.md)
+  gráficos y [0010](tasks/0010-servicio-banda-problemas.md) franja de problemas.
 
 ## Próximo
 

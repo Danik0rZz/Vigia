@@ -1,0 +1,105 @@
+---
+id: '0009'
+titulo: 'SERVICE: cuatro gráficos (tiempos, actividad OK/KO, tasa de error y errores)'
+estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+tamano: M # S | M | L (docs/propuestas-siguientes.md)
+ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
+lote: servicio
+depende_de: ['0006', '0008']
+aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
+rama: feat/0009-servicio-graficos
+adrs: [4]
+adr_nuevo:
+api: ninguna nueva (usa `entities:serviceMetrics` de la 0006)
+migracion: no
+rondas_revision: 0
+---
+
+## Petición original
+
+Lote «servicio» (0006 a 0010). Dani pasó como ejemplo la sección «Request metrics» de Dynatrace:
+cuatro gráficos en una rejilla de 2×2. "Tiempos: 3 series, AVG, p90 y p99. Actividad: agrupada por
+OK y KO. Errores: actividad KO. Tasa de error." La petición completa está en la ficha 0006.
+
+## Especificación
+
+**Decisiones de Dani (2026-10-07), al aprobar el lote:** tiempos con **mediana**, p90 y p99 (no la
+media); OK = total − KO; marcador de tasa de error del rango (KO / total); la franja de problemas
+sobre la tasa de error va en este lote (ficha 0010). Dani autoriza las lecturas de solo lectura del
+tenant de pruebas que hagan falta para validar (`npm run test:live`).
+
+Debajo de los marcadores (0008), una sección «Métricas de peticiones» con una **rejilla de 2×2**
+(una columna si la ventana es estrecha), con `Chart.tsx` y el eje de tiempo de `chart-time.ts`
+(0.10.2):
+
+| Gráfico (posición)      | Tipo            | Series                                          | Eje Y     |
+| ----------------------- | --------------- | ----------------------------------------------- | --------- |
+| Tiempo de respuesta (1) | líneas          | mediana, p90 y p99 (tres colores del tema)      | ms o s    |
+| Actividad (2)           | barras apiladas | OK (verde del tema) y KO (rojo del tema) encima | /min      |
+| Tasa de error (3)       | línea           | tasa de error                                   | % (0–100) |
+| Errores (4)             | barras          | KO (rojo del tema)                              | /min      |
+
+- **Por minuto:** las barras se normalizan a peticiones por minuto con la `resolution` devuelta
+  (con `1m` es el valor tal cual; con `5m`, el valor / 5), como hace Dynatrace («2K /min»). El
+  tooltip da el valor por minuto y el total del intervalo.
+- **Tooltip** con la fecha y hora completas y el valor de cada serie con su unidad. Leyenda
+  pulsable para ocultar series.
+- **Huecos:** un `null` es un hueco en la línea o una barra que falta, no un 0.
+- **Cada gráfico** con su título y, a la derecha, «Abrir en Métricas» (como en las evidencias), que
+  abre la consulta de ese gráfico con el rango que se ve. La consulta que se abre la construye la
+  interfaz con el id ya validado de la ruta.
+- Cada gráfico se carga y falla por su lado (esqueleto; aviso compacto con Reintentar).
+- Colores del tema y contraste (el test de contraste de `check`); claro y oscuro.
+- Mismo rango global y «Actualizar» que los marcadores; sin refresco solo (ADR-0004). Los cuatro
+  gráficos usan una sola llamada a `entities:serviceMetrics` (la misma que los marcadores, compartida
+  por TanStack Query).
+- Exportar cada gráfico con el `ExportMenu` existente (imagen y XLSX), como el gráfico de Métricas.
+- Textos en es y en.
+
+## Criterios de aceptación
+
+Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
+
+- CA1 (e2e): en la página de un SERVICE del simulador salen los cuatro gráficos en su orden, con
+  su título y su `canvas`, y las series de cada uno (atributo `data-series`, como en Métricas):
+  `[mediana, p90, p99]`, `[OK, KO]`, `[tasa]` y `[KO]`.
+- CA2 (unitario): la opción de ECharts de Actividad apila OK y KO en el mismo `stack` y los valores
+  van normalizados por minuto con la resolución (`1m`, `5m` y `1h`).
+- CA3 (unitario): los `null` de una serie quedan como hueco (`null` en la opción), no como 0.
+- CA4 (unitario): eje Y de tiempos en ms o s según el máximo, de la tasa en % y de las barras con
+  «/min», en es y en.
+- CA5 (e2e): «Abrir en Métricas» de cada gráfico abre Métricas con la consulta de ese gráfico y el
+  rango que se ve.
+- CA6 (e2e): con la ventana estrecha, una columna; con la normal, dos.
+- CA7 (e2e): si el canal falla, los cuatro gráficos enseñan el aviso con Reintentar; los
+  problemas de los marcadores siguen.
+- CA8 (e2e): la exportación XLSX de un gráfico trae sus series y la hoja Info con el rango.
+- CA9 (unitario): textos nuevos en es y en (paridad de `check`).
+
+## Pruebas a mano para Dani
+
+- Con un servicio real, que los cuatro gráficos se parecen a los de Dynatrace en el mismo rango
+  (forma, unidades y escala) y se leen bien en claro y en oscuro.
+- «Abrir en Métricas» desde cada gráfico.
+
+## Fuera de alcance
+
+- La franja de los problemas encima de la tasa de error: ficha 0010, del mismo lote.
+- Los menús «⋮» y los «Analyze …» de Dynatrace (aquí, «Abrir en Métricas» y exportar).
+- Desglose por endpoint, por código HTTP o por clave de petición.
+
+## Ideas surgidas (fuera de alcance)
+
+(ninguna)
+
+## Notas del revisor
+
+(sin revisar)
+
+## Verificación
+
+(pendiente)
+
+## Resultado
+
+(pendiente)
