@@ -1,7 +1,7 @@
 ---
 id: '0016'
 titulo: 'HOST: exploración en vivo de las métricas y canal de series y marcadores (CPU, memoria, red y disco)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -199,6 +199,19 @@ iowait` no suma el total en 2 de los 3 hosts (hay más componentes de CPU): el d
 - e2e: el simulador de `views.spec.ts` atiende las consultas con `builtin:host.` y el id inventado
   `HOST-00000000000E2E30` (en `entitySelector` o en la expresión) antes que las de la vista
   Métricas, y las guarda en `sim.hostMetricQueries`.
+
+**Decisiones del developer (delegadas por Dani, refinables):**
+
+- Las dos consultas van acotadas con `entitySelector=entityId("<id>")` (como el paso 0), no con un
+  filtro en la expresión; las expresiones son la clave sin agregación (avg por defecto) salvo
+  `cpu.usage:max` y los `:splitBy():sum` y `:splitBy():max` de red y disco. Fijadas en
+  `src/main/modules/host-metrics.ts` y casadas por posición, como en el servicio.
+- Motivo de error nuevo `hostMetricsRejected` (400 y 404), con texto en es y en, al estilo de
+  `serviceMetricsRejected`.
+- `hostEntityIdSchema` y `hostMetricsResultSchema` en `src/shared/modules.ts`; las series reutilizan
+  el esquema de serie del servicio (tipo `HostSeries`).
+- El canal se añade a los registros de cobertura `channel-coverage.test.ts` y `modules.test.ts`
+  («todos los canales»), como se hizo con `entities:serviceMetrics` en la 0006.
 
 ## Resultado
 
