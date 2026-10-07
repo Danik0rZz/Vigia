@@ -1,7 +1,7 @@
 ---
 id: '0009'
 titulo: 'SERVICE: cuatro gráficos (tiempos, actividad OK/KO, tasa de error y errores)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -176,6 +176,13 @@ ChartColors; language: string; t: TFunction }): EChartsCoreOption`, con
   relativo se cuenta desde que llegaron los datos (`dataUpdatedAt`), como la hoja Info.
 - Sin acceso al módulo de Métricas no se pinta la sección (los marcadores ya enseñan «—»).
 - Eje Y de las barras en notación compacta del idioma («2K /min», «2 mil /min»).
+
+### Verifier, 2026-10-07, commit `c83767a`, rango `main..c83767a`: VERDE
+
+- check: 2097 tests en 102 ficheros, cobertura ok.
+- e2e afectados: 136 pasan y 3 fallan, los de la 0005 con `withContentSize` (CA1, CA2 y CA4; alto 602 en
+  vez de 600 por el escalado al 150 % de la VPS). Sobre `main` (`ac4b073`) fallan igual.
+- `views.spec.ts -g "0009" --repeat-each 3 --workers=1`: 15/15.
 
 ## Resultado
 
