@@ -81,7 +81,10 @@ export function ServiceMarkers({
               const times = data?.totals.responseTime
               return (
                 <div className="grid gap-1">
-                  <p data-testid="service-marker-median" className="flex items-baseline gap-2">
+                  <p
+                    data-testid="service-marker-median"
+                    className="flex items-baseline justify-center gap-2"
+                  >
                     <span className="text-3xl font-semibold tabular-nums">
                       {formatDurationMs(times?.median ?? null, lang)}
                     </span>{' '}
@@ -89,7 +92,7 @@ export function ServiceMarkers({
                       {t('entities.service.markers.median')}
                     </span>
                   </p>
-                  <p className="flex flex-wrap gap-x-3 text-sm">
+                  <p className="flex flex-wrap justify-center gap-x-3 text-sm">
                     <Percentile
                       testId="service-marker-p90"
                       label={t('entities.service.markers.p90')}
@@ -114,7 +117,7 @@ export function ServiceMarkers({
             {(data) => {
               const open = data?.open ?? null
               return (
-                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                <div className="flex flex-wrap justify-center gap-x-6 gap-y-1">
                   <Count
                     testId="service-marker-open"
                     danger={open !== null && open > 0}
@@ -151,7 +154,10 @@ const okOf = (data: ServiceMetricsResult | null): number | null =>
 const errorsOf = (data: ServiceMetricsResult | null): number | null =>
   data !== null && hasRequestData(data) ? data.totals.errors : null
 
-/** Tarjeta de un marcador, con el estilo de las de Inicio. No es interactiva. */
+/**
+ * Tarjeta de un marcador, con el estilo de las de Inicio. No es interactiva. Título y
+ * contenido van centrados (ficha 0012), también con la ventana estrecha.
+ */
 function Marker({
   testId,
   title,
@@ -165,7 +171,7 @@ function Marker({
     <section
       data-testid={testId}
       aria-label={title}
-      className="glass grid min-w-0 content-start gap-2 rounded-xl p-4"
+      className="glass grid min-w-0 content-start gap-2 rounded-xl p-4 text-center"
     >
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
@@ -265,6 +271,7 @@ function QueryState<T>({
   if (query.isError) {
     return (
       <MarkerError
+        centered
         error={query.error}
         busy={query.isFetching}
         onRetry={() => void query.refetch()}
@@ -278,7 +285,11 @@ function QueryState<T>({
 function MarkerSkeleton(): JSX.Element {
   const { t } = useTranslation()
   return (
-    <div role="status" aria-label={t('entities.service.markers.loading')} className="grid gap-2">
+    <div
+      role="status"
+      aria-label={t('entities.service.markers.loading')}
+      className="grid justify-items-center gap-2"
+    >
       <span className="h-9 w-24 rounded-md bg-hover motion-safe:animate-pulse" />
       <span className="h-3 w-16 rounded bg-hover motion-safe:animate-pulse" />
     </div>
@@ -292,17 +303,26 @@ function MarkerSkeleton(): JSX.Element {
 export function MarkerError({
   error,
   busy,
-  onRetry
+  onRetry,
+  centered = false
 }: {
   error: unknown
   busy: boolean
   onRetry: () => void
+  /** Centrado, dentro de una tarjeta de marcador (ficha 0012). */
+  centered?: boolean
 }): JSX.Element {
   const { t } = useTranslation()
   const code = error instanceof IpcError ? error.code : null
   const translated = code !== null ? t(`dtErrors.${code}`, { defaultValue: '' }) : ''
   return (
-    <div role="alert" className="grid min-w-0 justify-items-start gap-2 text-sm">
+    <div
+      role="alert"
+      className={cn(
+        'grid min-w-0 gap-2 text-sm',
+        centered ? 'justify-items-center text-center' : 'justify-items-start'
+      )}
+    >
       <p className="text-danger">
         {translated !== '' ? translated : t('entities.service.markers.loadError')}
       </p>
