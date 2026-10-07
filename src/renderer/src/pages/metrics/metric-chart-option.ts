@@ -39,7 +39,11 @@ export function metricChartOption({
     yAxis: {
       type: 'value',
       splitLine: { lineStyle: { color: colors.border } },
-      axisLabel: { color: colors.muted }
+      // Separador de miles siempre (ficha 0012): ECharts pondría comas también en español.
+      axisLabel: {
+        color: colors.muted,
+        formatter: (value: number) => formatNumber(value, language)
+      }
     },
     series: series.map((item, index) => ({
       type: 'line',

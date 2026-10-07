@@ -13,6 +13,7 @@ import {
 import { PROBLEM_EXPORT_COLUMNS, toProblemExport, toProblemRow } from '@shared/problem-row'
 import { sortProblems, uniqueAffected } from '@shared/problem-sort'
 import { timeRangeToDates } from '@shared/time-range'
+import { formatNumber } from '@shared/format-number'
 import { useProblemFilters } from '../app/problem-filters'
 import { useTimeRangeValue } from '../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../components/Chart'
@@ -38,7 +39,6 @@ import {
   type ProblemFilterValues
 } from '../data/modules'
 import type { ProblemDetailLocationState } from './ProblemDetailPage'
-import { formatNumber } from '@shared/format-number'
 
 const TEXT_DEBOUNCE_MS = 300
 const BUCKETS = 24
@@ -159,7 +159,11 @@ export function ProblemsPage(): JSX.Element {
         type: 'value',
         minInterval: 1,
         splitLine: { lineStyle: { color: colors.border } },
-        axisLabel: { color: colors.muted }
+        // Separador de miles siempre (ficha 0012): ECharts pondría comas también en español.
+        axisLabel: {
+          color: colors.muted,
+          formatter: (value: number) => formatNumber(value, i18n.language)
+        }
       },
       series: [
         {

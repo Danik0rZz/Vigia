@@ -2,10 +2,10 @@ import type { TFunction } from 'i18next'
 import type { EChartsCoreOption } from 'echarts/core'
 import type { ServiceMetricsResult, ServiceSeries } from '@shared/modules'
 import { resolutionMs } from '@shared/metric-points'
+import { formatNumber } from '@shared/format-number'
 import type { ChartColors } from '../../components/Chart'
 import { axisTooltip, timeAxisLabel } from '../../components/chart-time'
 import { formatDurationMs } from '../../lib/service-format'
-import { formatNumber } from '@shared/format-number'
 
 /**
  * Los cuatro gráficos de la página de un SERVICE (ficha 0009), sacados de la

@@ -14,6 +14,7 @@ import {
 import { formatDateTime } from '@shared/format-date'
 import { seriesName } from '@shared/metric-points'
 import type { EvidenceView } from '@shared/problem-evidence'
+import { formatNumber } from '@shared/format-number'
 import { useEvidenceMetric, useModuleAccess } from '../data/modules'
 import { dateLang } from '../lib/date-lang'
 import { IpcError } from '../lib/ipc'
@@ -24,7 +25,6 @@ import { axisTooltip, timeAxisLabel } from './chart-time'
 import type { ProblemContext } from './EvidenceSection'
 import { ExportMenu } from './ExportMenu'
 import { ApiWarnings } from './ModuleState'
-import { formatNumber } from '@shared/format-number'
 
 /** Series que se dibujan como mucho. */
 const MAX_SERIES = 10

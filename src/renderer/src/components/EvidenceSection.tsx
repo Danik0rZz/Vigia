@@ -36,6 +36,7 @@ import {
   type EvidenceSortKey,
   type EvidenceView
 } from '@shared/problem-evidence'
+import { formatNumber } from '@shared/format-number'
 import { entityPath, type EntityLocationState } from '../app/entity-route'
 import {
   INITIAL_EVIDENCE_TABLE,
@@ -56,7 +57,6 @@ import { EvidenceDescription } from './EvidenceDescription'
 import { EvidenceMetricChart } from './EvidenceMetricChart'
 import { PanelBoundary } from './PanelBoundary'
 import { BUTTON_SECONDARY, INPUT } from './styles'
-import { formatNumber } from '@shared/format-number'
 
 /** Lo que las evidencias necesitan del problema: sus fechas y el "ahora" de sus gráficos. */
 export interface ProblemContext {

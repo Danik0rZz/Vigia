@@ -2,9 +2,9 @@ import type { FormEvent, JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Save } from 'lucide-react'
 import { estimatePoints, POINTS_WARNING, suggestResolution } from '@shared/metric-points'
+import { formatNumber } from '@shared/format-number'
 import { RefreshButton } from '../../components/ModuleState'
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INPUT } from '../../components/styles'
-import { formatNumber } from '@shared/format-number'
 
 /** Resoluciones del selector; '' = la de por defecto de la API (120 puntos). */
 const RESOLUTIONS = ['', '1m', '5m', '10m', '1h', '6h', '1d', 'Inf'] as const

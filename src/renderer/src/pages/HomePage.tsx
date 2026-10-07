@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { sloDisplayStatus } from '@shared/modules'
 import { serviceHealth } from '@shared/service-health'
+import { formatNumber } from '@shared/format-number'
 import { ExportMenu } from '../components/ExportMenu'
 import {
   ApiWarnings,
@@ -14,7 +15,6 @@ import {
 } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
-import { formatNumber } from '@shared/format-number'
 
 /** Color de cada estado de SLO (tokens de estado, no los de tipo de entorno). */
 const SLO_STATUS_CLASS: Record<ReturnType<typeof sloDisplayStatus>, string> = {

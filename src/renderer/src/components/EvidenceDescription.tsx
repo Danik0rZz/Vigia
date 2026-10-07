@@ -1,9 +1,9 @@
 import { useId, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MAX_DESCRIPTION_LENGTH, type EventDescription } from '@shared/problem-evidence'
+import { formatNumber } from '@shared/format-number'
 import { invoke } from '../lib/ipc'
 import { MarkdownText } from './MarkdownText'
-import { formatNumber } from '@shared/format-number'
 
 /**
  * Sección «Descripción» del detalle de un EVENT (dt.event.description, ficha
