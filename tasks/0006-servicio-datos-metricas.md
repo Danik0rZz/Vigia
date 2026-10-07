@@ -1,7 +1,7 @@
 ---
 id: '0006'
 titulo: 'SERVICE: exploración en vivo y canal de métricas del servicio (series y marcadores)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -150,7 +150,65 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+**Tests (commit `f62a5b2`).** Fallan por falta del canal, no por el propio test (vitest: 28
+fallos «canal/implementación de entities:serviceMetrics» indefinida; e2e: `UNKNOWN_CHANNEL`).
+
+- CA1 → `src/main/modules/service-metrics-explore.live.test.ts`, «CA1 (0006): el informe no
+  contiene ningún id ni nombre observado» (pasa; 33 GET, mediana 342 ms; se salta sin
+  `.env.live.local`).
+- CA2 → `src/shared/ipc.test.ts`, describe «CA2 (0006): entrada de entities:serviceMetrics».
+- CA3 → `src/main/ipc/handlers/service-metrics.test.ts`, «CA3 (0006): dos consultas a
+  /metrics/query con el id y el rango pedidos» (rango relativo y absoluto).
+- CA4, CA5 y CA6 → el mismo fichero, describes «CA4 (0006)», «CA5 (0006)» y «CA6 (0006)».
+- CA7 → `e2e/views.spec.ts`, «CA7 (0006): entities:serviceMetrics por IPC con un id inventado…»
+  (simulador: `serviceMetricResponse`, id `SERVICE-00000000000E2E01`).
+- Además, `modules.test.ts` («todos los canales de módulos») llama al canal nuevo.
+
+**Nombres que fijan los tests (la ficha los daba como orientativos).** El canal se implementa en
+`createModuleHandlers` (`src/main/ipc/handlers/modules.ts`). Salida: `resolution`;
+`series.responseTime.{median,p90,p99}`, `series.requests`, `series.errors`, `series.ok`
+(OK punto a punto) y `series.errorRate`, cada una `{ timestamps, values }`; `totals.requests`,
+`totals.errors`, `totals.ok`, `totals.errorRate` (en %, `errors / requests × 100`) y
+`totals.responseTime.{median,p90,p99}` (ms); `warnings` y `partial` con la forma de
+`metrics:query`. Sin datos: series `{ timestamps: [], values: [] }`, totales de recuento a 0 y
+el resto a `null`. OK con peticiones `null` en un punto → `null`.
+
+**Paso 0, exploración en vivo (2026-10-07, 3 servicios afectados por problemas de 7 días, now-2h y
+now-7d; informe en `live-reports/service-metrics-explore.json`).**
+
+- Descriptores: `response.server` en `MicroSecond` (agregación por defecto `avg`; admite
+  `median` y `percentile`); `requestCount.server` y `errors.server.count` en `Count`
+  (agregación `value`); `errors.server.rate` en `Percent` (0–100). Las cuatro con
+  `resolutionInfSupported: true` y `fold` entre sus transformaciones.
+- Las 6 expresiones de series en una consulta (filtro `dt.entity.service` + `splitBy`): 200, un
+  resultado por expresión **en el orden pedido**, una serie por resultado y los mismos
+  `timestamps` en todas. El `metricId` devuelto **no** es la expresión enviada: Dynatrace le quita
+  las comillas al id del filtro (`eq("dt.entity.service",SERVICE-…)`); casar por orden o
+  normalizando. Sin `warnings`.
+- Resolución sin `resolution`: `1m` en 2 h (10–150 puntos) y `1h` en 7 días (151–1000 puntos).
+  Ningún `null` en las series de la muestra (tampoco en errores: llegan 0).
+- `entitySelector=entityId("<id>")` sin filtro devuelve exactamente lo mismo que el filtro por
+  `dt.entity.service` (valores y resolución).
+- Marcadores: `:fold(sum)` (sin `resolution`) = suma de los puntos de la serie. `resolution=Inf`
+  coincide con `:fold(sum)` en 2 h, pero **no en 7 días** (peticiones < 1 % de diferencia, errores
+  ≥ 1 %). Tiempos: `resolution=Inf` y `:fold(avg)` dan valores distintos (≥ 1 %), como se espera
+  (mediana del rango frente a media de medianas). **`:fold(...)` con `resolution=Inf` en la misma
+  consulta da 400.** Con `resolution=Inf`, la tasa coincide con `errores / peticiones × 100`.
+- OK/KO: errores ≤ peticiones en todos los puntos y en el total, y tasa = errores / peticiones ×
+  100 → `requestCount.server` **incluye** las peticiones con error (OK = total − errores).
+- `dataPointCountRatio` y `dimensionCountRatio` llegan **siempre**, entre 0 y 0,01, en respuestas
+  normales (la OpenAPI: puntos pedidos / máximo permitido por consulta). Ver la nota de abajo.
+- `tokenEnLog: false`; ningún id ni nombre en el informe (CA1).
+
+**Para el Orquestador (no reinterpretado en los tests).**
+
+1. Con dos consultas no se puede tener a la vez `:fold(sum)` en los recuentos y `resolution=Inf`
+   en los tiempos (400). CA3 acepta, por cada marcador, recuentos con `:fold(sum)` o
+   `resolution=Inf` y tiempos con `resolution=Inf` o `:fold(avg)`, pero no las dos cosas en la
+   misma consulta; elegir (todo `Inf`, todo `fold`, o una tercera consulta, que CA3 no admite).
+2. CA6 está escrito como «ratio < 1 = recortado», igual que `metrics:query`; en vivo los ratios son
+   siempre < 0,01, así que con esa regla toda respuesta real saldría `partial`. El test sigue la
+   ficha; el simulador de los e2e no manda ratios.
 
 ## Resultado
 
