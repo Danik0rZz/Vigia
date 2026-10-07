@@ -22,12 +22,14 @@ export function EnvSelector(): JSX.Element {
   const active = useActiveEnvironment()
   const setActive = useTenantMutation('environments:setActive')
 
+  // min-w-16: con la ventana estrecha encoge (el nombre se recorta) para dejar sitio a la
+  // ruta de la barra superior, sin perder el distintivo ni la flecha (ficha 0005).
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         data-testid="env-selector"
         aria-label={t('envSelector.label')}
-        className="app-no-drag flex h-7 max-w-72 items-center gap-1.5 rounded-md border border-border px-2 text-xs hover:bg-hover"
+        className="app-no-drag flex h-7 max-w-72 min-w-16 items-center gap-1.5 rounded-md border border-border px-2 text-xs hover:bg-hover"
       >
         {active === null ? (
           <span className="text-muted-foreground">{t('envSelector.none')}</span>

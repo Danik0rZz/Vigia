@@ -44,21 +44,26 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
 
   return (
     <header className="app-drag titlebar-inset flex h-12 shrink-0 items-center gap-2 pl-4">
+      {/* Con poco ancho (hasta 960 px, el mínimo de la ventana), lo que se recorta es
+          "Cliente › Entorno" (también está en el selector de entorno): la sección y el
+          detalle no encogen y se ven siempre, para que el enlace de la sección se pueda pulsar
+          (ficha 0005). El tramo del entorno tiene ancho 0 y crece hasta su contenido, así no
+          cuenta en el mínimo de la ruta (min-w-fit), que es solo la sección y el detalle. */}
       <nav
         aria-label={t('topbar.breadcrumb')}
-        className="flex min-w-0 flex-1 items-center gap-1.5 truncate"
+        className="flex min-w-fit flex-1 items-center gap-1.5 whitespace-nowrap"
       >
         {active !== null && (
-          <>
-            <span className="text-muted-foreground">{active.client.name}</span>
-            <span className="text-muted-foreground">{SEPARATOR}</span>
-            <span className="text-muted-foreground">{active.label}</span>
+          <span className="flex w-0 max-w-max grow items-center gap-1.5 overflow-hidden">
+            <span className="truncate text-muted-foreground">{active.client.name}</span>
+            <span className="shrink-0 text-muted-foreground">{SEPARATOR}</span>
+            <span className="truncate text-muted-foreground">{active.label}</span>
             <EnvTypeBadge type={active.environment.type} />
-            <span className="text-muted-foreground">{SEPARATOR}</span>
-          </>
+            <span className="shrink-0 text-muted-foreground">{SEPARATOR}</span>
+          </span>
         )}
         {current !== undefined && (
-          <span className="font-medium" aria-current="page">
+          <span className="shrink-0 font-medium" aria-current="page">
             {t(current.labelKey)}
           </span>
         )}
@@ -67,16 +72,16 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
             <Link
               to={parent.path}
               data-testid="breadcrumb-section"
-              className="app-no-drag text-muted-foreground hover:text-foreground hover:underline"
+              className="app-no-drag shrink-0 text-muted-foreground hover:text-foreground hover:underline"
             >
               {t(parent.labelKey)}
             </Link>
             {detail !== null && (
               <>
-                <span className="text-muted-foreground">{SEPARATOR}</span>
+                <span className="shrink-0 text-muted-foreground">{SEPARATOR}</span>
                 <span
                   data-testid="breadcrumb-detail"
-                  className="font-medium tabular-nums"
+                  className="shrink-0 font-medium tabular-nums"
                   aria-current="page"
                 >
                   {detail}
@@ -90,10 +95,18 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }): JSX.El
       <EnvSelector />
       <TimeRangeSelector />
 
-      <button type="button" onClick={onOpenPalette} className={iconButton}>
+      {/* Por debajo de 1280 px solo el icono: deja sitio a la ruta. */}
+      <button
+        type="button"
+        onClick={onOpenPalette}
+        title={t('topbar.search')}
+        className={iconButton}
+      >
         <Search aria-hidden="true" className="size-4" />
-        <span>{t('topbar.search')}</span>
-        <kbd className="rounded border border-border px-1 text-[11px]">{t('topbar.shortcut')}</kbd>
+        <span className="sr-only xl:not-sr-only">{t('topbar.search')}</span>
+        <kbd className="hidden rounded border border-border px-1 text-[11px] xl:inline">
+          {t('topbar.shortcut')}
+        </kbd>
       </button>
 
       <button
