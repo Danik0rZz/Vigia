@@ -1,7 +1,7 @@
 ---
 id: '0006'
 titulo: 'SERVICE: exploración en vivo y canal de métricas del servicio (series y marcadores)'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -257,4 +257,45 @@ con `fold` e `Inf`, y CA6 con «< 1») están resueltas en "En espera" y en los 
 
 ## Resultado
 
-(pendiente)
+**Canal `entities:serviceMetrics` (developer, 2026-10-07).** En `createModuleHandlers`
+(`src/main/ipc/handlers/modules.ts`), con la lógica pura en `src/main/modules/service-metrics.ts` y
+los esquemas en `src/shared/modules.ts` (`serviceEntityIdSchema`, `serviceMetricsResultSchema`).
+
+- Selectores: el filtro de la petición original,
+  `:filter(eq("dt.entity.service","<id>")):splitBy("dt.entity.service")` (la forma del paso 0;
+  `entitySelector` daba lo mismo). Series: mediana, p90, p99, peticiones, errores y tasa, en ese
+  orden y sin `resolution`. Marcadores: los tres tiempos con `resolution=Inf` y sin `:fold`. Las dos
+  consultas van en paralelo.
+- Los resultados se casan **por posición** (en vivo vuelven en el orden pedido y el `metricId` no es
+  la expresión enviada). Se toma la primera serie de cada resultado (el filtro deja un servicio).
+- Totales: peticiones y errores, suma de la serie (los puntos `null` no suman); OK = total − errores,
+  nunca negativo; tasa = errores × 100 / peticiones (en ese orden, para no arrastrar decimales),
+  `null` sin peticiones. Tiempos del rango: el único punto de la consulta `Inf`, en ms.
+- OK punto a punto: `null` si las peticiones son `null`; un error `null` en un punto con peticiones
+  cuenta como 0 (en vivo llegan 0). Los errores se casan con las peticiones por `timestamp`.
+- Unidades fijadas en código: tiempos de µs a ms (÷ 1000), sin pedir el descriptor; la tasa tal
+  cual (ya es 0–100).
+- `warnings` de las dos consultas, sin duplicados; `partial` de las dos, con la regla compartida.
+- Errores: un 400 o 404 se relanza con `reason` `serviceMetricsRejected` (estado y texto de
+  Dynatrace como parámetros; es y en). El resto, como siempre.
+- `src/main/ipc/channel-coverage.test.ts` (lista de canales por factoría, no es un test de la ficha)
+  añade el canal nuevo, como pide su comentario.
+- Sin hook de TanStack Query en el renderer: esta ficha no tiene interfaz y quedaría sin uso. La
+  clave entorno + entidad + rango la pone la 0008 al pintar.
+
+**Métricas (CA8, arreglo de la app).** Qué fallaba: `toMetricSeries` tomaba por recortado un
+`dataPointCountRatio` o `dimensionCountRatio` **menor que 1**, pero la API los manda siempre (entre 0
+y 0,01 en consultas normales) y significan «pedido / máximo permitido». Cómo se veía: bajo casi
+cualquier gráfico de Métricas salía «<métrica>: la API ha devuelto solo parte de los puntos (0 %)»
+(o «(1 %)»), y lo mismo con las dimensiones, aunque no faltara nada; también iba como «Aviso» en el
+XLSX. Qué se cambió: la regla vive en `truncatedResults` (`src/main/modules/metrics.ts`), recortado
+es un ratio **> 1**, y la usan `metrics:query` y `entities:serviceMetrics`. El aviso
+(`metrics.partialPoints` y `metrics.partialDimensions`, es y en) ya no pinta el ratio como
+porcentaje (con 1,5 habría dicho «150 %»): dice la parte que sí llegó, aproximada (1 / ratio, como
+mínimo 1 %): «la API ha devuelto solo parte de los puntos (alrededor del 67 % de los pedidos)» y
+«… (about 67 % of those requested)» (`MetricChartPanel.tsx`).
+
+**Comprobación.** `npm run check` en verde (95 ficheros, 2019 tests; cobertura 91,3 % de
+sentencias). e2e completo (`src/shared/ipc.ts` es transversal): 177 en verde y 3 fallos, los
+conocidos de la VPS con `withContentSize` (ventana 960×602 con el escritorio al 150 %): CA2, CA1 y
+CA4 de la 0005, que fallan igual en `main`. «CA7 (0006)» y «AUD-13 y CA8 (0006)», en verde.
