@@ -1,7 +1,7 @@
 ---
 id: '0012'
 titulo: 'SERVICE: gráficos sin líneas de rejilla, marcadores centrados y miles siempre con separador'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -71,7 +71,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Algunos avisos interpolan números crudos en i18next sin `formatNumber` (`{{total}}`
+  de comentarios, evidencias, series de Métricas y la franja de problemas del servicio): con
+  totales de 4 cifras saldrían sin punto. Pasarlos por `formatNumber` (sin tocar `count`, que
+  i18next usa para el plural), o un formateador global de i18next.
 
 ## Notas del revisor
 
@@ -79,8 +82,41 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Ficha ligera: tests del developer en `7d37030` (`test(servicio): criterios de la ficha 0012`).
+
+- CA1: `src/renderer/src/pages/entities/service-charts.test.ts` (los cuatro gráficos) y
+  `src/renderer/src/pages/metrics/metric-chart-option.test.ts` (Métricas conserva la rejilla).
+- CA2 y CA3: `e2e/views.spec.ts`, con FIXED_WINDOW (1024×720, 5 columnas) y SMALL_WINDOW
+  (960×600, 2 columnas), sobre el servicio SVC_ID.
+- CA4 y CA5: `src/shared/format-number.test.ts`.
+- CA6: `e2e/views.spec.ts`, servicio nuevo del simulador con 9907 KO.
+
+Al escribirlos fallaban por falta de código (módulos inexistentes, `splitLine.show` undefined,
+desvíos de 12 a 98 px y «9907»).
 
 ## Resultado
 
-(pendiente)
+Decisiones del developer (refinables, delegadas por el Orquestador):
+
+- `formatNumber(value, language, options?)` en `src/shared/format-number.ts`, con
+  `useGrouping: 'always'` encima de las opciones. Sustituye los 17 `new Intl.NumberFormat` de la
+  interfaz y de `problem-evidence.ts` (en `service-charts.ts`, el ayudante local pasa a
+  `formatDigits`).
+- Para probar CA1 en Métricas, su opción de ECharts sale de `MetricChartPanel.tsx` a
+  `pages/metrics/metric-chart-option.ts`, sin cambios.
+- CA2 y CA3 miden el contenido con un Range (no la caja del elemento, que ocupa todo el ancho). El
+  «valor principal» de Tiempo de respuesta es la línea de la mediana y el de Problemas, el grupo de
+  los dos recuentos; en CA3, además, número y nombre de cada recuento quedan centrados entre sí.
+- Con 5 columnas, la línea «105 ms Mediana» no cabía y ensanchaba la columna de la tarjeta (título
+  y filas desbordaban y se descentraban 28 px). La tarjeta lleva `grid-cols-1` y la mediana
+  `flex-wrap`: «Mediana» baja a la línea siguiente si no cabe. Tamaños y colores sin cambios.
+- Dentro de un marcador, el esqueleto de carga y el aviso de error (`MarkerError` con la prop
+  nueva `centered`) también van centrados; en la franja y los gráficos, el aviso sigue igual.
+- Tests viejos al formato nuevo: tres expectativas unitarias de `src/shared/problem-evidence.test.ts`
+  (`formatUnit`: «1234,5» → «1.234,5», «1023,99 B» → «1.023,99 B», «2048 GB» → «2.048 GB»).
+  Ningún e2e esperaba números de 4 cifras sin punto.
+- El cambio de `formatNumber` y el de la rejilla van en un solo commit (`864c193`): el pre-commit
+  corre los tests relacionados de `service-charts.ts`, que tiene las dos cosas.
+
+`npm run check`: 2150 tests en verde (líneas 91,76 %). `npm run test:e2e` completo (toca
+`e2e/areas.json`, transversal): 214 en verde.
