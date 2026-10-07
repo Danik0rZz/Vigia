@@ -197,7 +197,7 @@ ninguno. Sin migraciones.
   `withContentWidth` (algo más que el contenido del runner; en el CI pasa). CA4 (0010) usa `hover` y
   `focus`, que traen el tramo a la vista; CA5 (0010), el Enter con `focus()`, igual. CA3 (0013)
   supone tramos estrechos en 7 días: solo dejaría de valer con un contenido muy ancho.
-- **Ejecución.** `npm run check` en verde (2134 unitarios). `views.spec.ts -g "(0010)|(0013)"
---repeat-each 3 --workers=1`: 24 passed con la ventana de la VPS, 24 con el contenido a 1008×705
-  y 24 a 1024×720 (fijado en un `beforeEach` temporal, sin commitear).
-  `npm run test:e2e:affected -- main..HEAD`: 124 passed.
+- **Ejecución.** `npm run check` en verde (2134 unitarios). Con
+  `views.spec.ts -g "(0010)|(0013)" --repeat-each 3 --workers=1`: 24 passed con la ventana de la
+  VPS, 24 con el contenido a 1008×705 y 24 a 1024×720 (fijado en un `beforeEach` temporal, sin
+  commitear). `npm run test:e2e:affected -- main..HEAD`: 124 passed.
