@@ -4,6 +4,7 @@ import { serviceEntityIdSchema } from '@shared/modules'
 import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
   useEntityProblemCounts,
+  useEntityInfo,
   useEntityProblems,
   useModuleAccess,
   useModuleRefresh,
@@ -11,8 +12,10 @@ import {
   type ModuleAccess,
   unavailableReason
 } from '../../data/modules'
+import { useConnectionStatusKnown } from '../../data/tenants'
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
 import { ServiceCharts } from './ServiceCharts'
+import { ServiceInfo } from './ServiceInfo'
 import { ServiceMarkers } from './ServiceMarkers'
 
 /**
@@ -29,11 +32,19 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
   const problemsAccess = useModuleAccess('problems')
   const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
   const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
+  const entitiesAccess = useModuleAccess('entities')
+  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
+  const statusKnown = useConnectionStatusKnown(
+    entitiesAccess.available ? entitiesAccess.envId : null
+  )
+  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
   const metrics = useServiceMetrics(metricsEnv, serviceId)
   const problems = useEntityProblemCounts(problemsEnv, serviceId)
   const problemList = useEntityProblems(problemsEnv, serviceId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv, 'entities')
-  const canFetch = serviceId !== null && (metricsEnv !== null || problemsEnv !== null)
+  const info = useEntityInfo(entitiesEnv, serviceId)
+  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  const canFetch =
+    serviceId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -44,7 +55,9 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
         canFetch ? (
           <RefreshButton
             onRefresh={refresh}
-            busy={metrics.isFetching || problems.isFetching || problemList.isFetching}
+            busy={
+              metrics.isFetching || problems.isFetching || problemList.isFetching || info.isFetching
+            }
           />
         ) : undefined
       }
@@ -55,6 +68,8 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
         </p>
       ) : (
         <>
+          {/* Ficha 0015: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
+          <ServiceInfo access={entitiesAccess} info={info} />
           {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
