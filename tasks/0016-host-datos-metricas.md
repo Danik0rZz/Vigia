@@ -1,7 +1,7 @@
 ---
 id: '0016'
 titulo: 'HOST: exploración en vivo de las métricas y canal de series y marcadores (CPU, memoria, red y disco)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -115,7 +115,90 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `d35e1f7` (`test(host): criterios de la ficha 0016`). Los unitarios y el e2e
+fallan porque el canal no existe (`canal entities:hostMetrics: expected undefined`, `implementación
+de entities:hostMetrics: expected undefined`, `UNKNOWN_CHANNEL` en el e2e), no por el test.
+
+| Criterio | Test                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/host-metrics-explore.live.test.ts` › `CA1 (0016): el informe no contiene ningún id ni nombre observado` (ya pasa: el paso 0 está hecho)           |
+| CA2      | `src/shared/ipc.test.ts` › `CA2 (0016): entrada de entities:hostMetrics`                                                                                            |
+| CA3      | `src/main/ipc/handlers/host-metrics.test.ts` › `CA3 (0016): dos consultas a /metrics/query con las expresiones confirmadas, el id y el rango` (relativo y absoluto) |
+| CA4      | `src/main/ipc/handlers/host-metrics.test.ts` › `CA4 (0016): la respuesta se transforma en series y totales`                                                         |
+| CA5      | `src/main/ipc/handlers/host-metrics.test.ts` › `CA5 (0016): errores de Dynatrace y host sin datos`                                                                  |
+| CA6      | `src/main/ipc/handlers/host-metrics.test.ts` › `CA6 (0016): warnings y resultados recortados`                                                                       |
+| CA7      | `e2e/views.spec.ts` › `CA7 (0016): entities:hostMetrics por IPC con un id inventado: dos consultas, series y totales`                                               |
+
+**Paso 0 (CA1), en vivo y de solo lectura, el 2026-10-08:** 3 hosts (1 de los problemas de los
+últimos 7 días; los otros 2, los primeros de `type("HOST")`, porque los problemas no daban más),
+`now-2h` y `now-7d`, 37 peticiones GET. Informe en `live-reports/host-metrics-explore.json`
+(ignorado), sin ids ni nombres. Las 11 candidatas existen; no hizo falta buscar alternativas.
+
+| Métrica                           | Existe | Unidad       | Agregación por defecto | Agregaciones        | Dimensiones                                     | `Inf` | `fold` |
+| --------------------------------- | ------ | ------------ | ---------------------- | ------------------- | ----------------------------------------------- | ----- | ------ |
+| `builtin:host.cpu.usage`          | sí     | Percent      | avg                    | auto, avg, max, min | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.cpu.user`           | sí     | Percent      | avg                    | auto, avg, max, min | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.cpu.system`         | sí     | Percent      | avg                    | auto, avg, max, min | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.cpu.iowait`         | sí     | Percent      | avg                    | auto, avg, max, min | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.cpu.load`           | sí     | Ratio        | avg                    | auto, avg, max, min | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.mem.usage`          | sí     | Percent      | avg                    | auto, avg, max, min | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.mem.used`           | sí     | Byte         | avg                    | auto, avg, max, min | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.mem.total`          | sí     | Byte         | **value**              | auto, value         | `dt.entity.host`                                | sí    | sí     |
+| `builtin:host.net.nic.trafficIn`  | sí     | BitPerSecond | avg                    | auto, avg, max, min | `dt.entity.host`, `dt.entity.network_interface` | sí    | sí     |
+| `builtin:host.net.nic.trafficOut` | sí     | BitPerSecond | avg                    | auto, avg, max, min | `dt.entity.host`, `dt.entity.network_interface` | sí    | sí     |
+| `builtin:host.disk.usedPct`       | sí     | Percent      | avg                    | auto, avg, max, min | `dt.entity.host`, `dt.entity.disk`              | sí    | sí     |
+
+Comportamientos observados (todo con `entitySelector=entityId("<id>")`, sin filtro en la
+expresión):
+
+- Las 10 expresiones de series en una consulta dan 200, vuelven en el orden pedido y su `metricId`
+  es la expresión enviada tal cual. Resolución devuelta: `1m` con `now-2h`, `1h` con `now-7d`.
+  Todas las series con los mismos timestamps.
+- Red y disco sin juntar llegan con una serie por interfaz o por disco (1 o de 2 a 9 según el host).
+  `:splitBy():sum` en la red da una sola serie igual, punto a punto, a la suma de las interfaces; y
+  `:splitBy():max` en el disco, al máximo de los discos (igual, o < 1 % en un host).
+- Marcadores: `resolution=Inf` y `:fold(...)` sin Inf dan 200 los dos. Con `now-2h` coinciden; con
+  `now-7d` las medias difieren < 1 % (fold promedia los puntos de 1 h; Inf, el rango real). Los
+  máximos coinciden. Con Inf, `:splitBy():sum` de la red es igual a la suma de las medias por
+  interfaz y `:splitBy():max` del disco, al máximo por disco. `cpu.load` con Inf tiene dato en los
+  3 hosts.
+- `cpu.usage:max` con Inf difiere (≥ 1 %) del máximo de la serie de medias: el máximo real del
+  rango sale de la consulta con Inf, no de la serie.
+- Nulos: 0 % casi siempre; un host con 60 % de nulos en `now-7d` (sin datos en parte del rango).
+  Con `now-2h`, el último punto llega a `null` en 2 de los 3 hosts: usada y total salen del último
+  punto con dato.
+- `mem.used / mem.total × 100` coincide con `mem.usage` en el último punto. `user + system +
+iowait` no suma el total en 2 de los 3 hosts (hay más componentes de CPU): el desglose no es un
+  reparto del total.
+- Ratios siempre entre 0 y 0,01 (nada recortado). Ninguna respuesta trae `warnings`.
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- Consulta de series (sin `resolution`), 10 expresiones acotadas al host con
+  `entitySelector=entityId("<id>")` o con un filtro por `dt.entity.host` en la expresión (los
+  tests aceptan las dos): `builtin:host.cpu.usage`, `.cpu.user`, `.cpu.system`, `.cpu.iowait`,
+  `.mem.usage`, `.mem.used` y `.mem.total` (sin agregación o con `:avg`; `mem.total` solo admite
+  `value`, así que sin agregación), `builtin:host.net.nic.trafficIn:splitBy():sum`,
+  `builtin:host.net.nic.trafficOut:splitBy():sum` y `builtin:host.disk.usedPct:splitBy():max`.
+  Usada y total van en esta consulta porque salen del último punto con dato (Inf solo da la media).
+- Consulta de marcadores con `resolution=Inf` y sin `fold`, 7 expresiones: `cpu.usage` (media),
+  `cpu.usage:max`, `mem.usage` (media), las dos de red con `:splitBy():sum`, el disco con
+  `:splitBy():max` y `cpu.load` (media). Inf mejor que fold: da la media del rango real y el máximo
+  real.
+- Salida de `entities:hostMetrics`, como la de `entities:serviceMetrics`:
+  `{ resolution, series, totals, warnings, partial }`, con
+  `series: { cpu, cpuBreakdown: { user, system, iowait }, memory, network: { in, out }, disk }`
+  (cada una `{ timestamps, values }`, con los `null` conservados) y
+  `totals: { cpu: { avg, max }, memory: { avg, used, total }, network: { in, out }, disk: { max }, load: { avg } }`
+  (todo `number | null`). `resolution` es la de la consulta de series.
+- Unidades sin convertir: % en 0–100, bytes y bits/s tal cual.
+- Host sin datos (`result` o `data` vacíos): series `{ timestamps: [], values: [] }` y todos los
+  totales a `null`.
+- La implementación va en `createModuleHandlers` (`src/main/ipc/handlers/modules.ts`), como la de
+  `entities:serviceMetrics`. Un `metricSelector` en la entrada nunca llega a Dynatrace.
+- e2e: el simulador de `views.spec.ts` atiende las consultas con `builtin:host.` y el id inventado
+  `HOST-00000000000E2E30` (en `entitySelector` o en la expresión) antes que las de la vista
+  Métricas, y las guarda en `sim.hostMetricQueries`.
 
 ## Resultado
 
