@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics/{metricId}` (descriptor), `GET /metrics` (`text`, para buscar una alternativa si una candidata no existe) y `GET /metrics/query` (`metricSelector`, `entitySelector`, `resolution`, `from`, `to`); `..\API\Dynatrace Environment APIv2\APIv2.json`. Transformaciones en "Metrics selector transformations" (documentación oficial). Scope `metrics.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -111,7 +111,15 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1-CA7 con su test; tras `d35e1f7` solo cambian los tests de inventario de canales.
+- Expresiones idénticas a las confirmadas en vivo; red `:splitBy():sum`, disco `:splitBy():max`; marcadores
+  con `Inf` y sin `fold`; id validado antes del selector (CA2 cubre inyección); `truncatedResults`
+  compartido; `hostMetricsRejected` (ADR-0005). Parámetros contrastados con `APIv2.json`. Sin datos del
+  tenant.
+- Opcionales: `:avg` explícito en los marcadores (equivalente al `defaultAggregation`); citar la 0006 en el
+  comentario de `fold` + `Inf`; CA5 podría comprobar la clave `hostMetricsRejected`.
 
 ## Verificación
 
