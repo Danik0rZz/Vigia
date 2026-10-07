@@ -9,7 +9,9 @@ import { errorReasonSchema } from './error-reasons'
 export const MODULE_SCOPES = {
   problems: { classic: ['problems.read'], oauth: ['environment-api:problems:read'] },
   metrics: { classic: ['metrics.read'], oauth: ['environment-api:metrics:read'] },
-  slos: { classic: ['slo.read'], oauth: ['environment-api:slo:read'] }
+  slos: { classic: ['slo.read'], oauth: ['environment-api:slo:read'] },
+  /** Datos de una entidad y nombres de sus relaciones (ficha 0014): GET /entities y /entities/{id}. */
+  entities: { classic: ['entities.read'], oauth: ['environment-api:entities:read'] }
 } as const satisfies Record<string, { classic: readonly string[]; oauth: readonly string[] }>
 
 /** Scopes de token clásico de todos los módulos, sin repetir y ordenados. */

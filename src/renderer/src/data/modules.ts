@@ -9,12 +9,14 @@ import { createRequestQueue } from '../lib/request-queue'
 import { useActiveEnvironment, useConnectionStatus } from './tenants'
 
 /** Módulos con datos de Dynatrace; cada uno necesita los scopes de MODULE_SCOPES. */
-export type DataModule = 'home' | 'problems' | 'metrics'
+export type DataModule = 'home' | 'problems' | 'metrics' | 'entities'
 
 const REQUIRED_SCOPES: Record<DataModule, readonly string[]> = {
   home: [...MODULE_SCOPES.problems.classic, ...MODULE_SCOPES.slos.classic],
   problems: MODULE_SCOPES.problems.classic,
-  metrics: MODULE_SCOPES.metrics.classic
+  metrics: MODULE_SCOPES.metrics.classic,
+  /** Datos de una entidad (ficha 0014): solo lo pide su sección; no cambia los demás módulos. */
+  entities: MODULE_SCOPES.entities.classic
 }
 
 export type ModuleAccess =
