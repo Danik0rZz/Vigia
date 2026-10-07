@@ -144,6 +144,14 @@ no la API en general.
     mensaje de Dynatrace.
   - **No hay criterio de clúster:** `problemSelector=k8s.cluster.name("…")` da 400 y la OpenAPI no
     lo declara. El filtro de clúster de Problemas es local, sobre lo cargado.
+- **Problemas de una entidad (ficha 0007, observado 2026-10-07,
+  `problems-entity-count.live.test.ts`, 14 lecturas):**
+  `problemSelector=affectedEntities("<id>"),status("open")` (o `status("closed")`) responde 200
+  en una muestra de 3 entidades de tipos distintos (servicio, monitor sintético y aplicación en la
+  nube). Con `pageSize=1` llega `totalCount` y la página trae como mucho un problema. El
+  `totalCount` coincide con contar la lista completa con el mismo selector y con filtrar a mano la
+  lista del rango (estado y entidad afectada). Los criterios separados por comas se combinan con
+  AND. Los ids de las entidades afectadas cumplen `^[A-Z][A-Z0-9_]*-[0-9A-F]{16}$`.
 - **Límites:** `now-30d`, `now-90d` y `now-1y` responden sin error con `pageSize` 1.
 - **Tiempos:** mediana de unos 350 ms y máximo por debajo de 600 ms en las 15 peticiones.
 

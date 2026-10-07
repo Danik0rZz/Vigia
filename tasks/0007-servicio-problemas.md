@@ -1,7 +1,7 @@
 ---
 id: '0007'
 titulo: 'SERVICE: problemas abiertos y cerrados de la entidad en el rango'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -157,4 +157,10 @@ días (tipos SERVICE, SYNTHETIC_TEST y CLOUD_APPLICATION), con `status("open")` 
 
 ## Resultado
 
-(pendiente)
+- Commits: `98fc24e` (tests), `ebe305b` (canal `entities:problemCounts`), más los de la ficha
+  (`1cd5eb5`, `4c7be0c`, `654e84a`, `cf8d865`).
+- Ficheros principales: `src/shared/ipc.ts`, `src/shared/modules.ts` (`entityIdSchema`),
+  `src/main/modules/problems.ts` (`entityProblemSelector`), `src/main/ipc/handlers/modules.ts`,
+  `src/shared/error-reasons.ts` y los textos `entityProblemsRejected` (es y en).
+- Rondas de revisión: 1 (aprobada a la primera). ADR nuevo: ninguno. Migraciones: no.
+- Opcionales del revisor, pasados a "Mejoras anotadas" del BACKLOG.

@@ -24,3 +24,5 @@
 - La guarda de las pruebas en vivo (`src/test/live-usage.test.ts`) toma cualquier literal suelto
   `'http'` o `'https'` por un import de red: en un `*.live.test.ts`, escribir los esquemas sin ese
   literal (por ejemplo `'http:'`).
+- `GET /problems` con `affectedEntities("<id>"),status("open")`: los criterios se combinan con AND y
+  `pageSize=1` ya trae `totalCount`; para contar no hace falta paginar (ficha 0007).

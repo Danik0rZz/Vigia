@@ -8,7 +8,7 @@ bueno de Dani o de peticiones en su nombre.
 
 - Lote **servicio** (página de análisis de una entidad SERVICE), aprobado por Dani el 2026-10-07.
   Orden: [0006](tasks/0006-servicio-datos-metricas.md) datos de métricas,
-  [0007](tasks/0007-servicio-problemas.md) recuentos de problemas,
+  [0007](tasks/0007-servicio-problemas.md) recuentos de problemas (hecha),
   [0008](tasks/0008-servicio-marcadores.md) marcadores, [0009](tasks/0009-servicio-graficos.md)
   gráficos y [0010](tasks/0010-servicio-banda-problemas.md) franja de problemas.
 
@@ -63,6 +63,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   quedaron fuera de la ficha. (surgió en 0004)
 - Recibir órdenes o lanzar tareas desde Telegram (Remote Control o Channels): estudiarlo aparte.
   (surgió en 0004)
+- `entities:problemCounts`: el motivo `entityProblemsRejected` envuelve hoy también 401, 403 y 5xx;
+  limitarlo a 400. (surgió en 0007)
+- Ficha 0007: las "Decisiones del developer" quedaron fuera de su sitio; en las fichas siguientes,
+  ponerlas junto a la "Verificación". (surgió en 0007)
 - e2e CA2 de la ventana pequeña: comprobar también que el botón «Buscar» (solo con la lupa) se ve y
   tiene nombre accesible. (surgió en 0005)
 
@@ -87,3 +91,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   `/cerrar-version`, opcional y con filtro del tenant (ADR-0009).
 - [0005](tasks/0005-e2e-estables.md): e2e de `views.spec.ts` estables y CI en verde (acciones en
   v7); arreglados la ruta de la barra superior y volver a exportar en Inicio con la ventana pequeña.
+- [0007](tasks/0007-servicio-problemas.md) (lote servicio): canal `entities:problemCounts` con los
+  problemas abiertos y cerrados de una entidad en el rango. Sin interfaz hasta la 0008.
