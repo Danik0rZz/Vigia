@@ -1,7 +1,7 @@
 ---
 id: '0009'
 titulo: 'SERVICE: cuatro gráficos (tiempos, actividad OK/KO, tasa de error y errores)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -98,7 +98,56 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+**Tests (commit `123b4fa`).** Fallan porque el código aún no existe, no por el propio test
+(vitest: `./service-charts` no existe y faltan `entities.service.charts.*`; e2e: no aparece
+`service-charts`).
+
+- CA1 → `e2e/views.spec.ts`, «CA1 (0009): en la página de un SERVICE salen los cuatro gráficos…»
+  (`SERVICE-00000000000E2E01`: orden, título, `canvas` y `data-series` leído con espera; además,
+  dos consultas al simulador: una sola llamada al canal).
+- CA2 → `src/renderer/src/pages/entities/service-charts.test.ts`, describe «CA2 (0009)» (mismo
+  `stack`, OK y después KO; `1m`, `5m` y `1h`; y Errores, que también son barras por minuto).
+- CA3 → mismo fichero, describe «CA3 (0009)» (hueco en los cuatro gráficos; las líneas sin
+  `connectNulls`).
+- CA4 → mismo fichero, describe «CA4 (0009)» (ms o s según el máximo, %, «/min»; es y en).
+- CA5 → `e2e/views.spec.ts`, «CA5 (0009): «Abrir en Métricas» de cada gráfico…» (con 2 h: hasta
+  ahora y 2 h exactas; con un rango personalizado, el `from`/`to` exactos del canal en los cuatro;
+  la consulta lleva las métricas de ese gráfico y el id, y ninguna de los otros).
+- CA6 → `e2e/views.spec.ts`, «CA6 (0009): con la ventana estrecha…».
+- CA7 → `e2e/views.spec.ts`, «CA7 (0009): si el canal falla…» (`sim.serviceMetricsFail`; aviso con
+  `role="alert"` y Reintentar en cada gráfico; problemas 1 y 2; Reintentar recupera).
+- CA8 → `e2e/views.spec.ts`, «CA8 (0009): la exportación XLSX de un gráfico…» (Tiempo de
+  respuesta, leído tras «Guardado»: valores en ms y nombres de sus tres series, ninguno de
+  Actividad; Info con «Rango» `now-2h` y Desde/Hasta a 2 h).
+- CA9 → `src/renderer/src/locales/service-charts.test.ts`, describe «CA9 (0009)».
+
+**Nombres que fijan los tests (la ficha no los daba).**
+
+- Opción de ECharts en `src/renderer/src/pages/entities/service-charts.ts`:
+  `serviceChartOption(kind: ServiceChartKind, data: ServiceMetricsResult, context: { colors:
+ChartColors; language: string; t: TFunction }): EChartsCoreOption`, con
+  `ServiceChartKind = 'responseTime' | 'activity' | 'errorRate' | 'errors'`. Series en el orden de
+  la ficha (Tiempos: tres `line`; Actividad: dos `bar`, OK y KO; Tasa: una `line`; Errores: una
+  `bar`); puntos como `[tiempo, valor]` (también vale el valor suelto o `{ value }`). La unidad del
+  eje Y va en `yAxis.axisLabel.formatter` (función o plantilla con `{value}`): «800 ms», «1,5 s»
+  (en «1.5 s»), «25 %» y «… /min». Los colores del test llevan `success` por si el tema añade el
+  verde.
+- Textos en `entities.service.charts` de common: `title` («Métricas de peticiones»),
+  `responseTime`, `activity`, `errorRate` y `errors` (en es, los de la tabla de la ficha). Nombres
+  de serie: los de `data-series` deben casar con /mediana/i, /p90/i, /p99/i; /\bOK\b/, /\bKO\b/;
+  /tasa/i; /\bKO\b/ (en español).
+- Testids: sección `service-charts`; cada gráfico en `service-chart-panel` con `data-kind`
+  (`response-time`, `activity`, `error-rate`, `errors`, en ese orden en el DOM), título en un
+  encabezado (`role="heading"`); dentro, el `Chart` con testid `service-chart-<kind>` (que es
+  también el `target` de su `ExportMenu`) y el botón `service-chart-open` («Abrir en Métricas»).
+  Con el canal caído, el panel sigue, sin `service-chart-<kind>`, con `role="alert"` y
+  «Reintentar».
+- CA6: «estrecha» es la ventana más pequeña que permite la app (960 de ancho, `minWidth`) y
+  «normal» la de los e2e (1024, `FIXED_WINDOW`; el CI no da más). El cambio de columnas tiene que
+  estar entre los dos (por ejemplo, `lg:` de Tailwind, 1024 px). El test fija solo el ancho
+  (`withContentWidth`, nuevo): espera al ancho exacto y no al alto, que no influye en las columnas.
+  Con `withContentSize` fallaría en esta VPS por el escalado al 150 % (alto de 601 o 602 px, como
+  los de la 0005); así no depende de ese redondeo, sin tolerancias en lo que se comprueba.
 
 ## Resultado
 
