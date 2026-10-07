@@ -55,6 +55,8 @@ const TOKEN_A = tok('SECRETOVISTASA')
 const TOKEN_B = tok('SECRETOVISTASB')
 const TOKEN_NO_METRICS = tok('SECRETOVISTASNOMETRICS')
 const TOKEN_FORBIDDEN = tok('SECRETOVISTASFORBIDDEN')
+/** Ficha 0015: token con los scopes de siempre menos entities.read. */
+const TOKEN_NO_ENTITIES = tok('SECRETOVISTASNOENTITIES')
 const SECRET_MARKS = ['SECRETOVISTAS']
 
 const HOUR = 3600_000
@@ -1010,6 +1012,145 @@ function entityInfoBody(): Record<string, unknown> {
 }
 
 /**
+ * Ficha 0015: servicios inventados para la tarjeta «Información» (canal entities:get) y los
+ * nombres de sus relaciones (entities:names). Solo tipos estándar e ids inventados.
+ *
+ * - INFO_FULL_ID: todas las propiedades de la columna «Servicio» (en otro orden que el de la
+ *   ficha, mezcladas con internas), dos zonas, 8 etiquetas y relaciones de todos los grupos:
+ *   «Se ejecuta en» (2 hosts, 1 proceso y 1 process group), «Llama a» (55 servicios: más de 50),
+ *   «Lo llaman» (tipos mezclados: 2 servicios y 1 aplicación, como se vio en vivo en la 0014) y
+ *   otras (runsOn, isServiceOf e isServiceMethodOfService).
+ * - INFO_FEW_ID: pocas propiedades (una vacía y isExternalService a false), sin fecha de primera
+ *   vez, sin zonas, sin etiquetas y sin relaciones.
+ * - SVC_ID (el de los marcadores, 0008): las pocas de INFO_FEW_ID, para que su página tenga la
+ *   tarjeta sin error.
+ *
+ * Nombres: los resuelve el simulador salvo INFO_CALLER_UNNAMED («sin nombre»).
+ */
+const INFO_FULL_ID = 'SERVICE-00000000000E2E20'
+const INFO_FEW_ID = 'SERVICE-00000000000E2E21'
+const INFO_HOSTS = ['HOST-00000000000E2E22', 'HOST-00000000000E2E23']
+const INFO_PGI = 'PROCESS_GROUP_INSTANCE-00000000000E2E24'
+const INFO_PG = 'PROCESS_GROUP-00000000000E2E25'
+const INFO_CALLER_NAMED = 'SERVICE-00000000000E2E26'
+const INFO_CALLER_UNNAMED = 'SERVICE-00000000000E2E27'
+const INFO_CALLER_APP = 'APPLICATION-00000000000E2E28'
+const INFO_METHOD = 'SERVICE_METHOD-00000000000E2E29'
+const INFO_CALLS = Array.from({ length: 55 }, (_, i) => ({
+  id: `SERVICE-${(0xe2e200 + i).toString(16).toUpperCase().padStart(16, '0')}`,
+  type: 'SERVICE'
+}))
+const INFO_FIRST_SEEN = Date.parse('2026-09-01T10:00:00.000Z')
+const INFO_LAST_SEEN = Date.parse('2026-10-03T10:00:00.000Z')
+const INFO_TAGS = Array.from({ length: 8 }, (_, i) => `etiqueta${i + 1}:valor${i + 1}`)
+Object.assign(ENTITY_NAMES, {
+  [INFO_HOSTS[0] ?? '']: 'host-info-1',
+  [INFO_HOSTS[1] ?? '']: 'host-info-2',
+  [INFO_PGI]: 'proceso-info',
+  [INFO_PG]: 'grupo-info',
+  [INFO_CALLER_NAMED]: 'llamante-info',
+  [INFO_CALLER_APP]: 'web-info'
+})
+/** Propiedades internas de INFO_FULL_ID: solo en «Todas las propiedades». */
+const INFO_INTERNAL = {
+  agentTechnologyType: 'JAVA',
+  'dt.security_context': 'contexto-interno-e2e',
+  detectedName: 'nombre-detectado-e2e',
+  matchedServiceDetectionV2Rules: ['regla-interna-e2e']
+}
+function infoFullBody(): Record<string, unknown> {
+  return {
+    entityId: INFO_FULL_ID,
+    displayName: 'info-completo-e2e',
+    type: 'SERVICE',
+    firstSeenTms: INFO_FIRST_SEEN,
+    lastSeenTms: INFO_LAST_SEEN,
+    icon: { primaryIconType: 'java' },
+    managementZones: [
+      { id: '1501', name: 'Zona info A' },
+      { id: '1502', name: 'Zona info B' }
+    ],
+    tags: INFO_TAGS.map((text) => {
+      const [key, value] = text.split(':')
+      return { context: 'CONTEXTLESS', key, value, stringRepresentation: text }
+    }),
+    properties: {
+      agentTechnologyType: INFO_INTERNAL.agentTechnologyType,
+      'dt.security_context': INFO_INTERNAL['dt.security_context'],
+      publicCloudRegion: 'region-e2e',
+      port: 443,
+      databaseName: 'pagos_e2e',
+      serviceType: 'WEB_REQUEST_SERVICE',
+      softwareTechnologies: [
+        { type: 'JAVA', edition: 'OpenJDK', version: '17.0.2' },
+        { type: 'APACHE_TOMCAT', version: '10.1' }
+      ],
+      applicationReleaseVersion: ['1.2.3'],
+      serviceTechnologyTypes: ['Java', 'Apache Tomcat'],
+      contextRoot: '/pagos-e2e',
+      webServerName: 'servidor-web-e2e',
+      webServiceNamespace: 'urn:e2e:pagos',
+      webServiceName: 'ServicioPagosE2e',
+      isExternalService: true,
+      remoteEndpoint: 'remoto-e2e.invalid',
+      detectedName: INFO_INTERNAL.detectedName,
+      databaseVendor: 'POSTGRESQL',
+      applicationName: ['app-e2e'],
+      applicationEnvironment: ['pre-e2e'],
+      publicCloudId: 'nube-e2e',
+      matchedServiceDetectionV2Rules: INFO_INTERNAL.matchedServiceDetectionV2Rules
+    },
+    fromRelationships: {
+      calls: INFO_CALLS,
+      isServiceOfProcessGroup: [{ id: INFO_PG, type: 'PROCESS_GROUP' }],
+      runsOn: [{ id: INFO_PG, type: 'PROCESS_GROUP' }],
+      runsOnProcessGroupInstance: [{ id: INFO_PGI, type: 'PROCESS_GROUP_INSTANCE' }],
+      runsOnHost: INFO_HOSTS.map((id) => ({ id, type: 'HOST' })),
+      isServiceOf: [{ id: INFO_PG, type: 'PROCESS_GROUP' }]
+    },
+    toRelationships: {
+      isServiceMethodOfService: [{ id: INFO_METHOD, type: 'SERVICE_METHOD' }],
+      calls: [
+        { id: INFO_CALLER_NAMED, type: 'SERVICE' },
+        { id: INFO_CALLER_APP, type: 'APPLICATION' },
+        { id: INFO_CALLER_UNNAMED, type: 'SERVICE' }
+      ]
+    }
+  }
+}
+/** Número de propiedades de INFO_FULL_ID (todas salen en «Todas las propiedades»). */
+const INFO_FULL_PROPERTY_COUNT = Object.keys(
+  (infoFullBody()['properties'] ?? {}) as Record<string, unknown>
+).length
+function infoFewBody(entityId: string): Record<string, unknown> {
+  return {
+    entityId,
+    displayName: 'info-pocas-e2e',
+    type: 'SERVICE',
+    lastSeenTms: INFO_LAST_SEEN,
+    managementZones: [],
+    tags: [],
+    properties: {
+      serviceType: 'DATABASE_SERVICE',
+      webServerName: '',
+      isExternalService: false,
+      detectedName: 'solo-detectado-e2e'
+    },
+    fromRelationships: {},
+    toRelationships: {}
+  }
+}
+/** Ficha 0015: lo que devuelve el simulador en /entities/{id}, por id (el resto, 404). */
+function entityBodies(): Record<string, Record<string, unknown>> {
+  return {
+    [ENTITY_INFO_ID]: entityInfoBody(),
+    [INFO_FULL_ID]: infoFullBody(),
+    [INFO_FEW_ID]: infoFewBody(INFO_FEW_ID),
+    [SVC_ID]: infoFewBody(SVC_ID)
+  }
+}
+
+/**
  * Ficha 0008: más servicios inventados para los marcadores. Uno con muchas peticiones, ningún
  * error y tiempos de más de un segundo (separador de miles y «s»), y otro sin datos (no está en
  * esta tabla: el simulador le da `data: []`). SVC_ID es el de la 0006 (con errores).
@@ -1338,7 +1479,9 @@ const defaultSim = () => ({
   /** Ficha 0014: query de las peticiones a /entities/{id} (entities:get). */
   entityInfoQueries: [] as URLSearchParams[],
   /** Ficha 0014: query de las peticiones a /entities (entities:names). */
-  entityNamesQueries: [] as URLSearchParams[]
+  entityNamesQueries: [] as URLSearchParams[],
+  /** Ficha 0015: las peticiones a /entities/{id} (entities:get) fallan con un 400. */
+  entityInfoFail: false
 })
 const sim = defaultSim()
 
@@ -1415,7 +1558,9 @@ async function startServer(): Promise<void> {
     req.resume()
     req.on('end', () => {
       sim.requests.push(`${req.method ?? ''} ${url.pathname}`)
-      if (![TOKEN_A, TOKEN_B, TOKEN_NO_METRICS, TOKEN_FORBIDDEN].includes(token)) {
+      if (
+        ![TOKEN_A, TOKEN_B, TOKEN_NO_METRICS, TOKEN_FORBIDDEN, TOKEN_NO_ENTITIES].includes(token)
+      ) {
         return send(401, { error: { code: 401, message: 'Missing or invalid token' } })
       }
       if (req.method === 'POST' && url.pathname === '/api/v2/apiTokens/lookup') {
@@ -1426,7 +1571,9 @@ async function startServer(): Promise<void> {
           scopes:
             token === TOKEN_NO_METRICS
               ? ['problems.read', 'slo.read', 'entities.read']
-              : ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
+              : token === TOKEN_NO_ENTITIES
+                ? ['problems.read', 'metrics.read', 'slo.read']
+                : ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
         })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/problems') {
@@ -1666,8 +1813,12 @@ async function startServer(): Promise<void> {
       const entityPath = /^\/api\/v2\/entities\/([^/]+)$/.exec(url.pathname)
       if (req.method === 'GET' && entityPath !== null) {
         sim.entityInfoQueries.push(url.searchParams)
-        return decodeURIComponent(entityPath[1] ?? '') === ENTITY_INFO_ID
-          ? send(200, entityInfoBody())
+        if (sim.entityInfoFail) {
+          return send(400, { error: { code: 400, message: 'Consulta de entidad rechazada' } })
+        }
+        const body = entityBodies()[decodeURIComponent(entityPath[1] ?? '')]
+        return body !== undefined
+          ? send(200, body)
           : send(404, { error: { code: 404, message: 'Entity not found' } })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/entities') {
@@ -6933,4 +7084,397 @@ test('Separador en textos (0012): los números de los avisos (textos de i18next)
     'Se ven los 1 más recientes de 1.234 comentarios.'
   )
   await expect(section.getByTestId('comments-show-all')).toHaveText('Ver todos (1.234)')
+})
+
+/**
+ * Ficha 0015: tarjeta «Información» de la página de un SERVICE (entre la cabecera y los
+ * marcadores), con los datos de entities:get y los nombres de entities:names a demanda.
+ *
+ * Nombres que fijan estos tests: la tarjeta `service-info`; sus columnas `service-info-service`
+ * («Servicio») y `service-info-relations` («Relaciones»); cada fila de «Servicio» es un
+ * `service-info-row` con `data-key` (serviceType, technologies, webServerName, webService,
+ * contextRoot, port, isExternalService, remoteEndpoint, databaseVendor, databaseName,
+ * applicationName, applicationEnvironment, applicationReleaseVersion, publicCloudId,
+ * publicCloudRegion, firstSeen, lastSeen, managementZones y tags, en ese orden), con su valor en
+ * `service-info-value` y los chips en `service-info-chip`; el «+N» de las etiquetas,
+ * `service-info-tags-more`. Cada grupo de relaciones es un `service-info-group` con `data-group`
+ * (runsOn, calls, calledBy y other), su número en `service-info-group-count`, el botón que lo
+ * despliega `service-info-group-toggle` (con `aria-expanded`), el aviso «Mostrando 50 de N»
+ * `service-info-group-truncated`, el botón «Ver nombres» `service-info-names` y cada entidad,
+ * un enlace `service-info-entity` con `data-entity-id`, con su nombre (si se conoce) en
+ * `service-info-entity-name`. «Todas las propiedades»: el botón
+ * `service-info-properties-toggle` y cada propiedad, `service-info-property` con `data-key`.
+ */
+const INFO_ROW_ORDER = [
+  'serviceType',
+  'technologies',
+  'webServerName',
+  'webService',
+  'contextRoot',
+  'port',
+  'isExternalService',
+  'remoteEndpoint',
+  'databaseVendor',
+  'databaseName',
+  'applicationName',
+  'applicationEnvironment',
+  'applicationReleaseVersion',
+  'publicCloudId',
+  'publicCloudRegion',
+  'firstSeen',
+  'lastSeen',
+  'managementZones',
+  'tags'
+]
+const infoCard = (): Locator => page.getByTestId('service-info')
+const infoRow = (key: string): Locator =>
+  infoCard().locator(`[data-testid="service-info-row"][data-key="${key}"]`)
+const infoGroup = (key: string): Locator =>
+  infoCard().locator(`[data-testid="service-info-group"][data-group="${key}"]`)
+const infoEntity = (group: string, id: string): Locator =>
+  infoGroup(group).locator(`[data-testid="service-info-entity"][data-entity-id="${id}"]`)
+
+/** Ficha 0015: abre la página del servicio por URL y espera la tarjeta con sus filas. */
+async function openServiceInfo(id: string): Promise<Locator> {
+  await goToRoute(`/entities/SERVICE/${id}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  const card = infoCard()
+  await expect(card).toBeVisible()
+  await expect(card.getByTestId('service-info-row').first()).toBeVisible()
+  return card
+}
+
+/** Ficha 0015: valor de un atributo (data-key por defecto) de cada elemento, en el orden del DOM. */
+async function dataKeys(target: Locator, attribute = 'data-key'): Promise<string[]> {
+  return target.evaluateAll(
+    (elements, name) => elements.map((element) => element.getAttribute(name) ?? ''),
+    attribute
+  )
+}
+
+/** Ficha 0015: despliega un grupo de relaciones (si no lo está), trayéndolo antes a la vista. */
+async function expandGroup(key: string): Promise<Locator> {
+  const group = infoGroup(key)
+  const toggle = group.getByTestId('service-info-group-toggle')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await clickInPlace(toggle, { scroll: true })
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return group
+}
+
+test('CA1 (0015): con un servicio con todas las propiedades, la columna «Servicio» enseña sus datos en su orden, con tecnologías y zonas como chips, y las claves internas solo en «Todas las propiedades»', async () => {
+  const card = await openServiceInfo(INFO_FULL_ID)
+  await expect(card).toContainText('Información')
+  const column = card.getByTestId('service-info-service')
+  await expect(column).toContainText('Servicio')
+
+  // Entre la cabecera y los marcadores.
+  const cardBox = await settledBox(card)
+  const markersBox = await settledBox(page.getByTestId('service-markers'))
+  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
+    markersBox.y + 1
+  )
+
+  // Las filas, en el orden de la ficha (no en el de la respuesta).
+  await expect(column.getByTestId('service-info-row')).toHaveCount(INFO_ROW_ORDER.length)
+  expect(await dataKeys(column.getByTestId('service-info-row'))).toEqual(INFO_ROW_ORDER)
+
+  const value = (key: string): Locator => infoRow(key).getByTestId('service-info-value')
+  await expect(value('serviceType')).toContainText('WEB_REQUEST_SERVICE')
+  await expect(value('webServerName')).toContainText('servidor-web-e2e')
+  await expect(value('webService')).toContainText('ServicioPagosE2e')
+  await expect(value('webService')).toContainText('urn:e2e:pagos')
+  await expect(value('contextRoot')).toContainText('/pagos-e2e')
+  await expect(value('port')).toContainText('443')
+  await expect(infoRow('isExternalService')).toContainText('Externo')
+  await expect(value('remoteEndpoint')).toContainText('remoto-e2e.invalid')
+  await expect(value('databaseVendor')).toContainText('POSTGRESQL')
+  await expect(value('databaseName')).toContainText('pagos_e2e')
+  await expect(value('applicationName')).toContainText('app-e2e')
+  await expect(value('applicationEnvironment')).toContainText('pre-e2e')
+  await expect(value('applicationReleaseVersion')).toContainText('1.2.3')
+  await expect(value('publicCloudId')).toContainText('nube-e2e')
+  await expect(value('publicCloudRegion')).toContainText('region-e2e')
+  await expect(value('firstSeen')).toContainText('2026')
+  await expect(value('lastSeen')).toContainText('2026')
+
+  // Tecnologías y zonas, como chips.
+  const techChips = infoRow('technologies').getByTestId('service-info-chip')
+  await expect(techChips.filter({ hasText: /^Java$/ })).toHaveCount(1)
+  await expect(techChips.filter({ hasText: /^Apache Tomcat$/ })).toHaveCount(1)
+  await expect(techChips.filter({ hasText: /OpenJDK/ })).toHaveCount(1)
+  await expect(techChips.filter({ hasText: /APACHE_TOMCAT/ })).toHaveCount(1)
+  await expect(infoRow('managementZones').getByTestId('service-info-chip')).toHaveText([
+    'Zona info A',
+    'Zona info B'
+  ])
+
+  // Etiquetas: 6 y «+2», que despliega el resto.
+  const tagChips = infoRow('tags').getByTestId('service-info-chip')
+  await expect(tagChips).toHaveText(INFO_TAGS.slice(0, 6))
+  const more = infoRow('tags').getByTestId('service-info-tags-more')
+  await expect(more).toHaveText('+2')
+  await clickInPlace(more, { scroll: true })
+  await expect(tagChips).toHaveText(INFO_TAGS)
+
+  // Nada interno fuera de «Todas las propiedades», que empieza plegada.
+  const internalTexts = [
+    ...Object.keys(INFO_INTERNAL),
+    'contexto-interno-e2e',
+    'nombre-detectado-e2e',
+    'regla-interna-e2e'
+  ]
+  for (const text of internalTexts) {
+    await expect(column, text).not.toContainText(text)
+    await expect(card.getByTestId('service-info-relations'), text).not.toContainText(text)
+  }
+  await expect(card.getByTestId('service-info-property')).toHaveCount(0)
+
+  // Desplegada: todas las propiedades, también las internas, como dato y valor.
+  const toggle = card.getByTestId('service-info-properties-toggle')
+  await expect(toggle).toContainText('Todas las propiedades')
+  await clickInPlace(toggle, { scroll: true })
+  await expect(card.getByTestId('service-info-property')).toHaveCount(INFO_FULL_PROPERTY_COUNT)
+  const property = (key: string): Locator =>
+    card.locator(`[data-testid="service-info-property"][data-key="${key}"]`)
+  await expect(property('dt.security_context')).toContainText('dt.security_context')
+  await expect(property('dt.security_context')).toContainText('contexto-interno-e2e')
+  await expect(property('agentTechnologyType')).toContainText('JAVA')
+  await expect(property('detectedName')).toContainText('nombre-detectado-e2e')
+  await expect(property('matchedServiceDetectionV2Rules')).toContainText('regla-interna-e2e')
+  await expect(property('serviceType')).toContainText('WEB_REQUEST_SERVICE')
+})
+
+test('CA2 (0015): con un servicio con pocas propiedades solo salen las filas con dato, sin filas vacías ni «undefined»', async () => {
+  const card = await openServiceInfo(INFO_FEW_ID)
+  const rows = card.getByTestId('service-info-service').getByTestId('service-info-row')
+  // serviceType y la última vez visto; webServerName vacío, isExternalService a false, sin
+  // primera vez, sin zonas y sin etiquetas: ninguna de esas filas.
+  await expect(rows).toHaveCount(2)
+  expect(await dataKeys(rows)).toEqual(['serviceType', 'lastSeen'])
+  for (const key of ['serviceType', 'lastSeen']) {
+    await expect(infoRow(key).getByTestId('service-info-value'), key).toHaveText(/\S/)
+  }
+  await expect(infoRow('serviceType')).toContainText('DATABASE_SERVICE')
+  // Sin relaciones, ningún grupo.
+  await expect(card.getByTestId('service-info-group')).toHaveCount(0)
+  // Nada de valores sin dato en toda la tarjeta (con «Todas las propiedades» desplegada).
+  await clickInPlace(card.getByTestId('service-info-properties-toggle'), { scroll: true })
+  await expect(card.getByTestId('service-info-property').first()).toBeVisible()
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(card, text).not.toContainText(text)
+  }
+})
+
+test('CA3 (0015): las relaciones salen en sus grupos y en su orden, con su número; desplegadas, con tipo e id; con más de 50, «Mostrando 50 de N»', async () => {
+  const card = await openServiceInfo(INFO_FULL_ID)
+  const column = card.getByTestId('service-info-relations')
+  await expect(column).toContainText('Relaciones')
+
+  const groups = column.getByTestId('service-info-group')
+  await expect(groups).toHaveCount(4)
+  expect(await dataKeys(groups, 'data-group')).toEqual(['runsOn', 'calls', 'calledBy', 'other'])
+  const expected = [
+    ['runsOn', 'Se ejecuta en', '4'],
+    ['calls', 'Llama a', '55'],
+    ['calledBy', 'Lo llaman', '3'],
+    ['other', 'Otras relaciones', '3']
+  ] as const
+  for (const [key, title, count] of expected) {
+    await expect(infoGroup(key), key).toContainText(title)
+    await expect(infoGroup(key).getByTestId('service-info-group-count'), key).toHaveText(
+      new RegExp(`^\\s*${count}\\s*$`)
+    )
+  }
+  // «Otras relaciones», plegada.
+  await expect(infoGroup('other').getByTestId('service-info-group-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  )
+  await expect(infoGroup('other').getByTestId('service-info-entity')).toHaveCount(0)
+
+  // «Se ejecuta en»: hosts, proceso y process group, con su tipo (nombre de la 0003) y su id.
+  const runsOn = await expandGroup('runsOn')
+  const runsOnEntities = runsOn.getByTestId('service-info-entity')
+  await expect(runsOnEntities).toHaveCount(4)
+  expect(await dataKeys(runsOnEntities, 'data-entity-id')).toEqual([
+    ...INFO_HOSTS,
+    INFO_PGI,
+    INFO_PG
+  ])
+  const types: [string, string][] = [
+    [INFO_HOSTS[0] ?? '', es.entities.types.HOST],
+    [INFO_HOSTS[1] ?? '', es.entities.types.HOST],
+    [INFO_PGI, es.entities.types.PROCESS_GROUP_INSTANCE],
+    [INFO_PG, es.entities.types.PROCESS_GROUP]
+  ]
+  for (const [id, label] of types) {
+    await expect(infoEntity('runsOn', id), id).toContainText(label)
+    await expect(infoEntity('runsOn', id), id).toContainText(id)
+  }
+  await expect(runsOn.getByTestId('service-info-group-truncated')).toHaveCount(0)
+
+  // «Llama a»: 50 de 55.
+  const calls = await expandGroup('calls')
+  await expect(calls.getByTestId('service-info-entity')).toHaveCount(50)
+  expect(await dataKeys(calls.getByTestId('service-info-entity'), 'data-entity-id')).toEqual(
+    INFO_CALLS.slice(0, 50).map((entity) => entity.id)
+  )
+  await expect(calls.getByTestId('service-info-group-truncated')).toContainText(
+    /Mostrando 50 de 55/
+  )
+
+  // «Lo llaman»: tipos mezclados.
+  const calledBy = await expandGroup('calledBy')
+  await expect(calledBy.getByTestId('service-info-entity')).toHaveCount(3)
+  await expect(infoEntity('calledBy', INFO_CALLER_APP)).toContainText(es.entities.types.APPLICATION)
+  await expect(infoEntity('calledBy', INFO_CALLER_NAMED)).toContainText(es.entities.types.SERVICE)
+
+  // «Otras relaciones»: con el nombre de la relación tal cual.
+  const other = await expandGroup('other')
+  await expect(other.getByTestId('service-info-entity')).toHaveCount(3)
+  for (const name of ['runsOn', 'isServiceOf', 'isServiceMethodOfService']) {
+    await expect(other, name).toContainText(name)
+  }
+  await expect(infoEntity('other', INFO_METHOD)).toContainText(INFO_METHOD)
+})
+
+test('CA4 (0015): al abrir la página no se pide ningún nombre; «Ver nombres» llama a entities:names una vez por tipo del grupo y los no resueltos quedan «sin nombre»', async () => {
+  await openServiceInfo(INFO_FULL_ID)
+  await settledRequests()
+  expect(sim.entityNamesQueries, 'nombres al abrir').toHaveLength(0)
+
+  // Desplegar no pide nada.
+  const calledBy = await expandGroup('calledBy')
+  await expandGroup('runsOn')
+  await settledRequests()
+  expect(sim.entityNamesQueries, 'nombres al desplegar').toHaveLength(0)
+
+  // «Lo llaman» tiene dos tipos: dos llamadas, cada una con los ids de un solo tipo.
+  const button = calledBy.getByTestId('service-info-names')
+  await expect(button).toHaveText('Ver nombres')
+  await clickInPlace(button, { scroll: true })
+  await expect.poll(() => sim.entityNamesQueries.length).toBe(2)
+  const idsOf = (query: URLSearchParams): string[] =>
+    [...(query.get('entitySelector') ?? '').matchAll(/"([^"]*)"/g)]
+      .map((match) => match[1] ?? '')
+      .sort()
+  const batches = sim.entityNamesQueries.map(idsOf).sort((a, b) => a.length - b.length)
+  expect(batches).toEqual([[INFO_CALLER_APP], [INFO_CALLER_NAMED, INFO_CALLER_UNNAMED].sort()])
+
+  // Los nombres, y el que no se resuelve se queda con su id y «sin nombre».
+  await expect(
+    infoEntity('calledBy', INFO_CALLER_NAMED).getByTestId('service-info-entity-name')
+  ).toHaveText('llamante-info')
+  await expect(
+    infoEntity('calledBy', INFO_CALLER_APP).getByTestId('service-info-entity-name')
+  ).toHaveText('web-info')
+  const unnamed = infoEntity('calledBy', INFO_CALLER_UNNAMED)
+  await expect(unnamed).toContainText('sin nombre')
+  await expect(unnamed).toContainText(INFO_CALLER_UNNAMED)
+  await expect(unnamed).not.toContainText('llamante-info')
+
+  // Ni más llamadas ni nombres en otros grupos.
+  await settledRequests()
+  expect(sim.entityNamesQueries).toHaveLength(2)
+  await expect(
+    infoEntity('runsOn', INFO_HOSTS[0] ?? '').getByTestId('service-info-entity-name')
+  ).toHaveCount(0)
+})
+
+test('CA5 (0015): pulsar una entidad relacionada abre su página (la del tipo, con el nombre ya conocido) y «Volver» regresa al servicio sin volver a pedir sus datos', async () => {
+  await openServiceInfo(INFO_FULL_ID)
+  const runsOn = await expandGroup('runsOn')
+  const host = INFO_HOSTS[0] ?? ''
+  // Cada entidad es un enlace a #/entities/<tipo>/<id>.
+  const link = infoEntity('runsOn', host)
+  await expect(link).toHaveRole('link')
+  await expect(link).toHaveAttribute('href', new RegExp(`#/entities/HOST/${host}$`))
+  await expect(infoEntity('runsOn', INFO_PGI)).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${INFO_PGI}$`)
+  )
+
+  await clickInPlace(runsOn.getByTestId('service-info-names'), { scroll: true })
+  await expect(link.getByTestId('service-info-entity-name')).toHaveText('host-info-1')
+  await settledRequests()
+  const infoBefore = sim.entityInfoQueries.length
+  const namesBefore = sim.entityNamesQueries.length
+
+  await clickInPlace(link, { scroll: true })
+  const hostPage = page.getByTestId('entity-page-host')
+  await expect(hostPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${host}`)
+  await expect(hostPage.getByRole('heading', { level: 1 })).toHaveText('host-info-1')
+  await expect(hostPage.getByTestId('entity-page-id')).toHaveText(host)
+
+  await clickInPlace(hostPage.getByTestId('entity-back'), { scroll: true })
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FULL_ID}`)
+  await expect(infoRow('serviceType')).toContainText('WEB_REQUEST_SERVICE')
+  await settledRequests()
+  expect(sim.entityInfoQueries, 'entities:get al volver').toHaveLength(infoBefore)
+  expect(sim.entityNamesQueries, 'entities:names al volver').toHaveLength(namesBefore)
+})
+
+test('CA6 (0015): sin entities.read, la tarjeta dice qué scope falta y marcadores y gráficos siguen; con el canal caído, aviso con Reintentar', async () => {
+  // Un entorno con un token sin entities.read, solo para este test.
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEntities = await createEnvironment(clientId, 'Sin entidades', 'other', TOKEN_NO_ENTITIES)
+  try {
+    await invoke('connection:test', { environmentId: noEntities })
+    await invoke('environments:setActive', { environmentId: noEntities })
+    await reloadUi()
+    await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+    await expect(page.getByTestId('entity-page-service')).toBeVisible()
+    const unavailable = infoCard().getByTestId('module-unavailable')
+    await expect(unavailable).toBeVisible()
+    await expect(unavailable).toContainText('entities.read')
+    await expect(infoCard().getByTestId('service-info-row')).toHaveCount(0)
+    // Marcadores y gráficos, con sus datos.
+    await expectErrorServiceValues()
+    expect(await chartSeries('error-rate')).toHaveLength(1)
+    await settledRequests()
+    expect(sim.entityInfoQueries, 'entities:get sin el scope').toHaveLength(0)
+  } finally {
+    await invoke('environments:setActive', { environmentId: env['Producción'] })
+    await invoke('environments:delete', { id: noEntities })
+    await reloadUi()
+  }
+
+  // Canal caído: aviso compacto con Reintentar; marcadores y gráficos siguen.
+  sim.entityInfoFail = true
+  await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  const retry = infoCard().getByRole('button', { name: 'Reintentar' })
+  await expect(infoCard().getByRole('alert').first()).toBeVisible()
+  await expect(retry).toBeVisible()
+  await expectErrorServiceValues()
+  expect(await chartSeries('error-rate')).toHaveLength(1)
+
+  sim.entityInfoFail = false
+  await clickInPlace(retry, { scroll: true })
+  await expect(infoRow('serviceType')).toContainText('DATABASE_SERVICE')
+  await expect(infoCard().getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('CA7 (0015): con la ventana estrecha, «Servicio» y «Relaciones» en una columna; con la normal, en dos', async () => {
+  const card = await openServiceInfo(INFO_FULL_ID)
+  const service = card.getByTestId('service-info-service')
+  const relations = card.getByTestId('service-info-relations')
+
+  await withContentSize(SMALL_WINDOW, async () => {
+    const a = await settledBox(service)
+    const b = await settledBox(relations)
+    expect(Math.abs(b.x - a.x), 'misma x').toBeLessThanOrEqual(1)
+    expect(b.y, 'relaciones debajo').toBeGreaterThanOrEqual(a.y + a.height - 1)
+  })
+
+  // De vuelta en FIXED_WINDOW (la del CI, 1024×720): dos columnas.
+  const a = await settledBox(service)
+  const b = await settledBox(relations)
+  expect(b.x, 'relaciones a la derecha').toBeGreaterThanOrEqual(a.x + a.width - 1)
+  expect(Math.abs(b.y - a.y), 'misma altura de inicio').toBeLessThanOrEqual(1)
 })
