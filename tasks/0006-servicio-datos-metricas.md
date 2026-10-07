@@ -1,7 +1,7 @@
 ---
 id: '0006'
 titulo: 'SERVICE: exploración en vivo y canal de métricas del servicio (series y marcadores)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -267,6 +267,15 @@ con `fold` e `Inf`, y CA6 con «< 1») están resueltas en "En espera" y en los 
   4, ya no comprueba el porcentaje del aviso y, al final, con ratios de 0,005 no espera ningún aviso.
   Con un ratio > 1, el porcentaje del aviso actual («solo parte de los puntos (150 %)») no tiene
   sentido: el texto lo decide el developer (el test solo busca «solo parte de los puntos»).
+
+### Verifier, 2026-10-07, commit `1266196`, rango `main..1266196`: VERDE
+
+- check: 2057 tests en 97 ficheros, cobertura ok.
+- e2e completo (`ipc.ts` transversal): 177 pasan y 4 fallan. Tres son los conocidos de la VPS (CA1, CA2 y
+  CA4 de la 0005, ventana 960×602 por el escalado al 150 %; fallan igual en `main`). El cuarto,
+  `views.spec.ts:2482` («v0.10.0: tabla de evidencias: estado propio por evento en un problema
+  cerrado»), falló en la tirada completa y pasó 3/3 aislado: intermitente, ajeno al diff (no toca la
+  tabla de evidencias). Va al BACKLOG.
 
 ## Resultado
 
