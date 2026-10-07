@@ -923,6 +923,107 @@ const detailExtras = {
 }
 
 /**
+ * Ficha 0006: métricas de una entidad SERVICE (canal entities:serviceMetrics), con un id
+ * inventado. Imita lo observado en vivo: un resultado por expresión, en el orden pedido y
+ * con el metricId sin las comillas del id; tiempos en µs y tasa en %; fold con
+ * resolution=Inf da 400.
+ */
+const SVC_ID = 'SERVICE-00000000000E2E01'
+const SVC_T0 = Date.parse('2026-10-03T08:00:00.000Z')
+const SVC_TIMESTAMPS = [0, 1, 2, 3].map((i) => SVC_T0 + i * 60_000)
+type SvcKind = 'median' | 'p90' | 'p99' | 'requests' | 'errors' | 'rate'
+const SVC_SERIES: Record<SvcKind, (number | null)[]> = {
+  median: [100_000, 120_000, null, 110_000],
+  p90: [300_000, 320_000, null, 310_000],
+  p99: [800_000, 900_000, null, 850_000],
+  requests: [50, 40, null, 60],
+  errors: [5, 0, null, 6],
+  rate: [10, 0, null, 10]
+}
+const SVC_MARKERS: Record<SvcKind, number> = {
+  median: 105_000,
+  p90: 305_000,
+  p99: 820_000,
+  requests: 1000,
+  errors: 50,
+  rate: 5
+}
+
+/** Separa un metricSelector por las comas de primer nivel (no las de dentro de paréntesis). */
+function splitSelector(selector: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let quoted = false
+  let current = ''
+  for (const char of selector) {
+    if (char === '"') quoted = !quoted
+    if (!quoted && char === '(') depth += 1
+    if (!quoted && char === ')') depth -= 1
+    if (!quoted && depth === 0 && char === ',') {
+      parts.push(current)
+      current = ''
+      continue
+    }
+    current += char
+  }
+  if (current !== '') parts.push(current)
+  return parts
+}
+
+function serviceKind(expression: string): SvcKind | null {
+  if (expression.startsWith('builtin:service.requestCount.server')) return 'requests'
+  if (expression.startsWith('builtin:service.errors.server.count')) return 'errors'
+  if (expression.startsWith('builtin:service.errors.server.rate')) return 'rate'
+  if (!expression.startsWith('builtin:service.response.server')) return null
+  if (/:median\b/.test(expression)) return 'median'
+  if (/:percentile\(90(\.0+)?\)/.test(expression)) return 'p90'
+  if (/:percentile\(99(\.0+)?\)/.test(expression)) return 'p99'
+  return null
+}
+
+/** ¿Es una consulta de métricas de servicio (la de series o la de marcadores)? */
+function isServiceSelector(selector: string): boolean {
+  return selector.startsWith('builtin:service.')
+}
+
+/** Respuesta del simulador a una consulta de métricas del servicio inventado. */
+function serviceMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && selector.includes(':fold(')) {
+    return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
+  }
+  const marker = inf || selector.includes(':fold(')
+  const scoped = (query.get('entitySelector') ?? '').includes(`entityId("${SVC_ID}")`)
+  const expressions = splitSelector(selector)
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: marker ? (inf ? 'Inf' : '1m') : '1m',
+      result: expressions.map((expression) => {
+        const kind = serviceKind(expression)
+        const known = kind !== null && (scoped || expression.includes(SVC_ID))
+        return {
+          metricId: expression.split(`"${SVC_ID}"`).join(SVC_ID),
+          data: known
+            ? [
+                {
+                  dimensionMap: { 'dt.entity.service': SVC_ID },
+                  dimensions: [SVC_ID],
+                  timestamps: marker ? [SVC_T0 + 240_000] : SVC_TIMESTAMPS,
+                  values: marker ? [SVC_MARKERS[kind]] : SVC_SERIES[kind]
+                }
+              ]
+            : []
+        }
+      })
+    }
+  ]
+}
+
+/**
  * Estado y registro del Dynatrace simulado. Cada test parte de estos valores
  * (`resetState` los restaura); los contadores solo se comparan con un «antes»
  * tomado dentro del propio test.
@@ -967,7 +1068,9 @@ const defaultSim = () => ({
   /** Ficha 0007: query de las peticiones a /problems con affectedEntities en el selector. */
   entityProblemQueries: [] as URLSearchParams[],
   /** Ficha 0003: todas las peticiones que llegan al simulador («MÉTODO /ruta»), en orden. */
-  requests: [] as string[]
+  requests: [] as string[],
+  /** Ficha 0006: consultas de métricas del servicio inventado (sus query). */
+  serviceMetricQueries: [] as URLSearchParams[]
 })
 const sim = defaultSim()
 
@@ -1168,6 +1271,12 @@ async function startServer(): Promise<void> {
             send(status, body)
           }, sim.eventMetricDelayMs)
           return
+        }
+        // Ficha 0006: las del canal entities:serviceMetrics, aparte.
+        if (isServiceSelector(eventSelector)) {
+          sim.serviceMetricQueries.push(url.searchParams)
+          const [status, body] = serviceMetricResponse(url.searchParams)
+          return send(status, body)
         }
         // v0.10.2: con metricsSpread, puntos por todo el rango (now-7d o ISO), para el eje de días.
         const relative = /^now-(\d+)([mhd])$/.exec(url.searchParams.get('from') ?? '')
@@ -5045,4 +5154,43 @@ test('CA6 (0007): entities:problemCounts por IPC con un id inventado: dos consul
     expect(query.get('from')).toBe(new Date(NOW - 3 * HOUR).toISOString())
     expect(query.get('to')).toBe(new Date(NOW).toISOString())
   }
+})
+
+test('CA7 (0006): entities:serviceMetrics por IPC con un id inventado: dos consultas, series en ms y totales', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:serviceMetrics', {
+    environmentId: env['Producción'],
+    entityId: SVC_ID,
+    timeRange: '2h'
+  })
+  // Dos consultas al simulador, las dos con el rango global.
+  expect(sim.serviceMetricQueries).toHaveLength(2)
+  for (const query of sim.serviceMetricQueries) expect(query.get('from')).toBe('now-2h')
+
+  const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: SVC_TIMESTAMPS,
+    values
+  })
+  expect(data).toMatchObject({
+    resolution: '1m',
+    series: {
+      responseTime: {
+        median: series([100, 120, null, 110]),
+        p90: series([300, 320, null, 310]),
+        p99: series([800, 900, null, 850])
+      },
+      requests: series([50, 40, null, 60]),
+      errors: series([5, 0, null, 6]),
+      ok: series([45, 40, null, 54]),
+      errorRate: series([10, 0, null, 10])
+    },
+    totals: {
+      requests: 1000,
+      errors: 50,
+      ok: 950,
+      errorRate: 5,
+      responseTime: { median: 105, p90: 305, p99: 820 }
+    },
+    warnings: [],
+    partial: []
+  })
 })

@@ -723,6 +723,12 @@ describe('todos los canales de módulos', () => {
     await call('problems:comments', { environmentId: envId, problemId: '1' })
     await call('metrics:query', { environmentId: envId, timeRange: '2h', metricSelector: 'm' })
     await call('metrics:search', { environmentId: envId, text: 'cpu' })
+    // Ficha 0006: el canal de métricas del servicio (su comportamiento, en service-metrics.test).
+    await call('entities:serviceMetrics' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'SERVICE-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     await call('slos:list', { environmentId: envId })
     const saved = await call('savedQueries:save', {
       environmentId: envId,
