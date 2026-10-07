@@ -1,7 +1,7 @@
 ---
 id: '0009'
 titulo: 'SERVICE: cuatro gráficos (tiempos, actividad OK/KO, tasa de error y errores)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -148,6 +148,21 @@ ChartColors; language: string; t: TFunction }): EChartsCoreOption`, con
   (`withContentWidth`, nuevo): espera al ancho exacto y no al alto, que no influye en las columnas.
   Con `withContentSize` fallaría en esta VPS por el escalado al 150 % (alto de 601 o 602 px, como
   los de la 0005); así no depende de ese redondeo, sin tolerancias en lo que se comprueba.
+
+**Decisiones del developer.**
+
+- Colores: mediana con `--accent`, p90 y p99 con dos tokens nuevos (`--chart-2`, `--chart-3`, claro
+  y oscuro) y OK con `--status-closed` (verde ya existente). `ChartColors` gana `success`,
+  `series2` y `series3`; `src/main/env-colors.test.ts` comprueba ≥ 3:1 frente a `--background`
+  y que las tres series de tiempos se distinguen.
+- Exportación con `module: metrics` (no hay módulo de exportación de entidades y añadirlo tocaba
+  el esquema del canal); columnas Fecha, Serie, Valor y Unidad (ms, % o /min), con la consulta del
+  gráfico en Info.
+- «Abrir en Métricas»: la consulta la construye `serviceChartSelector` (`service-charts.ts`) con
+  el mismo filtro que main; Actividad abre peticiones y errores (Métricas no resta OK). El rango
+  relativo se cuenta desde que llegaron los datos (`dataUpdatedAt`), como la hoja Info.
+- Sin acceso al módulo de Métricas no se pinta la sección (los marcadores ya enseñan «—»).
+- Eje Y de las barras en notación compacta del idioma («2K /min», «2 mil /min»).
 
 ## Resultado
 
