@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:serviceMetrics` de la 0006)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -94,7 +94,20 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1-CA9 con su test; prueban de verdad (valores concretos, `from`/`to` exactos, una sola
+  llamada). Tras `123b4fa` solo se añade `env-colors.test.ts` (contraste de `--chart-2`/`--chart-3`),
+  razonable. Dos columnas con `lg:`.
+- Sin canal, endpoint, dependencia, esquema, CSP ni permiso nuevo; una sola llamada compartida con
+  los marcadores; `null` como hueco (`connectNulls: false`); por minuto con la resolución.
+- `Chart.tsx` y `MarkerError`: cambios compatibles con sus otros usos.
+- Decisiones aceptadas: rango «desde que llegaron los datos» (el eje usa el mismo, cumple CA5);
+  Actividad abre peticiones y errores; sin acceso a Métricas no se pinta la sección (estado vacío,
+  no `[ALCANCE]`); exportación con `module: metrics` (cumple CA8).
+- Opcionales: nota en Info de que los valores van convertidos (ms y /min) o `entities` en
+  `exportModules`; clave `entities.service.charts.loadError` sin usar; la API sí admite expresiones
+  aritméticas, así que OK se podría abrir en Métricas (probarlo en vivo si Dani lo quiere).
 
 ## Verificación
 
