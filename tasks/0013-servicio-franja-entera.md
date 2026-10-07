@@ -46,6 +46,14 @@ en "Resultado" qué lo corta (alto de fila de 20 px fijo frente al alto real del
 - Lo demás se queda como en la 0010: posición por tiempo, filas para los solapados (3 y «+N»),
   colores por estado con icono, tooltip, clic y Enter abren el problema.
 
+**Decisión del Orquestador (2026-10-07, alcance dentro de la ficha):** el CI rojo tras la 0011 no es el
+recorte: en la ventana del runner (pantalla de 1024×768) el tramo cerrado del CA5 (0010) queda por
+debajo del borde visible y el test pulsa sin traerlo a la vista (ver "Resultado"). Como CA4 exige
+que los e2e de la 0010 sigan pasando, esta ficha también hace que el CA5 (0010) traiga el tramo a la
+vista (desplazando su contenedor, como haría el usuario) y espere a que esté quieto antes de
+`clickInPlace`, sin cambiar ninguna de sus comprobaciones. El test nuevo de esta ficha lo comprueba
+con la ventana del tamaño del CI.
+
 ## Criterios de aceptación
 
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
@@ -55,7 +63,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - CA2 (e2e): con zoom 1 y 1,5, la franja no se solapa con el `canvas` del gráfico de tasa de error.
 - CA3 (e2e): un tramo muy corto (un problema de pocos minutos en un rango de 7 días, en el
   simulador) enseña su icono entero, sin texto, y su nombre accesible lleva el id.
-- CA4 (e2e): los e2e de la 0010 siguen pasando (posición, filas, tooltip y clic).
+- CA4 (e2e): los e2e de la 0010 siguen pasando (posición, filas, tooltip y clic), también con la
+  ventana del tamaño del CI (contenido de unos 1008×705), donde el tramo empieza fuera de la vista.
 
 ## Pruebas a mano para Dani
 
