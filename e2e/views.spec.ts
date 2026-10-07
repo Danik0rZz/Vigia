@@ -1564,6 +1564,143 @@ function hostMetricResponse(query: URLSearchParams): [number, unknown] {
 }
 
 /**
+ * Ficha 0017: discos y procesos de una entidad HOST (canal entities:hostBreakdown), con un id
+ * inventado. Imita lo observado en vivo (paso 0): una serie por disco con entityId("<host>") en
+ * entitySelector; los procesos del host solo con la relación isProcessOf (en entitySelector o en
+ * un filter(in(..., entitySelector(...)))); el nombre en dimensionMap («<dimensión>.name») solo
+ * con :names; :last o fold con resolution=Inf dan 400; el último punto de la serie, null.
+ */
+const BREAKDOWN_HOST_ID = 'HOST-00000000000E2E31'
+const BREAKDOWN_T0 = Date.parse('2026-10-03T08:00:00.000Z')
+/** Último dato, media y máximo; la serie es [máximo, x, último, null] con esa media. */
+type BreakdownStats = { last: number; avg: number; max: number }
+const BREAKDOWN_DISKS: { id: string; name: string; metrics: Record<string, BreakdownStats> }[] = [
+  {
+    id: 'DISK-00000000000E2E01',
+    name: '/',
+    metrics: {
+      'builtin:host.disk.usedPct': { last: 40, avg: 40, max: 44 },
+      'builtin:host.disk.used': { last: 40_000_000_000, avg: 40_000_000_000, max: 41_000_000_000 },
+      'builtin:host.disk.avail': { last: 60_000_000_000, avg: 60_000_000_000, max: 61_000_000_000 },
+      'builtin:host.disk.bytesRead': { last: 100, avg: 300, max: 500 },
+      'builtin:host.disk.bytesWritten': { last: 200, avg: 400, max: 600 }
+    }
+  },
+  {
+    id: 'DISK-00000000000E2E02',
+    name: '/datos',
+    metrics: {
+      'builtin:host.disk.usedPct': { last: 88, avg: 85, max: 90 },
+      'builtin:host.disk.used': {
+        last: 880_000_000_000,
+        avg: 850_000_000_000,
+        max: 900_000_000_000
+      },
+      'builtin:host.disk.avail': {
+        last: 120_000_000_000,
+        avg: 150_000_000_000,
+        max: 160_000_000_000
+      },
+      'builtin:host.disk.bytesRead': { last: 7000, avg: 8000, max: 9000 },
+      'builtin:host.disk.bytesWritten': { last: 1000, avg: 2000, max: 3000 }
+    }
+  }
+]
+/** 12 procesos: CPU media y máxima (%) y memoria media (bytes). El 5 llega sin nombre. */
+const BREAKDOWN_CPU = [4, 30, 2, 55, 18, 1, 9, 26, 3, 14, 7, 11]
+const BREAKDOWN_PROCESSES = BREAKDOWN_CPU.map((avg, i) => ({
+  id: `PROCESS_GROUP_INSTANCE-00000000000E2E${String(i + 1).padStart(2, '0')}`,
+  name: i === 4 ? null : `proceso-e2e-${i + 1}`,
+  cpu: { last: avg, avg, max: avg + 1 },
+  memory: { last: (i + 1) * 50_000_000, avg: (i + 1) * 50_000_000, max: (i + 1) * 50_000_000 }
+}))
+
+const breakdownCompact = (text: string): string => text.replace(/["\s]/g, '')
+const BREAKDOWN_RELATION = `fromRelationships.isProcessOf(entityId(${BREAKDOWN_HOST_ID}))`
+
+/** ¿Es una consulta de discos o procesos del host inventado? */
+function isHostBreakdownQuery(query: URLSearchParams): boolean {
+  const selector = query.get('metricSelector') ?? ''
+  const scope = breakdownCompact(query.get('entitySelector') ?? '')
+  const disks =
+    selector.startsWith('builtin:host.disk.') &&
+    (scope === `entityId(${BREAKDOWN_HOST_ID})` || selector.includes(BREAKDOWN_HOST_ID))
+  const processes =
+    selector.startsWith('builtin:tech.generic.') &&
+    breakdownCompact(`${scope} ${selector}`).includes(BREAKDOWN_RELATION)
+  return disks || processes
+}
+
+/** Respuesta del simulador a una consulta de discos o procesos del host inventado. */
+function hostBreakdownResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && (selector.includes(':fold(') || /:last\b/.test(selector))) {
+    return [400, { error: { code: 400, message: 'Transformación no admitida con Inf (simulado)' } }]
+  }
+  const single = inf || selector.includes(':fold(')
+  const valueOf = (expression: string, stats: BreakdownStats): number => {
+    const fold = /:fold\((\w*)\)/.exec(expression)?.[1]
+    if (fold === 'max' || (fold === undefined && hostAgg(expression, 'max'))) return stats.max
+    if (fold === 'last' || fold === 'value') return stats.last
+    return stats.avg
+  }
+  const expressions = splitSelector(selector)
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '1m',
+      result: expressions.map((expression) => {
+        const key = hostMetricKey(expression)
+        const disk = key.startsWith('builtin:host.disk.')
+        const dimension = disk ? 'dt.entity.disk' : 'dt.entity.process_group_instance'
+        let items = disk
+          ? BREAKDOWN_DISKS.flatMap((d) => {
+              const stats = d.metrics[key]
+              return stats === undefined ? [] : [{ id: d.id, name: d.name, stats }]
+            })
+          : BREAKDOWN_PROCESSES.map((p) => ({
+              id: p.id,
+              name: p.name,
+              stats: key === 'builtin:tech.generic.cpu.usage' ? p.cpu : p.memory
+            }))
+        if (/:sort\(value\(\w+,descending\)\)/.test(expression)) {
+          items = [...items].sort(
+            (a, b) => valueOf(expression, b.stats) - valueOf(expression, a.stats)
+          )
+        }
+        const limit = /:limit\((\d+)\)/.exec(expression)?.[1]
+        if (limit !== undefined) items = items.slice(0, Number(limit))
+        const names = hostAgg(expression, 'names')
+        return {
+          metricId: expression,
+          dataPointCountRatio: 0.005,
+          dimensionCountRatio: 0.005,
+          data: items.map((item) => {
+            const dimensionMap: Record<string, string> = { [dimension]: item.id }
+            if (disk) dimensionMap['dt.entity.host'] = BREAKDOWN_HOST_ID
+            if (names && item.name !== null) dimensionMap[`${dimension}.name`] = item.name
+            const { last, avg, max } = item.stats
+            return {
+              dimensionMap,
+              dimensions: Object.values(dimensionMap),
+              timestamps: single
+                ? [BREAKDOWN_T0 + 180_000]
+                : [0, 1, 2, 3].map((i) => BREAKDOWN_T0 + i * 60_000),
+              values: single
+                ? [valueOf(expression, item.stats)]
+                : [max, 3 * avg - max - last, last, null]
+            }
+          })
+        }
+      })
+    }
+  ]
+}
+
+/**
  * Estado y registro del Dynatrace simulado. Cada test parte de estos valores
  * (`resetState` los restaura); los contadores solo se comparan con un «antes»
  * tomado dentro del propio test.
@@ -1613,6 +1750,8 @@ const defaultSim = () => ({
   serviceMetricQueries: [] as URLSearchParams[],
   /** Ficha 0016: consultas de métricas del host inventado (sus query). */
   hostMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
+  hostBreakdownQueries: [] as URLSearchParams[],
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
   serviceMetricsFail: false,
   /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
@@ -1864,6 +2003,12 @@ async function startServer(): Promise<void> {
             send(status, body)
           }, sim.eventMetricDelayMs)
           return
+        }
+        // Ficha 0017: las del canal entities:hostBreakdown, aparte.
+        if (isHostBreakdownQuery(url.searchParams)) {
+          sim.hostBreakdownQueries.push(url.searchParams)
+          const [status, body] = hostBreakdownResponse(url.searchParams)
+          return send(status, body)
         }
         // Ficha 0016: las del canal entities:hostMetrics, aparte (antes que la vista Métricas).
         if (isHostMetricsQuery(url.searchParams)) {
@@ -5904,6 +6049,57 @@ test('CA7 (0016): entities:hostMetrics por IPC con un id inventado: dos consulta
     warnings: [],
     partial: []
   })
+})
+
+test('CA6 (0017): entities:hostBreakdown por IPC con un id inventado: discos por uso y los 10 procesos con más CPU', async () => {
+  const data = await invoke<{
+    disks: Record<string, unknown>[]
+    processes: { items: Record<string, unknown>[]; total: number }
+  }>('entities:hostBreakdown', {
+    environmentId: env['Producción'],
+    entityId: BREAKDOWN_HOST_ID,
+    timeRange: '2h'
+  })
+  // Las consultas llegan al simulador, todas con el rango global.
+  expect(sim.hostBreakdownQueries.length).toBeGreaterThan(0)
+  for (const query of sim.hostBreakdownQueries) expect(query.get('from')).toBe('now-2h')
+
+  // Discos del más lleno al menos, con su nombre de dimensionMap.
+  expect(data.disks).toMatchObject([
+    {
+      id: 'DISK-00000000000E2E02',
+      name: '/datos',
+      usedPct: { last: 88, max: 90 },
+      used: 880_000_000_000,
+      avail: 120_000_000_000,
+      read: 8000,
+      write: 2000
+    },
+    {
+      id: 'DISK-00000000000E2E01',
+      name: '/',
+      usedPct: { last: 40, max: 44 },
+      used: 40_000_000_000,
+      avail: 60_000_000_000,
+      read: 300,
+      write: 400
+    }
+  ])
+
+  // Los 10 con más CPU media de los 12, de más a menos; el 5 (sin nombre) con su id.
+  const top = BREAKDOWN_PROCESSES.slice()
+    .sort((a, b) => b.cpu.avg - a.cpu.avg)
+    .slice(0, 10)
+  expect(top.map((p) => p.cpu.avg)).toEqual([55, 30, 26, 18, 14, 11, 9, 7, 4, 3])
+  expect(data.processes.items).toMatchObject(
+    top.map((p) => ({
+      id: p.id,
+      name: p.name ?? p.id,
+      cpu: { avg: p.cpu.avg, max: p.cpu.max },
+      memory: p.memory.avg
+    }))
+  )
+  expect(data.processes.total).toBe(12)
 })
 
 test('CA8 (0014): entities:get y entities:names por IPC con ids inventados: lo que pide main y lo que llega del simulador', async () => {

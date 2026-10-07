@@ -753,6 +753,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'HOST-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0017: discos y procesos del host (su comportamiento, en host-breakdown.test).
+    await call('entities:hostBreakdown' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'HOST-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     await call('slos:list', { environmentId: envId })
     const saved = await call('savedQueries:save', {
       environmentId: envId,
