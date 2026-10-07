@@ -1,7 +1,7 @@
 ---
 id: '0006'
 titulo: 'SERVICE: exploración en vivo y canal de métricas del servicio (series y marcadores)'
-estado: en_espera # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -124,6 +124,11 @@ todas las consultas reales. Opciones:
 1. Corregir CA6 (> 1) y arreglar también Métricas en esta ficha, con un criterio nuevo.
 2. Corregir CA6 solo en el canal nuevo y llevar el arreglo de Métricas a una ficha aparte.
 
+**Decisión (2026-10-07):** Dani delegó la decisión en el Orquestador («toma la mejor decisión, es muy
+técnica»). Opción 1: es la misma regla en dos sitios y el arreglo es pequeño; con la 2, la app
+tendría dos criterios distintos para lo mismo y Métricas seguiría avisando en falso. CA6 corregido,
+CA8 nuevo y una prueba a mano para Métricas. La ficha vuelve a `en_desarrollo`.
+
 ## Criterios de aceptación
 
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
@@ -134,21 +139,33 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - CA2 (unitario, shared): el esquema de entrada acepta `SERVICE-` + 16 hexadecimales en mayúsculas
   y rechaza otro tipo, minúsculas, longitudes distintas y caracteres como `"`, `)` o `,`.
 - CA3 (unitario, main): con un `fetch` simulado, se hacen exactamente dos peticiones a
-  `/metrics/query`; la de series lleva las 6 expresiones y la de marcadores las suyas, todas con el
-  id del servicio y el `from`/`to` del rango pedido (relativo y absoluto).
+  `/metrics/query`; la de series lleva las 6 expresiones y la de marcadores los tres tiempos con
+  `resolution=Inf` (sin `:fold`: mezclarlos da 400), todas con el id del servicio y el `from`/`to`
+  del rango pedido (relativo y absoluto). Los totales de peticiones y errores salen de sumar la
+  serie de la primera (igual que `fold(sum)`, comprobado en vivo). (Ajustado el 2026-10-07, ver "En
+  espera".)
 - CA4 (unitario, main): la respuesta simulada se transforma en `series` y `totals`: OK = total −
   errores (punto a punto y en total, nunca negativo), tasa total `null` sin peticiones, `null`
   conservados en las series, tiempos convertidos a ms y `resolution` la devuelta.
 - CA5 (unitario, main): un 400 o 404 de Dynatrace acaba en error con `reason`; una respuesta sin
   resultados acaba en series vacías y totales a 0 o `null`.
-- CA6 (unitario, main): `warnings` y los resultados recortados (`dataPointCountRatio` o
-  `dimensionCountRatio` < 1) llegan en `warnings` y `partial`.
+- CA6 (unitario, main): `warnings` y los resultados recortados llegan en `warnings` y `partial`.
+  Recortado es `dataPointCountRatio` o `dimensionCountRatio` **mayor que 1** (la OpenAPI los define
+  como «pedido / máximo permitido»); un ratio de 1 o menos no es recortado. (Corregido el
+  2026-10-07: antes decía «< 1».)
 - CA7 (e2e): el simulador responde a `entities:serviceMetrics` y un test lo llama por IPC con un id
   inventado y recibe las series y los totales esperados.
+- CA8 (unitario, main; arreglo de la app): `metrics:query` (Métricas) usa la misma regla que CA6:
+  con ratios entre 0 y 1 (lo normal en vivo) no hay `partial` ni aviso de «solo parte de los
+  puntos»; con un ratio mayor que 1, sí. Las dos funciones comparten la regla en un solo sitio.
+  (Nuevo el 2026-10-07, ver "En espera".)
 
 ## Pruebas a mano para Dani
 
-(las de la 0008 y la 0009: esta ficha no tiene interfaz)
+- (las del servicio, en la 0008 y la 0009: esta ficha no tiene interfaz propia)
+- **Arreglado en la app (Métricas):** con una consulta normal de Métricas (por ejemplo, una métrica
+  de CPU de los hosts con el rango por defecto) ya no sale el aviso «la API ha devuelto solo parte
+  de los puntos». Antes salía en casi todas las consultas aunque no faltara nada.
 
 ## Fuera de alcance
 
