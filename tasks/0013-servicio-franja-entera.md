@@ -1,7 +1,7 @@
 ---
 id: '0013'
 titulo: 'SERVICE: la franja de problemas se ve entera y clara'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -139,6 +139,14 @@ Ejecución: `npm run check` en verde (2134 unitarios); `npm run test:e2e:affecte
 - check: 2134 tests en 106 ficheros, cobertura ok.
 - e2e completo: **201/201**, sin fallos.
 - `views.spec.ts -g "(0010)|(0013)" --repeat-each 3 --workers=1`: 24/24.
+
+### Verifier (reapertura), 2026-10-07, commit `bbef895`, rango `main..bbef895`: VERDE
+
+- check: 2134 tests en 106 ficheros, cobertura ok.
+- e2e completo con la ventana normal: 201/201.
+- `-g "(0010)|(0013)" --repeat-each 3 --workers=1`: 24/24 con la ventana normal, 24/24 a 1024×720 (la del
+  runner) y 24/24 a 1008×705.
+- `views.spec.ts` entero a 1024×720 (`--workers=1`, ajuste temporal sin commitear): 113/113.
 
 ## Resultado
 
