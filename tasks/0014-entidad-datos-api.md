@@ -1,7 +1,7 @@
 ---
 id: '0014'
 titulo: 'Entidades: datos de una entidad y nombres de sus relaciones (scope entities.read)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -232,4 +232,12 @@ problemas de 7 días; solo comportamientos):**
 
 ## Resultado
 
-(pendiente)
+- Commits (`main..HEAD`): `b58a0c8` tests, `7d1cbb7` scope `entities.read` en `MODULE_SCOPES` y
+  `useModuleAccess`, `b375440` canales `entities:get` y `entities:names` en el contrato IPC,
+  `f3717fa` implementación en main.
+- Ficheros principales: `src/shared/dynatrace.ts`, `src/shared/ipc.ts`, `src/shared/modules.ts`,
+  `src/main/modules/entities.ts`, `src/main/ipc/handlers/modules.ts`,
+  `src/main/modules/entity-detail-explore.live.test.ts` y los tests de CA1-CA8.
+- Rondas de revisión: 1 (APROBADO). Verifier en verde (2193 tests, e2e 216/216). ADR nuevo: ninguno.
+- Sin migraciones. Lo observado en el paso 0 está en `docs/notas-api-v2.md`.
+- Ideas surgidas: dos opcionales del revisor y el e2e intermitente, pasados a "Mejoras anotadas".

@@ -310,6 +310,29 @@ Tipos explorados: `SERVICE`, `HOST`, `PROCESS_GROUP`, `APPLICATION` y `KUBERNETE
   `isInstanceOf`, `isClusterOfService`…) y cuyos valores son listas de `{ id, type }`.
 - **Tiempos:** mediana de unos 380 ms y máximo por debajo de 650 ms.
 
+### `GET /entities/{entityId}` y nombres de relaciones (ficha 0014, observado en vivo, solo lectura)
+
+Prueba: `src/main/modules/entity-detail-explore.live.test.ts` (40 lecturas, 3 servicios, mediana
+337 ms, máximo 775 ms).
+
+- **Campos** con `fields=+properties,+tags,+managementZones,+fromRelationships,+toRelationships,+firstSeenTms,+lastSeenTms,+icon`:
+  `displayName`, `entityId`, `type`, `firstSeenTms` y `lastSeenTms` (números, el primero no mayor que
+  el segundo), `icon`, `managementZones`, `tags`, `properties`, `fromRelationships` y `toRelationships`.
+- **`icon`:** objeto con solo `primaryIconType` (texto en minúsculas y guiones); sin `customIconPath`
+  ni `secondaryIconType` en los vistos.
+- **`tags`:** todas con `stringRepresentation` (también `context`, `key`, `source` y `value`).
+- **`properties`:** de texto, de lista de texto (`serviceTechnologyTypes`, `applicationName`…), booleano
+  (`isExternalService`) y `softwareTechnologies`, que es una **lista de objetos**
+  `{ type, edition?, version? }` (como JSON puede pasar de 100 y de 300 caracteres).
+- **Relaciones:** `{ id, type }`. `calls` (from) puede traer decenas de ids (hasta 50 en lo visto);
+  las demás, entre 1 y 9. `to.calls` **puede mezclar dos tipos** en una misma relación: hay que
+  agrupar por tipo antes de pedir nombres.
+- **Id inexistente con formato válido:** **404** (`NOT_FOUND`).
+- **Nombres de relaciones:** `GET /entities?entitySelector=entityId(...)` con el `from` por defecto
+  (`now-3d`) resolvió todos los ids de 34 relaciones (de 1 a 50 ids), con `displayName`, `totalCount`
+  igual al número devuelto y sin `nextPageKey`: no hace falta un `from` mayor. Ids de **tipos
+  mezclados** en el selector: **400**.
+
 ## c) Metrics
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/metrics-explore.live.test.ts` (12 lecturas).

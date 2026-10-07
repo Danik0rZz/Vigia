@@ -47,6 +47,10 @@ Sin migraciones nuevas.
 
 ### Cambiado
 
+- «Probar conexión» comprueba ahora también el permiso `entities.read` del token
+  (`environment-api:entities:read` con OAuth), que la próxima sección «Información» de la página del
+  servicio necesita; si falta, lo avisa como con los demás. Hay que añadirlo al token del entorno.
+  Sin migraciones nuevas. (ficha 0014)
 - Flujo de trabajo más ágil (no cambia la app): las peticiones grandes se trocean en lotes de fichas
   que se aprueban de una vez, `/tarea` admite varias fichas en cola, las fichas pequeñas y sin riesgo
   van por un camino corto, y el Planificador también avisa por Telegram cuando hay algo que aprobar.

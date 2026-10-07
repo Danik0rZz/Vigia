@@ -114,6 +114,12 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   (surgió en 0021)
 - `scripts/e2e-ci-window.test.ts`: `isUseCiWindow` no comprueba el argumento de la llamada.
   (surgió en 0021)
+- `entityTypeOf` (`src/main/modules/entities.ts`): con un id sin guion recorta el último carácter;
+  usar `requestedId` o devolver el texto entero. (surgió en 0014)
+- Test de `useModuleAccess("entities")` (scope `entities.read`) al hacer la vista de la 0015.
+  (surgió en 0014)
+- e2e intermitente «v0.9.0 … exportación del detalle de un problema»: falló una vez en una tirada
+  completa y pasó al repetir; no salió en la verificación. Causa sin investigar. (surgió en 0014)
 
 ## Aparcado
 
@@ -156,3 +162,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0012](tasks/0012-servicio-retoques-visuales.md) (lote servicio-2): gráficos del servicio sin rejilla,
   marcadores centrados y separador de miles siempre en toda la interfaz (`formatNumber`).
 - [0021](tasks/0021-e2e-ventana-del-ci.md): todos los e2e arrancan con la ventana del CI (1024×720).
+- [0014](tasks/0014-entidad-datos-api.md) (lote servicio-2): canales `entities:get` y `entities:names` y
+  scope `entities.read` en «Probar conexión». Sin interfaz hasta la 0015.
