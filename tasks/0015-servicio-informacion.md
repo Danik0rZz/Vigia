@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:get` y `entities:names` de la 0014)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -113,7 +113,17 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1-CA9 con su test; prueban de verdad (CA4 y CA5 cuentan llamadas; CA6 sin `entities:get` sin scope).
+  Tests sin tocar tras `172c2f7`.
+- La tarjeta solo se oculta sin entorno o sin token clásico (`modules.ts:37`); con token clásico y
+  `entities.read` sale.
+- `useConnectionStatusKnown` no se queda esperando si `connection:status` falla o tarda; solo lo usa la
+  página del servicio.
+- ADR-0004, nombres por tipo y de 50 en 50, texto y nunca HTML, decisiones del Orquestador aplicadas.
+- Opcionales: crear el enlace a la entidad solo si el id pasa `entityIdSchema` (`ServiceInfo.tsx:351`);
+  sacar las opciones comunes de `useConnectionStatus` y `useConnectionStatusKnown`.
 
 ## Verificación
 
