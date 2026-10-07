@@ -80,4 +80,18 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Resultado
 
-(pendiente)
+**Diagnóstico (developer, 2026-10-07), antes de tocar código.** Medido con un test temporal (no
+commiteado) sobre `SVC_BAND_ID` (rango 2 h), en la VPS:
+
+- **Fallo del CI en «CA5 (0010)» (run 37675895942): no es el recorte de la franja.** Con el
+  contenido a 1024×720, el tramo cerrado queda en `top` 771 px con `innerHeight` 720: está debajo
+  de lo visible de `main` (scrollTop 0, clientHeight 657, scrollHeight 1032).
+  `elementFromPoint` en su centro devuelve `null` (punto fuera de la ventana), así que
+  `receivesClick` da false. Con 1008×705 (lo que deja una pantalla de 1024×768) la cuadrícula pasa
+  a una columna y el tramo baja a 1291 px: igual. Con la ventana de la VPS (1280×802) el tramo está
+  en 745 px, dentro, y el test pasa. `clickInPlace` no desplaza (a propósito), y el test de la 0010
+  no lleva el tramo a la vista antes de pulsarlo.
+- **Recorte que vio Dani:** con zoom 1 y 1,5 la caja del icono (12 px) y la del texto (16 px) caben
+  en vertical en la fila de 20 px CSS (`setZoomFactor` escala también los px fijos). El recorte
+  viene del ancho: un tramo corto toma el ancho mínimo de 8 px, con `px-1` (4 + 4 px) no le queda
+  sitio y el icono (12 px, `shrink-0`) se sale y lo corta el `overflow-hidden` del tramo.
