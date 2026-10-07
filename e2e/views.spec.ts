@@ -970,6 +970,12 @@ const SVC_QUIET_ID = 'SERVICE-00000000000E2E05'
  * de 7 días, sus tramos son muy estrechos; uno de ellos, pegado al final del rango.
  */
 const SVC_SHORT_ID = 'SERVICE-00000000000E2E06'
+/**
+ * Ficha 0013: servicio con un problema cerrado con un id del largo real (P- y 8 cifras), de
+ * `sim.bandLongMinutes` minutos (longIdProblems): el test elige la duración para que su tramo
+ * mida 5rem o más sin sitio para el id.
+ */
+const SVC_LONG_ID = 'SERVICE-00000000000E2E09'
 const SVC_DATA: Record<
   string,
   { series: Record<SvcKind, (number | null)[]>; markers: Record<SvcKind, number> }
@@ -978,6 +984,7 @@ const SVC_DATA: Record<
   [SVC_BAND_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_QUIET_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_SHORT_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
+  [SVC_LONG_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_BIG_ID]: {
     series: {
       median: [800_000, 900_000, null, 850_000],
@@ -1078,6 +1085,34 @@ function shortProblems(): FakeProblem[] {
     problemFilters: [],
     evidenceDetails: { totalCount: 0, details: [] }
   }))
+}
+
+const BAND_LONG = {
+  problemId: 'pd-band-long',
+  displayId: 'P-24109876',
+  title: 'Problema con id largo en la franja'
+}
+
+/** Ficha 0013: el problema de SVC_LONG_ID, cerrado, desde hace 100 minutos y de `bandLongMinutes`. */
+function longIdProblems(): FakeProblem[] {
+  const start = sim.bandNow - 100 * 60_000
+  return [
+    {
+      ...BAND_LONG,
+      status: 'CLOSED',
+      severityLevel: 'ERROR',
+      impactLevel: 'SERVICES',
+      startTime: start,
+      endTime: Math.round(start + sim.bandLongMinutes * 60_000),
+      affectedEntities: [
+        { entityId: { id: SVC_LONG_ID, type: 'SERVICE' }, name: 'servicio-id-largo' }
+      ],
+      impactedEntities: [],
+      managementZones: [],
+      problemFilters: [],
+      evidenceDetails: { totalCount: 0, details: [] }
+    }
+  ]
 }
 
 /** Separa un metricSelector por las comas de primer nivel (no las de dentro de paréntesis). */
@@ -1226,7 +1261,9 @@ const defaultSim = () => ({
   /** Ficha 0010: la lista de problemas de una entidad (sin status) falla con un 400. */
   entityProblemListFail: false,
   /** Ficha 0010: «ahora» de los problemas de la franja, fijado al empezar cada test. */
-  bandNow: Date.now()
+  bandNow: Date.now(),
+  /** Ficha 0013: duración, en minutos, del problema de id largo de SVC_LONG_ID. */
+  bandLongMinutes: 30
 })
 const sim = defaultSim()
 
@@ -1363,7 +1400,8 @@ async function startServer(): Promise<void> {
               ...entityCountProblems,
               ...markerProblems(),
               ...bandProblems(),
-              ...shortProblems()
+              ...shortProblems(),
+              ...longIdProblems()
             ],
             selector
           )
@@ -6399,7 +6437,36 @@ function expectIdRule(fit: SegmentFit, label: string): 'id' | 'icon' | null {
   return fit.text === null ? 'icon' : 'id'
 }
 
-test('CA1 (0013): con zoom 1 y 1,5, con la ventana que haya y con la del CI, el icono y el texto de cada tramo quedan dentro de su tramo, cada tramo dentro de la franja, y el id se ve entero si cabe o solo el icono centrado si no', async () => {
+/**
+ * Ficha 0013: un id del largo real (P- y 8 cifras) en un tramo de 5rem o más (el umbral del
+ * centrado de la app) donde el id no cabe: solo el icono, centrado. La duración del problema se
+ * calcula con lo medido (px por minuto y lo que pide el id, que depende de la fuente del equipo)
+ * para que el tramo caiga en medio de esa franja de anchos, con cualquier ventana.
+ */
+async function expectLongIdCentred(): Promise<void> {
+  await openBandService(SVC_LONG_ID)
+  await bandRange('2h', 1)
+  const [wide] = await expectSegmentsWhole(`id largo, ${sim.bandLongMinutes} min`)
+  expect(wide, 'tramo del id largo').toBeDefined()
+  const { segment, room, needed } = wide as SegmentFit
+  const outer = segment.right - segment.left
+  expect(needed, 'el id largo pide más de 5rem + 2 px').toBeGreaterThan(82 + 1)
+  // El sitio buscado: en medio de [5rem, lo que pide - 1 px]; el borde se suma aparte.
+  const target = (80 + needed - 1) / 2 + (outer - room)
+  sim.bandLongMinutes = (target / outer) * sim.bandLongMinutes
+  await reloadUi()
+  await openBandService(SVC_LONG_ID)
+  await expect(bandSegments()).toHaveCount(1)
+  const label = `id largo, ${sim.bandLongMinutes.toFixed(1)} min`
+  const [fit] = await expectSegmentsWhole(label)
+  const narrow = fit as SegmentFit
+  const where = `${label} (sitio ${narrow.room.toFixed(1)} px, pide ${narrow.needed.toFixed(1)} px)`
+  expect(narrow.room, `${where}: el tramo mide 5rem o más`).toBeGreaterThanOrEqual(80)
+  expect(narrow.room, `${where}: el id no cabe`).toBeLessThanOrEqual(narrow.needed - 1)
+  expect(expectIdRule(narrow, label)).toBe('icon')
+}
+
+test('CA1 (0013): con zoom 1 y 1,5, con la ventana que haya y con la del CI, el icono y el texto de cada tramo quedan dentro de su tramo, cada tramo dentro de la franja, y el id se ve entero si cabe o solo el icono centrado si no, también con un id del largo real', async () => {
   // Lo visto en los tramos de 2 h: con la ventana del CI salen los dos casos (zoom 1, una
   // columna y tramos anchos; zoom 1,5, tramos estrechos), así que el test prueba los dos.
   const seen = new Set<string>()
@@ -6425,7 +6492,10 @@ test('CA1 (0013): con zoom 1 y 1,5, con la ventana que haya y con la del CI, el 
   }
   try {
     await run('ventana actual')
-    await withContentSize(CI_WINDOW, () => run('ventana del CI'))
+    await withContentSize(CI_WINDOW, async () => {
+      await run('ventana del CI')
+      await expectLongIdCentred()
+    })
   } finally {
     await page.getByTestId('time-range-2h').click()
   }
