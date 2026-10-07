@@ -1,7 +1,7 @@
 ---
 id: '0008'
 titulo: 'SERVICE: marcadores arriba de la página (peticiones, tiempos y problemas)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -80,6 +80,13 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - Con servicios reales, que los marcadores cuadran con lo que enseña Dynatrace para el mismo rango
   (peticiones, errores, tasa, mediana/p90/p99 y problemas).
 - Que se lee bien en claro y en oscuro y con la ventana pequeña.
+- Cómo verlos: entorno con token clásico (scopes `metrics.read` y `problems.read`), Problemas →
+  un problema que tenga un servicio entre las evidencias → desplegar esa fila → «Analizar
+  entidad». Cambiar el rango de la barra superior (2 h, 24 h, 7 d y personalizado) y comprobar
+  que cambian los valores y la línea de debajo («Últimas 24 h · datos cada 5 min», por ejemplo);
+  pulsar «Actualizar»; con el teclado, Tab hasta «p90» y «p99» abre su explicación.
+- Un servicio sin tráfico en el rango: «—» en peticiones, KO, tasa y tiempos; los problemas sí
+  enseñan 0.
 
 ## Fuera de alcance
 
@@ -88,7 +95,34 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Que `entities:serviceMetrics` diga en sus totales si hubo dato (`requests: null`
+  sin puntos) en vez de que la interfaz lo deduzca de la serie.
+
+**Decisiones del developer.**
+
+- «—» en OK y KO: main da `totals.ok` y `totals.errors` como suma (0 sin puntos); la interfaz
+  enseña «—» si la serie de peticiones no trae ningún punto con dato (`hasRequestData` en
+  `ServiceMarkers.tsx`), y 0 solo si Dynatrace dice 0. Sin peticiones, la tasa ya llega `null`.
+- Separador de miles: el de `Intl` tal cual; en español no agrupa los de 4 cifras («1234»), que
+  es lo normal de es-ES (`service-format.ts`).
+- Tiempos: 999,6 ms se redondea a 1000 y pasa a «1,0 s», no «1000 ms». Espacio duro antes de
+  la unidad. Test propio en `service-resolution.test.ts` (borde de 1 s y resolución).
+- Un id que no cumple `serviceEntityIdSchema` (por ejemplo `SERVICE-AN1` de la 0003) no pide
+  nada: la página enseña un aviso (`entities.service.invalidId`) en vez de los marcadores.
+- Acceso: los marcadores de métricas usan el acceso del módulo `metrics` y el de problemas el de
+  `problems` (`useModuleAccess`); sin acceso, aviso de módulo no disponible (sin repetir el mismo
+  texto) y «—» en sus marcadores, sin pedir.
+- Claves de consulta `[env, 'entities', …, rango]`; «Actualizar» (`useModuleRefresh(env,
+'entities')`) vuelve a pedir solo las dos activas. `EntityPageFrame` admite `actions` junto a
+  «Volver».
+- Línea bajo los marcadores: rango global («Últimas 2 h», o «Del … al …» con el personalizado) y
+  la resolución que devolvió la API (`1m` → «datos por minuto», `5m` → «datos cada 5 min»; lo
+  que no reconoce, tal cual). Esqueleto con `motion-safe:animate-pulse`.
+- p90 y p99 llevan un tooltip (Radix) con su explicación, que se abre con el foco.
+- e2e (2026-10-07): `service-format.ts` está en `src/renderer/src/lib/**` (transversal), así que
+  `test:e2e:affected` corre el e2e completo: 182 en verde y 6 fallos, todos los tests de la 0005
+  que usan `withContentSize` (contenido de 960×601/602 o no restaura el tamaño): la geometría de
+  la VPS, no esta ficha. Los 17 de las fichas 0003, 0006, 0007 y 0008 pasan.
 
 ## Notas del revisor
 
