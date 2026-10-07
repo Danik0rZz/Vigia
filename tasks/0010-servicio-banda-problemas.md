@@ -1,7 +1,7 @@
 ---
 id: '0010'
 titulo: 'SERVICE: franja de los problemas de la entidad sobre el gráfico de tasa de error'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -146,6 +146,26 @@ con el simulador ampliado.
   `sim.entityProblemListQueries` (las de recuentos siguen en `entityProblemQueries`);
   `SVC_BAND_ID` (`…E2E04`, un abierto y un cerrado contados desde `sim.bandNow`) y
   `SVC_QUIET_ID` (`…E2E05`, sin problemas), con las métricas de `SVC_ID`.
+
+**Decisiones del developer.**
+
+- Error: un rechazo de Dynatrace (400, por ejemplo) sale con el motivo nuevo
+  `entityProblemListRejected` (`src/shared/error-reasons.ts`, es y en), como el de los recuentos.
+- `truncated`: la página trae `nextPageKey` o `totalCount` es mayor que lo recibido (válidos más
+  `invalid`); una sola petición (`paginate` con `maxPages: 1`). El esquema de cada elemento
+  (`entityProblemItemSchema`, `src/main/modules/problems.ts`) valida solo los siete campos y acepta
+  `endTime` `null`.
+- Filas: en orden de inicio (a igual inicio, el más largo arriba), cada tramo en la primera fila
+  libre; tocarse en el borde no es solaparse. Un problema sin duración cuenta si cae en el rango.
+- Franja (`pages/entities/ProblemBand.tsx`): alineada con el área de dibujo del gráfico (márgenes
+  64 y 16 px del `grid` de `serviceChartOption`); el «+N» va en el hueco del eje Y de la última
+  fila. Abiertos en `bg-danger` y cerrados en gris con borde, y siempre icono, id visible y estado
+  en el nombre accesible. Mientras carga no ocupa sitio. Fechas del tooltip con `formatDateTime`
+  (las de toda la app, que incluyen HH:MM).
+- El tramo abre el detalle con el estado `fromList` de `ProblemDetailPage`: así «Volver» va atrás
+  en el historial, a la página del servicio, sin pedir otra vez sus datos.
+- La franja usa el rango del gráfico (contado desde que llegaron las métricas); sin datos del
+  gráfico, el de cuando llegó la lista. «Actualizar» de la página también pide la lista.
 
 ## Resultado
 
