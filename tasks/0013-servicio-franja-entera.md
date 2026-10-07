@@ -1,7 +1,7 @@
 ---
 id: '0013'
 titulo: 'SERVICE: la franja de problemas se ve entera y clara'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -77,7 +77,9 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Con el ancho mínimo, dos problemas cortos y seguidos en la misma fila pueden quedar
+  uno encima del otro (el reparto de filas cuenta el tiempo, no el ancho pintado). Cambiar el
+  reparto queda fuera de esta ficha.
 
 ## Notas del revisor
 
@@ -85,7 +87,21 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests (ficha ligera, del developer): commit 4553cd5, en `e2e/views.spec.ts`.
+
+- CA1 → «CA1 (0013)»: zoom 1 y 1,5; tramos anchos (2 h, con id) y estrechos (7 días, `SVC_SHORT_ID`,
+  uno pegado al final del rango). Fallaba antes del arreglo (icono fuera del tramo).
+- CA2 → «CA2 (0013)»: franja encima del `canvas` y cada tramo recibe el clic en su centro. Ya pasaba
+  antes del arreglo (es la guarda de que el nuevo alto no se mete en el gráfico).
+- CA3 → «CA3 (0013)»: icono entero y centrado, sin texto visible y con el id en el nombre accesible.
+  Fallaba antes del arreglo.
+- CA4 → los e2e de la 0010 y «CA4 (0013)» (ventana del CI, 1008×705, con el tramo fuera de la vista
+  al abrir). El CA5 (0010) usa `clickInPlace(…, { scroll: true })` (decisión del Orquestador); sus
+  comprobaciones no cambian. Pasaba ya con el cambio de la ayuda, que va en el commit de tests.
+
+Ejecución: `npm run check` en verde (2134 unitarios); `npm run test:e2e:affected -- main..HEAD`,
+124 passed; «CA5 (0010)» envuelto a mano (sin commitear) en la ventana del CI más los cuatro de la
+0013, `--repeat-each 3 --workers=1`: 15 passed.
 
 ## Resultado
 
@@ -104,3 +120,20 @@ commiteado) sobre `SVC_BAND_ID` (rango 2 h), en la VPS:
   en vertical en la fila de 20 px CSS (`setZoomFactor` escala también los px fijos). El recorte
   viene del ancho: un tramo corto toma el ancho mínimo de 8 px, con `px-1` (4 + 4 px) no le queda
   sitio y el icono (12 px, `shrink-0`) se sale y lo corta el `overflow-hidden` del tramo.
+
+**Arreglo (developer), commit d3dc6aa, `ProblemBand.tsx`** (`problem-band.ts` no cambia):
+
+- Cada fila es un bloque con un medidor invisible con la misma caja que un tramo (borde, `py-px`,
+  `text-xs leading-4`): el alto sale del contenido, en rem, y sigue al zoom. Los tramos van encima,
+  con `inset-y-0`. El «+N» va en la última fila, a la izquierda del área de dibujo.
+- Ancho mínimo `calc(0.75rem + 8px)`: el icono entero con su relleno y su borde. El tramo pegado al
+  final del rango se corre a la izquierda (`left: min(L%, 100% - ancho)`) en vez de recortarse.
+- Icono e id en una línea con `flex-wrap` y `overflow-hidden`: si el id no cabe entero salta a una
+  segunda línea que queda fuera de la caja, así que se ve solo el icono (centrado con
+  `@container` por debajo de 5rem) y nunca medio id. El icono lleva `my-0.5` para medir lo mismo
+  que la línea y quedar centrado en vertical.
+- `clickInPlace` acepta `{ scroll: true }`: trae el elemento al centro de la vista
+  (`scrollIntoView`) antes de medir; sin la opción sigue fallando si el elemento está fuera, que es
+  lo que quieren las listas. Lección para `e2e/CLAUDE.md`: el tooltip de Radix se cierra si se
+  desplaza un contenedor del disparador, y `focus()` desplaza; traer el tramo a la vista antes de
+  enfocarlo (`CA4 (0013)`).
