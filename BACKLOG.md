@@ -6,6 +6,11 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
+- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): servicio-2 (lo que quede) →
+  [0021](tasks/0021-e2e-ventana-del-ci.md) → host (0016–0020) → lote **monitores**
+  ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
+  browser y HTTP monitor) → lote **proceso**
+  ([0027](tasks/0027-proceso-exploracion-datos.md)–[0029](tasks/0029-proceso-informacion.md)).
 - Lote **host** (página de análisis de una entidad HOST), aprobado por Dani el 2026-10-07. Orden:
   [0016](tasks/0016-host-datos-metricas.md), [0017](tasks/0017-host-discos-procesos-datos.md),
   [0018](tasks/0018-host-marcadores-graficos.md), [0019](tasks/0019-host-discos-procesos-vista.md) y
