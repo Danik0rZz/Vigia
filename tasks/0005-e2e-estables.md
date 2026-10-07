@@ -8,7 +8,7 @@ adrs: [6, 7]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -120,6 +120,10 @@ verifier lo ejecuta y lo copia en "Verificación"). Son 5 repeticiones, más que
   recorta) y la búsqueda queda solo con la lupa (al pasar el ratón dice «Buscar»; Ctrl+K sigue
   igual). Pulsar «Problemas» en la ruta: vuelve a la lista. Con la ventana a 1280 px o más, la barra
   se ve como antes (con «Buscar Ctrl K»).
+- **Volver por la ruta deja la lista en la misma fila (mínimo que pide la ficha; ningún e2e lo
+  cubre).** Con la ventana pequeña y una lista de Problemas larga, desplazarla hasta la mitad, abrir
+  un problema y volver pulsando «Problemas» en la ruta de la barra superior: la lista queda en la
+  misma fila que se veía y con el problema abierto marcado.
 - **Volver a exportar desde Inicio con la ventana pequeña (arreglo de la app, CA4).** Con la ventana
   a 960×600 (o unos 1024 px de ancho), en Inicio, exportar los SLOs a XLSX desde el botón de
   descarga de su tarjeta. Debe salir «Guardado: …» junto al botón, recortado con «…» si no cabe (al
@@ -139,7 +143,21 @@ verifier lo ejecuta y lo copia en "Verificación"). Son 5 repeticiones, más que
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1-CA6 con su test (CA1, CA2 y CA4 también a 960×600); CA7 lo hace el verifier. Tests
+  sin tocar después de `a128516`.
+- Ningún test nuevo es más blando que el viejo: sin tiempos mayores, tolerancias, `force` ni
+  `dispatchEvent`; CA1 sigue con el índice exacto y añade comprobaciones; CA3 lee con espera; CA5
+  espera el aviso y el contenido. La causa de CA5 es correcta (`export.ts` responde tras `writeFile`).
+- Arreglos de la app: la ruta conserva sección y detalle (`min-w-fit`) y el selector baja a 64 px;
+  desde 1280 px la barra se ve como antes; la búsqueda solo con la lupa sigue llamándose «Buscar»
+  (`sr-only` y `title`). El aviso de exportar no saca el botón de la tarjeta y sigue siendo
+  `role="status"` con el texto entero en el DOM y en `title`.
+- CI en v7 con las mismas entradas. Sin IPC, dependencias, CSP, permisos ni datos del tenant.
+- Opcionales: comprobar en el test pequeño de CA2 que el botón «Buscar» se ve (al BACKLOG); añadir la
+  prueba a mano de volver por la ruta a la misma fila (añadida por el Orquestador: la ficha la pide
+  como mínimo).
 
 ## Verificación
 
