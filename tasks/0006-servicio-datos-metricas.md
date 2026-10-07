@@ -1,7 +1,7 @@
 ---
 id: '0006'
 titulo: 'SERVICE: exploración en vivo y canal de métricas del servicio (series y marcadores)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_espera # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -106,6 +106,23 @@ salida):
   `null`, no un error.
 - Sin refresco solo (ADR-0004): la clave de TanStack Query es entorno + entidad + rango.
 - El simulador de los e2e (`e2e/`) aprende a responder a estas consultas con datos inventados.
+
+## En espera (Orquestador, 2026-10-07)
+
+**Decidido por el Orquestador (diseño dentro de la ficha):** `:fold` y `resolution=Inf` en la misma
+consulta dan 400 (paso 0). Los marcadores van así, sin una tercera consulta: los totales de peticiones
+y errores, sumando la serie de la consulta 1 (igual que `fold(sum)`, comprobado en vivo); los tres
+tiempos del rango, en la consulta 2 con `resolution=Inf` (mediana y percentiles reales del rango, no
+una media de medianas). El test-writer ajusta CA3 a esto.
+
+**[ALCANCE] para Dani:** CA6 dice que un ratio < 1 es un resultado recortado, pero la OpenAPI v2
+define `dataPointCountRatio` y `dimensionCountRatio` como «pedido / máximo permitido» y en vivo
+llegan entre 0 y 0,01: recortado es un ratio > 1. `metrics:query` (Métricas) ya usa la regla
+«< 1» (`src/main/modules/metrics.ts:44-52`), así que hoy avisa de «solo parte de los puntos» en casi
+todas las consultas reales. Opciones:
+
+1. Corregir CA6 (> 1) y arreglar también Métricas en esta ficha, con un criterio nuevo.
+2. Corregir CA6 solo en el canal nuevo y llevar el arreglo de Métricas a una ficha aparte.
 
 ## Criterios de aceptación
 
