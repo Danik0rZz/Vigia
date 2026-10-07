@@ -6,6 +6,10 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
+- Lote **host** (página de análisis de una entidad HOST), aprobado por Dani el 2026-10-07. Orden:
+  [0016](tasks/0016-host-datos-metricas.md), [0017](tasks/0017-host-discos-procesos-datos.md),
+  [0018](tasks/0018-host-marcadores-graficos.md), [0019](tasks/0019-host-discos-procesos-vista.md) y
+  [0020](tasks/0020-host-informacion.md). La 0020 depende de la 0015 (lote servicio-2).
 - Lote **servicio-2** (arreglos de tests, retoques del servicio e información de la entidad),
   aprobado por Dani el 2026-10-07. Orden: [0011](tasks/0011-tests-hora-y-escalado.md),
   [0012](tasks/0012-servicio-retoques-visuales.md), [0013](tasks/0013-servicio-franja-entera.md),
