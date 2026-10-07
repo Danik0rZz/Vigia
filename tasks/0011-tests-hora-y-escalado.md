@@ -1,7 +1,7 @@
 ---
 id: '0011'
 titulo: Tests que dependen de la zona horaria o del escalado del escritorio
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -108,6 +108,14 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - Developer (VPS al 150 %): `-g "(0005)" --repeat-each 5 --workers=1`: 40 passed. e2e completo:
   197 passed; con `TZ=UTC`: 197 passed. CA5 (0009) con `TZ=America/New_York` (desde Node): ok.
   `npm run check`: 2134 tests en verde.
+
+### Verifier, 2026-10-07, commit `b96b7fc`, rango `main..b96b7fc`: VERDE
+
+- check: 2134 tests en 106 ficheros, cobertura ok.
+- CA4: e2e completo en la VPS al 150 % de escalado: **197/197, sin ningún fallo**.
+- CA3: `views.spec.ts -g "(0005)" --repeat-each 5 --workers=1`: 40/40.
+- CA1: e2e «CA5 (0009)» desde PowerShell con `$env:TZ=UTC` 1/1 y `$env:TZ=Europe/Madrid` 1/1; el
+  unitario cambia la zona él mismo y comprueba las dos.
 
 ## Resultado
 
