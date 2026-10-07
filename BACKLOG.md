@@ -6,9 +6,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- [0005](tasks/0005-e2e-estables.md): e2e de `views.spec.ts` que dependen de la máquina,
-  sustituidos por tests estables (y arreglo de la app si destapan un fallo). Aprobada por Dani el
-  2026-10-07.
+(ninguna)
 
 ## Próximo
 
@@ -31,27 +29,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   exportaciones y el aviso de filas de Excel en CSV.
 
 ## Mejoras anotadas
-
-- **e2e de `views.spec.ts` que dependen de la máquina** (primer candidato a ficha). Fallan en el
-  primer CI (`windows-latest`, run 37506732054, 2026-10-06) y en la VPS, sin cambios de código:
-  Líneas del spec tras la ficha 0003 (antes de la ficha 0001 eran `:1605`, `:1413`, `:3857` y
-  `:3962`):
-  - `:1724` (300 filas virtualizadas): espera la fila 150 y ve la 146 en el CI y la 140 en la VPS.
-  - `:1532` (Problemas, detalle): la cabecera arrastrable (`app-drag`) intercepta el clic en la
-    ruta de la barra superior.
-  - `:3981` (i18n con el gráfico de Métricas): la serie llega vacía. También falla aislado de
-    forma intermitente (2/3 en la rama de la ficha 0002 y 1/3 en `main`), así que no depende solo
-    del orden. Deducción del verifier en la ficha 0001, sin comprobar: lee `data-series` sin `expect.poll` justo después de `runMetric`, mientras aún se
-    rehace el gráfico del test anterior.
-  - `:4086` (SLO de Inicio): se agota la espera de 5 s.
-  - `:3620` (exporta problemas a XLSX … y a TXT): intermitente, lee el fichero vacío. Causa probable,
-    sin comprobar: `exportTo` (`e2e/views.spec.ts:1366`) da el fichero por listo en cuanto aparece su
-    nombre, y main lo escribe con `writeFile` directo (`src/main/ipc/handlers/export.ts:104`).
-    Arreglo: esperar a que tenga contenido. Repro:
-    `npx playwright test e2e/views.spec.ts:3620 --repeat-each 3 --workers=1`. (surgió en 0003)
-    Apuntan a la geometría de la ventana y a los tiempos del runner. Mientras no se arreglen, el CI
-    sale en rojo. De paso: `actions/checkout` y `actions/setup-node` a una versión con Node 24 (aviso
-    de deprecación de Node 20).
 
 - Las vistas usan solo el token clásico; usar OAuth y el platform token en SaaS (ver la spec,
   "Funcionalidades").
@@ -82,6 +59,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   quedaron fuera de la ficha. (surgió en 0004)
 - Recibir órdenes o lanzar tareas desde Telegram (Remote Control o Channels): estudiarlo aparte.
   (surgió en 0004)
+- e2e CA2 de la ventana pequeña: comprobar también que el botón «Buscar» (solo con la lupa) se ve y
+  tiene nombre accesible. (surgió en 0005)
 
 ## Aparcado
 
@@ -102,3 +81,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   evidencias, con una página en construcción por tipo de entidad (y una genérica para el resto).
 - [0004](tasks/0004-aviso-telegram.md): aviso por Telegram al terminar `/tarea` o
   `/cerrar-version`, opcional y con filtro del tenant (ADR-0009).
+- [0005](tasks/0005-e2e-estables.md): e2e de `views.spec.ts` estables y CI en verde (acciones en
+  v7); arreglados la ruta de la barra superior y volver a exportar en Inicio con la ventana pequeña.

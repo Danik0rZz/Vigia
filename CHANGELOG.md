@@ -37,6 +37,21 @@ Sin migraciones nuevas.
   o fallida), con un resumen corto. Las credenciales van en variables de usuario de Windows, el
   texto pasa antes por el filtro de restos del tenant y, si algo falla, se avisa en la terminal y el
   flujo sigue. Ver `docs/flujo.md` y el ADR-0009. (ficha 0004)
+- Forma de trabajar del proyecto (no cambia la app): el CI vuelve a salir en verde. Los cinco tests
+  de punta a punta que fallaban según la máquina (en el CI y en el servidor de pruebas) se han
+  sustituido por versiones estables que comprueban lo mismo, con la ventana a un tamaño fijo, y las
+  acciones `checkout` y `setup-node` del CI pasan a la v7 (Node 24). (ficha 0005)
+
+### Corregido
+
+- Con la ventana pequeña (unos 1024 px de ancho o menos), la ruta de la barra superior no se veía y
+  no se podía pulsar para volver a la sección. Ahora la sección y el detalle se ven siempre enteros:
+  se recorta «Cliente › Entorno» (que sigue en el selector de entorno, que también encoge) y la
+  búsqueda queda solo con la lupa por debajo de 1280 px (Ctrl+K sigue igual). Con la ventana grande,
+  la barra se ve como antes. (ficha 0005)
+- En Inicio, con la ventana pequeña, tras exportar los SLOs el aviso «Guardado: …» sacaba el botón
+  de exportar de la tarjeta y no se podía volver a exportar hasta recargar. Ahora el aviso se
+  recorta con «…» (al pasar el ratón se ve entero) y el botón sigue en su sitio. (ficha 0005)
 
 ## [0.10.2] - 2026-10-04
 

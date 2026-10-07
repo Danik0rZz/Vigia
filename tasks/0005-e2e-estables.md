@@ -1,7 +1,7 @@
 ---
 id: '0005'
 titulo: e2e de views.spec.ts que dependen de la máquina, sustituidos por tests estables
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0005-e2e-estables
 adrs: [6, 7]
@@ -201,6 +201,13 @@ y CA4 en rojo por la app; el cambio de tamaño de la ventana no afecta a los dem
   5/5; CA2 5/5 y ventana pequeña 5/5; CA3 5/5; CA4 5/5 y ventana pequeña 5/5; CA5 5/5.
 
 ## Resultado
+
+Commits (`main..feat/0005-e2e-estables`): `875cb9b` (tests CA1-CA6), `a128516` (CA6 en v7),
+`551e2d3` (CI a v7), `4b4011e` (ruta de la barra superior), `e04d13d` (aviso de exportar en
+Inicio) y los de la ficha. Ficheros principales: `e2e/views.spec.ts`, `scripts/ci-workflow.test.ts`,
+`.github/workflows/ci.yml`, `src/renderer/src/components/TopBar.tsx`, `EnvSelector.tsx`,
+`ExportMenu.tsx` y `src/renderer/src/pages/HomePage.tsx`. Revisión: 1 ronda (APROBADO). Sin ADR
+nuevo ni migraciones.
 
 Fallos de la app arreglados (para Dani):
 

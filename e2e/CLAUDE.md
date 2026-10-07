@@ -19,3 +19,15 @@
 - Un fichero nuevo de `src/` necesita su área en `e2e/areas.json` (o queda "sin área" y dispara el
   e2e completo). `--repeat-each 3` solo si se toca temporización (esperas, animaciones,
   virtualización, navegación) o hubo un fallo intermitente.
+- Lo que dependa de la geometría se prueba con el contenido de la ventana fijado desde el test
+  (`withContentSize` en `views.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
+  ventana, así que sin fijarla ve otra geometría que la VPS.
+- Si la cabecera u otro elemento «intercepta» un clic, mirar antes si con esa ventana el control se
+  ve de verdad: en la 0005 era un fallo de la app (la ruta quedaba en 0 px), no del test.
+- Una exportación se lee tras el aviso «Guardado» y con el fichero no vacío (`exportSaved`): main
+  crea el fichero al empezar `writeFile`, así que su nombre aparece antes de tener contenido.
+- Tras `runMetric`, `data-series` se lee con espera (`toHaveAttribute`): el gráfico se monta con la
+  serie vacía mientras la consulta no ha respondido.
+- No hacer clic en una fila mientras la página se recoloca (por ejemplo, al salir la barra de
+  scroll): `locator.click` reintenta desplazando la lista y cambia la fila de arriba. Usar
+  `clickInPlace` sobre una fila del centro.
