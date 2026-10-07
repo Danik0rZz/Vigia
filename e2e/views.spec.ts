@@ -6246,6 +6246,12 @@ interface SegmentFit {
   /** Caja del texto que toca el tramo; null si no se ve ningún texto. */
   text: Rect | null
   band: Rect
+  /** Ancho natural del id (todo su texto, se vea o no). */
+  idWidth: number
+  /** Sitio dentro del tramo: su ancho interior, sin borde ni relleno. */
+  room: number
+  /** Ancho que piden el icono y el id en una línea: relleno de la línea, icono, hueco e id. */
+  needed: number
 }
 
 /** Ficha 0013: cajas de cada tramo de la franja, de su icono y de su texto visible. */
@@ -6265,12 +6271,14 @@ async function segmentFits(): Promise<SegmentFit[]> {
         const svg = segment.querySelector('svg')
         const walker = document.createTreeWalker(segment, NodeFilter.SHOW_TEXT)
         let text: Rect | null = null
+        let idWidth = 0
         for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
           if ((node.textContent ?? '').trim() === '') continue
-          if (node.parentElement?.checkVisibility({ visibilityProperty: true }) !== true) continue
           const range = document.createRange()
           range.selectNodeContents(node)
           const r = rect(range.getBoundingClientRect())
+          idWidth += r.right - r.left
+          if (node.parentElement?.checkVisibility({ visibilityProperty: true }) !== true) continue
           if (r.right - r.left === 0 || !touches(r, box)) continue
           text =
             text === null
@@ -6282,12 +6290,26 @@ async function segmentFits(): Promise<SegmentFit[]> {
                   bottom: Math.max(text.bottom, r.bottom)
                 }
         }
+        const px = (value: string): number => Number.parseFloat(value) || 0
+        const own = getComputedStyle(segment)
+        const room = segment.clientWidth - px(own.paddingLeft) - px(own.paddingRight)
+        const line = svg?.parentElement
+        const lineStyle = line === null || line === undefined ? null : getComputedStyle(line)
+        const needed =
+          (svg === null ? 0 : svg.getBoundingClientRect().width) +
+          idWidth +
+          (lineStyle === null
+            ? 0
+            : px(lineStyle.paddingLeft) + px(lineStyle.paddingRight) + px(lineStyle.columnGap))
         return {
           problemId: segment.dataset['problemId'] ?? '',
           segment: box,
           icon: svg === null ? null : rect(svg.getBoundingClientRect()),
           text,
-          band: rect(band.getBoundingClientRect())
+          band: rect(band.getBoundingClientRect()),
+          idWidth,
+          room,
+          needed
         }
       }
     )
@@ -6343,30 +6365,74 @@ async function expectSegmentsWhole(label: string): Promise<SegmentFit[]> {
   return fits
 }
 
-test('CA1 (0013): con zoom 1 y 1,5, el icono y el texto de cada tramo quedan dentro de su tramo, y cada tramo dentro de la franja', async () => {
-  try {
+/**
+ * Ficha 0013: la regla del id con el ancho real del tramo. Si caben el icono y el id en una
+ * línea, se ven los dos y el id entero; si no, solo el icono, entero y centrado. Con menos de 1 px
+ * de diferencia entre el sitio y lo que piden (redondeo), vale cualquiera de las dos, pero entera.
+ * Devuelve lo que ha visto ('id' o 'icon'), o null si estaba en ese margen.
+ */
+function expectIdRule(fit: SegmentFit, label: string): 'id' | 'icon' | null {
+  const name = `${label} · ${fit.problemId} (sitio ${fit.room.toFixed(1)} px, pide ${fit.needed.toFixed(1)} px)`
+  expect(fit.idWidth, `${name}: el id tiene ancho`).toBeGreaterThan(0)
+  const fits = fit.room >= fit.needed + 1
+  const tight = fit.room <= fit.needed - 1
+  if (fits) expect(fit.text, `${name}: cabe, así que enseña su id`).not.toBeNull()
+  if (tight) expect(fit.text, `${name}: no cabe, así que no enseña texto`).toBeNull()
+  if (fit.text !== null) {
+    // El id entero, no un trozo (que esté dentro del tramo ya lo comprueba expectSegmentsWhole).
+    expect(fit.text.right - fit.text.left, `${name}: el id se ve entero`).toBeGreaterThanOrEqual(
+      fit.idWidth - 0.5
+    )
+  } else {
+    const icon = fit.icon as Rect
+    const centre = (a: number, b: number): number => (a + b) / 2
+    expect(
+      Math.abs(centre(icon.left, icon.right) - centre(fit.segment.left, fit.segment.right)),
+      `${name}: icono centrado en horizontal`
+    ).toBeLessThanOrEqual(1)
+    expect(
+      Math.abs(centre(icon.top, icon.bottom) - centre(fit.segment.top, fit.segment.bottom)),
+      `${name}: icono centrado en vertical`
+    ).toBeLessThanOrEqual(1)
+  }
+  if (!fits && !tight) return null
+  return fit.text === null ? 'icon' : 'id'
+}
+
+test('CA1 (0013): con zoom 1 y 1,5, con la ventana que haya y con la del CI, el icono y el texto de cada tramo quedan dentro de su tramo, cada tramo dentro de la franja, y el id se ve entero si cabe o solo el icono centrado si no', async () => {
+  // Lo visto en los tramos de 2 h: con la ventana del CI salen los dos casos (zoom 1, una
+  // columna y tramos anchos; zoom 1,5, tramos estrechos), así que el test prueba los dos.
+  const seen = new Set<string>()
+  const run = async (window: string): Promise<void> => {
     for (const zoom of [1, 1.5]) {
       await withZoom(zoom, async () => {
-        // Tramos anchos (2 h): con icono y texto.
+        // Rango de 2 h: anchos o estrechos según la ventana y el zoom; la regla, con su ancho.
         await openBandService(SVC_BAND_ID)
         await bandRange('2h', 2)
-        const wide = await expectSegmentsWhole(`zoom ${zoom}, 2 h`)
-        for (const fit of wide) {
-          expect(
-            fit.text,
-            `zoom ${zoom}: el tramo ancho ${fit.problemId} enseña su id`
-          ).not.toBeNull()
+        const label = `${window}, zoom ${zoom}, 2 h`
+        for (const fit of await expectSegmentsWhole(label)) {
+          const shown = expectIdRule(fit, label)
+          if (shown !== null) seen.add(shown)
         }
         // Tramos estrechos (7 días), también el pegado al final del rango.
         await openBandService(SVC_SHORT_ID)
         await bandRange('7d', 2)
-        await expectSegmentsWhole(`zoom ${zoom}, 7 días`)
+        const short = `${window}, zoom ${zoom}, 7 días`
+        for (const fit of await expectSegmentsWhole(short)) expectIdRule(fit, short)
         await bandRange('2h', 1)
       })
     }
+  }
+  try {
+    await run('ventana actual')
+    await withContentSize(CI_WINDOW, () => run('ventana del CI'))
   } finally {
     await page.getByTestId('time-range-2h').click()
   }
+  expect([...seen].sort(), 'tramos de 2 h con id y tramos con solo el icono').toEqual([
+    'icon',
+    'id'
+  ])
 })
 
 test('CA2 (0013): con zoom 1 y 1,5, la franja no se solapa con el canvas del gráfico de tasa de error', async () => {
