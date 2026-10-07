@@ -45,11 +45,13 @@ que no está escrito, para los agentes no existe.
 
 ## Flujo, en corto
 
-Petición → **Planificador** (sesión 1, `claude --agent planner`) → ficha en `borrador` → la aprueba
-Dani (o peticiones, si Dani lo delega) → **Orquestador** (sesión 2, `/tarea NNNN`): test-writer →
-developer → reviewer (máximo 3 rondas) → verifier → doc-writer → merge fast-forward a `main` y push
-→ CI. Las versiones se cierran con `/cerrar-version`. Los cambios de alcance (`[ALCANCE]`) los
-decide Dani.
+Petición → **Planificador** (sesión 1, `claude --agent planner`) → ficha en `borrador`, o un lote
+de fichas pequeñas si la petición es grande → la aprueba Dani (o peticiones, si Dani lo delega) →
+**Orquestador** (sesión 2, `/tarea NNNN [MMMM …]`, en cola): test-writer → developer → reviewer
+(máximo 3 rondas) → verifier → doc-writer → merge fast-forward a `main` y push → CI. Las fichas
+ligeras se saltan el test-writer. Lo que espera a Dani se le avisa por Telegram y se contesta en la
+sesión (o desde el móvil con Remote Control). Las versiones se cierran con `/cerrar-version`. Los
+cambios de alcance (`[ALCANCE]`) los decide Dani. Detalle: `docs/flujo.md` y ADR-0007 y ADR-0010.
 
 ## Reglas que no se saltan
 

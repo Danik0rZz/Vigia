@@ -16,6 +16,11 @@ Antes de empezar, lee:
 5. Si usas la API de Dynatrace: el endpoint en `..\API\` (buscar, no leer entero). Nunca inventes
    endpoints ni parámetros.
 
+**Ficha ligera** (`ligera: sí`, el Orquestador te lo dice): no hay test-writer. Primero escribes
+los tests desde la ficha, como lo haría él (`.claude/agents/test-writer.md`: uno por criterio con
+su número, fallando por falta de código) y los commiteas solos; después, el código. Los tests no se
+ablandan después de su commit: si uno está mal, lo corriges en un commit propio y lo explicas.
+
 Reglas:
 
 - Nunca modifiques un test de la ficha para que pase. Si te parece incorrecto, para y explica por

@@ -1,7 +1,11 @@
 ---
 id: 'NNNN'
 titulo:
-estado: borrador # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: borrador # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+tamano: S # S | M | L (docs/propuestas-siguientes.md)
+ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
+lote: # nombre corto del lote, si la ficha es parte de uno
+depende_de: [] # fichas que tienen que estar hechas antes, por número
 aprobada_por: # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/NNNN-slug
 adrs: [] # ADR que aplican, por número

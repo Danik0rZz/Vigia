@@ -9,8 +9,8 @@ leyendo. Si algo no está escrito, para ellos no existe.
 | Quién        | Dónde                                  | Qué hace                                                                                 |
 | ------------ | -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Dani         | —                                      | Pide, decide y aprueba. Prueba a mano (`docs/pendiente-dani.md`).                        |
-| Planificador | Sesión 1 (antes, peticiones)           | Convierte peticiones en fichas. Decide en nombre de Dani si lo delega.                   |
-| Orquestador  | Sesión 2 (worktree propio)             | `/tarea NNNN` y `/cerrar-version`. Coordina; no escribe código.                          |
+| Planificador | Sesión 1 (antes, peticiones)           | Convierte peticiones en fichas, o en lotes. Decide en nombre de Dani si lo delega.       |
+| Orquestador  | Sesión 2 (worktree propio)             | `/tarea NNNN [MMMM …]` (en cola) y `/cerrar-version`. Coordina; no escribe código.       |
 | test-writer  | Subagente del Orquestador              | Tests desde la ficha, antes del código. Tienen que fallar.                               |
 | developer    | Subagente del Orquestador              | Implementa hasta verde. No toca los tests.                                               |
 | reviewer     | Subagente del Orquestador              | Revisa el diff sin contexto previo. Solo lectura. (Antes, senior.)                       |
@@ -22,13 +22,19 @@ leyendo. Si algo no está escrito, para ellos no existe.
 
 Cada subagente es una instancia nueva: el reviewer de la ronda 2 no es el de la ronda 1. El encargo
 que les pasa el Orquestador es corto (la ruta de la ficha y, si acaso, una nota); el resto lo leen.
+El doc-writer y el verifier, que hacen trabajo mecánico, van con un modelo más rápido (`model:
+sonnet` en su definición); el resto, con el de la sesión (ADR-0010).
 
 ## Cómo se arranca
 
 - **Sesión 1 (Planificador):** `claude --agent planner`, en el checkout principal. Se le habla en
   lenguaje normal: "quiero…".
 - **Sesión 2 (Orquestador):** `claude` en el worktree `Orquestador` y `/tarea NNNN` con una ficha
-  aprobada. Al cerrar una versión, `/cerrar-version`.
+  aprobada, o `/tarea NNNN MMMM …` con varias en cola. Al cerrar una versión, `/cerrar-version`.
+- **Responder desde el móvil:** en cada sesión, `/remote-control` (o arrancarla con
+  `claude remote-control`) y abrirla desde la app de Claude, en **Code**. Desde ahí se contesta a
+  una pregunta o se aprueba un permiso como en el PC. El PC tiene que seguir encendido con la sesión
+  abierta. Para que la app también avise, en `/config`: "Push when actions required".
 - **Una vez por clon:** `git config core.hooksPath .githooks` (activa los hooks de git; la
   configuración es del repositorio y la comparten todos sus worktrees).
 
@@ -48,11 +54,33 @@ borrador ──(Dani o peticiones)──▶ aprobada ──test-writer──▶ 
 - `bloqueada`: tres rondas sin aprobar, un test que el developer cree incorrecto, una decisión que
   no está en el repositorio o un fallo del verifier que no se arregla en dos intentos. El
   Orquestador para y se lo dice a Dani (o al Planificador, si Dani lo ha delegado).
+- `en_espera`: en una cola, la ficha espera una respuesta de Dani; su rama se queda y la cola sigue
+  con la siguiente que no dependa de ella. Se retoma con `/tarea NNNN`.
 - Una ficha por tarea, con su número correlativo (`tasks/NNNN-slug.md`, a partir de la plantilla).
 - Las ideas que surgen no se implementan: van a "Ideas surgidas" y el doc-writer las pasa al
   BACKLOG.
 - Las versiones no se cierran por ficha. El doc-writer apunta cada ficha en `## [Sin publicar]` del
-  CHANGELOG, y `/cerrar-version` agrupa lo que haya cuando Dani (o peticiones) lo pide.
+  CHANGELOG, y `/cerrar-version` agrupa lo que haya cuando Dani (o peticiones) lo pide. Mientras se
+  itera no hace falta cerrar: los cambios se ven con `npm run dev`. Se cierra cuando Dani quiere
+  usar el zip fuera de la VPS o al acabar un bloque grande.
+
+## Lotes, colas y fichas ligeras
+
+Para ir más rápido sin perder las puertas (ADR-0010):
+
+- **Lotes.** Dani pide algo grande de una vez («en Problemas quiero A, B, C y D»). El Planificador
+  lo trocea en fichas pequeñas con un `lote` común, su orden y su `depende_de`, se las presenta
+  juntas (con todas las preguntas a la vez) y Dani las aprueba de una vez. Las fichas siguen siendo
+  pequeñas: un fallo solo para la suya, el reviewer ve diffs que puede revisar bien y cada una se
+  deshace sola.
+- **Colas.** `/tarea 0006 0007 0008` las hace en ese orden sin esperar a Dani entre una y otra,
+  cada una desde el `main` que dejó la anterior y con su aviso. Si una espera a Dani o se bloquea,
+  se avisa y la cola sigue con las que no dependen de ella. Al final, un aviso con el resumen.
+- **Fichas ligeras** (`ligera: sí`, la marca el Planificador): solo para fichas S que no tocan
+  canales IPC, la API de Dynatrace, dependencias, el esquema, la seguridad ni servicios externos.
+  No hay test-writer: el developer escribe primero los tests (commit solo de tests) y después el
+  código, y el reviewer comprueba además que los tests cubren cada criterio tal como está escrito.
+  El reviewer, el verifier, los hooks y el CI no cambian.
 
 ## Quién decide
 
@@ -142,6 +170,15 @@ Opcional (ADR-0009). El Orquestador llama a `node scripts/notify-telegram.mjs <j
   el motivo) o `parada` (esperando una decisión de Dani, con la pregunta). Un `[ALCANCE]` que
   decide el Planificador por delegación no avisa.
 - `/cerrar-version`: `cerrada` o `fallida` (con el motivo).
+- Una cola de `/tarea`: un aviso por ficha y otro al final con el resumen (`parada` si alguna espera
+  a Dani).
+- El Planificador: `parada` cuando tiene una ficha o un lote listo para aprobar, o una pregunta que
+  solo puede contestar Dani.
+
+Las preguntas (`decision`) se escriben para contestarlas desde el móvil (sí/no u opciones
+numeradas). Telegram solo avisa: la respuesta se da en la sesión, en el PC o desde la app de Claude
+con Remote Control (ver "Cómo se arranca"). Recibir órdenes por Telegram (Channels de Claude Code,
+en vista previa) queda fuera de momento (ADR-0010).
 
 El mensaje es texto plano y corto: ficha o versión, título, estado, rondas, resultado del verifier,
 la decisión que se espera de Dani si la hay, un resumen y el enlace del CI. Lo redacta el

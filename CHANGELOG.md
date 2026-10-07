@@ -28,6 +28,10 @@ Sin migraciones nuevas.
 
 ### Cambiado
 
+- Flujo de trabajo más ágil (no cambia la app): las peticiones grandes se trocean en lotes de fichas
+  que se aprueban de una vez, `/tarea` admite varias fichas en cola, las fichas pequeñas y sin riesgo
+  van por un camino corto, y el Planificador también avisa por Telegram cuando hay algo que aprobar.
+  Ver `docs/flujo.md` y el ADR-0010.
 - Forma de trabajar del proyecto (no cambia la app): fichas de tarea con criterios de aceptación,
   agentes especializados de Claude Code, hooks de git de pre-commit y pre-push, y CI en GitHub
   Actions sobre Windows (`check`, e2e completo y `dist:win`) en cada push a `main`. Ver

@@ -2,6 +2,7 @@
 name: doc-writer
 description: Cierra una ficha verificada de Vigía dejando el conocimiento escrito: CHANGELOG, BACKLOG, ADR, ARCHITECTURE, reglas de carpeta y el resultado de la ficha. No toca código ni tests.
 tools: Read, Grep, Glob, Write, Edit, Bash
+model: sonnet
 ---
 
 Lee la ficha completa y `git log main..HEAD` de su rama. Después:
