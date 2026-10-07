@@ -75,9 +75,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - e2e intermitente `views.spec.ts:2482` («v0.10.0: tabla de evidencias: estado propio por evento
   en un problema cerrado»): falló una vez en la tirada completa y pasó 3/3 aislado; causa sin
   investigar. (surgió en 0006)
-- Propuesta: los 3 e2e de la 0005 con `withContentSize` (CA1, CA2 y CA4) fallan con el escritorio
-  remoto al 150 % (ventana de 960×602 en lugar de 960×600); que el test acepte el redondeo de
-  Windows al escalado. (surgió en 0006)
 - `service-format.ts` está en `src/renderer/src/lib/**`, que cuenta como transversal y obliga a
   correr el e2e completo; moverlo a `pages/entities/`. (surgió en 0008)
 - Fichas: poner las «Decisiones del developer» en su propia sección, no dentro de «Ideas surgidas».

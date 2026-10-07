@@ -14,6 +14,8 @@ import {
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 import { hoverFresh, moveToNeutral } from './hover'
+import { wallTimeToEpoch } from './local-time'
+import { fitsContentSize, type WindowSize } from './window-size'
 import ExcelJS from 'exceljs'
 import { generate } from 'selfsigned'
 import en from '../src/renderer/src/locales/en/common.json'
@@ -1651,8 +1653,6 @@ const FIXED_WINDOW = { width: 1024, height: 720 }
 /** La ventana más pequeña que permite la app (minWidth y minHeight de src/main/window.ts). */
 const SMALL_WINDOW = { width: 960, height: 600 }
 
-type WindowSize = { width: number; height: number }
-
 /** Tamaño del contenido de la ventana tal y como lo ve la página. */
 async function viewportSize(): Promise<WindowSize> {
   return page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
@@ -1660,9 +1660,14 @@ async function viewportSize(): Promise<WindowSize> {
 
 /**
  * Ejecuta `body` con el contenido de la ventana a `size` (desde main, con setContentSize; la
- * app no cambia) y deja la ventana como estaba, aunque el test falle.
+ * app no cambia) y deja la ventana como estaba, aunque el test falle. Con el escritorio escalado,
+ * Windows redondea y el contenido puede quedar hasta 2 px más grande o más pequeño
+ * (`fitsContentSize`, ficha 0011): `body` recibe el tamaño real.
  */
-async function withContentSize(size: WindowSize, body: () => Promise<void>): Promise<void> {
+async function withContentSize(
+  size: WindowSize,
+  body: (actual: WindowSize) => Promise<void>
+): Promise<void> {
   const original = await app.evaluate(({ BrowserWindow }, wanted) => {
     const win = BrowserWindow.getAllWindows()[0]
     if (win === undefined) throw new Error('withContentSize: no hay ventana')
@@ -1671,13 +1676,13 @@ async function withContentSize(size: WindowSize, body: () => Promise<void>): Pro
     return { width, height }
   }, size)
   try {
-    await expect.poll(viewportSize).toEqual(size)
-    await body()
+    await expect.poll(async () => fitsContentSize(await viewportSize(), size)).toBe(true)
+    await body(await viewportSize())
   } finally {
     await app.evaluate(({ BrowserWindow }, back) => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(back.width, back.height)
     }, original)
-    await expect.poll(viewportSize).toEqual(original)
+    await expect.poll(async () => fitsContentSize(await viewportSize(), original)).toBe(true)
   }
 }
 
@@ -5788,9 +5793,11 @@ test('CA5 (0009): «Abrir en Métricas» de cada gráfico abre Métricas con la 
   const channelQuery = sim.serviceMetricQueries.at(-1) as URLSearchParams
   const from = Date.parse(channelQuery.get('from') ?? '')
   const to = Date.parse(channelQuery.get('to') ?? '')
-  // 09:00 y 13:00 en Madrid (UTC+2 en octubre).
-  expect(from).toBe(Date.UTC(2026, 9, 3, 7, 0))
-  expect(to).toBe(Date.UTC(2026, 9, 3, 11, 0))
+  // 09:00 y 13:00 en la zona del renderer, que es en la que la app lee lo escrito (ficha 0011:
+  // el CI va en UTC y la VPS en Europe/Madrid).
+  const zone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)
+  expect(from).toBe(wallTimeToEpoch('2026-10-03T09:00', zone))
+  expect(to).toBe(wallTimeToEpoch('2026-10-03T13:00', zone))
 
   const expected: Record<ChartKind, { has: string[]; not: string[] }> = {
     'response-time': {
@@ -5832,8 +5839,8 @@ test('CA5 (0009): «Abrir en Métricas» de cada gráfico abre Métricas con la 
 /**
  * Ficha 0009: ancho del contenido de la ventana fijado desde main (setContentSize), con el alto
  * de FIXED_WINDOW, y restaurado al final aunque el test falle. Solo se espera al ancho: es lo
- * único de lo que dependen las columnas. withContentSize espera además al alto exacto, y en la
- * VPS (escritorio remoto al 150 %) el alto sale con 1 o 2 px de más (fallos de la 0005).
+ * único de lo que dependen las columnas (withContentSize espera además al alto, con el margen
+ * del redondeo de Windows al escalar).
  */
 async function withContentWidth(width: number, body: () => Promise<void>): Promise<void> {
   const original = await app.evaluate(
