@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:serviceMetrics` de la 0006 y `entities:problemCounts` de la 0007)
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -147,6 +147,13 @@ tenant.
 
 Opcionales: `service-format.ts` en `lib/**` es transversal (podría ir en `pages/entities/`); las
 «Decisiones del developer» en su propia sección; el verifier confirma los 6 fallos de la 0005.
+
+### Ronda 2: APROBADO
+
+- Punto 1 resuelto: `MarkerError` con `role="alert"` y `errorDetail` visible con un `IpcError`, como
+  `ModuleError` (ADR-0005). La ronda solo cambia `ServiceMarkers.tsx` y la ficha; «Reintentar» sigue
+  igual para CA5. Tests sin tocar desde `8923a78`.
+- Opcional: si fallan las métricas salen cuatro `role="alert"` a la vez; se podría dejar uno solo.
 
 ## Verificación
 
