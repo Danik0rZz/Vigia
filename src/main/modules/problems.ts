@@ -54,6 +54,24 @@ export function buildProblemSelector(filters: ProblemFilters): string | undefine
   return criteria.length === 0 ? undefined : criteria.join(',')
 }
 
+/**
+ * Selector de los problemas que afectan a una entidad con un estado (ficha
+ * 0007). Solo `affectedEntities`, no causa raíz ni impactadas. El id ya viene
+ * validado con `entityIdSchema` (sin comillas ni paréntesis).
+ */
+export function entityProblemSelector(entityId: string, status: 'open' | 'closed'): string {
+  return `affectedEntities(${quote(entityId)}),status(${quote(status)})`
+}
+
+/** Respuesta de /problems de la que solo se usa `totalCount` (el resto puede variar). */
+export const problemCountPageSchema = z.looseObject({ totalCount: z.unknown().optional() })
+
+/** `totalCount` si es un entero no negativo; si no llega (o no lo es), null y no 0. */
+export function toProblemCount(page: z.output<typeof problemCountPageSchema>): number | null {
+  const total = page.totalCount
+  return typeof total === 'number' && Number.isInteger(total) && total >= 0 ? total : null
+}
+
 /** EntityStub: `name` no viene si la entidad ya no existe. */
 const entityStubSchema = z.object({
   entityId: z.object({ id: z.string(), type: z.string() }),

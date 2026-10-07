@@ -32,6 +32,7 @@ export const errorReasonKeys = [
   'tokenExpired',
   'connectionUnexpected',
   'problemNotFound',
+  'entityProblemsRejected',
   // Datos locales
   'clientMissing',
   'clientNameTaken',

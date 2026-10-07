@@ -17,6 +17,20 @@ export const impactLevels = ['APPLICATION', 'ENVIRONMENT', 'INFRASTRUCTURE', 'SE
 export type SeverityLevel = (typeof severityLevels)[number]
 
 /**
+ * Id de entidad estándar de Dynatrace (`SERVICE-0123456789ABCDEF`): tipo en
+ * mayúsculas y 16 hexadecimales. Va dentro de un selector que construye main,
+ * así que no admite comillas, paréntesis, comas ni tipos personalizados (`:`).
+ */
+export const entityIdSchema = z.string().regex(/^[A-Z][A-Z0-9_]*-[0-9A-F]{16}$/)
+
+/** Problemas abiertos y cerrados de una entidad; null si la API no da `totalCount`. */
+export const entityProblemCountsSchema = z.object({
+  open: z.number().int().min(0).nullable(),
+  closed: z.number().int().min(0).nullable()
+})
+export type EntityProblemCounts = z.output<typeof entityProblemCountsSchema>
+
+/**
  * Orden de gravedad, de peor a menos grave (severityLevels es alfabético, el
  * del enum de la API, y no sirve para ordenar). Lo decidió peticiones.
  */

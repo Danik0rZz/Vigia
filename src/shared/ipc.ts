@@ -15,6 +15,8 @@ import {
   exportSettingsSchema,
   MAX_CAPTURE_DATA_URL,
   MAX_EXPORT_ROWS,
+  entityIdSchema,
+  entityProblemCountsSchema,
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
@@ -249,6 +251,18 @@ export const ipcContract = {
       /** Avisos de Dynatrace (`warnings`), sin duplicados. */
       warnings: z.array(z.string()).max(20)
     })
+  },
+  /**
+   * Problemas abiertos y cerrados que afectan a una entidad en el rango (ficha
+   * 0007). Main construye el selector; la interfaz solo manda el id.
+   */
+  'entities:problemCounts': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: entityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: entityProblemCountsSchema
   },
   /** Detalle con evidencias, impacto y comentarios recientes. */
   'problems:get': {

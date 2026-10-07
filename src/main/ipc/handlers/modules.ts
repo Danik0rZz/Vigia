@@ -13,10 +13,13 @@ import {
 import {
   buildProblemSelector,
   commentItemSchema,
+  entityProblemSelector,
+  problemCountPageSchema,
   problemDetailSchema,
   problemSchema,
   toProblemComment,
   toProblemDetail,
+  toProblemCount,
   toProblemSummary
 } from '../../modules/problems'
 import type { SavedQueryStore } from '../../modules/saved-queries'
@@ -28,6 +31,7 @@ type ModuleChannels =
   | 'problems:list'
   | 'problems:get'
   | 'problems:comments'
+  | 'entities:problemCounts'
   | 'metrics:query'
   | 'metrics:search'
   | 'slos:list'
@@ -132,6 +136,49 @@ export function createModuleHandlers(
         truncated: page.truncated,
         invalid: page.invalid
       }
+    },
+
+    'entities:problemCounts': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      // Solo el recuento: pageSize=1 y totalCount, una petición por estado (status
+      // admite un solo valor).
+      const count = async (status: 'open' | 'closed'): Promise<number | null> => {
+        try {
+          const page = await client.dtRequest({
+            envId: environmentId,
+            api: 'classic',
+            path: DT_ENDPOINTS.problems.path,
+            query: {
+              ...timeRangeToDt(timeRange),
+              problemSelector: entityProblemSelector(entityId, status),
+              pageSize: 1
+            },
+            schema: problemCountPageSchema
+          })
+          return toProblemCount(page)
+        } catch (error) {
+          // Un rechazo de Dynatrace (por ejemplo, 400) llega con su texto y sin
+          // motivo: se le da uno para la interfaz, con ese texto como detalle.
+          if (
+            error instanceof DtError &&
+            error.reason === undefined &&
+            error.status !== undefined
+          ) {
+            throw new DtError(
+              error.code,
+              `Dynatrace ha rechazado el recuento de problemas de la entidad: ${error.message}`,
+              error.status,
+              {
+                key: 'entityProblemsRejected',
+                params: { status: error.status, detail: error.message }
+              }
+            )
+          }
+          throw error
+        }
+      }
+      const [open, closed] = await Promise.all([count('open'), count('closed')])
+      return { open, closed }
     },
 
     'metrics:query': async ({ environmentId, timeRange, metricSelector, resolution }) => {

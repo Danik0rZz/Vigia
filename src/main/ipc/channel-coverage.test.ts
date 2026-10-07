@@ -135,6 +135,7 @@ describe('cobertura de los canales IPC', () => {
   it('los canales de módulos y de exportación están en sus factorías', () => {
     const byFactory = coveredByFactory()
     expect([...(byFactory['modules'] ?? [])].sort()).toEqual([
+      'entities:problemCounts',
       'metrics:query',
       'metrics:search',
       'problems:comments',
