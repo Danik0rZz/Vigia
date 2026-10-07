@@ -1,7 +1,7 @@
 ---
 id: '0013'
 titulo: 'SERVICE: la franja de problemas se ve entera y clara'
-estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -80,6 +80,16 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - (developer) Con el ancho mínimo, dos problemas cortos y seguidos en la misma fila pueden quedar
   uno encima del otro (el reparto de filas cuenta el tiempo, no el ancho pintado). Cambiar el
   reparto queda fuera de esta ficha.
+
+## Reabierta (Orquestador, 2026-10-07)
+
+El CI del push de esta ficha (run 37679505954, sobre `eee23e6`) falla en «CA1 (0013)» con zoom 1: «el
+tramo ancho pd-band-closed enseña su id» recibe `null`. En la ventana del runner (pantalla de
+1024×768) el gráfico es más estrecho y ese tramo ya no es ancho, así que la app oculta el id, como
+manda la especificación. El fallo es del test: da por hecho un ancho de ventana. La ficha se reabre
+para que CA1 compruebe la regla con el ancho real de cada tramo (con sitio, icono + id; estrecho,
+solo el icono, entero y centrado), sin ablandar nada, y pase igual en la VPS y en la ventana del CI.
+Criterios sin cambios.
 
 ## Notas del revisor
 
