@@ -1,7 +1,7 @@
 ---
 id: '0013'
 titulo: 'SERVICE: la franja de problemas se ve entera y clara'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -168,3 +168,36 @@ commiteado) sobre `SVC_BAND_ID` (rango 2 h), en la VPS:
 principales: `src/renderer/src/pages/entities/ProblemBand.tsx` y `e2e/views.spec.ts` (ayuda
 `clickInPlace` con `{ scroll: true }` y CA5 (0010)). Rondas de revisión: 1 (aprobada). ADR nuevo:
 ninguno. Sin migraciones.
+
+**Reapertura (developer, 2026-10-07): arreglo del test, commit `270a8b2`** (solo
+`e2e/views.spec.ts`; la app no cambia).
+
+- **Reproducción.** El CA1 viejo falla igual que en el CI con el contenido a 1024×720: a 1024 de
+  ancho la cuadrícula va en dos columnas y los tramos de 2 h miden 58,8 px (con zoom 1), así que
+  la app oculta el id. Con 1008×705 no se reproduce: la cuadrícula pasa a una columna y los tramos
+  miden 145,8 px (con id); con zoom 1,5 bajan a 63 px (solo el icono). En la VPS (1280×802), 90,8
+  y 108,3 px, con id.
+- **Arreglo.** `segmentFits` mide también el ancho natural del id, el sitio dentro del tramo y lo
+  que piden el icono y el id en una línea (relleno de la línea, icono, hueco e id). `expectIdRule`:
+  si cabe (con 1 px de margen por el redondeo), el id se ve y entero; si no cabe, ningún texto y el
+  icono centrado en horizontal y en vertical (±1 px); en el margen de 1 px, cualquiera de las dos,
+  pero entera. CA1 corre con la ventana que haya y con la del CI (`CI_WINDOW`), con zoom 1 y 1,5,
+  en 2 h y en 7 días, y exige haber visto en 2 h los dos casos (con la ventana del CI salen
+  siempre). Comprobado que falla al quitar el centrado (`@max-[5rem]:justify-center`) y el
+  `flex-wrap` de `ProblemBand.tsx` (sin commitear).
+- **Regla de la app frente al ancho (sin tocar).** El centrado depende de `@max-[5rem]` (contenedor
+  de menos de 80 px) y ocultar el id, de que no quepan relleno (6 px) + icono (12) + hueco (4) +
+  id. Con ids de más de unos 58 px (los reales, de 8 cifras o más, rondan los 65), un tramo de entre
+  82 px y 24 px + el id no enseña el id y deja el icono a la izquierda: es el opcional del revisor
+  (`ProblemBand.tsx:179`). Con los ids de los fixtures (41 y 43 px) no se da, y el test lo cazaría
+  con un fixture de id largo. Lo decide el Orquestador.
+- **Otras suposiciones de ventana (0009, 0010 y 0013), sin tocar porque no fallan.** CA6 (0010),
+  sin hueco: compara la tasa de error con «el de al lado» (Errores); con una columna está debajo,
+  pero la comparación es dentro de su panel y sigue valiendo. CA6 (0009) fija 1024 de ancho con
+  `withContentWidth` (algo más que el contenido del runner; en el CI pasa). CA4 (0010) usa `hover` y
+  `focus`, que traen el tramo a la vista; CA5 (0010), el Enter con `focus()`, igual. CA3 (0013)
+  supone tramos estrechos en 7 días: solo dejaría de valer con un contenido muy ancho.
+- **Ejecución.** `npm run check` en verde (2134 unitarios). `views.spec.ts -g "(0010)|(0013)"
+--repeat-each 3 --workers=1`: 24 passed con la ventana de la VPS, 24 con el contenido a 1008×705
+  y 24 a 1024×720 (fijado en un `beforeEach` temporal, sin commitear).
+  `npm run test:e2e:affected -- main..HEAD`: 124 passed.
