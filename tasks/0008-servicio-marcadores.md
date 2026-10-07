@@ -1,7 +1,7 @@
 ---
 id: '0008'
 titulo: 'SERVICE: marcadores arriba de la página (peticiones, tiempos y problemas)'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -119,6 +119,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
   la resolución que devolvió la API (`1m` → «datos por minuto», `5m` → «datos cada 5 min»; lo
   que no reconoce, tal cual). Esqueleto con `motion-safe:animate-pulse`.
 - p90 y p99 llevan un tooltip (Radix) con su explicación, que se abre con el foco.
+- Ronda 1: el aviso de un canal caído (`MarkerError`) lleva `role="alert"` y, con un `IpcError`,
+  el detalle (`errorDetail`: motivo traducido o texto de Dynatrace) en una línea visible `text-xs`
+  gris bajo el código, no en `title`/tooltip: así se lee sin ratón ni foco, como en `ModuleError`.
+  e2e tras el cambio: 185 en verde y 3 fallos, los de la 0005 con `withContentSize` (VPS).
 - e2e (2026-10-07): `service-format.ts` está en `src/renderer/src/lib/**` (transversal), así que
   `test:e2e:affected` corre el e2e completo: 182 en verde y 6 fallos, todos los tests de la 0005
   que usan `withContentSize` (contenido de 960×601/602 o no restaura el tamaño): la geometría de
