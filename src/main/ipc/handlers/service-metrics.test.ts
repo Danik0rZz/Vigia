@@ -183,9 +183,9 @@ beforeEach(() => {
     median: 250_000,
     p90: 450_000,
     p99: 950_000,
+    // Si main pidiera aquí los recuentos, los totales no saldrían de sumar la serie.
     requests: 100,
     errors: 25,
-    // Distinta de errores / peticiones: la tasa total se calcula, no se copia.
     rate: 99
   }
 
@@ -285,18 +285,11 @@ describe('CA3 (0006): dos consultas a /metrics/query con el id y el rango pedido
       (['errors', 'median', 'p90', 'p99', 'rate', 'requests'] as Kind[]).sort()
     )
 
-    // Marcadores: total de peticiones y de errores y los tres tiempos del rango completo.
-    const markerExpressions = splitSelector(markers?.searchParams.get('metricSelector') ?? '')
-    const inf = markers?.searchParams.get('resolution') === 'Inf'
-    for (const kind of ['requests', 'errors', 'median', 'p90', 'p99'] as Kind[]) {
-      const expression = markerExpressions.find((e) => kindOf(e) === kind)
-      expect(expression, `marcador ${kind}`).toBeDefined()
-      if (kind === 'requests' || kind === 'errors') {
-        expect(inf || /:fold\(sum\)/.test(expression ?? ''), `${kind}: fold(sum) o Inf`).toBe(true)
-      } else {
-        expect(inf || /:fold\(avg\)/.test(expression ?? ''), `${kind}: Inf o fold(avg)`).toBe(true)
-      }
-    }
+    // Marcadores: solo los tres tiempos del rango completo, con resolution=Inf y sin fold
+    // (fold con Inf da 400). Los totales de peticiones y errores salen de la serie.
+    expect(markers?.searchParams.get('resolution')).toBe('Inf')
+    expect(markers?.searchParams.get('metricSelector') ?? '').not.toContain(':fold(')
+    expect(kindsOf(markers).sort()).toEqual((['median', 'p90', 'p99'] as Kind[]).sort())
 
     // Todas las expresiones de las dos consultas, acotadas al servicio pedido; y el rango.
     for (const url of [series, markers]) {
@@ -329,11 +322,12 @@ describe('CA4 (0006): la respuesta se transforma en series y totales', () => {
         errorRate: { timestamps: T, values: [20, null, 100] }
       },
       totals: {
-        requests: 100,
-        errors: 25,
-        ok: 75,
+        // Suma de la serie de la consulta 1 (10 + 5; 2 + 0 + 7), no los de los marcadores.
+        requests: 15,
+        errors: 9,
+        ok: 6,
         // errors / requests, en porcentaje.
-        errorRate: 25,
+        errorRate: 60,
         responseTime: { median: 250, p90: 450, p99: 950 }
       },
       warnings: [],
@@ -342,13 +336,13 @@ describe('CA4 (0006): la respuesta se transforma en series y totales', () => {
   })
 
   it('total con más errores que peticiones: OK a 0, nunca negativo', async () => {
-    markerData = { ...markerData, requests: 3, errors: 5 }
+    seriesData = { ...seriesData, requests: [1, null, 2], errors: [2, 0, 3] }
     const result = await call({ environmentId: envId, entityId: SERVICE_ID, timeRange: '2h' })
     expect(result).toMatchObject({ ok: true, data: { totals: { requests: 3, errors: 5, ok: 0 } } })
   })
 
   it('sin peticiones en el rango, la tasa total es null', async () => {
-    markerData = { ...markerData, requests: 0, errors: 0 }
+    seriesData = { ...seriesData, requests: [0, null, 0], errors: [0, 0, 0] }
     const result = await call({ environmentId: envId, entityId: SERVICE_ID, timeRange: '2h' })
     expect(result).toMatchObject({
       ok: true,
@@ -405,23 +399,31 @@ describe('CA6 (0006): warnings y resultados recortados', () => {
     )
   })
 
-  it('dataPointCountRatio o dimensionCountRatio < 1 llegan en partial; = 1, no', async () => {
-    seriesExtras = { ratios: { dataPointCountRatio: 0.5, dimensionCountRatio: 1 } }
-    markerExtras = { ratios: { dataPointCountRatio: 1, dimensionCountRatio: 0.8 } }
+  it('un ratio > 1 es recortado y llega en partial', async () => {
+    seriesExtras = { ratios: { dataPointCountRatio: 1.5, dimensionCountRatio: 0.005 } }
+    markerExtras = { ratios: { dataPointCountRatio: 1, dimensionCountRatio: 2 } }
     const result = await call({ environmentId: envId, entityId: SERVICE_ID, timeRange: '2h' })
     expect(result.ok, JSON.stringify(result.error)).toBe(true)
     const partial = (result.data as { partial: { dataPoints: unknown; dimensions: unknown }[] })
       .partial
     expect(partial).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ dataPoints: 0.5, dimensions: null }),
-        expect.objectContaining({ dataPoints: null, dimensions: 0.8 })
+        expect.objectContaining({ dataPoints: 1.5, dimensions: null }),
+        expect.objectContaining({ dataPoints: null, dimensions: 2 })
       ])
     )
+    expect(partial.every((item) => item.dataPoints !== 0.005 && item.dimensions !== 0.005)).toBe(
+      true
+    )
+  })
 
-    seriesExtras = { ratios: { dataPointCountRatio: 1, dimensionCountRatio: 1 } }
-    markerExtras = { ratios: { dataPointCountRatio: 1, dimensionCountRatio: 1 } }
-    const whole = await call({ environmentId: envId, entityId: SERVICE_ID, timeRange: '2h' })
-    expect(whole).toMatchObject({ ok: true, data: { partial: [] } })
+  it.each([
+    ['lo normal en vivo (0,005)', 0.005],
+    ['justo 1', 1]
+  ])('con ratios de %s no hay partial', async (_case, ratio) => {
+    seriesExtras = { ratios: { dataPointCountRatio: ratio, dimensionCountRatio: ratio } }
+    markerExtras = { ratios: { dataPointCountRatio: ratio, dimensionCountRatio: ratio } }
+    const result = await call({ environmentId: envId, entityId: SERVICE_ID, timeRange: '2h' })
+    expect(result).toMatchObject({ ok: true, data: { partial: [] } })
   })
 })

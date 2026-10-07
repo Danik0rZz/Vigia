@@ -937,8 +937,8 @@ const SVC_SERIES: Record<SvcKind, (number | null)[]> = {
   p90: [300_000, 320_000, null, 310_000],
   p99: [800_000, 900_000, null, 850_000],
   requests: [50, 40, null, 60],
-  errors: [5, 0, null, 6],
-  rate: [10, 0, null, 10]
+  errors: [5, 0, null, 10],
+  rate: [10, 0, null, 16.7]
 }
 const SVC_MARKERS: Record<SvcKind, number> = {
   median: 105_000,
@@ -4234,11 +4234,12 @@ test('AUD-13: aviso de puntos antes de consultar y resolución sugerida', async 
   await expect(estimate).toHaveCount(0)
 })
 
-test('AUD-13: recortes y warnings de la API bajo el gráfico', async () => {
+test('AUD-13 y CA8 (0006): recortes (ratio > 1) y warnings de la API bajo el gráfico; con ratios ≤ 1, ninguno', async () => {
   await goTo('metrics')
   await page.getByTestId('metric-selector').fill('builtin:host.cpu.usage')
   const warnings = page.getByTestId('api-warnings')
-  sim.metricRatios = { dataPointCountRatio: 0.5 }
+  // CA8 (0006): recortado es un ratio > 1 (pedido / máximo permitido).
+  sim.metricRatios = { dataPointCountRatio: 1.5 }
   sim.metricWarnings = ['Aviso de métricas de la prueba']
   // Cada paso con una resolución nueva: una clave ya consultada sale de la caché sin petición.
   const resolution = page.getByTestId('metric-resolution')
@@ -4246,16 +4247,16 @@ test('AUD-13: recortes y warnings de la API bajo el gráfico', async () => {
     await resolution.selectOption('10m')
     await page.getByTestId('metric-run').click()
     await expect(warnings).toContainText(
-      'builtin:host.cpu.usage: la API ha devuelto solo parte de los puntos (50 %)'
+      'builtin:host.cpu.usage: la API ha devuelto solo parte de los puntos'
     )
     await expect(warnings).toContainText('Aviso de métricas de la prueba')
     await expect(warnings).not.toContainText('dimensiones')
 
-    sim.metricRatios = { dimensionCountRatio: 0.25 }
+    sim.metricRatios = { dimensionCountRatio: 4 }
     sim.metricWarnings = []
     await resolution.selectOption('1h')
     await page.getByTestId('metric-run').click()
-    await expect(warnings).toContainText('parte de las dimensiones (25 %)')
+    await expect(warnings).toContainText('parte de las dimensiones')
     await expect(warnings).not.toContainText('parte de los puntos')
 
     // El XLSX lleva la resolución y los recortes como Aviso.
@@ -4275,7 +4276,9 @@ test('AUD-13: recortes y warnings de la API bajo el gráfico', async () => {
     sim.metricRatios = {}
     sim.metricWarnings = []
   }
-  // Una consulta sin recortes: solo queda la resolución aplicada.
+  // Una consulta sin recortes (ratios como los de vivo, muy por debajo de 1): solo queda la
+  // resolución aplicada.
+  sim.metricRatios = { dataPointCountRatio: 0.005, dimensionCountRatio: 0.005 }
   await resolution.selectOption('5m')
   await page.getByTestId('metric-run').click()
   await expect(page.getByText(/la API ha devuelto solo parte/)).toHaveCount(0)
@@ -5179,15 +5182,16 @@ test('CA7 (0006): entities:serviceMetrics por IPC con un id inventado: dos consu
         p99: series([800, 900, null, 850])
       },
       requests: series([50, 40, null, 60]),
-      errors: series([5, 0, null, 6]),
-      ok: series([45, 40, null, 54]),
-      errorRate: series([10, 0, null, 10])
+      errors: series([5, 0, null, 10]),
+      ok: series([45, 40, null, 50]),
+      errorRate: series([10, 0, null, 16.7])
     },
+    // Recuentos: suma de la serie (no los marcadores del simulador); tasa = 15 / 150.
     totals: {
-      requests: 1000,
-      errors: 50,
-      ok: 950,
-      errorRate: 5,
+      requests: 150,
+      errors: 15,
+      ok: 135,
+      errorRate: 10,
       responseTime: { median: 105, p90: 305, p99: 820 }
     },
     warnings: [],

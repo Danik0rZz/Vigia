@@ -582,7 +582,7 @@ describe('metrics:query y metrics:search', () => {
     })
   })
 
-  it('AUD-13: metrics:query devuelve partial con los ratios < 1 de la API', async () => {
+  it('CA8 (0006): metrics:query devuelve partial con los ratios > 1 de la API, y sin él con ratios ≤ 1', async () => {
     routes['/metrics/query'] = () =>
       json(200, {
         resolution: '1m',
@@ -590,7 +590,7 @@ describe('metrics:query y metrics:search', () => {
         result: [
           {
             metricId: 'builtin:host.cpu.usage',
-            dataPointCountRatio: 0.5,
+            dataPointCountRatio: 1.5,
             dimensionCountRatio: 1,
             data: [{ dimensionMap: {}, timestamps: [1], values: [1] }]
           }
@@ -602,9 +602,27 @@ describe('metrics:query y metrics:search', () => {
       ok: true,
       data: {
         resolution: '1m',
-        partial: [{ metricId: 'builtin:host.cpu.usage', dataPoints: 0.5, dimensions: null }]
+        partial: [{ metricId: 'builtin:host.cpu.usage', dataPoints: 1.5, dimensions: null }]
       }
     })
+
+    // Lo normal en vivo: ratios muy por debajo de 1, sin recorte.
+    routes['/metrics/query'] = () =>
+      json(200, {
+        resolution: '1m',
+        totalCount: 1,
+        result: [
+          {
+            metricId: 'builtin:host.cpu.usage',
+            dataPointCountRatio: 0.005,
+            dimensionCountRatio: 0.005,
+            data: [{ dimensionMap: {}, timestamps: [1], values: [1] }]
+          }
+        ]
+      })
+    expect(
+      await call('metrics:query', { environmentId: envId, timeRange: '2h', metricSelector: 'm' })
+    ).toMatchObject({ ok: true, data: { partial: [] } })
   })
 
   it.each(['', 'x'.repeat(101)])('metrics:search rechaza el texto %j', async (text) => {

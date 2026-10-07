@@ -65,34 +65,32 @@ describe('metricDataSchema y toMetricSeries', () => {
     const partialOf = (ratios: Record<string, unknown>[]): unknown =>
       toMetricSeries(metricDataSchema.parse(withRatios(ratios))).partial
 
-    it('solo los resultados con algún ratio < 1; el otro ratio va a null', () => {
+    it('CA8 (0006): solo los resultados con algún ratio > 1 (recortados); el otro ratio va a null', () => {
       expect(
         partialOf([
-          { dataPointCountRatio: 0.5, dimensionCountRatio: 1 },
-          { dataPointCountRatio: 1, dimensionCountRatio: 0.25 },
-          { dataPointCountRatio: 0.1, dimensionCountRatio: 0.2 }
+          { dataPointCountRatio: 1.5, dimensionCountRatio: 1 },
+          { dataPointCountRatio: 0.005, dimensionCountRatio: 4 },
+          { dataPointCountRatio: 2, dimensionCountRatio: 1.25 },
+          { dataPointCountRatio: 0.005, dimensionCountRatio: 0.0001 }
         ])
       ).toEqual([
-        { metricId: 'm1', dataPoints: 0.5, dimensions: null },
-        { metricId: 'm2', dataPoints: null, dimensions: 0.25 },
-        { metricId: 'm3', dataPoints: 0.1, dimensions: 0.2 }
+        { metricId: 'm1', dataPoints: 1.5, dimensions: null },
+        { metricId: 'm2', dataPoints: null, dimensions: 4 },
+        { metricId: 'm3', dataPoints: 2, dimensions: 1.25 }
       ])
     })
 
-    it('ratios 1 o ausentes → fuera', () => {
+    it('CA8 (0006): ratios entre 0 y 1 (lo normal en vivo), 1 o ausentes → sin partial', () => {
       expect(
         partialOf([
+          { dataPointCountRatio: 0.005, dimensionCountRatio: 0.005 },
+          { dataPointCountRatio: 0.5, dimensionCountRatio: 0.25 },
           { dataPointCountRatio: 1, dimensionCountRatio: 1 },
+          { dataPointCountRatio: 0 },
           {},
           { dataPointCountRatio: 1 }
         ])
       ).toEqual([])
-    })
-
-    it('ratio 0 también es recorte', () => {
-      expect(partialOf([{ dataPointCountRatio: 0 }])).toEqual([
-        { metricId: 'm1', dataPoints: 0, dimensions: null }
-      ])
     })
 
     it('un ratio que no es número → la respuesta no vale', () => {
