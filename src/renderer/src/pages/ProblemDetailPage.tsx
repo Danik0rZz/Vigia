@@ -29,7 +29,10 @@ import { dateLang } from '../lib/date-lang'
 import { IpcError } from '../lib/ipc'
 import { problemWorkbook } from '../lib/problem-workbook'
 
-/** Cómo se llega desde la lista: así "Volver" puede ir atrás en el historial. */
+/**
+ * Cómo se llega desde la lista (o desde la franja de un servicio, ficha 0010): así
+ * "Volver" puede ir atrás en el historial.
+ */
 export interface ProblemDetailLocationState {
   fromList?: boolean
 }

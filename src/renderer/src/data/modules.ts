@@ -231,6 +231,25 @@ export function useEntityProblemCounts(
   })
 }
 
+/** Problemas que afectan a una entidad en el rango global, para la franja (ficha 0010). */
+export function useEntityProblems(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:problems'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { problemList: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:problems', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
 export function useMetricSearch(
   envId: string | null,
   text: string

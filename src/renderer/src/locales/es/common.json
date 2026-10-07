@@ -742,6 +742,14 @@
         },
         "raw": "resolución {{value}}"
       },
+      "problemBand": {
+        "label": "Problemas de la entidad en el rango",
+        "active": "Activo",
+        "start": "Inicio",
+        "end": "Fin",
+        "more": "+{{count}} más",
+        "truncated": "Solo se muestran los {{count}} problemas más recientes de {{total}}."
+      },
       "invalidId": "Este ID no tiene el formato de un servicio de Dynatrace (SERVICE- y 16 caracteres hexadecimales): no se piden sus datos."
     }
   }

@@ -4,6 +4,7 @@ import { serviceEntityIdSchema } from '@shared/modules'
 import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
   useEntityProblemCounts,
+  useEntityProblems,
   useModuleAccess,
   useModuleRefresh,
   useServiceMetrics,
@@ -16,7 +17,8 @@ import { ServiceMarkers } from './ServiceMarkers'
 
 /**
  * Página de análisis de una entidad SERVICE: marcadores del rango global
- * (ficha 0008) y, debajo, los cuatro gráficos de peticiones (ficha 0009). Solo
+ * (ficha 0008) y, debajo, los cuatro gráficos de peticiones (ficha 0009), con la
+ * franja de los problemas de la entidad sobre la tasa de error (ficha 0010). Solo
  * pide datos con «Actualizar» o con un rango nuevo (ADR-0004).
  */
 export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
@@ -29,6 +31,7 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
   const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
   const metrics = useServiceMetrics(metricsEnv, serviceId)
   const problems = useEntityProblemCounts(problemsEnv, serviceId)
+  const problemList = useEntityProblems(problemsEnv, serviceId)
   const refresh = useModuleRefresh(metricsEnv ?? problemsEnv, 'entities')
   const canFetch = serviceId !== null && (metricsEnv !== null || problemsEnv !== null)
 
@@ -39,7 +42,10 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
       typeText={t('entities.types.SERVICE')}
       actions={
         canFetch ? (
-          <RefreshButton onRefresh={refresh} busy={metrics.isFetching || problems.isFetching} />
+          <RefreshButton
+            onRefresh={refresh}
+            busy={metrics.isFetching || problems.isFetching || problemList.isFetching}
+          />
         ) : undefined
       }
     >
@@ -59,7 +65,13 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
             problemsEnabled={problemsEnv !== null}
           />
           {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
-          {metricsEnv !== null && <ServiceCharts serviceId={serviceId} metrics={metrics} />}
+          {metricsEnv !== null && (
+            <ServiceCharts
+              serviceId={serviceId}
+              metrics={metrics}
+              problemList={problemsEnv !== null ? problemList : null}
+            />
+          )}
         </>
       )}
     </EntityPageFrame>

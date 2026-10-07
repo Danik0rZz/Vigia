@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { EChartsCoreOption } from 'echarts/core'
-import type { ServiceMetricsResult } from '@shared/modules'
+import type { EntityProblemList, ServiceMetricsResult } from '@shared/modules'
 import { timeRangeToDates, type TimeRangeValue } from '@shared/time-range'
 import { useTimeRangeValue } from '../../app/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../../components/Chart'
@@ -20,19 +20,24 @@ import {
   type ServiceChartKind
 } from './service-charts'
 import { MarkerError } from './ServiceMarkers'
+import { ProblemBand } from './ProblemBand'
 
 /**
  * Sección «Métricas de peticiones» de la página de un SERVICE (ficha 0009): cuatro
  * gráficos en una rejilla de 2×2 (una columna por debajo de 1024 px). Todos salen de la
- * misma consulta que los marcadores (`entities:serviceMetrics`, una sola llamada).
+ * misma consulta que los marcadores (`entities:serviceMetrics`, una sola llamada). Sobre
+ * el de la tasa de error va la franja de los problemas de la entidad (ficha 0010).
  */
 export function ServiceCharts({
   serviceId,
-  metrics
+  metrics,
+  problemList
 }: {
   /** Id ya validado (`serviceEntityIdSchema`). */
   serviceId: string
   metrics: UseQueryResult<ServiceMetricsResult>
+  /** Problemas de la entidad (`entities:problems`); null sin acceso a Problemas. */
+  problemList: UseQueryResult<EntityProblemList> | null
 }): JSX.Element {
   const { t } = useTranslation()
   return (
@@ -44,7 +49,13 @@ export function ServiceCharts({
       <h2 className="text-sm font-semibold">{t('entities.service.charts.title')}</h2>
       <div className="grid gap-4 lg:grid-cols-2">
         {SERVICE_CHART_KINDS.map((kind) => (
-          <ServiceChartPanel key={kind} kind={kind} serviceId={serviceId} metrics={metrics} />
+          <ServiceChartPanel
+            key={kind}
+            kind={kind}
+            serviceId={serviceId}
+            metrics={metrics}
+            problemList={kind === 'errorRate' ? problemList : null}
+          />
         ))}
       </div>
     </section>
@@ -55,11 +66,14 @@ export function ServiceCharts({
 function ServiceChartPanel({
   kind,
   serviceId,
-  metrics
+  metrics,
+  problemList
 }: {
   kind: ServiceChartKind
   serviceId: string
   metrics: UseQueryResult<ServiceMetricsResult>
+  /** Solo en el de la tasa de error: la franja de problemas encima del gráfico. */
+  problemList: UseQueryResult<EntityProblemList> | null
 }): JSX.Element {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -72,6 +86,12 @@ function ServiceChartPanel({
   // El rango que se ve: el relativo, contado desde que llegaron los datos.
   const range = useMemo(() => visibleRange(timeRange, loadedAt), [timeRange, loadedAt])
   const selector = serviceChartSelector(kind, serviceId)
+  // La franja usa el rango del gráfico; sin datos del gráfico, el de cuando llegó la lista.
+  const listLoadedAt = problemList?.dataUpdatedAt ?? 0
+  const bandRange = useMemo(
+    () => (loadedAt > 0 ? range : visibleRange(timeRange, listLoadedAt)),
+    [loadedAt, range, timeRange, listLoadedAt]
+  )
 
   const buildOption = useCallback(
     (colors: ChartColors): EChartsCoreOption =>
@@ -153,6 +173,7 @@ function ServiceChartPanel({
           />
         )}
       </div>
+      {problemList !== null && <ProblemBand query={problemList} range={bandRange} />}
       {metrics.isError ? (
         <MarkerError
           error={metrics.error}
