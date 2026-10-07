@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /problems` con `problemSelector` (`affectedEntities("id")` y `status("open")` / `status("closed")`), `from`, `to` y `pageSize`; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `problems.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -90,7 +90,18 @@ de 960×600); fallan igual compilando `main`, así que vienen de la VPS, no de e
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1-CA6 con su test y su número; prueban de verdad. Desde `98fc24e` solo cambia
+  `channel-coverage.test.ts` (inventario de canales, una línea), sin tocar criterios.
+- Ficha reparada en `4c7be0c`: petición, especificación, CA1-CA6, pruebas a mano y fuera de alcance
+  idénticos a `main`; la expresión del id, entera. Sin datos del tenant.
+- Canal con Zod en la entrada y la salida; main construye el selector. `affectedEntities` y `status`
+  comprobados en `APIv2.json`. Sin refresco solo, CSP, permisos, dependencias ni esquema.
+- `entityProblemsRejected`: con texto en es y en; solo envuelve `DtError` con `status` y sin `reason`,
+  conserva el `code`; cumple ADR-0005.
+- Opcionales: limitar el envoltorio a 400 (hoy también cubre 401, 403 y 5xx); mover las "Decisiones
+  del developer" junto a la verificación.
 
 ## Verificación
 
