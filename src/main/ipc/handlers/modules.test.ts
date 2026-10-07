@@ -767,6 +767,15 @@ describe('todos los canales de módulos', () => {
       entityId: 'SERVICE-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0014: datos de una entidad y nombres de sus relaciones (en entity-detail.test).
+    await call('entities:get' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'SERVICE-0123456789ABCDEF'
+    })
+    await call('entities:names' as IpcChannel, {
+      environmentId: envId,
+      entityIds: ['HOST-0123456789ABCDEF']
+    })
     await call('savedQueries:delete', { id: (saved.data as { id: string }).id })
 
     expect(Object.keys(handlers).filter((channel) => !called.has(channel))).toEqual([])

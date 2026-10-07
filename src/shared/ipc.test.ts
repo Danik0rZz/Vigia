@@ -74,3 +74,79 @@ describe('CA2 (0006): entrada de entities:serviceMetrics', () => {
     expect(input().safeParse({ ...base, entityId, timeRange: '3h' }).success).toBe(false)
   })
 })
+
+describe('CA6 (0014): entrada de entities:names', () => {
+  /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
+  const input = (): { safeParse: (value: unknown) => { success: boolean } } => {
+    const contract = ipcContract as unknown as Record<
+      string,
+      { input: { safeParse: (value: unknown) => { success: boolean } } } | undefined
+    >
+    const entry = contract['entities:names']
+    expect(entry, 'canal entities:names').toBeDefined()
+    return entry!.input
+  }
+  const environmentId = '00000000-0000-4000-8000-000000000001'
+  /** Ids inventados del mismo tipo, con el formato de Dynatrace (16 hexadecimales). */
+  const hosts = (count: number): string[] =>
+    Array.from(
+      { length: count },
+      (_, i) => `HOST-${i.toString(16).toUpperCase().padStart(16, '0')}`
+    )
+
+  it('acepta de 1 a 50 ids del mismo tipo', () => {
+    expect(input().safeParse({ environmentId, entityIds: hosts(1) }).success).toBe(true)
+    expect(input().safeParse({ environmentId, entityIds: hosts(50) }).success).toBe(true)
+    expect(
+      input().safeParse({
+        environmentId,
+        entityIds: [
+          'PROCESS_GROUP_INSTANCE-00000000000000A1',
+          'PROCESS_GROUP_INSTANCE-00000000000000B2'
+        ]
+      }).success
+    ).toBe(true)
+  })
+
+  it('rechaza 0 ids y más de 50', () => {
+    expect(input().safeParse({ environmentId, entityIds: [] }).success).toBe(false)
+    expect(input().safeParse({ environmentId, entityIds: hosts(51) }).success).toBe(false)
+  })
+
+  it.each([
+    ['minúsculas en el id', 'HOST-0123456789abcdef'],
+    ['minúsculas en el tipo', 'host-0123456789ABCDEF'],
+    ['15 hexadecimales', 'HOST-0123456789ABCDE'],
+    ['17 hexadecimales', 'HOST-0123456789ABCDEF0'],
+    ['comillas', 'HOST-0123456789ABCDE"'],
+    ['inyección tras un id válido', 'HOST-0123456789ABCDEF"),type("SERVICE'],
+    ['tipo personalizado con dos puntos', 'custom:device-0123456789ABCDEF'],
+    ['espacios alrededor', ' HOST-0123456789ABCDEF '],
+    ['vacío', '']
+  ])('rechaza un id con %s (aunque los demás sean válidos)', (_case, bad) => {
+    expect(input().safeParse({ environmentId, entityIds: [...hosts(2), bad] }).success).toBe(false)
+  })
+
+  it('rechaza tipos mezclados (la API exige que sean del mismo tipo)', () => {
+    expect(
+      input().safeParse({
+        environmentId,
+        entityIds: ['HOST-0123456789ABCDEF', 'SERVICE-0123456789ABCDEF']
+      }).success
+    ).toBe(false)
+    // Un tipo que es prefijo de otro también es otro tipo.
+    expect(
+      input().safeParse({
+        environmentId,
+        entityIds: ['PROCESS_GROUP-0123456789ABCDEF', 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF']
+      }).success
+    ).toBe(false)
+  })
+
+  it('rechaza un entorno que no es uuid y una lista que no es lista', () => {
+    expect(input().safeParse({ environmentId: 'x', entityIds: hosts(1) }).success).toBe(false)
+    expect(input().safeParse({ environmentId, entityIds: 'HOST-0123456789ABCDEF' }).success).toBe(
+      false
+    )
+  })
+})

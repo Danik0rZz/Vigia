@@ -44,7 +44,7 @@ const fakeFetch = vi.fn(async (input: unknown) => {
       id: 'dt0c01.PUBLICAPRUEBA0000000000A',
       name: 'prueba',
       enabled: true,
-      scopes: ['problems.read', 'metrics.read', 'slo.read']
+      scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
     })
   }
   if (url.includes('/platform/management/v1/environment')) {

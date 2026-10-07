@@ -959,6 +959,57 @@ const SVC_MARKERS: Record<SvcKind, number> = {
 }
 
 /**
+ * Ficha 0014: datos de una entidad (canal entities:get, GET /api/v2/entities/{id}) y nombres
+ * de sus relaciones (canal entities:names, GET /api/v2/entities con entityId(...)). Datos
+ * inventados con la forma de `Entity` y `EntitiesList` de la OpenAPI v2; solo tipos estándar.
+ * Un id que no es ENTITY_INFO_ID da 404; en /entities solo vuelven los de ENTITY_NAMES.
+ */
+const ENTITY_INFO_ID = 'SERVICE-00000000000E2E14'
+const ENTITY_INFO_FIRST_SEEN = Date.parse('2026-09-01T08:00:00.000Z')
+const ENTITY_INFO_LAST_SEEN = Date.parse('2026-10-03T09:30:00.000Z')
+const ENTITY_INFO_HOST = 'HOST-00000000000E2E15'
+/** 55 servicios llamados: más de los 50 que se devuelven por relación. */
+const ENTITY_INFO_CALLS = Array.from({ length: 55 }, (_, i) => ({
+  id: `SERVICE-${(0xe2e100 + i).toString(16).toUpperCase().padStart(16, '0')}`,
+  type: 'SERVICE'
+}))
+const ENTITY_NAMES: Record<string, string> = {
+  [ENTITY_INFO_HOST]: 'servidor-e2e',
+  'HOST-00000000000E2E16': 'servidor-e2e-2'
+}
+function entityInfoBody(): Record<string, unknown> {
+  return {
+    entityId: ENTITY_INFO_ID,
+    displayName: 'pagos-e2e',
+    type: 'SERVICE',
+    firstSeenTms: ENTITY_INFO_FIRST_SEEN,
+    lastSeenTms: ENTITY_INFO_LAST_SEEN,
+    icon: { primaryIconType: 'java' },
+    managementZones: [{ id: '1414', name: 'Zona e2e' }],
+    tags: [
+      {
+        context: 'CONTEXTLESS',
+        key: 'equipo',
+        value: 'pagos',
+        stringRepresentation: 'equipo:pagos'
+      }
+    ],
+    properties: {
+      serviceType: 'WEB_REQUEST_SERVICE',
+      port: 8443,
+      webServiceName: 'y'.repeat(350)
+    },
+    fromRelationships: {
+      calls: ENTITY_INFO_CALLS,
+      runsOnHost: [{ id: ENTITY_INFO_HOST, type: 'HOST' }]
+    },
+    toRelationships: {
+      isServiceMethodOfService: [{ id: 'SERVICE_METHOD-00000000000E2E17', type: 'SERVICE_METHOD' }]
+    }
+  }
+}
+
+/**
  * Ficha 0008: más servicios inventados para los marcadores. Uno con muchas peticiones, ningún
  * error y tiempos de más de un segundo (separador de miles y «s»), y otro sin datos (no está en
  * esta tabla: el simulador le da `data: []`). SVC_ID es el de la 0006 (con errores).
@@ -1283,7 +1334,11 @@ const defaultSim = () => ({
   /** Ficha 0010: «ahora» de los problemas de la franja, fijado al empezar cada test. */
   bandNow: Date.now(),
   /** Ficha 0013: duración, en minutos, del problema de id largo de SVC_LONG_ID. */
-  bandLongMinutes: 30
+  bandLongMinutes: 30,
+  /** Ficha 0014: query de las peticiones a /entities/{id} (entities:get). */
+  entityInfoQueries: [] as URLSearchParams[],
+  /** Ficha 0014: query de las peticiones a /entities (entities:names). */
+  entityNamesQueries: [] as URLSearchParams[]
 })
 const sim = defaultSim()
 
@@ -1370,8 +1425,8 @@ async function startServer(): Promise<void> {
           enabled: true,
           scopes:
             token === TOKEN_NO_METRICS
-              ? ['problems.read', 'slo.read']
-              : ['problems.read', 'metrics.read', 'slo.read']
+              ? ['problems.read', 'slo.read', 'entities.read']
+              : ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
         })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/problems') {
@@ -1606,6 +1661,27 @@ async function startServer(): Promise<void> {
             }
           ]
         })
+      }
+      // Ficha 0014: una entidad (entities:get) y los nombres de una lista de ids (entities:names).
+      const entityPath = /^\/api\/v2\/entities\/([^/]+)$/.exec(url.pathname)
+      if (req.method === 'GET' && entityPath !== null) {
+        sim.entityInfoQueries.push(url.searchParams)
+        return decodeURIComponent(entityPath[1] ?? '') === ENTITY_INFO_ID
+          ? send(200, entityInfoBody())
+          : send(404, { error: { code: 404, message: 'Entity not found' } })
+      }
+      if (req.method === 'GET' && url.pathname === '/api/v2/entities') {
+        sim.entityNamesQueries.push(url.searchParams)
+        const selector = url.searchParams.get('entitySelector') ?? ''
+        const inner = /^entityId\((.*)\)$/.exec(selector)?.[1]
+        if (inner === undefined) {
+          return send(400, { error: { code: 400, message: 'entitySelector no válido' } })
+        }
+        const ids = [...inner.matchAll(/"([^"]*)"/g)].map((m) => m[1] ?? '')
+        const entities = ids
+          .filter((id) => ENTITY_NAMES[id] !== undefined)
+          .map((id) => ({ entityId: id, displayName: ENTITY_NAMES[id], type: id.split('-')[0] }))
+        return send(200, { totalCount: entities.length, pageSize: 50, entities })
       }
       send(404, { error: { code: 404, message: 'No existe' } })
     })
@@ -5474,6 +5550,97 @@ test('CA7 (0006): entities:serviceMetrics por IPC con un id inventado: dos consu
     warnings: [],
     partial: []
   })
+})
+
+test('CA8 (0014): entities:get y entities:names por IPC con ids inventados: lo que pide main y lo que llega del simulador', async () => {
+  // entities:get: una petición a /entities/{id} con los fields de la ficha.
+  const data = await invoke<{
+    properties: { key: string; text: string }[]
+    relationships: {
+      direction: string
+      name: string
+      entities: { id: string; type: string }[]
+      total: number
+    }[]
+  }>('entities:get', { environmentId: env['Producción'], entityId: ENTITY_INFO_ID })
+  expect(sim.entityInfoQueries).toHaveLength(1)
+  expect((sim.entityInfoQueries[0]?.get('fields') ?? '').split(',').sort()).toEqual(
+    [
+      '+properties',
+      '+tags',
+      '+managementZones',
+      '+fromRelationships',
+      '+toRelationships',
+      '+firstSeenTms',
+      '+lastSeenTms',
+      '+icon'
+    ].sort()
+  )
+  expect(data).toMatchObject({
+    displayName: 'pagos-e2e',
+    type: 'SERVICE',
+    firstSeen: ENTITY_INFO_FIRST_SEEN,
+    lastSeen: ENTITY_INFO_LAST_SEEN,
+    iconType: 'java',
+    managementZones: ['Zona e2e'],
+    tags: ['equipo:pagos']
+  })
+  expect(data.properties.map((p) => p.key)).toEqual(['serviceType', 'port', 'webServiceName'])
+  expect(data.properties[0]?.text).toBe('WEB_REQUEST_SERVICE')
+  expect(data.properties[1]?.text).toBe('8443')
+  expect(data.properties[2]?.text).toHaveLength(300)
+  const relation = (direction: string, name: string): unknown =>
+    data.relationships.find((r) => r.direction === direction && r.name === name)
+  expect(data.relationships).toHaveLength(3)
+  expect(relation('from', 'calls')).toEqual({
+    direction: 'from',
+    name: 'calls',
+    entities: ENTITY_INFO_CALLS.slice(0, 50),
+    total: 55
+  })
+  expect(relation('from', 'runsOnHost')).toEqual({
+    direction: 'from',
+    name: 'runsOnHost',
+    entities: [{ id: ENTITY_INFO_HOST, type: 'HOST' }],
+    total: 1
+  })
+  expect(relation('to', 'isServiceMethodOfService')).toEqual({
+    direction: 'to',
+    name: 'isServiceMethodOfService',
+    entities: [{ id: 'SERVICE_METHOD-00000000000E2E17', type: 'SERVICE_METHOD' }],
+    total: 1
+  })
+
+  // entities:names: una petición a /entities con entityId(...) y pageSize 50; el que no
+  // devuelve el simulador va a missing.
+  const ids = [ENTITY_INFO_HOST, 'HOST-00000000000E2E16', 'HOST-00000000000E2E18']
+  const names = await invoke<{ names: { id: string; name: string }[]; missing: string[] }>(
+    'entities:names',
+    { environmentId: env['Producción'], entityIds: ids }
+  )
+  expect(sim.entityNamesQueries).toHaveLength(1)
+  expect(sim.entityNamesQueries[0]?.get('entitySelector')).toBe(
+    `entityId(${ids.map((id) => `"${id}"`).join(',')})`
+  )
+  expect(sim.entityNamesQueries[0]?.get('pageSize')).toBe('50')
+  expect([...names.names].sort((a, b) => a.id.localeCompare(b.id))).toEqual([
+    { id: 'HOST-00000000000E2E15', name: 'servidor-e2e' },
+    { id: 'HOST-00000000000E2E16', name: 'servidor-e2e-2' }
+  ])
+  expect(names.missing).toEqual(['HOST-00000000000E2E18'])
+
+  // Una entidad que no existe: NOT_FOUND con un reason que se traduce.
+  const missing = (await page.evaluate(
+    (entityId) =>
+      (
+        window as unknown as { vigia: { invoke: (...args: unknown[]) => Promise<unknown> } }
+      ).vigia.invoke('entities:get', { environmentId: entityId.env, entityId: entityId.id }),
+    { env: env['Producción'], id: 'HOST-00000000000E2E19' }
+  )) as { ok: boolean; error?: { code: string; reason?: { key: string } } }
+  expect(missing).toMatchObject({ ok: false, error: { code: 'NOT_FOUND' } })
+  const key = missing.error?.reason?.key ?? ''
+  expect((es.errorReasons as Record<string, string>)[key] ?? '').toMatch(/entidad/i)
+  expect((en.errorReasons as Record<string, string>)[key] ?? '').not.toBe('')
 })
 
 /**

@@ -99,7 +99,7 @@ async function startServer(): Promise<string> {
             id: 'dt0c01.PUBLICAPRUEBA0000000000A',
             name: 'e2e',
             enabled: true,
-            scopes: ['problems.read', 'metrics.read', 'slo.read']
+            scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
           })
         }
         // P3-7: la comprobación de plataforma de OAuth, solo con el token del SSO de prueba.
@@ -387,7 +387,7 @@ test('con la huella fijada conecta, sin scopes que falten', async () => {
   await expect(info).toContainText('e2e')
   await expect(info).toContainText('Sin caducidad')
   const granted = info.getByTestId('token-scopes-granted')
-  for (const scope of ['problems.read', 'metrics.read', 'slo.read'])
+  for (const scope of ['problems.read', 'metrics.read', 'slo.read', 'entities.read'])
     await expect(granted).toContainText(scope)
   await expect(info.getByTestId('token-scopes-missing')).not.toContainText('.read')
   await expect(info.getByTestId('token-scopes-extra')).not.toContainText('.read')
@@ -406,7 +406,11 @@ test('con la huella fijada conecta, sin scopes que falten', async () => {
         name: 'e2e',
         enabled: true,
         expiresAt: null,
-        scopes: { granted: ['metrics.read', 'problems.read', 'slo.read'], missing: [], extra: [] }
+        scopes: {
+          granted: ['entities.read', 'metrics.read', 'problems.read', 'slo.read'],
+          missing: [],
+          extra: []
+        }
       }
     }
   ])
