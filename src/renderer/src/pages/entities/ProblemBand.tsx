@@ -129,7 +129,10 @@ export function ProblemBand({
  * Un tramo: botón con icono y el id visible, su tooltip y el enlace al detalle. El icono y el id
  * van en una línea que salta de línea si el id no cabe entero; la segunda línea queda fuera de la
  * caja (oculta), así que un tramo estrecho enseña solo el icono, entero y centrado, y nunca medio
- * id. El id sigue en el nombre accesible y en el tooltip.
+ * id. La línea va centrada y el id crece hasta llenar el sitio que queda: con el id al lado, no
+ * sobra sitio que repartir y los dos quedan a la izquierda; con el id en la segunda línea, el icono
+ * queda solo y centrado, mida lo que mida el tramo (sin umbral de ancho). El id sigue en el nombre
+ * accesible y en el tooltip.
  */
 function Segment({
   problem,
@@ -165,7 +168,7 @@ function Segment({
           onClick={openDetail}
           className={cn(
             SEGMENT_BOX,
-            '@container absolute inset-y-0 overflow-hidden text-left',
+            'absolute inset-y-0 overflow-hidden text-left',
             open
               ? 'border-danger bg-danger text-danger-foreground'
               : 'border-status-neutral bg-hover text-muted-foreground'
@@ -176,10 +179,10 @@ function Segment({
             width: `max(${MIN_SEGMENT_WIDTH}, ${width * 100}%)`
           }}
         >
-          <span className="flex h-4 flex-wrap items-center justify-start gap-x-1 gap-y-2 overflow-hidden px-[3px] @max-[5rem]:justify-center">
+          <span className="flex h-4 flex-wrap items-center justify-center gap-x-1 gap-y-2 overflow-hidden px-[3px]">
             {/* Con my-0.5 mide lo mismo que la línea (1rem): solo, queda centrado en vertical. */}
             <Icon aria-hidden className="my-0.5 size-3 shrink-0" />
-            <span className="whitespace-nowrap">{problem.displayId}</span>
+            <span className="grow whitespace-nowrap">{problem.displayId}</span>
           </span>
         </button>
       </Tooltip.Trigger>
