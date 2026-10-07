@@ -1,7 +1,7 @@
 ---
 id: '0008'
 titulo: 'SERVICE: marcadores arriba de la página (peticiones, tiempos y problemas)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -207,6 +207,13 @@ el esqueleto de carga no tienen criterio propio: no los fija ningún test. CA8 (
 `/entities/SERVICE/SERVICE-AN1` y espera cero peticiones: ese id no cumple el formato del canal,
 así que no debería pedir nada, pero si la página enseña su error en consola el `afterEach` lo
 pillará. No uso `withContentSize`.
+
+### Verifier, 2026-10-07, commit `225bc52`, rango `main..225bc52`: VERDE
+
+- check: 2072 tests en 100 ficheros, cobertura ok.
+- e2e completo (`lib/**` transversal): 185 pasan y 3 fallan, los de la 0005 con `withContentSize` (CA1,
+  CA2 y CA4; escalado al 150 % de la VPS). Sobre `main` (`4e2761a`): 178 pasan y fallan los mismos 3.
+- `views.spec.ts -g "0008" --repeat-each 3 --workers=1`: 21/21.
 
 ## Resultado
 
