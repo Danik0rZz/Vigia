@@ -2048,6 +2048,41 @@ async function restoreClipboardAndClose(): Promise<void> {
   }
 }
 
+/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
+test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
+  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+    true
+  )
+})
+
+/**
+ * Ficha 0021: withContentSize deja la ventana en FIXED_WINDOW al acabar, no en el tamaño que
+ * tuviera antes. Se parte de otro tamaño (dentro de los mínimos de la app) para distinguirlo.
+ */
+test('CA3 (0021): tras un withContentSize(SMALL_WINDOW), el contenido vuelve a 1024×720', async () => {
+  const other = { width: 1000, height: 650 }
+  await app.evaluate(({ BrowserWindow }, size) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height)
+  }, other)
+  await expect.poll(async () => fitsContentSize(await viewportSize(), other)).toBe(true)
+  await withContentSize(SMALL_WINDOW, async (actual) => {
+    expect(fitsContentSize(actual, SMALL_WINDOW)).toBe(true)
+  })
+  const after = await viewportSize()
+  expect(fitsContentSize(after, FIXED_WINDOW), `contenido de ${after.width}×${after.height}`).toBe(
+    true
+  )
+})
+
+// Va justo detrás del anterior (views corre en un solo worker, en orden): empieza donde él acabó.
+test('CA3 (0021): el test siguiente a un withContentSize(SMALL_WINDOW) empieza con 1024×720', async () => {
+  const size = await viewportSize()
+  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+    true
+  )
+})
+
 test('sin entorno activo, las tres vistas dicen que no hay entorno', async () => {
   await resetState(null)
   const before = sim.problemsRequests

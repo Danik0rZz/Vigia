@@ -12,6 +12,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
+import { FIXED_WINDOW, fitsContentSize } from './window-size'
 
 /**
  * Prueba de humo sobre la app compilada (`out/`): la ventana
@@ -60,6 +61,14 @@ function invoke(channel: string, input?: unknown): Promise<unknown> {
     [channel, input] as const
   )
 }
+
+/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
+test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
+  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+    true
+  )
+})
 
 test('la ventana carga la interfaz por el protocolo app://', async () => {
   expect(page.url()).toBe('app://vigia/index.html#/')

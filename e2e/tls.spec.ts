@@ -13,6 +13,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
+import { FIXED_WINDOW, fitsContentSize } from './window-size'
 import { generate } from 'selfsigned'
 
 /**
@@ -259,6 +260,14 @@ test.afterAll(async () => {
     await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()))
     removeDir(userDataDir)
   }
+})
+
+/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
+test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
+  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+    true
+  )
 })
 
 test('nivel system: certificado no confiable, con su host y su huella', async () => {

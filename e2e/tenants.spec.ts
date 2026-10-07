@@ -11,6 +11,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
+import { FIXED_WINDOW, fitsContentSize } from './window-size'
 import es from '../src/renderer/src/locales/es/common.json'
 
 /**
@@ -133,6 +134,14 @@ async function fillNewEnvironment(
   await form.getByTestId('environment-classic-url').fill(classicUrl)
   return form
 }
+
+/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
+test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
+  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+    true
+  )
+})
 
 test('sin datos: selector "Sin entorno", ruta solo con la sección y tarjeta neutra', async () => {
   await expect(page.getByTestId('env-selector')).toHaveText(/Sin entorno/)

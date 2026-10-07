@@ -10,6 +10,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
+import { FIXED_WINDOW, fitsContentSize } from './window-size'
 import { hoverFresh, moveToNeutral } from './hover'
 import en from '../src/renderer/src/locales/en/common.json'
 import es from '../src/renderer/src/locales/es/common.json'
@@ -174,6 +175,14 @@ async function expectTimeRange(selected: (typeof TIME_RANGES)[number]): Promise<
     else await expect(option).not.toBeChecked()
   }
 }
+
+/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
+test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
+  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+    true
+  )
+})
 
 test('usa una carpeta de datos aislada', async () => {
   const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
