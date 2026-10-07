@@ -1,7 +1,7 @@
 ---
 id: '0005'
 titulo: e2e de views.spec.ts que dependen de la máquina, sustituidos por tests estables
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0005-e2e-estables
 adrs: [6, 7]
@@ -192,6 +192,13 @@ y la fila abierta a la vista. CA4 lee el texto del estado con `toHaveText(/S/)` 
 `npx playwright test e2e/views.spec.ts --workers=1` (spec entero, una vez): 87 en verde y los 4 de CA2
 y CA4 en rojo por la app; el cambio de tamaño de la ventana no afecta a los demás.
 `npx vitest run scripts/ci-workflow.test.ts`: 2 en rojo (CA6) y 1 en verde (la propia comprobación).
+
+### Verifier, 2026-10-07, commit `82d2ed8`, rango `main..feat/0005-e2e-estables`: VERDE
+
+- check: 1989 tests en 94 ficheros, cobertura ok.
+- CA7: `npm run test:e2e` completo, 179 passed, **ningún fallo**.
+- Estable (`-g "0005" --repeat-each 5 --workers=1`): 40 passed, 0 fallos. CA1 1024×720 5/5 y 960×600
+  5/5; CA2 5/5 y ventana pequeña 5/5; CA3 5/5; CA4 5/5 y ventana pequeña 5/5; CA5 5/5.
 
 ## Resultado
 
