@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -104,6 +104,17 @@ Criterios sin cambios.
 - Opcionales: un tramo de 80-90 px con un id real largo no enseña el id pero deja el icono a la izquierda
   (`ProblemBand.tsx:179`, el centrado depende del ancho del contenedor); «CA4 (0013)» no repite las filas
   con la ventana del CI; la lección del tooltip de Radix y `focus()` a `e2e/CLAUDE.md`.
+
+### Ronda 2: APROBADO (reapertura por el CI)
+
+- CA1 ya no supone un ancho de ventana y es más estricto que antes (`expectIdRule` mide sitio y contenido
+  en cada tramo, también en los de 7 días; exige ver los dos casos). Tests sin tocar desde `5cdab04`.
+- Caso del id largo (`P-24109876`): fallaba antes; el arreglo centra siempre la línea y da `grow` al id;
+  la 0010 no cambia; fixtures sintéticos.
+- Ventanas del CI: el `beforeEach` temporal no se commiteó; CA1 corre con la ventana actual y con
+  `CI_WINDOW`.
+- Opcional tratado como obligatorio por el Orquestador (riesgo de CI): la precondición de
+  `expectLongIdCentred` dependía de la fuente (margen de 0,4 px); corregida en `aa9afa7`.
 
 ## Verificación
 
