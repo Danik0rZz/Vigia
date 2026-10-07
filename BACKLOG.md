@@ -6,7 +6,9 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-(nada)
+- [0005](tasks/0005-e2e-estables.md): e2e de `views.spec.ts` que dependen de la máquina,
+  sustituidos por tests estables (y arreglo de la app si destapan un fallo). Aprobada por Dani el
+  2026-10-07.
 
 ## Próximo
 
