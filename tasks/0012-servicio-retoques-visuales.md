@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -90,6 +90,12 @@ solo toca cantidades (revisadas todas las variables de los locales); hoja Info a
 
 Opcionales: los tests del formateador se llaman «CA5 (0012)» y CA5 es otra cosa; orden de imports
 `@shared` antes que los relativos; un caso de plural en inglés.
+
+### Ronda 2: APROBADO
+
+- Ejes Y de Métricas y del histograma de Problemas con `formatNumber`; CA1 sin cambios; test nuevo del eje
+  de Métricas (es y en). Tests sin tocar tras `3bd7071`; el renombrado no cambia aserciones.
+- Ningún eje ni tooltip de ECharts queda sin `formatNumber`. Nada más roto.
 
 ## Verificación
 
