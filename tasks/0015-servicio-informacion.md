@@ -1,7 +1,7 @@
 ---
 id: '0015'
 titulo: 'SERVICE: sección «Información» con propiedades, zonas, etiquetas y relaciones (nombres a demanda)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -106,7 +106,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `useModuleAccess` da un módulo por disponible mientras `connection:status` no ha
+  respondido. En la tarjeta se resuelve con `useConnectionStatusKnown`, pero los marcadores y los
+  gráficos (métricas y problemas) tienen la misma carrera con un token sin su scope. Valdría una
+  ficha que lo resuelva en el propio hook para todos los módulos.
 
 ## Notas del revisor
 
@@ -172,6 +175,33 @@ revisor de la 0014); ese ya pasa, porque el hook es de la 0014.
   devuelve las pocas propiedades, para que su página tenga tarjeta; `sim.entityInfoFail` (400) y
   el token `TOKEN_NO_ENTITIES` (sin `entities.read`), con su entorno creado y borrado dentro de
   CA6.
+
+**Decisiones del Orquestador (delegadas por Dani), aplicadas por el developer:**
+
+- Las propiedades llegan de main como texto y se pintan tal cual, sin `formatNumber`: el puerto,
+  las versiones y los ids son identificadores, no cantidades (sin separador de miles). Los recuentos
+  (número de cada grupo, «+N» de etiquetas y número de propiedades) sí van con `formatNumber`.
+- Todos los grupos de relaciones empiezan plegados, con su número visible; «Otras relaciones» y
+  «Todas las propiedades», también.
+- Los valores del tenant se pintan como texto de React (nunca HTML).
+
+**Decisiones del developer (refinables):**
+
+- `isExternalService` es una fila de tipo `flag` (cuarto `kind` de `ServiceRow`): la etiqueta dice
+  «Externo» y el valor, «Sí». `webService` junta nombre y namespace como «nombre (namespace)».
+- Sin el scope, el aviso va dentro de la tarjeta; sin entorno o sin token clásico, la tarjeta no
+  sale (la página ya da ese aviso y se repetiría).
+- `entities:get` espera a que `connection:status` responda (`useConnectionStatusKnown`, en
+  `data/tenants.ts`): antes de eso, `useModuleAccess` no sabe si falta `entities.read` y se pedía
+  una vez sin el scope (lo cazó CA6). Ver «Ideas surgidas».
+- Nombres: lotes por tipo con los ids de formato estándar, sin repetir y de 50 en 50; los de otro
+  formato no se piden y quedan «sin nombre». Su clave de caché no cuelga del módulo `entities`: así,
+  «Actualizar» recarga la tarjeta, pero no vuelve a pedir los nombres. Si fallan, aviso con
+  `errorDetail` y Reintentar dentro del grupo.
+- Los enlaces a las relacionadas viajan con `fromProblem` (y con el nombre, si se conoce), el
+  estado que ya usa `EntityPageFrame` para que «Volver» haga `back()`.
+- Dos columnas desde 990 px de ancho de ventana (`min-[990px]:`): entre la estrecha (960) y la del
+  CI (1024), con margen para el redondeo de Windows.
 
 ## Resultado
 
