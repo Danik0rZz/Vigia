@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -83,7 +83,17 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO (ficha ligera)
+
+- Tests del developer (`4553cd5`) por criterio; CA1 y CA3 fallaban sin el arreglo; CA4 lo cubre «CA4
+  (0013)» commiteado con `withContentSize({ width: 1008, height: 705 })`, que comprueba antes que el
+  tramo empieza fuera de la vista; CA2 sirve de guarda. Tests sin tocar tras `4553cd5`.
+- CA5 (0010): solo cambia una línea (`clickInPlace(…, { scroll: true })`); ninguna aserción.
+- `ProblemBand.tsx`: alto desde un medidor en rem (sigue al zoom), ancho mínimo con el icono entero, tramo
+  final corrido a la izquierda, nunca medio id; color nunca solo. Fixtures sintéticos.
+- Opcionales: un tramo de 80-90 px con un id real largo no enseña el id pero deja el icono a la izquierda
+  (`ProblemBand.tsx:179`, el centrado depende del ancho del contenedor); «CA4 (0013)» no repite las filas
+  con la ventana del CI; la lección del tooltip de Radix y `focus()` a `e2e/CLAUDE.md`.
 
 ## Verificación
 
