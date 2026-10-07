@@ -1,7 +1,7 @@
 ---
 id: '0008'
 titulo: 'SERVICE: marcadores arriba de la página (peticiones, tiempos y problemas)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -96,7 +96,56 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+**Tests (commit `8923a78`).** Fallan porque el código aún no existe, no por el propio test
+(vitest: `./service-format` no existe y faltan `entities.service.markers.*`; e2e: no aparece
+`service-markers` ni sus valores). CA7 pasa ya: protege lo que no debe cambiar.
+
+- CA1 → `e2e/views.spec.ts`, «CA1 (0008): desde «Analizar entidad», la página del SERVICE
+  enseña los cinco marcadores…» (servicio `SERVICE-00000000000E2E02`: «45.000», «0», «0,0 %»,
+  «850 ms», «1,2 s», «2,5 s», 0 abiertos y 3 cerrados).
+- CA2 → `src/renderer/src/lib/service-format.test.ts`, describes «CA2 (0008)» (tiempos,
+  recuentos y tasa, en es y en).
+- CA3 → `e2e/views.spec.ts`, «CA3 (0008): con KO > 0 y problemas abiertos > 0…»
+  (`SERVICE-00000000000E2E01`, 15 KO y 1 abierto; contra `…E2E02`, 0 y 0).
+- CA4 → `e2e/views.spec.ts`, «CA4 (0008): cambiar el rango global vuelve a pedir…» (cuenta
+  `sim.serviceMetricQueries`, `sim.entityProblemQueries` y `sim.requests`).
+- CA5 → `e2e/views.spec.ts`, dos tests «CA5 (0008)» (falla métricas; falla problemas), con
+  `sim.serviceMetricsFail` y `sim.entityProblemsFail` (400) y Reintentar que recupera.
+- CA6 → `e2e/views.spec.ts`, «CA6 (0008): un servicio sin datos enseña «—»…»
+  (`SERVICE-00000000000E2E03`, sin datos en el simulador; problemas 0 y 0, que sí se enseñan).
+- CA7 → `e2e/views.spec.ts`, «CA7 (0008): las páginas de los otros tipos de entidad siguen en
+  construcción…» (desde «Analizar entidad» de un HOST y por URL los demás tipos y la genérica,
+  sin `service-marker-*` ni peticiones).
+- CA8 → `src/renderer/src/locales/service-markers.test.ts`, describe «CA8 (0008)».
+
+**Nombres que fijan los tests (la ficha no los daba).**
+
+- Formato en `src/renderer/src/lib/service-format.ts`: `formatDurationMs`, `formatCount` y
+  `formatErrorRate`, con firma `(value: number | null, language: string) => string`; `null` da
+  «—». Tiempos: menos de 1000 ms en ms sin decimales (849,6 → «850 ms»); desde 1 s, en s con un
+  decimal. La tasa llega en % (0–100). Se admite espacio normal o duro antes de la unidad.
+  Recuentos probados con 5 o más cifras (Intl en español no agrupa las de 4).
+- Textos en `entities.service.markers` de common: `ok`, `ko`, `errorRate`, `responseTime` y
+  `problems` (en es, los nombres de la tabla de la ficha).
+- Testids: fila `service-markers`; marcadores `service-marker-ok`, `-ko`, `-error-rate`,
+  `-response-time` y `-problems`; valores `service-marker-value` (OK, KO y tasa),
+  `service-marker-median`, `-p90` y `-p99` y `service-marker-open` y `-closed`. Color de error:
+  clase `text-danger` en el valor de KO y en el de abiertos (no en cerrados).
+- Fallo de un canal: cada marcador afectado sigue en su sitio (su testid) con un botón
+  «Reintentar» dentro y sin su valor; Reintentar vuelve a pedir y pinta el dato.
+- «Actualizar» es `module-refresh` dentro de `entity-page-service`.
+
+**Simulador (`e2e/views.spec.ts`).** `SVC_DATA` (series y marcadores por servicio) sustituye a
+la tabla única de la 0006 sin cambiar sus valores; `markerProblems()` añade los problemas de
+`…E2E01` (1 abierto, 2 cerrados) y `…E2E02` (3 cerrados); P-791 (solo del detalle) lleva las
+evidencias de los tres servicios y de un HOST. CA7 (0006), CA6 (0007) y CA8 (0003) siguen en
+verde con el simulador nuevo.
+
+**Notas para el developer.** La línea de rango y resolución («Últimas 2 h · datos por minuto») y
+el esqueleto de carga no tienen criterio propio: no los fija ningún test. CA8 (0003) abre
+`/entities/SERVICE/SERVICE-AN1` y espera cero peticiones: ese id no cumple el formato del canal,
+así que no debería pedir nada, pero si la página enseña su error en consola el `afterEach` lo
+pillará. No uso `withContentSize`.
 
 ## Resultado
 
