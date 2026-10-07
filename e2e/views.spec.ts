@@ -15,7 +15,14 @@ import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 import { hoverFresh, moveToNeutral } from './hover'
 import { wallTimeToEpoch } from './local-time'
-import { fitsContentSize, type WindowSize } from './window-size'
+import {
+  FIXED_WINDOW,
+  SMALL_WINDOW,
+  fitsContentSize,
+  useCiWindow,
+  viewportSize as pageViewportSize,
+  type WindowSize
+} from './window-size'
 import ExcelJS from 'exceljs'
 import { generate } from 'selfsigned'
 import en from '../src/renderer/src/locales/en/common.json'
@@ -1731,23 +1738,15 @@ async function firstVisibleIndex(): Promise<number> {
   })
 }
 
-/**
- * Ficha 0005: tamaño fijo del contenido de la ventana para los tests que dependen de la
- * geometría. Cabe en la pantalla del runner del CI (1024×768 menos la barra de tareas), así que
- * es el mismo en la VPS y en el CI; con la ventana por defecto (1280×800), el CI la recorta.
- */
-const FIXED_WINDOW = { width: 1024, height: 720 }
-/** La ventana más pequeña que permite la app (minWidth y minHeight de src/main/window.ts). */
-const SMALL_WINDOW = { width: 960, height: 600 }
-
 /** Tamaño del contenido de la ventana tal y como lo ve la página. */
 async function viewportSize(): Promise<WindowSize> {
-  return page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+  return pageViewportSize(page)
 }
 
 /**
  * Ejecuta `body` con el contenido de la ventana a `size` (desde main, con setContentSize; la
- * app no cambia) y deja la ventana como estaba, aunque el test falle. Con el escritorio escalado,
+ * app no cambia) y al acabar la deja en FIXED_WINDOW (ficha 0021), aunque el test falle. Con el
+ * escritorio escalado,
  * Windows redondea y el contenido puede quedar hasta 2 px más grande o más pequeño
  * (`fitsContentSize`, ficha 0011): `body` recibe el tamaño real.
  */
@@ -1755,12 +1754,10 @@ async function withContentSize(
   size: WindowSize,
   body: (actual: WindowSize) => Promise<void>
 ): Promise<void> {
-  const original = await app.evaluate(({ BrowserWindow }, wanted) => {
+  await app.evaluate(({ BrowserWindow }, wanted) => {
     const win = BrowserWindow.getAllWindows()[0]
     if (win === undefined) throw new Error('withContentSize: no hay ventana')
-    const [width = 0, height = 0] = win.getContentSize()
     win.setContentSize(wanted.width, wanted.height)
-    return { width, height }
   }, size)
   try {
     await expect.poll(async () => fitsContentSize(await viewportSize(), size)).toBe(true)
@@ -1768,8 +1765,8 @@ async function withContentSize(
   } finally {
     await app.evaluate(({ BrowserWindow }, back) => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(back.width, back.height)
-    }, original)
-    await expect.poll(async () => fitsContentSize(await viewportSize(), original)).toBe(true)
+    }, FIXED_WINDOW)
+    await expect.poll(async () => fitsContentSize(await viewportSize(), FIXED_WINDOW)).toBe(true)
   }
 }
 
@@ -1945,6 +1942,7 @@ test.beforeAll(async () => {
       VIGIA_E2E: '1'
     }
   })
+  await useCiWindow(app)
   page = await app.firstWindow()
   // Nunca la carpeta real de datos: la temporal de esta prueba.
   expect(await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))).toBe(
@@ -5969,18 +5967,16 @@ test('CA5 (0009): «Abrir en Métricas» de cada gráfico abre Métricas con la 
 
 /**
  * Ficha 0009: ancho del contenido de la ventana fijado desde main (setContentSize), con el alto
- * de FIXED_WINDOW, y restaurado al final aunque el test falle. Solo se espera al ancho: es lo
+ * de FIXED_WINDOW, y de vuelta a FIXED_WINDOW al final aunque el test falle (ficha 0021). Solo se espera al ancho: es lo
  * único de lo que dependen las columnas (withContentSize espera además al alto, con el margen
  * del redondeo de Windows al escalar).
  */
 async function withContentWidth(width: number, body: () => Promise<void>): Promise<void> {
-  const original = await app.evaluate(
+  await app.evaluate(
     ({ BrowserWindow }, wanted) => {
       const win = BrowserWindow.getAllWindows()[0]
       if (win === undefined) throw new Error('withContentWidth: no hay ventana')
-      const [w = 0, h = 0] = win.getContentSize()
       win.setContentSize(wanted.width, wanted.height)
-      return { width: w, height: h }
     },
     { width, height: FIXED_WINDOW.height }
   )
@@ -5990,8 +5986,8 @@ async function withContentWidth(width: number, body: () => Promise<void>): Promi
   } finally {
     await app.evaluate(({ BrowserWindow }, back) => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(back.width, back.height)
-    }, original)
-    await expect.poll(async () => (await viewportSize()).width).toBe(original.width)
+    }, FIXED_WINDOW)
+    await expect.poll(async () => fitsContentSize(await viewportSize(), FIXED_WINDOW)).toBe(true)
   }
 }
 

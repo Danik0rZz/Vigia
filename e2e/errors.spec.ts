@@ -11,7 +11,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
-import { FIXED_WINDOW, fitsContentSize } from './window-size'
+import { FIXED_WINDOW, fitsContentSize, useCiWindow } from './window-size'
 import en from '../src/renderer/src/locales/en/common.json'
 import es from '../src/renderer/src/locales/es/common.json'
 
@@ -37,6 +37,7 @@ test.beforeAll(async () => {
     args: ['.', ...(process.env['VIGIA_E2E_NO_SANDBOX'] ? ['--no-sandbox'] : [])],
     env: { ...process.env, VIGIA_USER_DATA_DIR: userDataDir, VIGIA_E2E: '1' }
   })
+  await useCiWindow(app)
   page = await app.firstWindow()
   page.on('pageerror', (error) => pageErrors.push(error.message))
   await page.waitForLoadState('domcontentloaded')
