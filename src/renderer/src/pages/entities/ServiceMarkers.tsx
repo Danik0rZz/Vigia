@@ -83,7 +83,7 @@ export function ServiceMarkers({
                 <div className="grid gap-1">
                   <p
                     data-testid="service-marker-median"
-                    className="flex items-baseline justify-center gap-2"
+                    className="flex flex-wrap items-baseline justify-center gap-x-2"
                   >
                     <span className="text-3xl font-semibold tabular-nums">
                       {formatDurationMs(times?.median ?? null, lang)}
@@ -156,7 +156,9 @@ const errorsOf = (data: ServiceMetricsResult | null): number | null =>
 
 /**
  * Tarjeta de un marcador, con el estilo de las de Inicio. No es interactiva. Título y
- * contenido van centrados (ficha 0012), también con la ventana estrecha.
+ * contenido van centrados (ficha 0012), también con la ventana estrecha. La columna no pasa del
+ * ancho de la tarjeta (`grid-cols-1`): con cinco por fila, la mediana se parte en dos líneas en
+ * vez de desbordar la tarjeta y descentrar el título.
  */
 function Marker({
   testId,
@@ -171,7 +173,7 @@ function Marker({
     <section
       data-testid={testId}
       aria-label={title}
-      className="glass grid min-w-0 content-start gap-2 rounded-xl p-4 text-center"
+      className="glass grid min-w-0 grid-cols-1 content-start gap-2 rounded-xl p-4 text-center"
     >
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
