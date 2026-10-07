@@ -50,8 +50,9 @@ function Card({
       transition={{ duration: 0.2, delay: index * 0.06 }}
       className="glass grid content-start gap-2 rounded-xl p-4"
     >
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{title}</h2>
+      {/* El título no encoge; lo que encoge son las acciones (el aviso de exportar). */}
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <h2 className="shrink-0 text-sm font-semibold">{title}</h2>
         {actions}
       </div>
       {children}

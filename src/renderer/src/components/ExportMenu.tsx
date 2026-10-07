@@ -243,9 +243,15 @@ export function ExportMenu({
   )
 
   return (
-    <div className="flex items-center gap-2">
+    // min-w-0: en una cabecera estrecha (las tarjetas de Inicio) el aviso se recorta y el
+    // botón del menú no se sale ni queda tapado; el texto entero va en el title.
+    <div className="flex min-w-0 items-center gap-2">
       {notice !== null && (
-        <span role="status" className="max-w-60 truncate text-xs text-muted-foreground">
+        <span
+          role="status"
+          title={notice}
+          className="max-w-60 min-w-0 truncate text-xs text-muted-foreground"
+        >
           {notice}
         </span>
       )}
@@ -255,7 +261,7 @@ export function ExportMenu({
           data-export-target={target}
           aria-label={t('export.menu')}
           title={t('export.menu')}
-          className={BUTTON_ICON}
+          className={`${BUTTON_ICON} shrink-0`}
         >
           <Download aria-hidden="true" className="size-4" />
         </Popover.Trigger>
