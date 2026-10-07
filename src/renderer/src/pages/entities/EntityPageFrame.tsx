@@ -22,12 +22,15 @@ export function EntityPageFrame({
   testId,
   id,
   typeText,
+  actions,
   children
 }: EntityPageProps & {
   /** `entity-page-<tipo en minúsculas>` o `entity-page-generic`. */
   testId: string
   /** Nombre del tipo en la interfaz (o el código tal cual, en la genérica). */
   typeText: string
+  /** Acciones de la página junto a «Volver» (por ejemplo, «Actualizar»). */
+  actions?: ReactNode
   children: ReactNode
 }): JSX.Element {
   const { t } = useTranslation()
@@ -72,15 +75,18 @@ export function EntityPageFrame({
           </dl>
         }
         actions={
-          <button
-            type="button"
-            data-testid="entity-back"
-            onClick={back}
-            className={BUTTON_SECONDARY}
-          >
-            <ArrowLeft aria-hidden="true" className="size-4" />
-            {t('entities.back')}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {actions}
+            <button
+              type="button"
+              data-testid="entity-back"
+              onClick={back}
+              className={BUTTON_SECONDARY}
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              {t('entities.back')}
+            </button>
+          </div>
         }
       />
       {children}

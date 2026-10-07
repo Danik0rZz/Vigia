@@ -190,6 +190,47 @@ export function useMetricQuery(
   })
 }
 
+/**
+ * Métricas de un SERVICE en el rango global (ficha 0008). Con `entityId` null
+ * (id que no es de un servicio) no se pide nada.
+ */
+export function useServiceMetrics(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:serviceMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { serviceMetrics: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:serviceMetrics', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/** Problemas abiertos y cerrados de una entidad en el rango global (fichas 0007 y 0008). */
+export function useEntityProblemCounts(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:problemCounts'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { problemCounts: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:problemCounts', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
 export function useMetricSearch(
   envId: string | null,
   text: string

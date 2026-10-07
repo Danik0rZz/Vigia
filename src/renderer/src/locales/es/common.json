@@ -675,6 +675,49 @@
       "APPLICATION": "Aplicación web",
       "CLOUD_APPLICATION": "Cloud application",
       "ENVIRONMENT": "Entorno"
+    },
+    "service": {
+      "markers": {
+        "label": "Marcadores del servicio",
+        "ok": "Peticiones OK",
+        "ko": "Peticiones KO",
+        "errorRate": "Tasa de error",
+        "responseTime": "Tiempo de respuesta",
+        "problems": "Problemas",
+        "median": "Mediana",
+        "p90": "p90",
+        "p99": "p99",
+        "p90Hint": "Percentil 90: el 90 % de las peticiones tardó esto o menos.",
+        "p99Hint": "Percentil 99: el 99 % de las peticiones tardó esto o menos.",
+        "open": "Abiertos",
+        "closed": "Cerrados",
+        "loading": "Cargando…",
+        "loadError": "No se pudo cargar."
+      },
+      "range": {
+        "2h": "Últimas 2 h",
+        "24h": "Últimas 24 h",
+        "7d": "Últimos 7 días",
+        "custom": "Del {{from}} al {{to}}"
+      },
+      "resolution": {
+        "per": {
+          "s": "datos por segundo",
+          "m": "datos por minuto",
+          "h": "datos por hora",
+          "d": "datos por día",
+          "w": "datos por semana"
+        },
+        "every": {
+          "s": "datos cada {{amount}} s",
+          "m": "datos cada {{amount}} min",
+          "h": "datos cada {{amount}} h",
+          "d": "datos cada {{amount}} días",
+          "w": "datos cada {{amount}} semanas"
+        },
+        "raw": "resolución {{value}}"
+      },
+      "invalidId": "Este ID no tiene el formato de un servicio de Dynatrace (SERVICE- y 16 caracteres hexadecimales): no se piden sus datos."
     }
   }
 }

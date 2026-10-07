@@ -675,6 +675,49 @@
       "APPLICATION": "Web application",
       "CLOUD_APPLICATION": "Cloud application",
       "ENVIRONMENT": "Environment"
+    },
+    "service": {
+      "markers": {
+        "label": "Service indicators",
+        "ok": "Successful requests",
+        "ko": "Failed requests",
+        "errorRate": "Error rate",
+        "responseTime": "Response time",
+        "problems": "Problems",
+        "median": "Median",
+        "p90": "p90",
+        "p99": "p99",
+        "p90Hint": "90th percentile: 90% of requests took this long or less.",
+        "p99Hint": "99th percentile: 99% of requests took this long or less.",
+        "open": "Open",
+        "closed": "Closed",
+        "loading": "Loading…",
+        "loadError": "Couldn't load."
+      },
+      "range": {
+        "2h": "Last 2 h",
+        "24h": "Last 24 h",
+        "7d": "Last 7 days",
+        "custom": "From {{from}} to {{to}}"
+      },
+      "resolution": {
+        "per": {
+          "s": "data per second",
+          "m": "data per minute",
+          "h": "data per hour",
+          "d": "data per day",
+          "w": "data per week"
+        },
+        "every": {
+          "s": "data every {{amount}} s",
+          "m": "data every {{amount}} min",
+          "h": "data every {{amount}} h",
+          "d": "data every {{amount}} days",
+          "w": "data every {{amount}} weeks"
+        },
+        "raw": "resolution {{value}}"
+      },
+      "invalidId": "This ID doesn't have the format of a Dynatrace service (SERVICE- and 16 hexadecimal characters): its data isn't requested."
     }
   }
 }
