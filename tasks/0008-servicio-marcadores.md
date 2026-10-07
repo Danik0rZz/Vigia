@@ -1,7 +1,7 @@
 ---
 id: '0008'
 titulo: 'SERVICE: marcadores arriba de la página (peticiones, tiempos y problemas)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:serviceMetrics` de la 0006 y `entities:problemCounts` de la 0007)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -126,7 +126,23 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Arquitectura y reglas] `ServiceMarkers.tsx:288-310` (`MarkerError`): el aviso de un canal caído solo
+   enseña el código traducido o «No se pudo cargar.»; no pinta el `reason` ni el texto de Dynatrace
+   (ADR-0005) y pierde `role="alert"`. `ModuleError` (`ModuleState.tsx:31-45`) tiene las dos cosas.
+   Acción: con un `IpcError`, enseñar también `errorDetail(t, error)` (`lib/error-detail.ts`), en una
+   línea `text-xs` o en `title`/tooltip (lo decide el developer), y `role="alert"` en el contenedor.
+   Cuidado con `getByRole('button', { name: 'Reintentar' })` de CA5. Sin tocar los tests.
+
+Comprobado y correcto: CA1-CA8 con su test, sin tocar tras `8923a78`; «—» en OK y KO deducido de la
+serie (cumple «0 solo si Dynatrace dice 0»; el caso de serie de errores vacía queda como idea);
+ADR-0004 (claves, «Actualizar», CA4); accesibilidad (texto siempre, tooltips con foco, esqueleto con
+`motion-safe`); `EntityPageFrame` no cambia las otras páginas; sin espacios raros; sin datos del
+tenant.
+
+Opcionales: `service-format.ts` en `lib/**` es transversal (podría ir en `pages/entities/`); las
+«Decisiones del developer» en su propia sección; el verifier confirma los 6 fallos de la 0005.
 
 ## Verificación
 
