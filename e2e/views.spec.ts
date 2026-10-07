@@ -6732,3 +6732,38 @@ test('CA6 (0012): el marcador «Peticiones KO» con 9907 enseña «9.907»', asy
   // El de OK, con 5 cifras, ya llevaba separador: 45.000 − 9.907 = 35.093.
   await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^35\.093$/)
 })
+
+/**
+ * Ficha 0012: un problema solo del detalle con 1234 comentarios en la API (trae uno): los números
+ * de los avisos de i18next también llevan el separador de miles.
+ */
+const THOUSANDS_PROBLEM_ID = 'pd-thousands'
+detailOnly.push({
+  problemId: THOUSANDS_PROBLEM_ID,
+  displayId: 'P-792',
+  title: 'Problema con muchos comentarios',
+  status: 'OPEN',
+  severityLevel: 'ERROR',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: { totalCount: 0, details: [] },
+  recentComments: {
+    totalCount: 1234,
+    comments: [{ authorName: 'operador', content: 'Mirando', createdAtTimestamp: NOW - HOUR }]
+  }
+})
+
+test('CA5 (0012): los números de los avisos (textos de i18next) también llevan separador: 1234 → «1.234»', async () => {
+  await goToRoute(`/problems/${THOUSANDS_PROBLEM_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-792')
+  const section = page.getByTestId('detail-comments')
+  await expect(section.getByTestId('comments-api-truncated')).toHaveText(
+    'Se ven los 1 más recientes de 1.234 comentarios.'
+  )
+  await expect(section.getByTestId('comments-show-all')).toHaveText('Ver todos (1.234)')
+})
