@@ -1,7 +1,7 @@
 ---
 id: '0021'
 titulo: Todos los e2e con la ventana del tamaño del CI, también en la VPS
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -86,6 +86,12 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 ## Verificación
 
 (pendiente)
+
+### Verifier, 2026-10-07, commit `26e0140`, rango `main..26e0140`: VERDE
+
+- check: 2144 tests en 107 ficheros, cobertura ok.
+- e2e completo con la ventana de 1024×720 (la del CI) en todos los specs: **209/209**.
+- «CA2 (0021)» pasa en los seis specs y «CA3 (0021)» en `views`.
 
 ## Resultado
 
