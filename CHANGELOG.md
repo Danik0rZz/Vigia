@@ -9,6 +9,15 @@ Sin migraciones nuevas.
 
 ### Añadido
 
+- Página de un servicio: debajo de los marcadores, una sección «Métricas de peticiones» con cuatro
+  gráficos en rejilla de 2×2 (una columna si la ventana es estrecha): tiempo de respuesta (mediana,
+  p90 y p99), actividad (OK y KO apiladas, por minuto), tasa de error y errores por minuto. Los
+  huecos sin datos se ven como huecos, no como 0; el tooltip da la fecha completa y el valor de cada
+  serie, y la leyenda oculta series. Cada gráfico se carga y falla por su lado (aviso con
+  «Reintentar»), tiene «Abrir en Métricas» (con el rango que se ve; el de Actividad abre peticiones y
+  errores) y se exporta como imagen o XLSX. Usan los mismos datos y el mismo rango que los
+  marcadores, sin llamadas extra. Dos colores nuevos del tema para las series (claro y oscuro). Parte
+  del lote «servicio»; sin migraciones nuevas. (ficha 0009)
 - Página de un servicio (desde «Analizar entidad» en el detalle de un problema): ya enseña arriba
   los cinco marcadores del rango de la barra superior: peticiones OK y KO, tasa de error, tiempo de
   respuesta (mediana grande, con p90 y p99 debajo) y problemas abiertos y cerrados. Cada marcador se

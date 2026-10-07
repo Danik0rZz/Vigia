@@ -10,7 +10,7 @@ bueno de Dani o de peticiones en su nombre.
   Orden: [0006](tasks/0006-servicio-datos-metricas.md) datos de métricas (hecha),
   [0007](tasks/0007-servicio-problemas.md) recuentos de problemas (hecha),
   [0008](tasks/0008-servicio-marcadores.md) marcadores (hecha), [0009](tasks/0009-servicio-graficos.md)
-  gráficos y [0010](tasks/0010-servicio-banda-problemas.md) franja de problemas.
+  gráficos (hecha) y [0010](tasks/0010-servicio-banda-problemas.md) franja de problemas.
 
 ## Próximo
 
@@ -87,6 +87,11 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   solo. (surgió en 0008)
 - `entities:serviceMetrics`: que main devuelva `requests: null` en los totales cuando no hay
   datos, en vez de que la interfaz lo deduzca de la serie (`hasRequestData`). (surgió en 0008)
+- Gráficos del servicio: la exportación XLSX lleva los valores ya convertidos (ms y /min); añadir una
+  nota en la hoja Info o un módulo `entities` en `exportModules`. (surgió en 0009)
+- Clave `entities.service.charts.loadError` sin usar en es y en: usarla o quitarla. (surgió en 0009)
+- «Abrir en Métricas» de Actividad: la API v2 admite expresiones aritméticas, así que podría abrir OK
+  como `(peticiones)-(errores)`; probarlo en vivo antes. (surgió en 0009)
 
 ## Aparcado
 
@@ -117,3 +122,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0006](tasks/0006-servicio-datos-metricas.md) (lote servicio): canal `entities:serviceMetrics`
   con series y totales del servicio (sin interfaz hasta la 0008 y la 0009), y arreglo del aviso
   falso de «solo parte de los puntos» en Métricas.
+- [0009](tasks/0009-servicio-graficos.md) (lote servicio): cuatro gráficos en la página del SERVICE
+  (tiempos, actividad OK/KO, tasa de error y errores) con «Abrir en Métricas» y exportación.

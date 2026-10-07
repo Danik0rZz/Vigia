@@ -1,7 +1,7 @@
 ---
 id: '0009'
 titulo: 'SERVICE: cuatro gráficos (tiempos, actividad OK/KO, tasa de error y errores)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -186,4 +186,10 @@ ChartColors; language: string; t: TFunction }): EChartsCoreOption`, con
 
 ## Resultado
 
-(pendiente)
+- Commits: `123b4fa` (tests), `78fdff8` (opción de ECharts), `e312bb5` (gráficos en la página).
+- Ficheros principales: `src/renderer/src/pages/entities/service-charts.ts` y `ServiceCharts.tsx`,
+  `ServiceEntityPage.tsx`, `Chart.tsx`, `main.css` (`--chart-2`, `--chart-3`), `env-colors.test.ts`,
+  locales es y en, `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones.
+- Pendientes de Dani: las dos pruebas a mano de arriba.
+- Opcionales del revisor, pasados a «Mejoras anotadas» del BACKLOG.
