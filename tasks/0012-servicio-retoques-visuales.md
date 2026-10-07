@@ -1,7 +1,7 @@
 ---
 id: '0012'
 titulo: 'SERVICE: gráficos sin líneas de rejilla, marcadores centrados y miles siempre con separador'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -102,7 +102,11 @@ Ficha ligera: tests del developer en `7d37030` (`test(servicio): criterios de la
 - CA4 y CA5: `src/shared/format-number.test.ts`.
 - CA6: `e2e/views.spec.ts`, servicio nuevo del simulador con 9907 KO.
 - Textos de i18next (a petición del Orquestador, commit de tests `c3fcb17`): `src/renderer/src/app/i18n-numbers.test.ts`
-  y el e2e «CA5 (0012): los números de los avisos…» (P-792, con 1234 comentarios → «1.234»).
+  y el e2e «Separador en textos (0012): los números de los avisos…» (P-792, con 1234 comentarios →
+  «1.234»). En la ronda 1 (`3bd7071`) se renombran de «CA5 (0012)» a «Separador en textos (0012)»
+  (CA5 es la búsqueda de `Intl.NumberFormat`) y se añade un plural en inglés.
+- Ronda 1, ejes Y: «Separador de miles en el eje Y de Métricas (0012)», en
+  `metric-chart-option.test.ts` (`3bd7071`).
 
 Al escribirlos fallaban por falta de código (módulos inexistentes, `splitLine.show` undefined,
 desvíos de 12 a 98 px y «9907»).
@@ -138,5 +142,11 @@ Decisiones del developer (refinables, delegadas por el Orquestador):
   esto, `ModuleState` ya no formatea por su cuenta. También afecta a los avisos de la hoja Info
   de la exportación de un problema (son texto); las celdas con números no cambian.
 
-`npm run check`: 2154 tests en verde. `npm run test:e2e` completo (toca `e2e/areas.json`,
+- Ronda 1 (`b65a72f`): el eje Y de Métricas y el del histograma de Problemas llevan
+  `formatter` con `formatNumber` (ECharts ponía comas). Revisados los demás gráficos: los
+  tooltips ya pasan por `axisTooltip` con `formatNumber`, y los ejes Y del servicio y de las
+  evidencias ya tenían su `formatter`. El import de `@shared/format-number` va con los de
+  `@shared`, antes de los relativos.
+
+`npm run check`: 2156 tests en verde. `npm run test:e2e` completo (toca `e2e/areas.json`,
 transversal): 215 en verde.
