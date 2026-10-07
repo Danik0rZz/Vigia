@@ -694,6 +694,30 @@
         "loading": "Loading…",
         "loadError": "Couldn't load."
       },
+      "charts": {
+        "title": "Request metrics",
+        "responseTime": "Response time",
+        "activity": "Activity",
+        "errorRate": "Error rate",
+        "errors": "Errors",
+        "label": "Service request charts",
+        "series": {
+          "median": "Median",
+          "p90": "p90",
+          "p99": "p99",
+          "ok": "OK",
+          "ko": "KO",
+          "errorRate": "Error rate"
+        },
+        "perMinuteUnit": "/min",
+        "perMinuteTooltip": "{{perMinute}} · {{total}} in the interval",
+        "loading": "Loading chart…",
+        "loadError": "Could not load the chart.",
+        "exportColumns": {
+          "series": "Series",
+          "unit": "Unit"
+        }
+      },
       "range": {
         "2h": "Last 2 h",
         "24h": "Last 24 h",

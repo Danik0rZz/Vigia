@@ -694,6 +694,30 @@
         "loading": "Cargando…",
         "loadError": "No se pudo cargar."
       },
+      "charts": {
+        "title": "Métricas de peticiones",
+        "responseTime": "Tiempo de respuesta",
+        "activity": "Actividad",
+        "errorRate": "Tasa de error",
+        "errors": "Errores",
+        "label": "Gráficos de las peticiones del servicio",
+        "series": {
+          "median": "Mediana",
+          "p90": "p90",
+          "p99": "p99",
+          "ok": "OK",
+          "ko": "KO",
+          "errorRate": "Tasa de error"
+        },
+        "perMinuteUnit": "/min",
+        "perMinuteTooltip": "{{perMinute}} · {{total}} en el intervalo",
+        "loading": "Cargando el gráfico…",
+        "loadError": "No se pudo cargar el gráfico.",
+        "exportColumns": {
+          "series": "Serie",
+          "unit": "Unidad"
+        }
+      },
       "range": {
         "2h": "Últimas 2 h",
         "24h": "Últimas 24 h",

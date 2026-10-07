@@ -37,6 +37,11 @@ export interface ChartColors {
   accent: string
   background: string
   danger: string
+  /** Verde del tema (lo que va bien: peticiones OK). */
+  success: string
+  /** Segundo y tercer color de serie (p90 y p99 en los tiempos de un servicio). */
+  series2: string
+  series3: string
 }
 
 function readColors(): ChartColors {
@@ -48,7 +53,10 @@ function readColors(): ChartColors {
     border: token('--border'),
     accent: token('--accent'),
     background: token('--background'),
-    danger: token('--danger')
+    danger: token('--danger'),
+    success: token('--status-closed'),
+    series2: token('--chart-2'),
+    series3: token('--chart-3')
   }
 }
 

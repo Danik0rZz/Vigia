@@ -134,6 +134,22 @@ describe.each(THEMES)('tema %s', (_name, selector) => {
     }
   )
 
+  it.each(['chart-2', 'chart-3'])(
+    'ficha 0009: --%s (serie de un gráfico) contrasta ≥ 3 con --background (WCAG 1.4.11)',
+    (token) => {
+      const color = cssToken(selector, `--${token}`)
+      expect(color, `--${token} en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(contrast(color ?? '#000000', background)).toBeGreaterThanOrEqual(3)
+    }
+  )
+
+  it('ficha 0009: las series de los tiempos (acento, --chart-2 y --chart-3) se distinguen', () => {
+    const colors = ['--accent', '--chart-2', '--chart-3'].map((token) =>
+      cssToken(selector, token)?.toLowerCase()
+    )
+    expect(new Set(colors).size).toBe(3)
+  })
+
   it('v0.9.0: abierto y cerrado tienen colores distintos', () => {
     const open = cssToken(selector, '--status-open')?.toLowerCase()
     const closed = cssToken(selector, '--status-closed')?.toLowerCase()
