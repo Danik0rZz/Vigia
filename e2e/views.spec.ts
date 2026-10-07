@@ -148,6 +148,38 @@ const detailOnly: FakeProblem[] = [
   }
 ]
 
+/**
+ * Ficha 0007: problemas de una entidad inventada (2 abiertos y 3 cerrados), solo
+ * para las consultas con affectedEntities (no salen en la lista de Problemas).
+ */
+const COUNT_ENTITY_ID = 'SERVICE-00000000000E2E07'
+/** Otra entidad inventada, sin problemas. */
+const COUNT_EMPTY_ID = 'HOST-00000000000E2E70'
+const entityCountProblems: FakeProblem[] = (
+  [
+    ['OPEN', COUNT_ENTITY_ID],
+    ['OPEN', COUNT_ENTITY_ID],
+    ['CLOSED', COUNT_ENTITY_ID],
+    ['CLOSED', COUNT_ENTITY_ID],
+    ['CLOSED', COUNT_ENTITY_ID],
+    // De otra entidad: no cuenta.
+    ['OPEN', 'SERVICE-00000000000E2E08']
+  ] as const
+).map(([status, entityId], i) => ({
+  problemId: `pc-${i + 1}`,
+  displayId: `P-C${i + 1}`,
+  title: `Problema de recuento ${i + 1}`,
+  status,
+  severityLevel: 'ERROR',
+  impactLevel: 'SERVICES',
+  startTime: NOW - (i + 2) * HOUR,
+  endTime: status === 'OPEN' ? -1 : NOW - (i + 1) * HOUR,
+  affectedEntities: [{ entityId: { id: entityId, type: 'SERVICE' }, name: `recuento-${i + 1}` }],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: []
+}))
+
 /** v0.9.0: comentario con HTML que la página tiene que enseñar como texto, sin ejecutarlo. */
 const HOSTILE_COMMENT =
   '<script>window.__xss = "script"</script><img src="x" onerror="window.__xss = \'img\'; alert(1)"> fin'
@@ -932,6 +964,8 @@ const defaultSim = () => ({
   metricWarnings: [] as string[],
   /** SLOs: «Errores de login» con relatedOpenProblems -1 (no calculado) o 0. */
   sloRelatedFailed: true,
+  /** Ficha 0007: query de las peticiones a /problems con affectedEntities en el selector. */
+  entityProblemQueries: [] as URLSearchParams[],
   /** Ficha 0003: todas las peticiones que llegan al simulador («MÉTODO /ruta»), en orden. */
   requests: [] as string[]
 })
@@ -979,8 +1013,14 @@ function applySelector(problems: FakeProblem[], selector: string | null): FakePr
   const text = /text\("((?:[^"~]|~.)*)"\)/.exec(selector)?.[1]?.replace(/~(.)/g, '$1')
   const severities = selectorList(selector, 'severityLevel')
   const impacts = selectorList(selector, 'impactLevel')
+  const affected = selectorList(selector, 'affectedEntities')
+  const affects = (p: FakeProblem, ids: string[]): boolean =>
+    ((p['affectedEntities'] as { entityId: { id: string } }[] | undefined) ?? []).some((e) =>
+      ids.includes(e.entityId.id)
+    )
   return problems.filter(
     (p) =>
+      (affected === undefined || affects(p, affected)) &&
       (status === undefined || p.status.toLowerCase() === status) &&
       (text === undefined || p.title.toLowerCase().includes(text.toLowerCase())) &&
       (severities === undefined || severities.includes(String(p['severityLevel']))) &&
@@ -1040,8 +1080,22 @@ async function startServer(): Promise<void> {
         if (sim.badRequest) {
           return send(400, { error: { code: 400, message: 'Selector mal formado en la prueba' } })
         }
+        const selector = url.searchParams.get('problemSelector')
+        // Ficha 0007: con affectedEntities, como la API: pageSize recorta la lista y
+        // totalCount sigue siendo el total.
+        if (selector !== null && selector.includes('affectedEntities(')) {
+          sim.entityProblemQueries.push(url.searchParams)
+          const matching = applySelector([...problemsFor(token), ...entityCountProblems], selector)
+          const pageSize = Number(url.searchParams.get('pageSize') ?? '50')
+          return send(200, {
+            totalCount: matching.length,
+            pageSize,
+            problems: matching.slice(0, pageSize),
+            nextPageKey: matching.length > pageSize ? 'pagina-recuento' : null
+          })
+        }
         const source = sim.many && token === TOKEN_A ? manyProblems : problemsFor(token)
-        const selected = applySelector(source, url.searchParams.get('problemSelector'))
+        const selected = applySelector(source, selector)
         const problems = sim.invalidOne
           ? [...selected, { displayId: 'P-ROTO', title: 'Sin problemId', status: 'OPEN' }]
           : selected
@@ -4954,4 +5008,41 @@ test('CA9 (0003): «Analizar entidad» y «Volver» se alcanzan con Tab y se act
   await expect(page.getByTestId('problem-page')).toBeVisible()
   expect(await currentRoute()).toBe(`/problems/${ENT_ID}`)
   await expect(row).toHaveAttribute('aria-expanded', 'true')
+})
+
+test('CA6 (0007): entities:problemCounts por IPC con un id inventado: dos consultas con pageSize=1 y los recuentos del simulador', async () => {
+  const counts = await invoke<{ open: number | null; closed: number | null }>(
+    'entities:problemCounts',
+    { environmentId: env['Producción'], entityId: COUNT_ENTITY_ID, timeRange: '2h' }
+  )
+  expect(counts).toEqual({ open: 2, closed: 3 })
+
+  // Dos consultas, las dos con pageSize=1, el rango global y la entidad pedida.
+  expect(sim.entityProblemQueries).toHaveLength(2)
+  for (const query of sim.entityProblemQueries) {
+    expect(query.get('pageSize')).toBe('1')
+    expect(query.get('from')).toBe('now-2h')
+    expect(query.get('problemSelector')).toContain(`affectedEntities("${COUNT_ENTITY_ID}")`)
+  }
+  expect(
+    sim.entityProblemQueries
+      .map((q) => /status\("(\w+)"\)/.exec(q.get('problemSelector') ?? '')?.[1])
+      .sort()
+  ).toEqual(['closed', 'open'])
+
+  // Una entidad sin problemas da 0 y 0 (no null), también con rango absoluto.
+  const empty = await invoke<{ open: number | null; closed: number | null }>(
+    'entities:problemCounts',
+    {
+      environmentId: env['Producción'],
+      entityId: COUNT_EMPTY_ID,
+      timeRange: { from: new Date(NOW - 3 * HOUR).toISOString(), to: new Date(NOW).toISOString() }
+    }
+  )
+  expect(empty).toEqual({ open: 0, closed: 0 })
+  expect(sim.entityProblemQueries).toHaveLength(4)
+  for (const query of sim.entityProblemQueries.slice(2)) {
+    expect(query.get('from')).toBe(new Date(NOW - 3 * HOUR).toISOString())
+    expect(query.get('to')).toBe(new Date(NOW).toISOString())
+  }
 })
