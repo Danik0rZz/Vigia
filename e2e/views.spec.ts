@@ -956,11 +956,20 @@ const SVC_MARKERS: Record<SvcKind, number> = {
  */
 const SVC_BIG_ID = 'SERVICE-00000000000E2E02'
 const SVC_EMPTY_ID = 'SERVICE-00000000000E2E03'
+/**
+ * Ficha 0010: servicios inventados para la franja de problemas del gráfico «Tasa de error»,
+ * con las mismas métricas que SVC_ID. SVC_BAND_ID tiene un problema abierto y uno cerrado en el
+ * rango de 2 h (bandProblems); SVC_QUIET_ID no tiene ninguno.
+ */
+const SVC_BAND_ID = 'SERVICE-00000000000E2E04'
+const SVC_QUIET_ID = 'SERVICE-00000000000E2E05'
 const SVC_DATA: Record<
   string,
   { series: Record<SvcKind, (number | null)[]>; markers: Record<SvcKind, number> }
 > = {
   [SVC_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
+  [SVC_BAND_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
+  [SVC_QUIET_ID]: { series: SVC_SERIES, markers: SVC_MARKERS },
   [SVC_BIG_ID]: {
     series: {
       median: [800_000, 900_000, null, 850_000],
@@ -979,6 +988,51 @@ const SVC_DATA: Record<
       rate: 0
     }
   }
+}
+
+const BAND_OPEN = {
+  problemId: 'pd-band-open',
+  displayId: 'P-E2E41',
+  title: 'Caída de pagos en la franja'
+}
+const BAND_CLOSED = {
+  problemId: 'pd-band-closed',
+  displayId: 'P-E2E42',
+  title: 'Lentitud resuelta en la franja'
+}
+/** Inicio y fin de los dos problemas de la franja, contados desde `sim.bandNow` (por test). */
+function bandTimes(): { open: [number, number]; closed: [number, number] } {
+  const now = sim.bandNow
+  return {
+    open: [now - 30 * 60_000, -1],
+    closed: [now - 100 * 60_000, now - 70 * 60_000]
+  }
+}
+
+/**
+ * Ficha 0010: los dos problemas de SVC_BAND_ID (uno abierto y uno cerrado, sin solaparse y
+ * dentro de las últimas 2 h). Salen en las consultas con affectedEntities y en el detalle.
+ */
+function bandProblems(): FakeProblem[] {
+  const times = bandTimes()
+  return (
+    [
+      [BAND_OPEN, 'OPEN', times.open],
+      [BAND_CLOSED, 'CLOSED', times.closed]
+    ] as const
+  ).map(([ids, status, [startTime, endTime]]) => ({
+    ...ids,
+    status,
+    severityLevel: 'ERROR',
+    impactLevel: 'SERVICES',
+    startTime,
+    endTime,
+    affectedEntities: [{ entityId: { id: SVC_BAND_ID, type: 'SERVICE' }, name: 'servicio-franja' }],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: [],
+    evidenceDetails: { totalCount: 0, details: [] }
+  }))
 }
 
 /** Separa un metricSelector por las comas de primer nivel (no las de dentro de paréntesis). */
@@ -1118,7 +1172,16 @@ const defaultSim = () => ({
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
   serviceMetricsFail: false,
   /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
-  entityProblemsFail: false
+  entityProblemsFail: false,
+  /**
+   * Ficha 0010: query de las peticiones a /problems con affectedEntities y SIN status (la lista
+   * de la franja, canal entities:problems). Las de los recuentos siguen en entityProblemQueries.
+   */
+  entityProblemListQueries: [] as URLSearchParams[],
+  /** Ficha 0010: la lista de problemas de una entidad (sin status) falla con un 400. */
+  entityProblemListFail: false,
+  /** Ficha 0010: «ahora» de los problemas de la franja, fijado al empezar cada test. */
+  bandNow: Date.now()
 })
 const sim = defaultSim()
 
@@ -1235,14 +1298,22 @@ async function startServer(): Promise<void> {
         // Ficha 0007: con affectedEntities, como la API: pageSize recorta la lista y
         // totalCount sigue siendo el total.
         if (selector !== null && selector.includes('affectedEntities(')) {
-          sim.entityProblemQueries.push(url.searchParams)
-          if (sim.entityProblemsFail) {
+          // Ficha 0010: sin status es la lista de la franja (aparte de los recuentos).
+          const list = !selector.includes('status(')
+          if (list) sim.entityProblemListQueries.push(url.searchParams)
+          else sim.entityProblemQueries.push(url.searchParams)
+          if (list && sim.entityProblemListFail) {
+            return send(400, {
+              error: { code: 400, message: 'Lista de problemas no disponible (simulado)' }
+            })
+          }
+          if (!list && sim.entityProblemsFail) {
             return send(400, {
               error: { code: 400, message: 'Recuento de problemas no disponible (simulado)' }
             })
           }
           const matching = applySelector(
-            [...problemsFor(token), ...entityCountProblems, ...markerProblems()],
+            [...problemsFor(token), ...entityCountProblems, ...markerProblems(), ...bandProblems()],
             selector
           )
           const pageSize = Number(url.searchParams.get('pageSize') ?? '50')
@@ -1277,9 +1348,12 @@ async function startServer(): Promise<void> {
             })
           }
           // Los de la lista (también los 300 masivos) y uno que solo existe en el detalle.
-          const found = [...problemsFor(token), ...manyProblems, ...detailOnly].find(
-            (p) => p['problemId'] === decodeURIComponent(single[1] ?? '')
-          )
+          const found = [
+            ...problemsFor(token),
+            ...manyProblems,
+            ...detailOnly,
+            ...bandProblems()
+          ].find((p) => p['problemId'] === decodeURIComponent(single[1] ?? ''))
           return found
             ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
             : send(404, { error: { code: 404, message: 'No existe' } })
@@ -5885,4 +5959,201 @@ test('CA8 (0009): la exportación XLSX de un gráfico trae sus series y la hoja 
   expect(info['Hasta']).toBeInstanceOf(Date)
   const span = (info['Hasta'] as Date).getTime() - (info['Desde'] as Date).getTime()
   expect(span).toBe(2 * HOUR)
+})
+
+/**
+ * Ficha 0010: franja de los problemas de la entidad sobre el gráfico «Tasa de error» (canal
+ * entities:problems). SVC_BAND_ID tiene un problema abierto (P-E2E41, desde hace 30 min) y uno
+ * cerrado (P-E2E42, de hace 100 a hace 70 min); SVC_QUIET_ID, ninguno.
+ *
+ * Nombres que fijan estos tests: la franja `service-problem-band`, dentro del panel de la tasa
+ * de error; cada tramo `service-problem-segment`, con `data-problem-id` (el problemId) y
+ * `data-status` (`open` o `closed`), enfocable y con su estado en el nombre accesible
+ * («Abierto» o «Cerrado»); el tooltip de un tramo, `service-problem-tooltip`, con el id visible,
+ * el título, el estado, la hora de inicio y la de fin (HH:MM) o «Activo». Con el canal caído, la
+ * franja sigue, con su aviso (`role="alert"`) y «Reintentar».
+ */
+const problemBand = (): Locator => chartPanel('error-rate').getByTestId('service-problem-band')
+const bandSegments = (): Locator => page.getByTestId('service-problem-segment')
+const bandSegment = (problemId: string): Locator =>
+  problemBand().locator(`[data-testid="service-problem-segment"][data-problem-id="${problemId}"]`)
+const bandTooltip = (): Locator => page.getByTestId('service-problem-tooltip')
+
+/** Ficha 0010: abre la página de un servicio por URL y espera el gráfico de la tasa de error. */
+async function openBandService(id: string): Promise<void> {
+  await goToRoute(`/entities/SERVICE/${id}`)
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  await chartSeries('error-rate')
+}
+
+/** Ficha 0010: hora y minutos (HH:MM) de un instante, en la zona del renderer. */
+async function clockOf(time: number): Promise<string> {
+  return page.evaluate(
+    (t) => new Date(t).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+    time
+  )
+}
+
+/** Ficha 0010: consultas hechas por los tres canales de la página del servicio. */
+const serviceQueries = (): number[] => [
+  sim.serviceMetricQueries.length,
+  sim.entityProblemQueries.length,
+  sim.entityProblemListQueries.length
+]
+
+test('CA4 (0010): en la página de un SERVICE con un problema abierto y uno cerrado salen dos tramos con su estado (atributo y texto) y el tooltip enseña id, título, estado, inicio y fin', async () => {
+  await openBandService(SVC_BAND_ID)
+  const band = problemBand()
+  await expect(band).toBeVisible()
+  await expect(bandSegments()).toHaveCount(2)
+
+  // Una sola consulta de la lista, con la entidad, el rango, pageSize=100 y sort=-startTime.
+  await settledRequests()
+  expect(sim.entityProblemListQueries).toHaveLength(1)
+  const query = sim.entityProblemListQueries[0] as URLSearchParams
+  expect(query.get('problemSelector')).toBe(`affectedEntities("${SVC_BAND_ID}")`)
+  expect(query.get('from')).toBe('now-2h')
+  expect(query.get('pageSize')).toBe('100')
+  expect(query.get('sort')).toBe('-startTime')
+
+  // Estado en un atributo y en el texto (no solo el color).
+  const open = bandSegment(BAND_OPEN.problemId)
+  const closed = bandSegment(BAND_CLOSED.problemId)
+  await expect(open).toHaveAttribute('data-status', 'open')
+  await expect(closed).toHaveAttribute('data-status', 'closed')
+  await expect(open).toHaveAccessibleName(/Abierto/)
+  await expect(open).not.toHaveAccessibleName(/Cerrado/)
+  await expect(closed).toHaveAccessibleName(/Cerrado/)
+  await expect(closed).not.toHaveAccessibleName(/Abierto/)
+
+  // Los dos dentro de la franja; el cerrado (más antiguo) a la izquierda del abierto.
+  const bandBox = await settledBox(band)
+  const openBox = await settledBox(open)
+  const closedBox = await settledBox(closed)
+  for (const [name, box] of [
+    ['abierto', openBox],
+    ['cerrado', closedBox]
+  ] as const) {
+    expect(box.x, name).toBeGreaterThanOrEqual(bandBox.x - 1)
+    expect(box.x + box.width, name).toBeLessThanOrEqual(bandBox.x + bandBox.width + 1)
+    expect(box.width, name).toBeGreaterThan(0)
+  }
+  expect(closedBox.x + closedBox.width).toBeLessThanOrEqual(openBox.x + 1)
+
+  const times = bandTimes()
+  // Tooltip con el ratón: el cerrado, con su inicio y su fin.
+  await hoverFresh(page, closed)
+  const tooltip = bandTooltip()
+  await expect(tooltip).toBeVisible()
+  for (const text of [
+    BAND_CLOSED.displayId,
+    BAND_CLOSED.title,
+    'Cerrado',
+    await clockOf(times.closed[0]),
+    await clockOf(times.closed[1])
+  ]) {
+    await expect(tooltip, text).toContainText(text)
+  }
+  await expect(tooltip).not.toContainText('Activo')
+  await expect(tooltip).not.toContainText(BAND_OPEN.displayId)
+  await moveToNeutral(page)
+  await expect(tooltip).toHaveCount(0)
+
+  // Tooltip con el foco: el abierto, con su inicio y «Activo» como fin.
+  await open.focus()
+  await expect(tooltip).toBeVisible()
+  for (const text of [
+    BAND_OPEN.displayId,
+    BAND_OPEN.title,
+    'Abierto',
+    await clockOf(times.open[0]),
+    'Activo'
+  ]) {
+    await expect(tooltip, text).toContainText(text)
+  }
+  await expect(tooltip).not.toContainText(BAND_CLOSED.displayId)
+  await open.blur()
+  await expect(tooltip).toHaveCount(0)
+})
+
+test('CA5 (0010): pulsar un tramo (y Enter con el foco) abre el detalle de ese problema; «Volver» vuelve a la página del servicio sin pedir otra vez sus datos', async () => {
+  await openBandService(SVC_BAND_ID)
+  await expect(bandSegments()).toHaveCount(2)
+  await settledRequests()
+  const before = serviceQueries()
+  // Al entrar: las dos consultas de métricas, las dos de recuentos y la de la lista.
+  expect(before).toEqual([2, 2, 1])
+
+  // Clic en el cerrado.
+  await clickInPlace(bandSegment(BAND_CLOSED.problemId))
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(BAND_CLOSED.displayId)
+  expect(await currentRoute()).toBe(`/problems/${BAND_CLOSED.problemId}`)
+
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${SVC_BAND_ID}`)
+  await expect(bandSegments()).toHaveCount(2)
+  await settledRequests()
+  expect(serviceQueries(), 'consultas del servicio tras volver (clic)').toEqual(before)
+
+  // Enter con el foco en el abierto.
+  await bandSegment(BAND_OPEN.problemId).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(BAND_OPEN.displayId)
+  expect(await currentRoute()).toBe(`/problems/${BAND_OPEN.problemId}`)
+
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${SVC_BAND_ID}`)
+  await expect(bandSegments()).toHaveCount(2)
+  await settledRequests()
+  expect(serviceQueries(), 'consultas del servicio tras volver (Enter)').toEqual(before)
+})
+
+test('CA6 (0010): sin problemas en el rango no hay franja ni hueco sobre la tasa de error', async () => {
+  await openBandService(SVC_QUIET_ID)
+  await chartSeries('errors')
+  // La lista se ha pedido y ha vuelto vacía.
+  await expect.poll(() => sim.entityProblemListQueries.length).toBe(1)
+  await settledRequests()
+  await expect(page.getByTestId('service-problem-band')).toHaveCount(0)
+  await expect(bandSegments()).toHaveCount(0)
+
+  // Ni hueco: el gráfico de la tasa de error empieza a la misma altura dentro de su panel que
+  // el de Errores (el de al lado, sin franja) y mide lo mismo.
+  const placement = async (kind: ChartKind): Promise<{ top: number; height: number }> => {
+    const panel = await settledBox(chartPanel(kind))
+    const plot = await settledBox(chartPlot(kind))
+    return { top: Math.round(plot.y - panel.y), height: Math.round(plot.height) }
+  }
+  expect(await placement('error-rate')).toEqual(await placement('errors'))
+})
+
+test('CA6 (0010): si el canal de la lista falla, la franja enseña el aviso con Reintentar y el gráfico de tasa de error sigue', async () => {
+  sim.entityProblemListFail = true
+  await openBandService(SVC_BAND_ID)
+
+  // Aviso en la franja, con Reintentar, y ningún tramo.
+  const band = problemBand()
+  await expect(band).toBeVisible()
+  await expect(band.getByRole('alert').first()).toBeVisible()
+  await expect(band.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  await expect(bandSegments()).toHaveCount(0)
+
+  // El gráfico sigue, con su serie y sin aviso propio; los marcadores de problemas, también.
+  expect(await chartSeries('error-rate')).toHaveLength(1)
+  await expect(chartPanel('error-rate').getByRole('button', { name: 'Reintentar' })).toHaveCount(1)
+  const problems = serviceMarker('problems')
+  await expect(problems.getByTestId('service-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('1'))
+
+  // Reintentar, con el canal ya bien: llegan los dos tramos.
+  sim.entityProblemListFail = false
+  await band.getByRole('button', { name: 'Reintentar' }).click()
+  await expect(bandSegments()).toHaveCount(2)
+  await expect(problemBand().getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  await expect(problemBand().getByRole('alert')).toHaveCount(0)
+  expect(sim.entityProblemListQueries).toHaveLength(2)
 })

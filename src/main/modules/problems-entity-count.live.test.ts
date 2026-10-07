@@ -13,6 +13,10 @@ import { DtError } from '../dynatrace/errors'
  * da 200?, ¿llega `totalCount` con `pageSize=1`? y ¿coincide con contar la
  * lista completa con el mismo selector y con filtrar a mano la lista del rango?
  *
+ * Ficha 0010 (CA7): ¿la lista con `affectedEntities("<id>")`, el rango, `pageSize=100` y
+ * `sort=-startTime` da 200?, ¿los `startTime`/`endTime` cuadran con el estado (abiertos con
+ * `-1`, cerrados con un fin no anterior al inicio)? y ¿llegan ordenados?
+ *
  * El informe (live-reports/problems-entity-count.json, ignorado) guarda SOLO
  * comportamientos: códigos, tipos de entidad estándar y si las cosas coinciden
  * (sí/no). Nunca ids, nombres, títulos ni recuentos.
@@ -46,6 +50,20 @@ const listItemSchema = z.looseObject({
     .optional()
 })
 type ListItem = z.output<typeof listItemSchema>
+
+/** Ficha 0010: los campos de la franja, tal como los define el esquema `Problem` de la OpenAPI. */
+const bandItemSchema = z.looseObject({
+  problemId: z.string(),
+  displayId: z.string(),
+  title: z.string(),
+  status: z.string(),
+  severityLevel: z.string(),
+  startTime: z.number(),
+  endTime: z.number().nullable(),
+  affectedEntities: z
+    .array(z.looseObject({ entityId: z.looseObject({ id: z.string() }) }))
+    .optional()
+})
 
 /** Código del error, sin su mensaje (puede llevar el host del tenant). */
 function codeOf(error: unknown): string {
@@ -186,7 +204,79 @@ describe.skipIf(live === null)('en vivo (0007): problemas de una entidad', () =>
     }
   })
 
-  it('CA5 (0007): el informe no contiene ningún id ni nombre observado', () => {
+  it('CA7 (0010): la lista con affectedEntities y rango (pageSize=100, sort=-startTime) da 200 y las fechas cuadran con el estado', async (ctx) => {
+    if (sample.length === 0) {
+      ctx.skip()
+      return
+    }
+    const results: Record<string, unknown>[] = []
+    for (const [index, entity] of sample.entries()) {
+      const row: Record<string, unknown> = { muestra: index, tipo: entity.type }
+      try {
+        const page = await client().dtRequest({
+          envId: LIVE_ENV_ID,
+          api: 'classic',
+          path: DT_ENDPOINTS.problems.path,
+          query: {
+            from: RANGE,
+            problemSelector: `affectedEntities("${entity.id}")`,
+            pageSize: 100,
+            sort: '-startTime'
+          },
+          schema: z.looseObject({
+            totalCount: z.unknown(),
+            problems: z.array(z.unknown())
+          })
+        })
+        row['lista'] = 'ok'
+        row['totalCount llega'] = typeof page.totalCount === 'number'
+        row['recortada (totalCount > recibidos)'] =
+          typeof page.totalCount === 'number' && page.totalCount > page.problems.length
+        const items = page.problems.map((raw) => bandItemSchema.safeParse(raw))
+        row['elementos que no cumplen el esquema'] = items.filter((item) => !item.success).length
+        const valid = items.flatMap((item) => (item.success ? [item.data] : []))
+        for (const problem of valid) {
+          observed.add(problem.problemId)
+          observed.add(problem.displayId)
+          observed.add(problem.title)
+        }
+        const open = valid.filter((p) => p.status === 'OPEN')
+        const closed = valid.filter((p) => p.status === 'CLOSED')
+        row['hay abiertos'] = open.length > 0
+        row['hay cerrados'] = closed.length > 0
+        row['estados conocidos (OPEN/CLOSED)'] = valid.every(
+          (p) => p.status === 'OPEN' || p.status === 'CLOSED'
+        )
+        row['abiertos: endTime -1'] = open.every((p) => p.endTime === -1)
+        row['abiertos: algún endTime null'] = open.some((p) => p.endTime === null)
+        row['abiertos: sin fin (-1 o null)'] = open.every(
+          (p) => p.endTime === -1 || p.endTime === null
+        )
+        row['cerrados: endTime >= startTime'] = closed.every(
+          (p) => typeof p.endTime === 'number' && p.endTime !== -1 && p.endTime >= p.startTime
+        )
+        row['startTime en milisegundos'] = valid.every((p) => p.startTime > 1e12)
+        row['orden: startTime de más nuevo a más antiguo'] = valid.every(
+          (p, i) => i === 0 || (valid[i - 1]?.startTime ?? 0) >= p.startTime
+        )
+        row['todos afectan a la entidad'] = valid.every((p) =>
+          (p.affectedEntities ?? []).some((e) => e.entityId.id === entity.id)
+        )
+      } catch (error) {
+        row['lista'] = codeOf(error)
+      }
+      results.push(row)
+    }
+    report['lista de una entidad (0010)'] = results
+    for (const row of results) {
+      expect(row['lista'], `lista de la muestra ${String(row['muestra'])}`).toBe('ok')
+      expect(row['totalCount llega'], 'totalCount').toBe(true)
+      expect(row['abiertos: sin fin (-1 o null)'], 'abiertos sin fin').toBe(true)
+      expect(row['cerrados: endTime >= startTime'], 'cerrados con fin').toBe(true)
+    }
+  })
+
+  it('CA5 (0007) y CA7 (0010): el informe no contiene ningún id ni nombre observado', () => {
     const text = JSON.stringify(report)
     const leaked = [...observed].filter((value) => value.length >= 4 && text.includes(value))
     expect(leaked, 'valores del tenant en el informe').toHaveLength(0)

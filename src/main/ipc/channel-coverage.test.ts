@@ -136,6 +136,8 @@ describe('cobertura de los canales IPC', () => {
     const byFactory = coveredByFactory()
     expect([...(byFactory['modules'] ?? [])].sort()).toEqual([
       'entities:problemCounts',
+      // Ficha 0010: cubierto en modules.test (todos los canales) y entity-problem-list.test.
+      'entities:problems',
       // Ficha 0006: cubierto en modules.test (todos los canales) y service-metrics.test.
       'entities:serviceMetrics',
       'metrics:query',

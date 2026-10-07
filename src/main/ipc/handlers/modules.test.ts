@@ -761,6 +761,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'SERVICE-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0010: lista de problemas de una entidad (su comportamiento, en entity-problem-list.test).
+    await call('entities:problems' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'SERVICE-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     await call('savedQueries:delete', { id: (saved.data as { id: string }).id })
 
     expect(Object.keys(handlers).filter((channel) => !called.has(channel))).toEqual([])
