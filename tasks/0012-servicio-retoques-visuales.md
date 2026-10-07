@@ -1,7 +1,7 @@
 ---
 id: '0012'
 titulo: 'SERVICE: gráficos sin líneas de rejilla, marcadores centrados y miles siempre con separador'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -75,7 +75,21 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS (ficha ligera)
+
+1. [Especificación] Los ejes Y del gráfico de Métricas (`metric-chart-option.ts:39-43`) y del histograma de
+   Problemas (`ProblemsPage.tsx:158-163`) no pasan por `formatNumber`: ECharts pone comas (`addCommas`),
+   y en español sale «2,128,749». La especificación incluye ejes, Problemas y Métricas. Acción:
+   `formatter: (value: number) => formatNumber(value, language)` en el `axisLabel` del eje Y de los dos,
+   como `EvidenceMetricChart.tsx:144`, y un unitario del `formatter` de Métricas («1.234» en es), sin
+   tocar CA1.
+
+Bien: tests sin tocar tras sus commits; los cambios de `problem-evidence.test.ts` solo añaden el
+separador; CA2 y CA3 miden el texto con un `Range`; `grid-cols-1` correcto; el formateador de i18next
+solo toca cantidades (revisadas todas las variables de los locales); hoja Info aceptable.
+
+Opcionales: los tests del formateador se llaman «CA5 (0012)» y CA5 es otra cosa; orden de imports
+`@shared` antes que los relativos; un caso de plural en inglés.
 
 ## Verificación
 
