@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /entities/{entityId}` (`fields`, `from`, `to`) y `GET /entities` (`entitySelector=entityId(...)`, `fields`, `from`, `pageSize`); esquemas `Entity`, `EntityIcon` y `EntityId` de `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `entities.read` (token clásico, `x-token-scopes`) y `environment-api:entities:read` (OAuth). Comportamiento observado en `docs/notas-api-v2.md`, "b) Entities y entityTypes".
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -129,7 +129,16 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1-CA8 con su test; los ajustes del commit de tests a otros tests son solo los del scope nuevo.
+- Scope contrastado con `APIv2.json` (`x-token-scopes` y `ssoAuth`); los módulos existentes piden lo
+  mismo; CA3 cubre clásico y OAuth.
+- Canales: Zod en las dos direcciones, id validado antes de ruta y selector, 1-50 ids, tipos mezclados
+  rechazados (también por prefijo), repetidos quitados, `missing` correcto; la lectura tolerante solo
+  afecta a lo opcional; 404 → `entityNotFound`. `tagText` solo se exporta. Sin datos del tenant.
+- Opcionales: `entityTypeOf` sin guion recorta el último carácter (usar `requestedId` o devolver el
+  texto entero); test de `useModuleAccess("entities")` en la 0015.
 
 ## Verificación
 
