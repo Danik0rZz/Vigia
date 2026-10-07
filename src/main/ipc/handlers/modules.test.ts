@@ -747,6 +747,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'SERVICE-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0016: el canal de métricas del host (su comportamiento, en host-metrics.test).
+    await call('entities:hostMetrics' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'HOST-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     await call('slos:list', { environmentId: envId })
     const saved = await call('savedQueries:save', {
       environmentId: envId,

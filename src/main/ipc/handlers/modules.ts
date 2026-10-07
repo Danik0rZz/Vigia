@@ -35,6 +35,12 @@ import {
   toEntityNames
 } from '../../modules/entities'
 import { markerSelector, seriesSelector, toServiceMetrics } from '../../modules/service-metrics'
+import {
+  HOST_MARKER_SELECTOR,
+  HOST_SERIES_SELECTOR,
+  hostEntitySelector,
+  toHostMetrics
+} from '../../modules/host-metrics'
 import type { SavedQueryStore } from '../../modules/saved-queries'
 import { sloSchema, toSloSummary } from '../../modules/slos'
 import type { TenantRepository } from '../../tenants/repository'
@@ -51,6 +57,7 @@ type ModuleChannels =
   | 'metrics:query'
   | 'metrics:search'
   | 'entities:serviceMetrics'
+  | 'entities:hostMetrics'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -336,6 +343,40 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'serviceMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:hostMetrics': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const entitySelector = hostEntitySelector(entityId)
+      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, entitySelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Series con la resolución que elija la API; marcadores del rango con Inf
+        // (sin fold: mezclarlos da 400).
+        const [series, markers] = await Promise.all([
+          query(HOST_SERIES_SELECTOR),
+          query(HOST_MARKER_SELECTOR, 'Inf')
+        ])
+        return toHostMetrics(series, markers)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'hostMetricsRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }
