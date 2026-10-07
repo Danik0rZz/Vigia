@@ -6758,7 +6758,7 @@ detailOnly.push({
   }
 })
 
-test('CA5 (0012): los números de los avisos (textos de i18next) también llevan separador: 1234 → «1.234»', async () => {
+test('Separador en textos (0012): los números de los avisos (textos de i18next) también llevan separador: 1234 → «1.234»', async () => {
   await goToRoute(`/problems/${THOUSANDS_PROBLEM_ID}`)
   await expect(page.getByTestId('problem-page-title')).toContainText('P-792')
   const section = page.getByTestId('detail-comments')

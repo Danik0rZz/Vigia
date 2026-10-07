@@ -45,3 +45,27 @@ describe('CA1 (0012): el gráfico de Métricas conserva la rejilla', () => {
     expect(yAxis.splitLine).toEqual({ lineStyle: { color: COLORS.border } })
   })
 })
+
+describe('Separador de miles en el eje Y de Métricas (0012)', () => {
+  it('Separador de miles (0012): las etiquetas del eje Y pasan por formatNumber: «1.234» en es, «1,234» en en', () => {
+    for (const [language, expected] of [
+      ['es', '1.234'],
+      ['en', '1,234']
+    ] as const) {
+      const option = metricChartOption({
+        series: SERIES,
+        names: ['cpu'],
+        resolution: '1m',
+        language,
+        colors: COLORS
+      }) as Record<string, unknown>
+      const yAxis = option['yAxis'] as { axisLabel?: { formatter?: unknown } }
+      const formatter = yAxis.axisLabel?.formatter
+      expect(typeof formatter, language).toBe('function')
+      expect((formatter as (value: number) => string)(1234), language).toBe(expected)
+      expect((formatter as (value: number) => string)(2128749), language).toBe(
+        language === 'es' ? '2.128.749' : '2,128,749'
+      )
+    }
+  })
+})
