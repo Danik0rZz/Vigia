@@ -1,7 +1,7 @@
 ---
 id: '0016'
 titulo: 'HOST: exploración en vivo de las métricas y canal de series y marcadores (CPU, memoria, red y disco)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -228,4 +228,11 @@ iowait` no suma el total en 2 de los 3 hosts (hay más componentes de CPU): el d
 
 ## Resultado
 
-(pendiente)
+- Commits: `d35e1f7` (tests), `1209835` (contrato), `80254f5` (series y marcadores), más los de ficha.
+- Ficheros principales: `src/main/modules/host-metrics.ts`, `src/main/ipc/handlers/modules.ts`,
+  `src/shared/ipc.ts`, `src/shared/modules.ts`, `src/main/modules/host-metrics-explore.live.test.ts`,
+  `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Migraciones: no.
+- Las 11 candidatas existen; ninguna se quitó. Lo observado está en `docs/notas-api-v2.md`.
+- Sin entrada en el CHANGELOG: no hay nada visible hasta la 0018.
+- Opcionales del revisor, al BACKLOG (`Mejoras anotadas`).

@@ -121,6 +121,11 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Sacar las opciones comunes de `useConnectionStatus` y `useConnectionStatusKnown`
   (`data/tenants.ts`). (surgió en 0015)
 
+- Marcadores del host (`src/main/modules/host-metrics.ts`): pedir `:avg` explícito (equivale al
+  `defaultAggregation`). (surgió en 0016)
+- Comentario de `fold` + `Inf` en `host-metrics.ts`: citar la 0006 (da 400). (surgió en 0016)
+- CA5 de la 0016: comprobar también la clave `hostMetricsRejected`. (surgió en 0016)
+
 ## Aparcado
 
 - Monaco (fases 5 y 7): no se implementa ni se pregunta por él hasta que Dani lo retome.
@@ -167,3 +172,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0015](tasks/0015-servicio-informacion.md) (lote servicio-2): tarjeta «Información» en la página del
   servicio, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades. Con ella
   queda completo el lote «servicio-2» (0011 a 0015).
+- [0016](tasks/0016-host-datos-metricas.md): canal `entities:hostMetrics` con series y marcadores de CPU, memoria, red y disco del host (lote host; sin cambios visibles hasta la 0018).

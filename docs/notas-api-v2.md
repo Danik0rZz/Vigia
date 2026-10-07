@@ -406,6 +406,38 @@ Muestra: 3 servicios con problemas en los últimos 7 días, con `now-2h` y `now-
   descriptor del resultado): **recortado es un ratio mayor que 1**, y 1 / ratio es la parte que
   llegó. Un ratio < 1 es lo normal. (La app usaba «< 1» y avisaba en falso.)
 
+### Métricas de un host (ficha 0016, observado en vivo, solo lectura)
+
+Muestra: 3 hosts, con `now-2h` y `now-7d`. Las 11 candidatas existen. Todas con
+`resolutionInfSupported: true` y `fold` entre sus transformaciones; dimensión `dt.entity.host`.
+
+| Métrica                           | Unidad       | Por defecto | Agregaciones        | Dimensión extra               |
+| --------------------------------- | ------------ | ----------- | ------------------- | ----------------------------- |
+| `builtin:host.cpu.usage`          | Percent      | avg         | auto, avg, max, min |                               |
+| `builtin:host.cpu.user`           | Percent      | avg         | auto, avg, max, min |                               |
+| `builtin:host.cpu.system`         | Percent      | avg         | auto, avg, max, min |                               |
+| `builtin:host.cpu.iowait`         | Percent      | avg         | auto, avg, max, min |                               |
+| `builtin:host.cpu.load`           | Ratio        | avg         | auto, avg, max, min |                               |
+| `builtin:host.mem.usage`          | Percent      | avg         | auto, avg, max, min |                               |
+| `builtin:host.mem.used`           | Byte         | avg         | auto, avg, max, min |                               |
+| `builtin:host.mem.total`          | Byte         | **value**   | auto, value         |                               |
+| `builtin:host.net.nic.trafficIn`  | BitPerSecond | avg         | auto, avg, max, min | `dt.entity.network_interface` |
+| `builtin:host.net.nic.trafficOut` | BitPerSecond | avg         | auto, avg, max, min | `dt.entity.network_interface` |
+| `builtin:host.disk.usedPct`       | Percent      | avg         | auto, avg, max, min | `dt.entity.disk`              |
+
+- **Una consulta con 10 expresiones** y `entitySelector=entityId("…")` da 200, en el orden pedido y
+  con los mismos `timestamps`. Resolución sin `resolution`: `1m` en 2 h y `1h` en 7 días.
+- **Red y disco** llegan con una serie por interfaz o disco. `:splitBy():sum` (red) da una serie
+  igual a la suma de las interfaces; `:splitBy():max` (disco), al máximo de los discos.
+- **Marcadores:** `resolution=Inf` y `:fold(...)` dan 200 por separado (juntos, 400). En 7 días las
+  medias difieren < 1 %; los máximos coinciden. `cpu.usage:max` con `Inf` difiere del máximo de la
+  serie de medias: el máximo real sale de la consulta con `Inf`.
+- **Nulos:** casi siempre 0 %; un host con 60 % en 7 días. El último punto de `now-2h` puede ser
+  `null`: usada y total salen del último punto con dato.
+- **`mem.used / mem.total × 100` coincide con `mem.usage`.** `user + system + iowait` **no suma el
+  total de CPU** en 2 de 3 hosts (hay más componentes): el desglose no es un reparto.
+- Ratios de recorte entre 0 y 0,01; ninguna respuesta con `warnings`.
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2
