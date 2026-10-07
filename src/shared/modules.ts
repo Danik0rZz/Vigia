@@ -23,6 +23,68 @@ export type SeverityLevel = (typeof severityLevels)[number]
  */
 export const entityIdSchema = z.string().regex(/^[A-Z][A-Z0-9_]*-[0-9A-F]{16}$/)
 
+/** Máximo de ids por relación en `entities:get` y por petición en `entities:names` (ficha 0014). */
+export const MAX_ENTITY_IDS = 50
+/** Largo máximo del texto de una propiedad de entidad (`entities:get`). */
+export const MAX_ENTITY_PROPERTY_LENGTH = 300
+
+/** Tipo de un id de entidad estándar: lo que va antes del guion (`SERVICE`, `HOST`…). */
+export function entityTypeOf(entityId: string): string {
+  return entityId.slice(0, entityId.lastIndexOf('-'))
+}
+
+/**
+ * Ids para resolver sus nombres (`entities:names`): de 1 a 50, cada uno con el
+ * formato estricto de `entityIdSchema` y todos del mismo tipo, porque la API
+ * rechaza con 400 un `entityId(...)` con tipos mezclados (ficha 0014, paso 0).
+ */
+export const entityIdBatchSchema = z
+  .array(entityIdSchema)
+  .min(1)
+  .max(MAX_ENTITY_IDS)
+  .refine((ids) => new Set(ids.map(entityTypeOf)).size === 1, {
+    message: 'Todos los ids deben ser del mismo tipo'
+  })
+
+/** Una relación de la entidad: dirección, nombre, hasta 50 ids y cuántos había. */
+export const entityRelationshipSchema = z.object({
+  direction: z.enum(['from', 'to']),
+  name: z.string(),
+  entities: z.array(z.object({ id: z.string(), type: z.string() })).max(MAX_ENTITY_IDS),
+  total: z.number().int().min(0)
+})
+export type EntityRelationship = z.output<typeof entityRelationshipSchema>
+
+/**
+ * Datos de una entidad (canal `entities:get`, ficha 0014), ya preparados para la
+ * vista. Las propiedades son texto del tenant: la vista las pinta como texto,
+ * nunca como HTML.
+ */
+export const entityDataSchema = z.object({
+  displayName: z.string(),
+  type: z.string(),
+  /** Epoch ms; null si la API no lo da. */
+  firstSeen: z.number().nullable(),
+  lastSeen: z.number().nullable(),
+  /** `icon.primaryIconType`; null si no viene. */
+  iconType: z.string().nullable(),
+  managementZones: z.array(z.string()),
+  tags: z.array(z.string()),
+  /** Todas, en el orden de la respuesta, con el valor a texto y recortado a 300. */
+  properties: z.array(
+    z.object({ key: z.string(), text: z.string().max(MAX_ENTITY_PROPERTY_LENGTH) })
+  ),
+  relationships: z.array(entityRelationshipSchema)
+})
+export type EntityData = z.output<typeof entityDataSchema>
+
+/** Nombres de una lista de ids (canal `entities:names`); `missing`, los que la API no da. */
+export const entityNamesSchema = z.object({
+  names: z.array(z.object({ id: z.string(), name: z.string() })),
+  missing: z.array(z.string())
+})
+export type EntityNames = z.output<typeof entityNamesSchema>
+
 /** Problemas abiertos y cerrados de una entidad; null si la API no da `totalCount`. */
 export const entityProblemCountsSchema = z.object({
   open: z.number().int().min(0).nullable(),

@@ -15,7 +15,10 @@ import {
   exportSettingsSchema,
   MAX_CAPTURE_DATA_URL,
   MAX_EXPORT_ROWS,
+  entityDataSchema,
+  entityIdBatchSchema,
   entityIdSchema,
+  entityNamesSchema,
   entityProblemCountsSchema,
   entityProblemListSchema,
   impactLevels,
@@ -278,6 +281,22 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: entityProblemListSchema
+  },
+  /**
+   * Datos de una entidad: propiedades, etiquetas, zonas y relaciones (ficha 0014).
+   * El id va validado a la ruta de `GET /entities/{entityId}`.
+   */
+  'entities:get': {
+    input: z.object({ environmentId: z.uuid(), entityId: entityIdSchema }),
+    output: entityDataSchema
+  },
+  /**
+   * Nombres de los ids de una relación, a demanda (ficha 0014): de 1 a 50 ids del
+   * mismo tipo. Main construye el `entityId(...)` del selector.
+   */
+  'entities:names': {
+    input: z.object({ environmentId: z.uuid(), entityIds: entityIdBatchSchema }),
+    output: entityNamesSchema
   },
   /** Detalle con evidencias, impacto y comentarios recientes. */
   'problems:get': {

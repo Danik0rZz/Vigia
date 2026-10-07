@@ -257,6 +257,8 @@
     "entityProblemsRejected": "Dynatrace rejected the entity problem count ({{status}}): {{detail}}",
     "entityProblemListRejected": "Dynatrace rejected the entity problem list ({{status}}): {{detail}}",
     "serviceMetricsRejected": "Dynatrace rejected the service metrics query ({{status}}): {{detail}}",
+    "entityNotFound": "The entity does not exist in this environment.",
+    "entityNamesRejected": "Dynatrace rejected the entity names query ({{status}}): {{detail}}",
     "clientMissing": "The client does not exist.",
     "clientNameTaken": "A client with that name already exists.",
     "environmentNameTaken": "The client already has an environment with that name.",
