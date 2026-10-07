@@ -1,7 +1,7 @@
 ---
 id: '0008'
 titulo: 'SERVICE: marcadores arriba de la página (peticiones, tiempos y problemas)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -217,4 +217,12 @@ pillará. No uso `withContentSize`.
 
 ## Resultado
 
-(pendiente)
+- Commits: tests `8923a78`; formato `5817bfd`; interfaz `1cae16b`; arreglo de la ronda 1
+  `5c01dbd`; el resto son actualizaciones de la ficha.
+- Ficheros principales: `src/renderer/src/pages/entities/ServiceMarkers.tsx`, `ServiceEntityPage.tsx`,
+  `EntityPageFrame.tsx`, `src/renderer/src/lib/service-format.ts`, `data/modules.ts` y los `common.json`
+  de es y en.
+- Rondas de revisión: 2 (ronda 1 con cambios por el aviso de error; ronda 2 aprobada).
+- ADR nuevo: ninguno. Migraciones: ninguna.
+- Verifier: verde; los 3 fallos del e2e son de la 0005 (`withContentSize`, escalado al 150 % de la VPS) y
+  también fallan en `main`.

@@ -21,3 +21,5 @@
   segmento no hace ida y vuelta (`entity-route.ts`). Los ids de Dynatrace no lo llevan.
 - Para pintar un componente sacado de un registro (`tipo → componente`), `createElement`: con JSX,
   `react-hooks/static-components` lo toma por un componente creado en el render (`EntityPage.tsx`).
+- El aviso de error de un panel o marcador enseña `errorDetail` (`lib/error-detail.ts`) visible y
+  lleva `role="alert"`, como `ModuleError`; no basta el código traducido ni un `title`.

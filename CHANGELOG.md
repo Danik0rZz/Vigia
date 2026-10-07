@@ -9,6 +9,14 @@ Sin migraciones nuevas.
 
 ### Añadido
 
+- Página de un servicio (desde «Analizar entidad» en el detalle de un problema): ya enseña arriba
+  los cinco marcadores del rango de la barra superior: peticiones OK y KO, tasa de error, tiempo de
+  respuesta (mediana grande, con p90 y p99 debajo) y problemas abiertos y cerrados. Cada marcador se
+  carga por su lado: si falla uno, su aviso lleva el detalle y «Reintentar» y el resto sigue. Sin
+  datos sale «—», no 0. Una línea indica el rango y la resolución («Últimas 2 h · datos por minuto»),
+  y «Actualizar» vuelve a pedir los datos. Las páginas de los otros tipos de entidad siguen en
+  construcción. Es la primera parte visible del lote «servicio» (0006 a 0010); sin migraciones nuevas.
+  (ficha 0008)
 - Detalle del problema: al desplegar un evento de la tabla de evidencias, su descripción sale la
   primera, en una sección «Descripción» con formato (títulos, listas, negrita, código, tablas, citas
   y enlaces), siempre con formato: no hay un modo para ver el texto tal cual, y «Copiar» copia el

@@ -9,7 +9,7 @@ bueno de Dani o de peticiones en su nombre.
 - Lote **servicio** (página de análisis de una entidad SERVICE), aprobado por Dani el 2026-10-07.
   Orden: [0006](tasks/0006-servicio-datos-metricas.md) datos de métricas (hecha),
   [0007](tasks/0007-servicio-problemas.md) recuentos de problemas (hecha),
-  [0008](tasks/0008-servicio-marcadores.md) marcadores, [0009](tasks/0009-servicio-graficos.md)
+  [0008](tasks/0008-servicio-marcadores.md) marcadores (hecha), [0009](tasks/0009-servicio-graficos.md)
   gráficos y [0010](tasks/0010-servicio-banda-problemas.md) franja de problemas.
 
 ## Próximo
@@ -79,6 +79,14 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Propuesta: los 3 e2e de la 0005 con `withContentSize` (CA1, CA2 y CA4) fallan con el escritorio
   remoto al 150 % (ventana de 960×602 en lugar de 960×600); que el test acepte el redondeo de
   Windows al escalado. (surgió en 0006)
+- `service-format.ts` está en `src/renderer/src/lib/**`, que cuenta como transversal y obliga a
+  correr el e2e completo; moverlo a `pages/entities/`. (surgió en 0008)
+- Fichas: poner las «Decisiones del developer» en su propia sección, no dentro de «Ideas surgidas».
+  (surgió en 0008)
+- Marcadores del servicio: si fallan las métricas salen cuatro `role="alert"` a la vez; dejar uno
+  solo. (surgió en 0008)
+- `entities:serviceMetrics`: que main devuelva `requests: null` en los totales cuando no hay
+  datos, en vez de que la interfaz lo deduzca de la serie (`hasRequestData`). (surgió en 0008)
 
 ## Aparcado
 
@@ -103,6 +111,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   v7); arreglados la ruta de la barra superior y volver a exportar en Inicio con la ventana pequeña.
 - [0007](tasks/0007-servicio-problemas.md) (lote servicio): canal `entities:problemCounts` con los
   problemas abiertos y cerrados de una entidad en el rango. Sin interfaz hasta la 0008.
+- [0008](tasks/0008-servicio-marcadores.md) (lote servicio): la página del SERVICE enseña los cinco
+  marcadores del rango (peticiones OK y KO, tasa de error, tiempos con mediana, p90 y p99, y
+  problemas abiertos y cerrados).
 - [0006](tasks/0006-servicio-datos-metricas.md) (lote servicio): canal `entities:serviceMetrics`
   con series y totales del servicio (sin interfaz hasta la 0008 y la 0009), y arreglo del aviso
   falso de «solo parte de los puntos» en Métricas.
