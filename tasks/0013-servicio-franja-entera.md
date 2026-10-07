@@ -1,7 +1,7 @@
 ---
 id: '0013'
 titulo: 'SERVICE: la franja de problemas se ve entera y clara'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -153,3 +153,8 @@ commiteado) sobre `SVC_BAND_ID` (rango 2 h), en la VPS:
   lo que quieren las listas. Lección para `e2e/CLAUDE.md`: el tooltip de Radix se cierra si se
   desplaza un contenedor del disparador, y `focus()` desplaza; traer el tramo a la vista antes de
   enfocarlo (`CA4 (0013)`).
+
+**Cierre (doc-writer, 2026-10-07).** Commits: `4553cd5` (tests), `d3dc6aa` (arreglo). Ficheros
+principales: `src/renderer/src/pages/entities/ProblemBand.tsx` y `e2e/views.spec.ts` (ayuda
+`clickInPlace` con `{ scroll: true }` y CA5 (0010)). Rondas de revisión: 1 (aprobada). ADR nuevo:
+ninguno. Sin migraciones.

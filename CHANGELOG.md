@@ -71,6 +71,10 @@ Sin migraciones nuevas.
 
 ### Corregido
 
+- Página del servicio: la franja de problemas sobre «Tasa de error» se veía cortada (los tramos
+  cortos dejaban el icono a medias). Ahora cada tramo se ve entero, con su icono, con cualquier
+  escalado de pantalla; si no cabe el id, se ve solo el icono, centrado, y el id sigue en el
+  tooltip. Sin migraciones nuevas. (ficha 0013)
 - Métricas: el aviso «la API ha devuelto solo parte de los puntos» salía en casi todas las consultas
   aunque no faltara nada. Ahora solo sale cuando de verdad falta algo, y dice qué parte llegó («…
   alrededor del 67 % de los pedidos»). Lo mismo para las dimensiones y para el aviso del XLSX. Por

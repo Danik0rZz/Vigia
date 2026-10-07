@@ -36,3 +36,7 @@
 - `withContentSize` acepta hasta 2 px de redondeo de Windows al escalar y pasa el tamaño real al cuerpo.
 - En Windows, desde Git Bash `TZ=Europe/Madrid` no llega al proceso (MSYS lo descarta; `TZ=UTC` sí): para
   zonas con barra, PowerShell (`$env:TZ`) o Node.
+- El runner del CI tiene pantalla de 1024×768 y la ventana sale más pequeña: un elemento puede quedar
+  fuera de la vista; antes de pulsar, traerlo a la vista (`clickInPlace(…, { scroll: true })`).
+- El tooltip de Radix se cierra si se desplaza su contenedor, y `focus()` desplaza: primero traer el
+  elemento a la vista y después abrir el tooltip.

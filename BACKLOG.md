@@ -94,6 +94,12 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   (`ProblemBand.tsx:46-58`). (surgió en 0010)
 - `withContentSize` (`e2e/views.spec.ts`): comentar que hoy ningún cuerpo usa el tamaño real
   (`actual`) que recibe. (surgió en 0011)
+- Franja de problemas: con el ancho mínimo, dos problemas cortos y seguidos en la misma fila pueden
+  quedar uno encima del otro (el reparto de filas cuenta el tiempo, no el ancho pintado). (surgió
+  en 0013)
+- Franja de problemas: un tramo de 80-90 px con un id real largo no enseña el id y deja el icono a
+  la izquierda en vez de centrado (`ProblemBand.tsx:179`). (surgió en 0013)
+- e2e «CA4 (0013)»: repetir también las comprobaciones de filas con la ventana del CI. (surgió en 0013)
 
 ## Aparcado
 
@@ -131,3 +137,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   completo el lote «servicio» (0006 a 0010).
 - [0011](tasks/0011-tests-hora-y-escalado.md) (lote servicio-2): e2e independientes de la zona
   horaria y del escalado del escritorio; CI en verde.
+- [0013](tasks/0013-servicio-franja-entera.md) (lote servicio-2): la franja de problemas del
+  servicio se ve entera con cualquier zoom.
