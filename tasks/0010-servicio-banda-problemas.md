@@ -1,7 +1,7 @@
 ---
 id: '0010'
 titulo: 'SERVICE: franja de los problemas de la entidad sobre el gráfico de tasa de error'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -177,6 +177,13 @@ con el simulador ampliado.
   en el historial, a la página del servicio, sin pedir otra vez sus datos.
 - La franja usa el rango del gráfico (contado desde que llegaron las métricas); sin datos del
   gráfico, el de cuando llegó la lista. «Actualizar» de la página también pide la lista.
+
+### Verifier, 2026-10-07, commit `07e7a49`, rango `main..07e7a49`: VERDE
+
+- check: 2125 tests en 105 ficheros, cobertura ok.
+- e2e completo (`ipc.ts` transversal), dos pasadas: 194 pasan y 3 fallan en las dos, los de la 0005 con
+  `withContentSize` (CA1, CA2 y CA4; escalado al 150 % de la VPS), que fallan igual en `main`.
+- `views.spec.ts -g "0010" --repeat-each 3 --workers=1`: 12/12.
 
 ## Resultado
 
