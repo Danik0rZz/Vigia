@@ -7,12 +7,12 @@ ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, es
 lote:
 depende_de: []
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
-rama: feat/0021-e2e-ventana-del-ci
+rama: feat/0021-e2e-ventana-ci
 adrs: [6]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -71,7 +71,17 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO (ficha ligera)
+
+- Tests del developer (`14e74a1`) por criterio; sin tocar después (solo imports y llamadas). CA2 es el primer
+  test de cada spec; CA3 parte de 1000×650 para distinguir "vuelve a FIXED_WINDOW" de "vuelve a como
+  estaba"; CA4 es del verifier.
+- CA1 lee los specs con el AST de TypeScript (robusto ante el formato), cubre el relanzamiento de
+  `tenants` y rechaza los casos malos; `LAUNCHING_SPECS` evita que pase en vacío.
+- La excepción de lint `react-hooks/rules-of-hooks` en `e2e/**` se acepta: el CA1 nombra `useCiWindow`.
+- Opcionales: renombrar y quitar la excepción en otra ficha; reflujo de dos JSDoc en `views.spec.ts`
+  (1747-1749, 5970); `isUseCiWindow` no comprueba el argumento; actualizar la línea 22 de
+  `e2e/CLAUDE.md`. El campo `rama` ya está corregido.
 
 ## Verificación
 
