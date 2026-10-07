@@ -1,7 +1,7 @@
 ---
 id: '0021'
 titulo: Todos los e2e con la ventana del tamaño del CI, también en la VPS
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -79,4 +79,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Resultado
 
-(pendiente)
+- (developer) `useCiWindow(app)` en `e2e/window-size.ts`, junto a `FIXED_WINDOW`, `SMALL_WINDOW` y `viewportSize(page)`; los seis specs lo llaman justo después de `electron.launch` (en tenants, dentro de su lanzador `launch()`, que cubre el relanzamiento). `withContentSize` y `withContentWidth` vuelven a `FIXED_WINDOW` al acabar, no al tamaño de antes.
+- (developer) CA1 en `scripts/e2e-ci-window.test.ts` (vitest ya recoge `scripts/**`): lee cada spec con el AST de TypeScript y exige que la sentencia siguiente al `launch` del `_electron` de Playwright sea `await useCiWindow(...)`; también fija la lista de specs que arrancan la app, para que no pase en vacío.
+- (developer) CA3 en dos tests seguidos de `views`: el primero parte de 1000×650 (otro tamaño dentro de los mínimos) para distinguir «vuelve a FIXED_WINDOW» de «vuelve a como estaba»; el segundo comprueba al empezar que hereda 1024×720.
+- (developer) `eslint.config.mjs`: `react-hooks/rules-of-hooks` desactivada en `e2e/**` (sin React); si no, marca `useCiWindow` dentro del `launch()` de tenants por empezar por «use».
+- (developer) Con la ventana a 1024×720 no falló ningún test que hubiera que ajustar ni salió ningún fallo de la app: e2e completo en la VPS, 209 de 209, dos veces.
