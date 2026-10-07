@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { createServer, type Server } from 'node:https'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -1349,6 +1349,124 @@ async function firstVisibleIndex(): Promise<number> {
   })
 }
 
+/**
+ * Ficha 0005: tamaño fijo del contenido de la ventana para los tests que dependen de la
+ * geometría. Cabe en la pantalla del runner del CI (1024×768 menos la barra de tareas), así que
+ * es el mismo en la VPS y en el CI; con la ventana por defecto (1280×800), el CI la recorta.
+ */
+const FIXED_WINDOW = { width: 1024, height: 720 }
+/** La ventana más pequeña que permite la app (minWidth y minHeight de src/main/window.ts). */
+const SMALL_WINDOW = { width: 960, height: 600 }
+
+type WindowSize = { width: number; height: number }
+
+/** Tamaño del contenido de la ventana tal y como lo ve la página. */
+async function viewportSize(): Promise<WindowSize> {
+  return page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+}
+
+/**
+ * Ejecuta `body` con el contenido de la ventana a `size` (desde main, con setContentSize; la
+ * app no cambia) y deja la ventana como estaba, aunque el test falle.
+ */
+async function withContentSize(size: WindowSize, body: () => Promise<void>): Promise<void> {
+  const original = await app.evaluate(({ BrowserWindow }, wanted) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win === undefined) throw new Error('withContentSize: no hay ventana')
+    const [width = 0, height = 0] = win.getContentSize()
+    win.setContentSize(wanted.width, wanted.height)
+    return { width, height }
+  }, size)
+  try {
+    await expect.poll(viewportSize).toEqual(size)
+    await body()
+  } finally {
+    await app.evaluate(({ BrowserWindow }, back) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(back.width, back.height)
+    }, original)
+    await expect.poll(viewportSize).toEqual(original)
+  }
+}
+
+/** Espera dos frames del renderer (lo que la lista hace con requestAnimationFrame ya ha corrido). */
+async function nextFrames(): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+  )
+}
+
+/**
+ * data-index de las filas de Problemas enteras a la vista: bajo la cabecera fija del grid, dentro
+ * de la zona de scroll y dentro de la ventana.
+ */
+async function fullyVisibleRows(): Promise<number[]> {
+  return page.getByTestId('problems-scroll').evaluate((scroller) => {
+    const box = scroller.getBoundingClientRect()
+    const top =
+      scroller.querySelector('[data-grid-header]')?.getBoundingClientRect().bottom ?? box.top
+    const bottom = Math.min(box.bottom, window.innerHeight)
+    return [...scroller.querySelectorAll<HTMLElement>('[data-testid="problem-row"]')]
+      .filter((row) => {
+        const rect = row.getBoundingClientRect()
+        return rect.top >= top && rect.bottom <= bottom
+      })
+      .map((row) => Number(row.dataset['index']))
+      .sort((a, b) => a - b)
+  })
+}
+
+/**
+ * Si un clic normal en el centro del elemento le llega a él: el elemento que hay en ese punto
+ * es él o algo de dentro. Es la misma comprobación que hace Playwright antes de hacer clic, pero
+ * sin esperar los 60 s del test.
+ */
+async function receivesClick(target: Locator): Promise<boolean> {
+  return target.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return false
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    return hit !== null && element.contains(hit)
+  })
+}
+
+/**
+ * Caja del elemento cuando ya no se mueve: la misma en dos lecturas seguidas, separadas por dos
+ * frames. Al volver a la lista, la página aún se recoloca un momento (por ejemplo, aparece la
+ * barra de scroll de `main`).
+ */
+async function settledBox(
+  target: Locator
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  let last = ''
+  let box: { x: number; y: number; width: number; height: number } | null = null
+  await expect
+    .poll(async () => {
+      await nextFrames()
+      box = await target.boundingBox()
+      const now = JSON.stringify(box)
+      const same = box !== null && now === last
+      last = now
+      return same
+    }, 'el elemento deja de moverse')
+    .toBe(true)
+  if (box === null) throw new Error('settledBox: el elemento no tiene caja')
+  return box
+}
+
+/**
+ * Clic con el ratón en el centro del elemento, donde está, cuando ya no se mueve y nada lo tapa.
+ * Locator.click, si el primer intento no acierta (la página aún se recoloca), reintenta haciendo
+ * scroll para alinear el elemento abajo, y ese scroll cambia lo que se está probando.
+ */
+async function clickInPlace(target: Locator): Promise<void> {
+  const box = await settledBox(target)
+  expect(await receivesClick(target), 'el elemento recibe el clic donde está').toBe(true)
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+}
+
 /** Va a Métricas, pone el selector y la resolución, consulta y espera el gráfico. */
 async function runMetric(selector = 'builtin:host.cpu.usage', resolution = '5m'): Promise<void> {
   await goTo('metrics')
@@ -1375,6 +1493,23 @@ async function exportTo(target: string, option: string): Promise<string> {
     })
     .not.toBe('')
   return join(exportDir, created)
+}
+
+/** Aviso de la exportación junto al menú de `target` («Guardado: <fichero>»). */
+function exportNotice(target: string): Locator {
+  return exportMenu(target).locator('xpath=..').getByRole('status')
+}
+
+/**
+ * Ficha 0005: como exportTo, pero devuelve el fichero cuando ya está escrito. El nombre aparece en
+ * la carpeta en cuanto main empieza a escribirlo (writeFile directo); el aviso «Guardado: …» sale
+ * cuando writeFile ha terminado. Y además, con contenido.
+ */
+async function exportSaved(target: string, option: string): Promise<string> {
+  const file = await exportTo(target, option)
+  await expect(exportNotice(target)).toHaveText(es.export.saved.replace('{{file}}', basename(file)))
+  expect(statSync(file).size, `${basename(file)} vacío`).toBeGreaterThan(0)
+  return file
 }
 
 /** Tamaño CSS del canvas de un gráfico. */
@@ -1529,76 +1664,99 @@ test('sin entorno activo, las tres vistas dicen que no hay entorno', async () =>
   expect(sim.problemsRequests).toBe(before)
 })
 
-test('Problemas: tabla, línea de tiempo y página de detalle con las entidades afectadas', async () => {
-  await openProblems()
-  const rows = page.getByTestId('problem-row')
-  for (const p of problemsA) {
-    await expect(page.getByTestId('problems-grid')).toContainText(p.displayId)
-  }
-  await expect(page.getByTestId('problems-grid')).toContainText('Respuesta lenta en pagos')
-  await expect(page.getByTestId('problems-timeline').locator('canvas').first()).toBeVisible()
+test('CA2 (0005): Problemas: tabla, línea de tiempo y página de detalle con las entidades afectadas; se vuelve con «Volver a Problemas» y con la ruta de la barra superior', async () => {
+  await withContentSize(FIXED_WINDOW, async () => {
+    await openProblems()
+    const rows = page.getByTestId('problem-row')
+    for (const p of problemsA) {
+      await expect(page.getByTestId('problems-grid')).toContainText(p.displayId)
+    }
+    await expect(page.getByTestId('problems-grid')).toContainText('Respuesta lenta en pagos')
+    await expect(page.getByTestId('problems-timeline').locator('canvas').first()).toBeVisible()
 
-  // Sin rango personalizado, la petición va con el rango global (2 h por defecto).
-  expect(sim.lastProblemsQuery.get('from')).toBe('now-2h')
+    // Sin rango personalizado, la petición va con el rango global (2 h por defecto).
+    expect(sim.lastProblemsQuery.get('from')).toBe('now-2h')
 
-  // v0.9.0: el detalle es una página propia, /problems/<problemId>.
-  const detail = await openProblem('P-101')
-  expect(await currentRoute()).toBe('/problems/pa-1')
-  // Al entrar, el foco va al título (los lectores de pantalla anuncian la página).
-  await expect(page.getByTestId('problem-page-title')).toBeFocused()
-  await expect(page.getByTestId('problem-page-title')).toContainText('Respuesta lenta en pagos')
-  // Barra superior: … › Problemas (enlace) › P-101 (página actual).
-  const crumbSection = page.getByTestId('breadcrumb-section')
-  await expect(crumbSection).toHaveText('Problemas')
-  await expect(page.getByTestId('breadcrumb-detail')).toHaveText('P-101')
-  await expect(page.getByTestId('breadcrumb-detail')).toHaveAttribute('aria-current', 'page')
-  // Resumen con lo de la fila: estado, severidad, impacto e inicio.
-  await expect(detail.getByTestId('detail-summary')).toContainText('Rendimiento')
-  await expect(detail.getByTestId('detail-root-cause')).toContainText('pagos')
-  // Todas las entidades afectadas, con nombre, tipo e id.
-  const entities = detail.getByTestId('problem-entity')
-  await expect(entities).toHaveCount(2)
-  // Cada entidad se identifica por su id (los nombres pueden contenerse unos a otros).
-  const byId = (id: string): Locator =>
-    entities.filter({ has: page.getByTestId('entity-id').filter({ hasText: id }) })
-  await expect(byId('SERVICE-AAA1')).toContainText('pagos')
-  await expect(byId('SERVICE-AAA1').getByTestId('entity-type')).toHaveText(/SERVICE/)
-  await expect(byId('HOST-AAA1')).toContainText('host-pagos-01')
-  await expect(byId('HOST-AAA1').getByTestId('entity-type')).toHaveText(/HOST/)
+    // v0.9.0: el detalle es una página propia, /problems/<problemId>.
+    const detail = await openProblem('P-101')
+    expect(await currentRoute()).toBe('/problems/pa-1')
+    // Al entrar, el foco va al título (los lectores de pantalla anuncian la página).
+    await expect(page.getByTestId('problem-page-title')).toBeFocused()
+    await expect(page.getByTestId('problem-page-title')).toContainText('Respuesta lenta en pagos')
+    // Barra superior: … › Problemas (enlace) › P-101 (página actual).
+    const crumbSection = page.getByTestId('breadcrumb-section')
+    await expect(crumbSection).toHaveText('Problemas')
+    await expect(page.getByTestId('breadcrumb-detail')).toHaveText('P-101')
+    await expect(page.getByTestId('breadcrumb-detail')).toHaveAttribute('aria-current', 'page')
+    // Resumen con lo de la fila: estado, severidad, impacto e inicio.
+    await expect(detail.getByTestId('detail-summary')).toContainText('Rendimiento')
+    await expect(detail.getByTestId('detail-root-cause')).toContainText('pagos')
+    // Todas las entidades afectadas, con nombre, tipo e id.
+    const entities = detail.getByTestId('problem-entity')
+    await expect(entities).toHaveCount(2)
+    // Cada entidad se identifica por su id (los nombres pueden contenerse unos a otros).
+    const byId = (id: string): Locator =>
+      entities.filter({ has: page.getByTestId('entity-id').filter({ hasText: id }) })
+    await expect(byId('SERVICE-AAA1')).toContainText('pagos')
+    await expect(byId('SERVICE-AAA1').getByTestId('entity-type')).toHaveText(/SERVICE/)
+    await expect(byId('HOST-AAA1')).toContainText('host-pagos-01')
+    await expect(byId('HOST-AAA1').getByTestId('entity-type')).toHaveText(/HOST/)
 
-  // El detalle se pide con fields y muestra cada parte que llega.
-  // v0.9.1: sin impactAnalysis.
-  await expect.poll(() => sim.lastDetailQuery.get('fields')).toBe('evidenceDetails,recentComments')
-  await expect(detail.getByTestId('detail-evidence')).toContainText('Tiempo de respuesta degradado')
-  await expect(detail.getByTestId('detail-impacts')).toHaveCount(0)
-  await expect(detail.getByTestId('detail-comments')).toContainText(
-    'Revisando el pool de conexiones'
-  )
-  await expect(detail.getByTestId('detail-zones')).toContainText('Producción')
-  await expect(detail.getByTestId('detail-impacted')).toContainText('web')
-  await expect(detail.getByTestId('detail-tags')).toContainText('equipo:pagos')
-  await expect(detail.getByTestId('detail-linked')).toContainText('P-099')
-  await expect(
-    page.locator('[data-testid="export-menu"][data-export-target="problem-page"]')
-  ).toBeVisible()
-  // Ya no hay panel lateral.
-  await expect(page.getByTestId('problem-detail')).toHaveCount(0)
+    // El detalle se pide con fields y muestra cada parte que llega.
+    // v0.9.1: sin impactAnalysis.
+    await expect
+      .poll(() => sim.lastDetailQuery.get('fields'))
+      .toBe('evidenceDetails,recentComments')
+    await expect(detail.getByTestId('detail-evidence')).toContainText(
+      'Tiempo de respuesta degradado'
+    )
+    await expect(detail.getByTestId('detail-impacts')).toHaveCount(0)
+    await expect(detail.getByTestId('detail-comments')).toContainText(
+      'Revisando el pool de conexiones'
+    )
+    await expect(detail.getByTestId('detail-zones')).toContainText('Producción')
+    await expect(detail.getByTestId('detail-impacted')).toContainText('web')
+    await expect(detail.getByTestId('detail-tags')).toContainText('equipo:pagos')
+    await expect(detail.getByTestId('detail-linked')).toContainText('P-099')
+    await expect(
+      page.locator('[data-testid="export-menu"][data-export-target="problem-page"]')
+    ).toBeVisible()
+    // Ya no hay panel lateral.
+    await expect(page.getByTestId('problem-detail')).toHaveCount(0)
 
-  // «Volver a Problemas» vuelve a la lista; la fila abierta queda marcada (data-selected,
-  // sin aria-selected).
-  await detail.getByTestId('problem-back').click()
-  await expect(rows).toHaveCount(3)
-  expect(await currentRoute()).toBe('/problems')
-  await expect(page.getByTestId('breadcrumb-detail')).toHaveCount(0)
-  const p101 = rows.filter({ hasText: 'P-101' })
-  await expect(p101).toHaveAttribute('data-selected', 'true')
-  await expect(p101).not.toHaveAttribute('aria-selected', /.*/)
+    // «Volver a Problemas» vuelve a la lista; la fila abierta queda marcada (data-selected,
+    // sin aria-selected).
+    await detail.getByTestId('problem-back').click()
+    await expect(rows).toHaveCount(3)
+    expect(await currentRoute()).toBe('/problems')
+    await expect(page.getByTestId('breadcrumb-detail')).toHaveCount(0)
+    const p101 = rows.filter({ hasText: 'P-101' })
+    await expect(p101).toHaveAttribute('data-selected', 'true')
+    await expect(p101).not.toHaveAttribute('aria-selected', /.*/)
 
-  // El enlace «Problemas» de la barra superior también lleva a la lista.
-  await openProblem('P-102')
-  await crumbSection.click()
-  await expect(rows).toHaveCount(3)
-  expect(await currentRoute()).toBe('/problems')
+    // El enlace «Problemas» de la barra superior también lleva a la lista, con un clic normal
+    // (sin force ni dispatchEvent): nada lo tapa ni lo recorta.
+    await openProblem('P-102')
+    await expect(crumbSection).toBeVisible()
+    await expect.poll(() => receivesClick(crumbSection), 'el enlace recibe el clic').toBe(true)
+    await crumbSection.click()
+    await expect(rows).toHaveCount(3)
+    expect(await currentRoute()).toBe('/problems')
+  })
+})
+
+test('CA2 (0005): con la ventana más pequeña que permite la app, el enlace «Problemas» de la barra superior se ve y recibe un clic normal', async () => {
+  await withContentSize(SMALL_WINDOW, async () => {
+    await openProblems()
+    await openProblem('P-102')
+    const crumbSection = page.getByTestId('breadcrumb-section')
+    await expect(crumbSection).toHaveText('Problemas')
+    await expect(crumbSection).toBeVisible()
+    await expect.poll(() => receivesClick(crumbSection), 'el enlace recibe el clic').toBe(true)
+    await crumbSection.click()
+    await expect(page.getByTestId('problem-row')).toHaveCount(3)
+    expect(await currentRoute()).toBe('/problems')
+  })
 })
 
 test('AUD-12: mientras el detalle carga, la página ya muestra los datos de la fila', async () => {
@@ -1721,47 +1879,75 @@ test('AUD-12: el detalle se abre con el teclado y, al volver, el foco vuelve a l
   await expect(page.getByTestId('problem-page-title')).toContainText('P-102')
 })
 
-test('v0.9.0: volver del detalle conserva los filtros y la fila visible, con 300 filas virtualizadas', async () => {
-  sim.many = true
-  await goTo('problems')
-  const rows = page.getByTestId('problem-row')
-  await expect(rows.first()).toContainText('P-M')
+for (const size of [FIXED_WINDOW, SMALL_WINDOW]) {
+  test(`CA1 (0005): con 300 filas virtualizadas, volver del detalle (botón e historial) conserva el filtro, la primera fila visible y la abierta marcada y a la vista (${size.width}×${size.height})`, async () => {
+    await withContentSize(size, async () => {
+      sim.many = true
+      await goTo('problems')
+      const rows = page.getByTestId('problem-row')
+      await expect(rows.first()).toContainText('P-M')
+      const row = (index: number): Locator =>
+        page.locator(`[data-testid="problem-row"][data-index="${index}"]`)
 
-  // Un filtro (lo aplica Dynatrace: todos los masivos lo cumplen) y scroll hasta abajo.
-  await page.getByTestId('problems-filter-text').fill('masivo')
-  await expect.poll(() => sim.lastProblemsQuery.get('problemSelector') ?? '').toContain('masivo')
-  await page.getByTestId('problems-scroll').evaluate((el) => {
-    // A mitad de la lista: al final, el scroll se recorta y no hay «primera fila» exacta.
-    el.scrollTop = el.scrollHeight / 2
+      // Un filtro (lo aplica Dynatrace: todos los masivos lo cumplen).
+      await page.getByTestId('problems-filter-text').fill('masivo')
+      await expect
+        .poll(() => sim.lastProblemsQuery.get('problemSelector') ?? '')
+        .toContain('masivo')
+      // La lista entera a la vista (en una ventana pequeña queda por debajo) y scroll a mitad:
+      // al final, el scroll se recorta y no hay «primera fila» exacta.
+      const scroller = page.getByTestId('problems-scroll')
+      await scroller.evaluate((el) => el.scrollIntoView({ block: 'end' }))
+      await scroller.evaluate((el) => {
+        el.scrollTop = el.scrollHeight / 2
+      })
+      await expect.poll(firstVisibleIndex).toBeGreaterThan(100)
+      // La lista guarda el índice en un requestAnimationFrame tras el scroll.
+      await nextFrames()
+      const before = await firstVisibleIndex()
+
+      /**
+       * Abre una fila del centro de las que se ven enteras (no la del borde de la cabecera) con
+       * un clic donde está, sin que el clic mueva la lista, y devuelve su id.
+       */
+      const openMiddleRow = async (): Promise<string> => {
+        await settledBox(scroller)
+        const visible = await fullyVisibleRows()
+        expect(visible.length, 'filas enteras a la vista').toBeGreaterThan(2)
+        const index = visible[Math.floor(visible.length / 2)] ?? -1
+        const id = (await row(index).getAttribute('data-problem-id')) ?? ''
+        expect(id).toMatch(/^pm-\d+$/)
+        await clickInPlace(row(index))
+        await expect(page.getByTestId('problem-page')).toBeVisible()
+        await expect(page.getByTestId('problem-page-title')).toContainText(
+          `P-M${id.slice('pm-'.length)}`
+        )
+        return id
+      }
+
+      /** Lo que se conserva al volver: filtro, primera fila (por índice) y la abierta. */
+      const expectRestored = async (openedId: string): Promise<void> => {
+        await expect(page.getByTestId('problem-page')).toHaveCount(0)
+        await expect(page.getByTestId('problems-filter-text')).toHaveValue('masivo')
+        await expect.poll(firstVisibleIndex).toBe(before)
+        const opened = page.locator(`[data-testid="problem-row"][data-problem-id="${openedId}"]`)
+        await expect(opened).toHaveAttribute('data-selected', 'true')
+        const openedIndex = Number(await opened.getAttribute('data-index'))
+        expect(await fullyVisibleRows(), 'la fila abierta, a la vista').toContain(openedIndex)
+      }
+
+      // Se vuelve con el botón.
+      const first = await openMiddleRow()
+      await page.getByTestId('problem-back').click()
+      await expectRestored(first)
+
+      // Lo mismo con la flecha atrás del historial (history.back).
+      const second = await openMiddleRow()
+      await page.goBack()
+      await expectRestored(second)
+    })
   })
-  await expect.poll(firstVisibleIndex).toBeGreaterThan(100)
-  // Se espera a que la lista guarde el índice (va con requestAnimationFrame).
-  await page.waitForTimeout(200)
-  const before = await firstVisibleIndex()
-
-  // Se abre una fila de las visibles y se vuelve con el botón.
-  const target = page.locator(`[data-testid="problem-row"][data-index="${before + 1}"]`)
-  const openedId = await target.getAttribute('data-problem-id')
-  expect(openedId).toMatch(/^pm-\d+$/)
-  await target.click()
-  await expect(page.getByTestId('problem-page')).toBeVisible()
-  await page.getByTestId('problem-back').click()
-
-  // Mismo filtro, misma fila arriba (por índice, no por píxeles) y la abierta marcada.
-  await expect(page.getByTestId('problems-filter-text')).toHaveValue('masivo')
-  await expect.poll(firstVisibleIndex).toBe(before)
-  await expect(
-    page.locator(`[data-testid="problem-row"][data-problem-id="${openedId}"]`)
-  ).toHaveAttribute('data-selected', 'true')
-
-  // Lo mismo con la flecha atrás del historial (history.back).
-  await page.locator(`[data-testid="problem-row"][data-index="${before}"]`).click()
-  await expect(page.getByTestId('problem-page')).toBeVisible()
-  await page.goBack()
-  await expect(page.getByTestId('problem-page')).toHaveCount(0)
-  await expect(page.getByTestId('problems-filter-text')).toHaveValue('masivo')
-  await expect.poll(firstVisibleIndex).toBe(before)
-})
+}
 
 test('v0.9.0: entrar por URL a un problema con un id raro (- y _) y volver a la lista', async () => {
   // Desde Inicio, sin la lista en caché: la ruta lleva el problemId codificado.
@@ -3617,9 +3803,9 @@ test('exporta problemas a CSV: BOM, ";", una fila por problema y fórmulas neutr
   expect(buffer.toString('utf8')).not.toMatch(/(^|;|")=HYPERLINK/m)
 })
 
-test('exporta problemas a XLSX con su hoja Info, y a TXT alineado y con tabuladores', async () => {
+test('CA5 (0005): exporta problemas a XLSX con sus hojas Datos e Info, a TXT alineado y a TXT con tabuladores, cada fichero leído ya escrito', async () => {
   await openProblems()
-  const xlsx = await exportTo('problems-table', 'export-xlsx')
+  const xlsx = await exportSaved('problems-table', 'export-xlsx')
   expect(xlsx).toMatch(/\.xlsx$/)
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(readFileSync(xlsx) as unknown as ArrayBuffer)
@@ -3649,10 +3835,14 @@ test('exporta problemas a XLSX con su hoja Info, y a TXT alineado y con tabulado
   expect(String(openRow[5]), 'afectadas unidas con " | "').toBe('pagos | host-pagos-01')
   expect(String(openRow[7])).toBe('SERVICE-AAA1 | HOST-AAA1')
 
-  const txt = readFileSync(await exportTo('problems-table', 'export-txt'), 'utf8')
+  const txtFile = await exportSaved('problems-table', 'export-txt')
+  expect(txtFile).toMatch(/\.txt$/)
+  const txt = readFileSync(txtFile, 'utf8')
   expect(txt).toContain('P-101')
   expect(txt).not.toContain('\t')
-  const tabs = readFileSync(await exportTo('problems-table', 'export-txt-tabs'), 'utf8')
+  const tabsFile = await exportSaved('problems-table', 'export-txt-tabs')
+  expect(tabsFile).toMatch(/\.txt$/)
+  const tabs = readFileSync(tabsFile, 'utf8')
   expect(tabs.split(/\r?\n/)[0]).toContain('\t')
 })
 
@@ -3978,13 +4168,13 @@ test('AUD-13: con varias métricas, la leyenda lleva el metricId delante', async
     .toEqual(['HOST-AAA1'])
 })
 
-test('i18n: cambiar de idioma con el gráfico de Métricas abierto lo rehace con el locale nuevo', async () => {
+test('CA3 (0005): i18n: cambiar de idioma con el gráfico de Métricas abierto lo rehace con el locale nuevo y la misma serie', async () => {
   await runMetric('builtin:host.cpu.usage', '5m')
   const chart = page.getByTestId('metric-chart')
-  const series = async (): Promise<string[]> =>
-    JSON.parse((await chart.getAttribute('data-series')) ?? '[]') as string[]
-  const before = await series()
-  expect(before).toEqual(['HOST-AAA1'])
+  // El canvas sale al montar el gráfico, antes de que llegue la consulta: la serie se lee con
+  // espera (toHaveAttribute reintenta), nunca con una lectura suelta tras runMetric.
+  const SERIES = JSON.stringify(['HOST-AAA1'])
+  await expect(chart).toHaveAttribute('data-series', SERIES)
   await expect(chart).toHaveAttribute('data-locale', 'ES')
 
   // Botón de idioma de la barra superior: la página no se desmonta.
@@ -3992,15 +4182,15 @@ test('i18n: cambiar de idioma con el gráfico de Métricas abierto lo rehace con
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   await expect(chart).toHaveAttribute('data-locale', 'EN')
   await expect(chart.locator('canvas').first()).toBeVisible()
-  expect(await series()).toEqual(before)
+  await expect(chart).toHaveAttribute('data-series', SERIES)
 
   // Y de vuelta.
   await page.getByRole('button', { name: en.topbar.language }).click()
   await expect(page.locator('html')).toHaveAttribute('lang', 'es')
   await expect(chart).toHaveAttribute('data-locale', 'ES')
   await expect(chart.locator('canvas').first()).toBeVisible()
-  expect(await series()).toEqual(before)
-  // Los errores de consola los comprueba el último test del spec.
+  await expect(chart).toHaveAttribute('data-series', SERIES)
+  // Los errores de consola los comprueba el afterEach.
 })
 
 test('AUD-13: guardar con un nombre repetido dice que ya existe; cancelar limpia', async () => {
@@ -4083,98 +4273,116 @@ test('Inicio: problemas abiertos, SLOs y salud de servicios', async () => {
   await expect(health).not.toContainText('host-pagos-01')
 })
 
-test('Inicio: estado de cada SLO (con texto y color), sin evaluar y problemas relacionados', async () => {
-  await goTo('home')
-  const card = page.getByTestId('kpi-slos')
-  const item = (name: string): Locator => card.locator('li').filter({ hasText: name })
-  const status = (name: string): Locator => item(name).getByTestId('slo-status')
+test('CA4 (0005): Inicio: estado de cada SLO (con texto y color), sin evaluar, problemas relacionados con su plural y tooltip con el ratón y con el foco', async () => {
+  await withContentSize(FIXED_WINDOW, async () => {
+    await goTo('home')
+    const card = page.getByTestId('kpi-slos')
+    const item = (name: string): Locator => card.locator('li').filter({ hasText: name })
+    const status = (name: string): Locator => item(name).getByTestId('slo-status')
 
-  const expected = [
-    ['Disponibilidad pagos', 'SUCCESS', 'text-muted-foreground'],
-    ['Latencia carrito', 'FAILURE', 'text-danger'],
-    ['Errores de login', 'WARNING', 'text-status-warning'],
-    ['Búsqueda sin datos', 'UNEVALUATED', 'text-muted-foreground']
-  ] as const
-  for (const [name, value, cls] of expected) {
-    await expect(status(name), name).toHaveAttribute('data-status', value)
-    await expect(status(name), name).toHaveClass(new RegExp(`\\b${cls}\\b`))
-    // El color nunca es la única señal: siempre hay texto.
-    expect((await status(name).textContent())?.trim(), name).not.toBe('')
-  }
-  // WARNING no se pinta como FAILURE, ni con su color.
-  await expect(status('Errores de login')).not.toHaveClass(/\btext-danger\b/)
+    const expected = [
+      ['Disponibilidad pagos', 'SUCCESS', 'text-muted-foreground'],
+      ['Latencia carrito', 'FAILURE', 'text-danger'],
+      ['Errores de login', 'WARNING', 'text-status-warning'],
+      ['Búsqueda sin datos', 'UNEVALUATED', 'text-muted-foreground']
+    ] as const
+    for (const [name, value, cls] of expected) {
+      await expect(status(name), name).toHaveAttribute('data-status', value)
+      await expect(status(name), name).toHaveClass(new RegExp(`\\b${cls}\\b`))
+      // El color nunca es la única señal: siempre hay texto.
+      await expect(status(name), name).toHaveText(/\S/)
+    }
+    // WARNING no se pinta como FAILURE, ni con su color.
+    await expect(status('Errores de login')).not.toHaveClass(/\btext-danger\b/)
 
-  // Sin evaluar: «Sin evaluar», nunca «Correcto», y los valores con «—».
-  await expect(status('Búsqueda sin datos')).toHaveText('Sin evaluar')
-  await expect(item('Búsqueda sin datos')).not.toContainText('Correcto')
-  await expect(item('Búsqueda sin datos')).toContainText('—')
+    // Sin evaluar: «Sin evaluar», nunca «Correcto», y los valores con «—».
+    await expect(status('Búsqueda sin datos')).toHaveText('Sin evaluar')
+    await expect(item('Búsqueda sin datos')).not.toContainText('Correcto')
+    await expect(item('Búsqueda sin datos')).toContainText('—')
 
-  // Problemas abiertos relacionados: solo donde hay más de 0, con plural. Con -1 (Dynatrace
-  // no pudo calcularlo, «Errores de login») o 0, nada.
-  await expect(card.getByTestId('slo-related-problems')).toHaveCount(1)
-  await expect(item('Errores de login').getByTestId('slo-related-problems')).toHaveCount(0)
-  await expect(item('Errores de login')).not.toContainText('-1')
-  const related = item('Latencia carrito').getByTestId('slo-related-problems')
-  await expect(related).toHaveText('2 problemas abiertos')
+    // Problemas abiertos relacionados: solo donde hay más de 0, con plural. Con -1 (Dynatrace
+    // no pudo calcularlo, «Errores de login») o 0, nada.
+    await expect(card.getByTestId('slo-related-problems')).toHaveCount(1)
+    await expect(item('Errores de login').getByTestId('slo-related-problems')).toHaveCount(0)
+    await expect(item('Errores de login')).not.toContainText('-1')
+    const related = item('Latencia carrito').getByTestId('slo-related-problems')
+    await expect(related).toHaveText('2 problemas abiertos')
 
-  // Explica de dónde sale el número: tooltip con el ratón y con el foco.
-  const hint = page.getByTestId('slo-related-problems-tooltip')
-  const HINT = 'Lo calcula Dynatrace con el filtro de problemas del SLO'
-  await expect(hint).toHaveCount(0)
-  await hoverFresh(page, related)
-  await expect(hint).toBeVisible()
-  await expect(hint).toContainText(HINT)
-  await moveToNeutral(page)
-  await page.keyboard.press('Escape')
-  await expect(hint).toHaveCount(0)
-  await expect(related).toHaveAttribute('tabindex', '0')
-  await related.focus()
-  await expect(hint).toBeVisible()
-  await expect(hint).toContainText(HINT)
-  await page.keyboard.press('Escape')
-  await expect(hint).toHaveCount(0)
+    // Explica de dónde sale el número: tooltip con el ratón y con el foco.
+    const hint = page.getByTestId('slo-related-problems-tooltip')
+    const HINT = 'Lo calcula Dynatrace con el filtro de problemas del SLO'
+    await expect(hint).toHaveCount(0)
+    await hoverFresh(page, related)
+    await expect(hint).toBeVisible()
+    await expect(hint).toContainText(HINT)
+    await moveToNeutral(page)
+    await page.keyboard.press('Escape')
+    await expect(hint).toHaveCount(0)
+    await expect(related).toHaveAttribute('tabindex', '0')
+    await related.focus()
+    await expect(hint).toBeVisible()
+    await expect(hint).toContainText(HINT)
+    await page.keyboard.press('Escape')
+    await expect(hint).toHaveCount(0)
 
-  // La exportación lleva la columna numérica: vacía sin dato y también con -1 (no calculado),
-  // y en ese caso una nota en Info que lo explica.
-  const NOTE = 'Celdas vacías en «Problemas abiertos relacionados»: Dynatrace no pudo calcularlo'
-  const exported = async (): Promise<{ values: Map<string, unknown>; info: string[] }> => {
-    const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(
-      readFileSync(await exportTo('kpi-slos', 'export-xlsx')) as unknown as ArrayBuffer
-    )
-    const sheet = workbook.getWorksheet('Datos')
-    const header = (sheet?.getRow(1).values as unknown[]).slice(1).map(String)
-    const column = header.indexOf('Problemas abiertos relacionados') + 1
-    expect(column, `cabeceras: ${header.join(' | ')}`).toBeGreaterThan(0)
-    const values = new Map<string, unknown>()
-    sheet?.eachRow((row, n) => {
-      if (n > 1) values.set(String(row.getCell(1).value), row.getCell(column).value)
-    })
-    const info: string[] = []
-    workbook.getWorksheet('Info')?.eachRow((row) => {
-      info.push(String(row.getCell(2).value ?? ''))
-    })
-    return { values, info }
-  }
+    // La exportación lleva la columna numérica: vacía sin dato y también con -1 (no calculado),
+    // y en ese caso una nota en Info que lo explica. Cada XLSX se lee ya escrito.
+    const NOTE = 'Celdas vacías en «Problemas abiertos relacionados»: Dynatrace no pudo calcularlo'
+    const exported = async (): Promise<{ values: Map<string, unknown>; info: string[] }> => {
+      const workbook = new ExcelJS.Workbook()
+      await workbook.xlsx.load(
+        readFileSync(await exportSaved('kpi-slos', 'export-xlsx')) as unknown as ArrayBuffer
+      )
+      const sheet = workbook.getWorksheet('Datos')
+      const header = (sheet?.getRow(1).values as unknown[]).slice(1).map(String)
+      const column = header.indexOf('Problemas abiertos relacionados') + 1
+      expect(column, `cabeceras: ${header.join(' | ')}`).toBeGreaterThan(0)
+      const values = new Map<string, unknown>()
+      sheet?.eachRow((row, n) => {
+        if (n > 1) values.set(String(row.getCell(1).value), row.getCell(column).value)
+      })
+      const info: string[] = []
+      workbook.getWorksheet('Info')?.eachRow((row) => {
+        info.push(String(row.getCell(2).value ?? ''))
+      })
+      return { values, info }
+    }
 
-  const withFailed = await exported()
-  expect(withFailed.values.get('Latencia carrito')).toBe(2)
-  expect(withFailed.values.get('Disponibilidad pagos')).toBe(0)
-  expect(withFailed.values.get('Errores de login') ?? null).toBeNull()
-  expect(withFailed.values.get('Búsqueda sin datos') ?? null).toBeNull()
-  expect(withFailed.info).toContain(NOTE)
+    const withFailed = await exported()
+    expect(withFailed.values.get('Latencia carrito')).toBe(2)
+    expect(withFailed.values.get('Disponibilidad pagos')).toBe(0)
+    expect(withFailed.values.get('Errores de login') ?? null).toBeNull()
+    expect(withFailed.values.get('Búsqueda sin datos') ?? null).toBeNull()
+    expect(withFailed.info).toContain(NOTE)
 
-  // Sin ningún -1, sin la nota.
-  sim.sloRelatedFailed = false
-  try {
+    // Sin ningún -1, sin la nota.
+    sim.sloRelatedFailed = false
+    try {
+      await page.getByTestId('module-refresh').click()
+      await expect(card).toContainText('Errores de login')
+      await expect.poll(async () => (await exported()).values.get('Errores de login')).toBe(0)
+      expect((await exported()).info).not.toContain(NOTE)
+    } finally {
+      sim.sloRelatedFailed = true
+    }
     await page.getByTestId('module-refresh').click()
-    await expect(card).toContainText('Errores de login')
-    await expect.poll(async () => (await exported()).values.get('Errores de login')).toBe(0)
-    expect((await exported()).info).not.toContain(NOTE)
-  } finally {
-    sim.sloRelatedFailed = true
-  }
-  await page.getByTestId('module-refresh').click()
+  })
+})
+
+test('CA4 (0005): con la ventana más pequeña que permite la app, tras exportar los SLOs el aviso no tapa el menú y se puede volver a exportar', async () => {
+  await withContentSize(SMALL_WINDOW, async () => {
+    await goTo('home')
+    await expect(page.getByTestId('kpi-slos')).toContainText('Errores de login')
+    const first = await exportSaved('kpi-slos', 'export-xlsx')
+    // El aviso «Guardado: …» ocupa sitio en la cabecera de la tarjeta: el menú sigue a la vista
+    // y nada (la tarjeta de al lado) lo tapa.
+    await expect(exportMenu('kpi-slos')).toBeVisible()
+    await expect
+      .poll(() => receivesClick(exportMenu('kpi-slos')), 'el menú recibe el clic')
+      .toBe(true)
+    const second = await exportSaved('kpi-slos', 'export-xlsx')
+    expect(second).not.toBe(first)
+  })
 })
 
 test('rango personalizado: valida las fechas y se usa en las peticiones', async () => {
