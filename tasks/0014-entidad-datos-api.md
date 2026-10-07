@@ -1,7 +1,7 @@
 ---
 id: '0014'
 titulo: 'Entidades: datos de una entidad y nombres de sus relaciones (scope entities.read)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -193,6 +193,26 @@ problemas de 7 días; solo comportamientos):**
   simuladores de `e2e/views.spec.ts` y `e2e/tls.spec.ts` (el token de prueba ya lleva
   `entities.read`). Hasta que exista el módulo, `tls.spec` › «con la huella fijada conecta» falla
   porque ve `entities.read` como extra.
+
+**Decisiones del developer (delegadas por Dani, refinables):**
+
+- Módulo puro en `src/main/modules/entities.ts` (con `entities.test.ts` para los casos límite); los
+  dos canales van en `createModuleHandlers`. `tagText` de `problems.ts` se exporta y se reutiliza
+  (el mismo texto de etiqueta que en las evidencias).
+- Texto de una propiedad: listas separadas por `, ` y objetos con sus valores separados por espacio
+  (`JAVA OpenJDK 17.0.2, APACHE_TOMCAT 10.1`); `null` da texto vacío; lo anidado a más de 4 niveles
+  se omite. Se guardan todas las claves, también las internas (la vista decide cuáles enseña).
+- La respuesta de `GET /entities/{id}` se lee de forma tolerante: una parte mal formada se ignora
+  en vez de tumbar la entidad; sin `displayName` se usa el id y sin `type`, el prefijo del id; sin
+  fechas, `firstSeen`/`lastSeen` null. Una relación sin ningún id válido no sale y `total` cuenta
+  los ids válidos.
+- `entities:names`: los ids repetidos se quitan antes de pedir y `entityIdSelector` vuelve a validar
+  cada id (defensa en profundidad), aunque ya lleguen validados por Zod. Un rechazo de Dynatrace
+  sin motivo lleva `entityNamesRejected` (estado y texto); el 404 de `entities:get`,
+  `entityNotFound`.
+- `useModuleAccess` gana el módulo `entities` (`entities.read`) para la 0015; los módulos que ya
+  existían piden los mismos scopes que antes.
+- Lo del paso 0 aún no está en `docs/notas-api-v2.md`: queda para el doc-writer, con "Resultado".
 
 ## Resultado
 
