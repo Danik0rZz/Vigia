@@ -1,7 +1,7 @@
 ---
 id: '0010'
 titulo: 'SERVICE: franja de los problemas de la entidad sobre el gráfico de tasa de error'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -92,7 +92,60 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+**Tests (commit `e78dae2`).** Fallan porque el código aún no existe, no por el propio test
+(vitest: no hay implementación de `entities:problems` en `createModuleHandlers`, no existe
+`./problem-band` y faltan `entities.service.problemBand.*`; e2e: no aparece
+`service-problem-band` ni se pide la lista). Los e2e de la 0006 a la 0009 siguen en verde (15/15)
+con el simulador ampliado.
+
+- CA1 → `src/main/ipc/handlers/entity-problem-list.test.ts`, describe «CA1 (0010)» (una sola
+  petición con `affectedEntities("<id>")` como único criterio, `pageSize=100`, `sort=-startTime`;
+  rangos relativos y absoluto; id no válido sin petición; los siete campos exactos, `-1` y `null`
+  → `null`; `truncated` con `totalCount` mayor, sin pedir más páginas; lista vacía).
+- CA2 → mismo fichero, describe «CA2 (0010)» (dos elementos rotos en `invalid` y el resto llega;
+  un 400 con `reason` de `errorReasonKeys`).
+- CA3 → `src/renderer/src/pages/entities/problem-band.test.ts`, describes «CA3 (0010)» (recorte
+  por los dos lados, fuera del rango sin tramo, abiertos hasta el final, filas sin solapes, como
+  mucho 3, «+N» = los que no caben).
+- CA4 → `e2e/views.spec.ts`, «CA4 (0010): en la página de un SERVICE con un problema abierto y
+  uno cerrado…» (consulta del simulador, `data-status` y nombre accesible, posición en la franja,
+  tooltip con ratón y con foco).
+- CA5 → `e2e/views.spec.ts`, «CA5 (0010): pulsar un tramo (y Enter con el foco)…» (clic en el
+  cerrado y Enter en el abierto; «Volver» (`problem-back`) a `/entities/SERVICE/<id>` sin consultas
+  nuevas de los tres canales).
+- CA6 → `e2e/views.spec.ts`, «CA6 (0010): sin problemas en el rango no hay franja ni hueco…» y
+  «CA6 (0010): si el canal de la lista falla…» (`sim.entityProblemListFail`; aviso y Reintentar en
+  la franja, el gráfico con su serie, los marcadores de problemas siguen; Reintentar recupera).
+- CA7 → `src/main/modules/problems-entity-count.live.test.ts`, «CA7 (0010): la lista con
+  affectedEntities y rango…» (y el de fugas pasa a «CA5 (0007) y CA7 (0010)»). Ejecutada el
+  2026-10-07: 4/4 en verde, 17 peticiones de lectura, sin token en el log ni valores del tenant
+  en el informe. Con tres entidades de la muestra (SERVICE, ENVIRONMENT y
+  PROCESS_GROUP_INSTANCE): 200, `totalCount` llega, sin recortes ni elementos fuera del esquema,
+  orden de más nuevo a más antiguo, todos afectan a la entidad, abiertos con `endTime` `-1`
+  (ninguno `null`) y cerrados con fin no anterior al inicio.
+- CA8 → `src/renderer/src/locales/problem-band.test.ts`, describe «CA8 (0010)».
+
+**Nombres que fijan los tests (la ficha no los daba).**
+
+- Canal `entities:problems` en `createModuleHandlers` (añadido a `channel-coverage.test.ts` y a
+  «todos los canales» de `modules.test.ts`). Salida `{ problems, totalCount, truncated, invalid }`,
+  cada problema con exactamente los siete campos de la ficha.
+- `src/renderer/src/pages/entities/problem-band.ts`: `problemBandLayout(problems, { from, to })`
+  (ms) → `{ segments, overflow }`; cada tramo con `problemId`, `start`, `end` (recortados) y
+  `row` (0-2); `overflow` = problemas del rango sin dibujar (el «+N»).
+- Textos en `entities.service.problemBand` de common: `active` («Activo»), `more` (con
+  `+{{count}}`) y `truncated`.
+- Testids: franja `service-problem-band` dentro del panel `error-rate`; tramos
+  `service-problem-segment` con `data-problem-id` y `data-status` (`open`/`closed`), enfocables y
+  con «Abierto»/«Cerrado» en el nombre accesible; tooltip `service-problem-tooltip` con id visible,
+  título, estado, horas de inicio y fin (HH:MM, `es-ES`) o «Activo». Con el canal caído, la franja
+  sigue con `role="alert"` y «Reintentar».
+- «Ni hueco» (CA6): el gráfico de tasa de error empieza a la misma altura en su panel y mide lo
+  mismo que el de Errores.
+- Simulador: las consultas con `affectedEntities` y sin `status` van a
+  `sim.entityProblemListQueries` (las de recuentos siguen en `entityProblemQueries`);
+  `SVC_BAND_ID` (`…E2E04`, un abierto y un cerrado contados desde `sim.bandNow`) y
+  `SVC_QUIET_ID` (`…E2E05`, sin problemas), con las métricas de `SVC_ID`.
 
 ## Resultado
 
