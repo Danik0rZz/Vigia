@@ -49,6 +49,20 @@ export function useConnectionStatus(envId: string | null): ConnectionReport | nu
   return envId === null ? null : (data ?? null)
 }
 
+/**
+ * Si ya se sabe el resultado de la última prueba de conexión (lo haya o no). Mientras
+ * `connection:status` no responde, `useModuleAccess` no sabe qué scopes faltan y da el módulo
+ * por disponible: un canal que no debe pedirse sin su scope espera a esto (ficha 0015).
+ */
+export function useConnectionStatusKnown(envId: string | null): boolean {
+  const { isPending } = useQuery({
+    queryKey: queryKeys.connectionStatus(envId ?? 'none'),
+    queryFn: () => invoke('connection:status', { environmentId: envId ?? '' }),
+    enabled: envId !== null
+  })
+  return envId !== null && !isPending
+}
+
 export function useTenants(): { clients: Client[]; environments: EnvironmentView[] } {
   const { data } = useQuery({ queryKey: queryKeys.tenants, queryFn: () => invoke('tenants:list') })
   return data ?? { clients: [], environments: [] }

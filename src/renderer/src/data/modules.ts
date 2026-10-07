@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { MODULE_SCOPES } from '@shared/dynatrace'
 import type { IpcOutput } from '@shared/ipc'
 import type { ImpactLevel, SeverityLevel } from '@shared/modules'
@@ -249,6 +249,43 @@ export function useEntityProblems(
       }),
     enabled: envId !== null && entityId !== null,
     ...MANUAL
+  })
+}
+
+/**
+ * Datos de una entidad (canal `entities:get`, ficha 0015): propiedades, zonas, etiquetas y
+ * relaciones. Va bajo el módulo `entities`, así que «Actualizar» de la página la recarga. Con
+ * `entityId` null no se pide nada.
+ */
+export function useEntityInfo(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:get'>> {
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { info: entityId }),
+    queryFn: () => invoke('entities:get', { environmentId: envId ?? '', entityId: entityId ?? '' }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
+ * Nombres de lotes de ids (canal `entities:names`), uno por petición y solo cuando se piden
+ * («Ver nombres», ficha 0015). Cada lote, de 1 a 50 ids del mismo tipo. Su clave no cuelga del
+ * módulo `entities`: «Actualizar» no los vuelve a pedir (gastaría cuota por algo que no cambia).
+ */
+export function useEntityNames(
+  envId: string | null,
+  batches: readonly string[][],
+  enabled: boolean
+): UseQueryResult<IpcOutput<'entities:names'>>[] {
+  return useQueries({
+    queries: batches.map((entityIds) => ({
+      queryKey: [envId ?? '', 'entityNames', entityIds] as const,
+      queryFn: () => invoke('entities:names', { environmentId: envId ?? '', entityIds }),
+      enabled: enabled && envId !== null,
+      ...MANUAL
+    }))
   })
 }
 
