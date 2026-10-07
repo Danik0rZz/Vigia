@@ -24,6 +24,7 @@ import { axisTooltip, timeAxisLabel } from './chart-time'
 import type { ProblemContext } from './EvidenceSection'
 import { ExportMenu } from './ExportMenu'
 import { ApiWarnings } from './ModuleState'
+import { formatNumber } from '@shared/format-number'
 
 /** Series que se dibujan como mucho. */
 const MAX_SERIES = 10
@@ -125,7 +126,7 @@ export function EvidenceMetricChart({
       animation: false,
       grid: { left: 48, right: 16, top: names.length > 1 ? 28 : 12, bottom: 28 },
       tooltip: axisTooltip(i18n.language, (value) =>
-        new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(value)
+        formatNumber(value, i18n.language, { maximumFractionDigits: 2 })
       ),
       legend: names.length > 1 ? { top: 0, textStyle: { color: colors.muted } } : undefined,
       xAxis: {
@@ -143,7 +144,7 @@ export function EvidenceMetricChart({
         axisLabel: {
           color: colors.muted,
           formatter: (value: number) =>
-            new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(value)
+            formatNumber(value, i18n.language, { maximumFractionDigits: 2 })
         }
       },
       series: selection.shown.map((item, index) => ({

@@ -38,6 +38,7 @@ import {
   type ProblemFilterValues
 } from '../data/modules'
 import type { ProblemDetailLocationState } from './ProblemDetailPage'
+import { formatNumber } from '@shared/format-number'
 
 const TEXT_DEBOUNCE_MS = 300
 const BUCKETS = 24
@@ -147,9 +148,7 @@ export function ProblemsPage(): JSX.Element {
     (colors: ChartColors): EChartsCoreOption => ({
       animation: false,
       grid: { left: 32, right: 16, top: 16, bottom: 28 },
-      tooltip: axisTooltip(i18n.language, (value) =>
-        new Intl.NumberFormat(i18n.language).format(value)
-      ),
+      tooltip: axisTooltip(i18n.language, (value) => formatNumber(value, i18n.language)),
       xAxis: {
         type: 'time',
         axisLine: { lineStyle: { color: colors.border } },

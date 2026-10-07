@@ -5,6 +5,7 @@ import { resolutionMs } from '@shared/metric-points'
 import type { ChartColors } from '../../components/Chart'
 import { axisTooltip, timeAxisLabel } from '../../components/chart-time'
 import { formatDurationMs } from '../../lib/service-format'
+import { formatNumber } from '@shared/format-number'
 
 /**
  * Los cuatro gráficos de la página de un SERVICE (ficha 0009), sacados de la
@@ -88,9 +89,9 @@ export function serviceChartSeries(
   }
 }
 
-/** Número con el formato del idioma. */
-function formatNumber(value: number, language: string, maximumFractionDigits: number): string {
-  return new Intl.NumberFormat(language, { maximumFractionDigits }).format(value)
+/** Número con el formato del idioma y separador de miles siempre (ficha 0012). */
+function formatDigits(value: number, language: string, maximumFractionDigits: number): string {
+  return formatNumber(value, language, { maximumFractionDigits })
 }
 
 /** Máximo de los puntos con dato (0 si no hay ninguno). */
@@ -104,24 +105,24 @@ function maxOf(list: ServiceChartSeries[]): number {
 
 /** Etiqueta del eje Y de tiempos: en ms o, si el máximo llega a 1 s, en s. */
 function timeAxisFormatter(max: number, language: string): (value: number) => string {
-  if (max >= 1000) return (value) => `${formatNumber(value / 1000, language, 2)} s`
-  return (value) => `${formatNumber(value, language, 0)} ms`
+  if (max >= 1000) return (value) => `${formatDigits(value / 1000, language, 2)} s`
+  return (value) => `${formatDigits(value, language, 0)} ms`
 }
 
 /** Tasa de error (llega en %, 0–100). */
 function formatPercent(value: number, language: string, digits: number): string {
-  return new Intl.NumberFormat(language, {
+  return formatNumber(value / 100, language, {
     style: 'percent',
     maximumFractionDigits: digits
-  }).format(value / 100)
+  })
 }
 
 /** Peticiones por minuto, abreviadas como en Dynatrace («2K /min»). */
 function formatPerMinute(value: number, language: string, unit: string): string {
-  const short = new Intl.NumberFormat(language, {
+  const short = formatNumber(value, language, {
     notation: 'compact',
     maximumFractionDigits: 1
-  }).format(value)
+  })
   return `${short} ${unit}`
 }
 
@@ -155,8 +156,8 @@ export function serviceChartOption(
         ? (value) => formatPercent(value, language, 2)
         : (value) =>
             t('entities.service.charts.perMinuteTooltip', {
-              perMinute: `${formatNumber(value, language, 2)} ${perMinuteUnit}`,
-              total: formatNumber(value * minutes, language, 0)
+              perMinute: `${formatDigits(value, language, 2)} ${perMinuteUnit}`,
+              total: formatDigits(value * minutes, language, 0)
             })
 
   return {
@@ -179,7 +180,8 @@ export function serviceChartOption(
     yAxis: {
       type: 'value',
       min: 0,
-      splitLine: { lineStyle: { color: colors.border } },
+      // Sin líneas de rejilla (ficha 0012): se quedan las etiquetas y el eje X.
+      splitLine: { show: false },
       axisLabel: { color: colors.muted, formatter: yFormatter }
     },
     series: list.map((item) =>

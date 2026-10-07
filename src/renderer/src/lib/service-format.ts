@@ -1,9 +1,11 @@
+import { formatNumber } from '@shared/format-number'
+
 /**
  * Formato de los marcadores de la página de un SERVICE (ficha 0008), con el
  * idioma de la interfaz. Sin dato (`null`), «—»: nunca un 0 inventado.
  *
- * Los recuentos usan el separador de miles de Intl tal cual: en español no
- * agrupa los números de 4 cifras («1234»), que es lo normal de es-ES.
+ * Los números llevan siempre separador de miles, también los de 4 cifras en
+ * español («9.907»): pasan por `formatNumber` (ficha 0012).
  */
 
 const NO_DATA = '—'
@@ -17,29 +19,29 @@ export function formatDurationMs(value: number | null, language: string): string
   const millis = Math.round(value)
   // 999,6 ms se redondea a 1000: ya es «1,0 s», no «1000 ms».
   if (Math.abs(millis) < 1000) {
-    return `${new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(millis)}${NBSP}ms`
+    return `${formatNumber(millis, language, { maximumFractionDigits: 0 })}${NBSP}ms`
   }
-  const seconds = new Intl.NumberFormat(language, {
+  const seconds = formatNumber(value / 1000, language, {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1
-  }).format(value / 1000)
+  })
   return `${seconds}${NBSP}s`
 }
 
 /** Recuento con el separador de miles del idioma. */
 export function formatCount(value: number | null, language: string): string {
   if (value === null || !Number.isFinite(value)) return NO_DATA
-  return new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(value)
+  return formatNumber(value, language, { maximumFractionDigits: 0 })
 }
 
 /** Tasa de error: llega en % (0–100) y se enseña con un decimal. */
 export function formatErrorRate(value: number | null, language: string): string {
   if (value === null || !Number.isFinite(value)) return NO_DATA
-  return new Intl.NumberFormat(language, {
+  return formatNumber(value / 100, language, {
     style: 'percent',
     minimumFractionDigits: 1,
     maximumFractionDigits: 1
-  }).format(value / 100)
+  })
 }
 
 /** Unidades de la resolución de la API de métricas v2 (`1m`, `5m`, `1h`, `1d`…). */

@@ -14,6 +14,7 @@ import {
 } from '../components/ModuleState'
 import { PageHeader } from '../components/PageHeader'
 import { useModuleAccess, useModuleRefresh, useProblems, useSlos } from '../data/modules'
+import { formatNumber } from '@shared/format-number'
 
 /** Color de cada estado de SLO (tokens de estado, no los de tipo de entorno). */
 const SLO_STATUS_CLASS: Record<ReturnType<typeof sloDisplayStatus>, string> = {
@@ -74,9 +75,7 @@ export function HomePage(): JSX.Element {
 
   const services = useMemo(() => serviceHealth(open.data?.problems ?? []), [open.data])
   const percent = (value: number | null): string =>
-    value === null
-      ? '—'
-      : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(value)
+    value === null ? '—' : formatNumber(value, i18n.language, { maximumFractionDigits: 2 })
 
   if (!access.available) {
     return (

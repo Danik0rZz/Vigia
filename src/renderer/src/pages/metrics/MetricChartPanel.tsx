@@ -5,10 +5,10 @@ import type { MetricResult } from '@shared/modules'
 import { seriesName } from '@shared/metric-points'
 import type { TimeRangeValue } from '@shared/time-range'
 import { Chart, type ChartColors, type ChartHandle } from '../../components/Chart'
-import { axisTooltip, timeAxisLabel } from '../../components/chart-time'
 import { ExportMenu } from '../../components/ExportMenu'
 import { ApiWarnings } from '../../components/ModuleState'
 import { PanelBoundary } from '../../components/PanelBoundary'
+import { metricChartOption } from './metric-chart-option'
 
 /**
  * Parte que sí llegó, en porcentaje entero, de un ratio de recorte («pedido /
@@ -48,34 +48,8 @@ export function MetricChartPanel({
   // Etiquetas según la resolución que devuelve la API, no la pedida.
   const resolution = result?.resolution ?? null
   const buildOption = useCallback(
-    (colors: ChartColors): EChartsCoreOption => ({
-      animation: false,
-      grid: { left: 48, right: 16, top: 24, bottom: 28 },
-      tooltip: axisTooltip(i18n.language, (value) =>
-        new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 3 }).format(value)
-      ),
-      legend: { show: series.length > 1, textStyle: { color: colors.muted }, top: 0 },
-      xAxis: {
-        type: 'time',
-        axisLine: { lineStyle: { color: colors.border } },
-        // Hora local, por niveles: la fecha en el cambio de día (y solo la fecha con puntos diarios).
-        axisLabel: { color: colors.muted, ...timeAxisLabel(i18n.language, resolution) }
-      },
-      yAxis: {
-        type: 'value',
-        splitLine: { lineStyle: { color: colors.border } },
-        axisLabel: { color: colors.muted }
-      },
-      series: series.map((item, index) => ({
-        type: 'line',
-        name: names[index],
-        showSymbol: false,
-        data: item.timestamps.map((time, i) => [time, item.values[i] ?? null]),
-        ...(index === 0
-          ? { lineStyle: { color: colors.accent }, itemStyle: { color: colors.accent } }
-          : {})
-      }))
-    }),
+    (colors: ChartColors): EChartsCoreOption =>
+      metricChartOption({ series, names, resolution, language: i18n.language, colors }),
     [series, names, resolution, i18n.language]
   )
 

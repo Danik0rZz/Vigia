@@ -323,7 +323,7 @@ describe('formatUnit', () => {
     [5 * 1024 ** 2, '5 MB', '5 MB'],
     [2.5 * 1024 ** 3, '2,5 GB', '2.5 GB'],
     // Sin pasar de GB.
-    [2048 * 1024 ** 3, '2048 GB', '2,048 GB']
+    [2048 * 1024 ** 3, '2.048 GB', '2,048 GB']
   ])('bytes: %s → es «%s», en «%s»', (value, es, en) => {
     expect(formatUnit(value, 'Byte', 'es')).toBe(es)
     expect(formatUnit(value, 'Byte', 'en')).toBe(en)
@@ -345,8 +345,8 @@ describe('formatUnit', () => {
     expect(formatUnit(7.125, 'KiloRequest', 'en')).toBe('7.13 KiloRequest')
   })
 
-  it('separador de miles según Intl: en es, 4 cifras van sin punto', () => {
-    expect(formatUnit(1234.5, null, 'es')).toBe('1234,5')
+  it('separador de miles siempre: en es, también con 4 cifras (ficha 0012)', () => {
+    expect(formatUnit(1234.5, null, 'es')).toBe('1.234,5')
   })
 
   it.each([
@@ -355,7 +355,7 @@ describe('formatUnit', () => {
     [999.994, 'MilliSecond', '999,99 ms', '999.99 ms'],
     [999_999, 'MicroSecond', '1 s', '1 s'],
     [1023.999, 'Byte', '1 KB', '1 KB'],
-    [1023.994, 'Byte', '1023,99 B', '1,023.99 B'],
+    [1023.994, 'Byte', '1.023,99 B', '1,023.99 B'],
     [1024 ** 2 - 0.001, 'Byte', '1 MB', '1 MB']
   ])('redondeo antes de la escala: %s %s → es «%s», en «%s»', (value, unit, es, en) => {
     expect(formatUnit(value, unit, 'es')).toBe(es)

@@ -7,6 +7,7 @@ import { errorDetail } from '../lib/error-detail'
 import { listNotice } from '../lib/list-notice'
 import { IpcError } from '../lib/ipc'
 import { BUTTON_SECONDARY } from './styles'
+import { formatNumber } from '@shared/format-number'
 
 /** Módulo desactivado, con la explicación (no es un error). */
 export function ModuleUnavailable({
@@ -115,12 +116,11 @@ export function TruncatedNotice({
   const { t, i18n } = useTranslation()
   const notice = listNotice({ shown, loaded, total, truncated, filtered })
   if (notice === null) return null
-  const format = new Intl.NumberFormat(i18n.language)
   // `count` va sin formato: i18next lo usa para elegir el plural.
   const params = Object.fromEntries(
     Object.entries(notice.params).map(([key, value]) => [
       key,
-      key === 'count' ? value : format.format(value)
+      key === 'count' ? value : formatNumber(value, i18n.language)
     ])
   )
   return (

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { eventMetricSchema, type EventMetric } from './event-metric'
 import { compareCodes, type Comparator, type GridSort } from './grid-sort'
+import { formatNumber } from './format-number'
 
 /** Valor que se muestra cuando un dato no está o no es un número. */
 export const NOT_AVAILABLE = 'N/A'
@@ -427,8 +428,7 @@ export function formatUnit(value: number | null, unit: string | null, lang: stri
   if (!finite(value)) return NOT_AVAILABLE
   // Un valor que no es 0 nunca se pinta como 0: "< 0,01" con los decimales que toquen.
   const number = (n: number, digits = 2): string => {
-    const format = (x: number): string =>
-      new Intl.NumberFormat(lang, { maximumFractionDigits: digits }).format(x)
+    const format = (x: number): string => formatNumber(x, lang, { maximumFractionDigits: digits })
     const smallest = 10 ** -digits
     if (n !== 0 && Math.abs(n) < smallest / 2) {
       return `${n < 0 ? '> -' : '< '}${format(smallest)}`

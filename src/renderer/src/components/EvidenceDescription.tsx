@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { MAX_DESCRIPTION_LENGTH, type EventDescription } from '@shared/problem-evidence'
 import { invoke } from '../lib/ipc'
 import { MarkdownText } from './MarkdownText'
+import { formatNumber } from '@shared/format-number'
 
 /**
  * Sección «Descripción» del detalle de un EVENT (dt.event.description, ficha
@@ -60,7 +61,7 @@ export function EvidenceDescription({
       {description.truncated && (
         <p data-testid="evidence-description-truncated" className="text-xs text-muted-foreground">
           {t('problems.eventTable.description.truncated', {
-            max: new Intl.NumberFormat(i18n.language).format(MAX_DESCRIPTION_LENGTH)
+            max: formatNumber(MAX_DESCRIPTION_LENGTH, i18n.language)
           })}
         </p>
       )}

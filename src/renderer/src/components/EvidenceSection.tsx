@@ -56,6 +56,7 @@ import { EvidenceDescription } from './EvidenceDescription'
 import { EvidenceMetricChart } from './EvidenceMetricChart'
 import { PanelBoundary } from './PanelBoundary'
 import { BUTTON_SECONDARY, INPUT } from './styles'
+import { formatNumber } from '@shared/format-number'
 
 /** Lo que las evidencias necesitan del problema: sus fechas y el "ahora" de sus gráficos. */
 export interface ProblemContext {
@@ -127,9 +128,9 @@ function ChangeCard({
     change === null
       ? NOT_AVAILABLE
       : change.ratio !== null
-        ? `${change.ratio >= 1 ? '+' : ''}${new Intl.NumberFormat(i18n.language, {
+        ? `${change.ratio >= 1 ? '+' : ''}${formatNumber((change.ratio - 1) * 100, i18n.language, {
             maximumFractionDigits: 1
-          }).format((change.ratio - 1) * 100)} %`
+          })} %`
         : `${(change.delta ?? 0) >= 0 ? '+' : ''}${formatUnit(change.delta, view.unit, i18n.language)}`
   return (
     <div data-testid="evidence-change" className="grid gap-1">

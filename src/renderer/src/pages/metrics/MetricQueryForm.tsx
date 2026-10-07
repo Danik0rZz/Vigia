@@ -4,6 +4,7 @@ import { Save } from 'lucide-react'
 import { estimatePoints, POINTS_WARNING, suggestResolution } from '@shared/metric-points'
 import { RefreshButton } from '../../components/ModuleState'
 import { BUTTON_PRIMARY, BUTTON_SECONDARY, INPUT } from '../../components/styles'
+import { formatNumber } from '@shared/format-number'
 
 /** Resoluciones del selector; '' = la de por defecto de la API (120 puntos). */
 const RESOLUTIONS = ['', '1m', '5m', '10m', '1h', '6h', '1d', 'Inf'] as const
@@ -96,7 +97,7 @@ export function MetricQueryForm({
         >
           <span>
             {t('metrics.pointsEstimate', {
-              points: new Intl.NumberFormat(i18n.language).format(points)
+              points: formatNumber(points, i18n.language)
             })}
           </span>
           {suggestion !== resolution && (
