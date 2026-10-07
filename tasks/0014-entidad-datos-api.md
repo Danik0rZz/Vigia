@@ -1,7 +1,7 @@
 ---
 id: '0014'
 titulo: 'Entidades: datos de una entidad y nombres de sus relaciones (scope entities.read)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -222,6 +222,13 @@ problemas de 7 días; solo comportamientos):**
 - `useModuleAccess` gana el módulo `entities` (`entities.read`) para la 0015; los módulos que ya
   existían piden los mismos scopes que antes.
 - Lo del paso 0 aún no está en `docs/notas-api-v2.md`: queda para el doc-writer, con "Resultado".
+
+### Verifier, 2026-10-08, commit `b4e8ebc`, rango `main..b4e8ebc`: VERDE
+
+- check: 2193 tests en 112 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 216/216.
+- `-g "(0014)" --repeat-each 3 --workers=1`: 3/3.
+- El intermitente que vio el developer (v0.9.0, exportación del detalle de un problema) no salió.
 
 ## Resultado
 
