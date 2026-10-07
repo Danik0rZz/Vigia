@@ -14,7 +14,10 @@ export const metricDataSchema = z.object({
   result: z.array(
     z.object({
       metricId: z.string(),
-      /** < 1 si la API ha recortado puntos o dimensiones (observado en vivo). */
+      /**
+       * Pedido / máximo permitido (OpenAPI v2): > 1 si la API ha recortado puntos o
+       * dimensiones. En vivo llegan siempre, entre 0 y 0,01 en consultas normales.
+       */
       dataPointCountRatio: z.number().optional(),
       dimensionCountRatio: z.number().optional(),
       data: z.array(
@@ -28,8 +31,29 @@ export const metricDataSchema = z.object({
   )
 })
 
+export type MetricData = z.output<typeof metricDataSchema>
+
+/**
+ * Regla única de recorte (ficha 0006, CA6 y CA8): un ratio es de recorte si es
+ * mayor que 1 (se pidieron más puntos o dimensiones de los permitidos). Si no lo
+ * es, o no llega, va a null.
+ */
+const truncatedRatio = (value: number | undefined): number | null =>
+  value !== undefined && value > 1 ? value : null
+
+/** Solo los resultados recortados, con el ratio que no lo es a null. */
+export function truncatedResults(data: MetricData): MetricResult['partial'] {
+  return data.result.flatMap((metric) => {
+    const dataPoints = truncatedRatio(metric.dataPointCountRatio)
+    const dimensions = truncatedRatio(metric.dimensionCountRatio)
+    return dataPoints === null && dimensions === null
+      ? []
+      : [{ metricId: metric.metricId, dataPoints, dimensions }]
+  })
+}
+
 /** Una serie por combinación de métrica y dimensiones. */
-export function toMetricSeries(data: z.output<typeof metricDataSchema>): MetricResult {
+export function toMetricSeries(data: MetricData): MetricResult {
   return {
     resolution: data.resolution,
     series: data.result.flatMap((metric) =>
@@ -41,16 +65,7 @@ export function toMetricSeries(data: z.output<typeof metricDataSchema>): MetricR
       }))
     ),
     warnings: data.warnings ?? [],
-    // Solo los resultados recortados: un ratio < 1 (el que no lo sea, a null).
-    partial: data.result.flatMap((metric) => {
-      const ratio = (value: number | undefined): number | null =>
-        value !== undefined && value < 1 ? value : null
-      const dataPoints = ratio(metric.dataPointCountRatio)
-      const dimensions = ratio(metric.dimensionCountRatio)
-      return dataPoints === null && dimensions === null
-        ? []
-        : [{ metricId: metric.metricId, dataPoints, dimensions }]
-    })
+    partial: truncatedResults(data)
   }
 }
 

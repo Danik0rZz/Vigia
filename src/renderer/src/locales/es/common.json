@@ -541,8 +541,8 @@
     "pointsEstimate": "Unos {{points}} puntos por serie: la consulta puede tardar y el gráfico, ir lento.",
     "useResolution": "Usar {{resolution}}",
     "resolutionApplied": "Resolución aplicada: {{resolution}}",
-    "partialPoints": "{{metricId}}: la API ha devuelto solo parte de los puntos ({{percent}} %).",
-    "partialDimensions": "{{metricId}}: la API ha devuelto solo parte de las dimensiones ({{percent}} %).",
+    "partialPoints": "{{metricId}}: la API ha devuelto solo parte de los puntos (alrededor del {{percent}} % de los pedidos).",
+    "partialDimensions": "{{metricId}}: la API ha devuelto solo parte de las dimensiones (alrededor del {{percent}} % de las pedidas).",
     "exportColumns": {
       "time": "Fecha",
       "metricId": "Métrica",

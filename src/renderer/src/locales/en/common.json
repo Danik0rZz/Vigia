@@ -541,8 +541,8 @@
     "pointsEstimate": "About {{points}} points per series: the query may be slow and so may the chart.",
     "useResolution": "Use {{resolution}}",
     "resolutionApplied": "Applied resolution: {{resolution}}",
-    "partialPoints": "{{metricId}}: the API returned only part of the data points ({{percent}} %).",
-    "partialDimensions": "{{metricId}}: the API returned only part of the dimensions ({{percent}} %).",
+    "partialPoints": "{{metricId}}: the API returned only part of the data points (about {{percent}} % of those requested).",
+    "partialDimensions": "{{metricId}}: the API returned only part of the dimensions (about {{percent}} % of those requested).",
     "exportColumns": {
       "time": "Time",
       "metricId": "Metric",

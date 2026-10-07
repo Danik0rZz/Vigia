@@ -10,8 +10,11 @@ import { ExportMenu } from '../../components/ExportMenu'
 import { ApiWarnings } from '../../components/ModuleState'
 import { PanelBoundary } from '../../components/PanelBoundary'
 
-/** Porcentaje entero de un ratio (0,5 → 50). */
-const percent = (ratio: number): number => Math.round(ratio * 100)
+/**
+ * Parte que sí llegó, en porcentaje entero, de un ratio de recorte («pedido /
+ * máximo permitido», siempre > 1): 1,5 → 67; 4 → 25. Como mínimo 1.
+ */
+const percent = (ratio: number): number => Math.max(1, Math.round(100 / ratio))
 
 /**
  * Gráfico del resultado, con su exportación y, debajo, los avisos: resolución
