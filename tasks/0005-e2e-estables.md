@@ -1,7 +1,7 @@
 ---
 id: '0005'
 titulo: e2e de views.spec.ts que dependen de la máquina, sustituidos por tests estables
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | bloqueada
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0005-e2e-estables
 adrs: [6, 7]
@@ -113,6 +113,18 @@ verifier lo ejecuta y lo copia en "Verificación"). Son 5 repeticiones, más que
   arreglarlo; el doc-writer los lleva a `docs/pendiente-dani.md` al cerrar la versión). Si se
   arregla el 1 o el 2, como mínimo: con la ventana pequeña, que la ruta de la barra superior se
   pulsa y que al volver de un problema la lista queda en la misma fila.
+- **Ruta de la barra superior con la ventana pequeña (arreglo de la app, CA2).** Con un entorno
+  activo, hacer la ventana lo más pequeña que deje (960×600) o de unos 1024 px de ancho. Ir a
+  Problemas y abrir uno. En la barra superior debe verse «Problemas › P-…» entero; «Cliente ›
+  Entorno» se recorta o desaparece de la ruta (sigue en el selector de entorno, que también se
+  recorta) y la búsqueda queda solo con la lupa (al pasar el ratón dice «Buscar»; Ctrl+K sigue
+  igual). Pulsar «Problemas» en la ruta: vuelve a la lista. Con la ventana a 1280 px o más, la barra
+  se ve como antes (con «Buscar Ctrl K»).
+- **Volver a exportar desde Inicio con la ventana pequeña (arreglo de la app, CA4).** Con la ventana
+  a 960×600 (o unos 1024 px de ancho), en Inicio, exportar los SLOs a XLSX desde el botón de
+  descarga de su tarjeta. Debe salir «Guardado: …» junto al botón, recortado con «…» si no cabe (al
+  pasar el ratón se ve entero), y el botón debe seguir dentro de la tarjeta. Pulsarlo otra vez y
+  exportar de nuevo: se guarda un segundo fichero.
 
 ## Fuera de alcance
 
@@ -165,4 +177,26 @@ y CA4 en rojo por la app; el cambio de tamaño de la ventana no afecta a los dem
 
 ## Resultado
 
-(pendiente)
+Fallos de la app arreglados (para Dani):
+
+- **CA2, ruta de la barra superior.** Qué fallaba: con la ventana a 1024 px de ancho o menos, el
+  `<nav>` de la ruta se quedaba en 0 px (los demás controles de la cabecera no encogían) y la ruta
+  no se veía: «Problemas» quedaba recortado y en su sitio estaba la cabecera arrastrable, así que no
+  se podía pulsar. Cambio (`TopBar.tsx`, `EnvSelector.tsx`): la sección y el detalle no encogen y
+  marcan el mínimo de la ruta; lo que se recorta es «Cliente › Entorno» (que también está en el
+  selector); el selector de entorno puede encoger hasta 64 px (recorta el nombre, deja el distintivo
+  y la flecha), y la búsqueda queda solo con la lupa por debajo de 1280 px (su nombre accesible y el
+  `title` siguen siendo «Buscar»). Medido: a 960 px la ruta mide 125 px y se ve entera; a 1280 px,
+  como antes.
+- **CA4, exportar de nuevo desde Inicio.** Qué fallaba: tras exportar, el aviso «Guardado:
+  <fichero>» ensanchaba la cabecera de la tarjeta de SLOs más que su columna (a 1024 px o menos) y
+  el botón de exportar se salía de la tarjeta y quedaba debajo de «Salud de servicios»: no se podía
+  volver a exportar hasta recargar. Cambio (`ExportMenu.tsx`, `HomePage.tsx`): el aviso se queda,
+  pero encoge y se recorta con «…» (texto entero en el `title`); el botón y el título de la tarjeta
+  no encogen. Medido: la cabecera de la tarjeta ocupa 196 de 211 px a 960 px.
+
+CI: `actions/checkout@v7` y `actions/setup-node@v7` (versión elegida en "Verificación", CA6).
+
+Developer: `npm run check` en verde (94 ficheros, 1989 tests); `npm run test:e2e` 179 en verde;
+`npx playwright test e2e/views.spec.ts -g "0005" --repeat-each 5 --workers=1` 40 en verde (8 tests
+× 5).
