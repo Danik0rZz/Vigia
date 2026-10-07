@@ -176,7 +176,8 @@ ninguno. Sin migraciones.
   ancho la cuadrícula va en dos columnas y los tramos de 2 h miden 58,8 px (con zoom 1), así que
   la app oculta el id. Con 1008×705 no se reproduce: la cuadrícula pasa a una columna y los tramos
   miden 145,8 px (con id); con zoom 1,5 bajan a 63 px (solo el icono). En la VPS (1280×802), 90,8
-  y 108,3 px, con id.
+  y 108,3 px, con id. **La ventana real del runner que reprodujo el fallo es la de 1024×720** (no
+  la de 1008×705 de `CI_WINDOW`).
 - **Arreglo.** `segmentFits` mide también el ancho natural del id, el sitio dentro del tramo y lo
   que piden el icono y el id en una línea (relleno de la línea, icono, hueco e id). `expectIdRule`:
   si cabe (con 1 px de margen por el redondeo), el id se ve y entero; si no cabe, ningún texto y el
@@ -195,7 +196,12 @@ ninguno. Sin migraciones.
   lo que pide − 1]; en la VPS, sitio 81 px y pide 83,4. Fallaba con el código de entonces (icono a
   31 px del centro). Arreglo en `be29817`: la línea va siempre centrada y el id lleva `grow`; con
   el id al lado no sobra sitio y quedan a la izquierda; con el id en la segunda línea, el icono
-  queda solo y centrado, sin umbral de ancho. Sin `@container`.
+  queda solo y centrado, sin umbral de ancho. Sin `@container`. Tras la ronda 2 (opcional del
+  revisor), `aa9afa7`: la precondición ya no pide 80 px de sitio ni que el id pida más de 83 (solo
+  tenían sentido con el umbral de 5rem y dependían de la fuente; en la VPS el margen era de 0,4
+  px): la duración se calcula para que el sitio quede 3 px por debajo de lo que pide el id, con
+  cualquier fuente, y se sigue exigiendo id oculto e icono centrado. Que nunca se vea medio id lo
+  garantiza `expectSegmentsWhole`.
 - **Otras suposiciones de ventana (0009, 0010 y 0013), sin tocar porque no fallan.** CA6 (0010),
   sin hueco: compara la tasa de error con «el de al lado» (Errores); con una columna está debajo,
   pero la comparación es dentro de su panel y sigue valiendo. CA6 (0009) fija 1024 de ancho con
@@ -207,3 +213,4 @@ ninguno. Sin migraciones.
   VPS, 24 con el contenido a 1008×705 y 24 a 1024×720 (fijado en un `beforeEach` temporal, sin
   commitear). `npm run test:e2e:affected -- main..HEAD`: 124 passed. Tras el arreglo de la app, lo
   mismo: check en verde (2134), 24/24 en las tres ventanas y 124 en los afectados.
+  Tras `aa9afa7`: check en verde (2134) y 24/24 con la ventana de la VPS y a 1024×720.
