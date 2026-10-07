@@ -1,7 +1,7 @@
 ---
 id: '0006'
 titulo: 'SERVICE: exploración en vivo y canal de métricas del servicio (series y marcadores)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio
@@ -321,3 +321,9 @@ mínimo 1 %): «la API ha devuelto solo parte de los puntos (alrededor del 67 % 
 sentencias). e2e completo (`src/shared/ipc.ts` es transversal): 178 en verde y 3 fallos, los
 conocidos de la VPS con `withContentSize` (ventana 960×602 con el escritorio al 150 %): CA2, CA1 y
 CA4 de la 0005, que fallan igual en `main`. «CA7 (0006)» y «AUD-13 y CA8 (0006)», en verde.
+
+**Cierre (doc-writer, 2026-10-07).** Commits de código: `7fa9042` (canal) y `0b65177` (arreglo de
+Métricas), con los tests en `b606bcb` y `e75f635`. Ficheros principales:
+`src/main/modules/service-metrics.ts`, `src/main/modules/metrics.ts`, `src/main/ipc/handlers/modules.ts`,
+`src/shared/modules.ts` y `src/shared/ipc.ts`. Una ronda de revisión (aprobada a la primera). Sin ADR
+nuevo ni migraciones. Lo observado en vivo, en `docs/notas-api-v2.md`.

@@ -7,7 +7,7 @@ bueno de Dani o de peticiones en su nombre.
 ## En curso
 
 - Lote **servicio** (página de análisis de una entidad SERVICE), aprobado por Dani el 2026-10-07.
-  Orden: [0006](tasks/0006-servicio-datos-metricas.md) datos de métricas,
+  Orden: [0006](tasks/0006-servicio-datos-metricas.md) datos de métricas (hecha),
   [0007](tasks/0007-servicio-problemas.md) recuentos de problemas (hecha),
   [0008](tasks/0008-servicio-marcadores.md) marcadores, [0009](tasks/0009-servicio-graficos.md)
   gráficos y [0010](tasks/0010-servicio-banda-problemas.md) franja de problemas.
@@ -69,6 +69,16 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   ponerlas junto a la "Verificación". (surgió en 0007)
 - e2e CA2 de la ventana pequeña: comprobar también que el botón «Buscar» (solo con la lupa) se ve y
   tiene nombre accesible. (surgió en 0005)
+- e2e de Métricas (AUD-13 y CA8): fijar el porcentaje del aviso («alrededor del 67 %» con ratio
+  1,5). (surgió en 0006)
+- `entities:serviceMetrics`: prefijar en español el `message` del `catch`, como en la 0007.
+  (surgió en 0006)
+- e2e intermitente `views.spec.ts:2482` («v0.10.0: tabla de evidencias: estado propio por evento
+  en un problema cerrado»): falló una vez en la tirada completa y pasó 3/3 aislado; causa sin
+  investigar. (surgió en 0006)
+- Propuesta: los 3 e2e de la 0005 con `withContentSize` (CA1, CA2 y CA4) fallan con el escritorio
+  remoto al 150 % (ventana de 960×602 en lugar de 960×600); que el test acepte el redondeo de
+  Windows al escalado. (surgió en 0006)
 
 ## Aparcado
 
@@ -93,3 +103,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   v7); arreglados la ruta de la barra superior y volver a exportar en Inicio con la ventana pequeña.
 - [0007](tasks/0007-servicio-problemas.md) (lote servicio): canal `entities:problemCounts` con los
   problemas abiertos y cerrados de una entidad en el rango. Sin interfaz hasta la 0008.
+- [0006](tasks/0006-servicio-datos-metricas.md) (lote servicio): canal `entities:serviceMetrics`
+  con series y totales del servicio (sin interfaz hasta la 0008 y la 0009), y arreglo del aviso
+  falso de «solo parte de los puntos» en Métricas.

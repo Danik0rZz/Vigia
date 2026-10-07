@@ -344,6 +344,33 @@ Las consultas usan una métrica estándar (`builtin:host.cpu.usage`).
 - **Tiempos:** mediana de unos 340 ms y máximo por debajo de 1 s (la consulta de 10 081 puntos es
   la más lenta).
 
+### Métricas de un servicio (ficha 0006, observado en vivo, solo lectura)
+
+Muestra: 3 servicios con problemas en los últimos 7 días, con `now-2h` y `now-7d`.
+
+- **Unidades** (`GET /metrics/{metricId}`): `builtin:service.response.server` en `MicroSecond`
+  (admite `median` y `percentile`); `requestCount.server` y `errors.server.count` en `Count`;
+  `errors.server.rate` en `Percent` (0–100). Las cuatro con `resolutionInfSupported: true` y
+  `fold` entre sus transformaciones. La app pasa los tiempos a ms (÷ 1000).
+- **Varias expresiones en una consulta:** 6 expresiones separadas por comas dan 200, un resultado
+  por expresión **en el orden pedido** y los mismos `timestamps`. El `metricId` devuelto no es la
+  expresión enviada (Dynatrace quita las comillas del id en el filtro): se casa por posición.
+- **Filtro:** `:filter(eq("dt.entity.service",…)):splitBy("dt.entity.service")` y
+  `entitySelector=entityId("…")` devuelven lo mismo (valores y resolución).
+- **Resolución sin `resolution`:** `1m` en 2 h (10–150 puntos) y `1h` en 7 días (151–1000).
+  Sin `null` en la muestra; los errores llegan como 0, no como hueco.
+- **Totales del rango:** `:fold(sum)` = suma de los puntos de la serie. `resolution=Inf` coincide
+  en 2 h pero no siempre en 7 días (diferencias de hasta ≥ 1 % en errores). Para los tiempos,
+  `resolution=Inf` da la mediana o percentil reales del rango y `:fold(avg)` una media de
+  medianas: valores distintos.
+- **`:fold` junto con `resolution=Inf` en la misma consulta da 400.**
+- **`requestCount.server` incluye las peticiones con error:** errores ≤ peticiones en cada punto y
+  tasa = errores / peticiones × 100. Por eso OK = peticiones − errores.
+- **Ratios de recorte:** `dataPointCountRatio` y `dimensionCountRatio` llegan siempre, entre 0 y
+  0,01 en consultas normales. La OpenAPI los define como «pedido / máximo permitido» (`APIv2.json`,
+  descriptor del resultado): **recortado es un ratio mayor que 1**, y 1 / ratio es la parte que
+  llegó. Un ratio < 1 es lo normal. (La app usaba «< 1» y avisaba en falso.)
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2

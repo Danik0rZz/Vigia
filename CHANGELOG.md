@@ -48,6 +48,12 @@ Sin migraciones nuevas.
 
 ### Corregido
 
+- Métricas: el aviso «la API ha devuelto solo parte de los puntos» salía en casi todas las consultas
+  aunque no faltara nada. Ahora solo sale cuando de verdad falta algo, y dice qué parte llegó («…
+  alrededor del 67 % de los pedidos»). Lo mismo para las dimensiones y para el aviso del XLSX. Por
+  debajo hay además un canal interno nuevo con las métricas de un servicio (series y totales) que
+  todavía no se ve en la interfaz: lo mostrarán las fichas siguientes del lote servicio.
+  (ficha 0006)
 - Con la ventana pequeña (unos 1024 px de ancho o menos), la ruta de la barra superior no se veía y
   no se podía pulsar para volver a la sección. Ahora la sección y el detalle se ven siempre enteros:
   se recorta «Cliente › Entorno» (que sigue en el selector de entorno, que también encoge) y la

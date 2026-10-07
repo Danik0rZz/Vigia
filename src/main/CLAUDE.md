@@ -26,3 +26,7 @@
   literal (por ejemplo `'http:'`).
 - `GET /problems` con `affectedEntities("<id>"),status("open")`: los criterios se combinan con AND y
   `pageSize=1` ya trae `totalCount`; para contar no hace falta paginar (ficha 0007).
+- `GET /metrics/query`: `:fold(...)` y `resolution=Inf` en la misma consulta dan 400; para el valor
+  de todo el rango, `Inf` (tiempos) o sumar la serie (recuentos). `dataPointCountRatio` y
+  `dimensionCountRatio` son «pedido / máximo permitido» y llegan siempre: recortado es un ratio
+  **mayor que 1**, no menor (`truncatedResults`, ficha 0006).
