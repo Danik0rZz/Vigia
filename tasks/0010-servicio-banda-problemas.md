@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /problems` con `problemSelector=affectedEntities("id")`, `from`, `to`, `pageSize` y `sort`; campos `problemId`, `displayId`, `title`, `status`, `severityLevel`, `startTime` y `endTime` del esquema `Problem`; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `problems.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -88,7 +88,18 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1-CA8 con su test; ninguno pasaría sin el código; tests sin tocar desde `e78dae2`.
+- Canal `entities:problems`: Zod en las dos direcciones; id validado antes del selector (sin petición con
+  un id inválido); `endTime` -1 → `null`; `invalid` y `truncated` (también por `nextPageKey`);
+  `entityProblemListRejected` (ADR-0005). Todo existe en `APIv2.json`.
+- «Volver»: `back()` no cambia, la vuelta a Problemas (v0.9.0) sigue igual; CA5 se cumple (`MANUAL`, y el
+  e2e cuenta las consultas de los tres canales).
+- Franja: tramos como `<button>` (Tab y Enter), tooltip con foco, color nunca solo, aviso con
+  `MarkerError`; tramos recortados, abiertos hasta el final, 3 filas y «+N». Sin datos del tenant.
+- Opcionales: no pedir la lista sin acceso a Métricas (`ServiceEntityPage.tsx:34`); un texto propio de
+  la franja en el aviso de error (`ProblemBand.tsx:46-58`).
 
 ## Verificación
 
