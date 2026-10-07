@@ -26,6 +26,14 @@ import {
   toProblemCount,
   toProblemSummary
 } from '../../modules/problems'
+import {
+  ENTITY_FIELDS,
+  entityIdSelector,
+  entityListResponseSchema,
+  entityResponseSchema,
+  toEntityData,
+  toEntityNames
+} from '../../modules/entities'
 import { markerSelector, seriesSelector, toServiceMetrics } from '../../modules/service-metrics'
 import type { SavedQueryStore } from '../../modules/saved-queries'
 import { sloSchema, toSloSummary } from '../../modules/slos'
@@ -38,6 +46,8 @@ type ModuleChannels =
   | 'problems:comments'
   | 'entities:problemCounts'
   | 'entities:problems'
+  | 'entities:get'
+  | 'entities:names'
   | 'metrics:query'
   | 'metrics:search'
   | 'entities:serviceMetrics'
@@ -51,6 +61,8 @@ const PROBLEMS_PAGE_SIZE = 100
 const PROBLEMS_MAX_PAGES = 5
 /** Franja de problemas de una entidad (ficha 0010): una sola página de 100. */
 const ENTITY_PROBLEMS_PAGE_SIZE = 100
+/** Nombres de entidades: una página basta (como mucho 50 ids por petición). */
+const ENTITY_NAMES_PAGE_SIZE = 50
 /** Partes del detalle que no vienen por defecto en GET /problems/{id}. */
 const PROBLEM_DETAIL_FIELDS = 'evidenceDetails,recentComments'
 /** "Ver todos" los comentarios: hasta 4 páginas de 500 (el máximo de la API). */
@@ -225,6 +237,59 @@ export function createModuleHandlers(
             error.status,
             {
               key: 'entityProblemListRejected',
+              params: { status: error.status, detail: error.message }
+            }
+          )
+        }
+        throw error
+      }
+    },
+
+    'entities:get': async ({ environmentId, entityId }) => {
+      repo.getEnvironment(environmentId)
+      try {
+        const entity = await client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          // El id ya viene validado (entityIdSchema); se codifica igual por ser ruta.
+          path: `/entities/${encodeURIComponent(entityId)}`,
+          query: { fields: ENTITY_FIELDS },
+          schema: entityResponseSchema
+        })
+        return toEntityData(entity, entityId)
+      } catch (error) {
+        // La página de una entidad se abre por URL: un id que no existe es un caso normal.
+        if (error instanceof DtError && error.code === 'NOT_FOUND') {
+          throw new DtError('NOT_FOUND', 'La entidad no existe en este entorno.', error.status, {
+            key: 'entityNotFound'
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:names': async ({ environmentId, entityIds }) => {
+      repo.getEnvironment(environmentId)
+      const ids = [...new Set(entityIds)]
+      try {
+        // Sin from: el de por defecto (now-3d) resolvió todos los ids en el paso 0.
+        const page = await client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: DT_ENDPOINTS.entities.path,
+          query: { entitySelector: entityIdSelector(ids), pageSize: ENTITY_NAMES_PAGE_SIZE },
+          schema: entityListResponseSchema
+        })
+        return toEntityNames(page, ids)
+      } catch (error) {
+        // Un rechazo de Dynatrace llega con su texto y sin motivo: se le da uno.
+        if (error instanceof DtError && error.reason === undefined && error.status !== undefined) {
+          throw new DtError(
+            error.code,
+            `Dynatrace ha rechazado la consulta de nombres de entidades: ${error.message}`,
+            error.status,
+            {
+              key: 'entityNamesRejected',
               params: { status: error.status, detail: error.message }
             }
           )

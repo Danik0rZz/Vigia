@@ -265,7 +265,7 @@ export function eventDescription(
 }
 
 /** Tag como texto: stringRepresentation o, si falta o está vacía, key:value o key. */
-function tagText(entry: unknown): string | null {
+export function tagText(entry: unknown): string | null {
   const tag = asObject(entry)
   if (tag === null) return null
   const text = asString(tag['stringRepresentation'])
