@@ -289,7 +289,7 @@ function MarkerSkeleton(): JSX.Element {
  * Aviso compacto de un canal que ha fallado, con Reintentar (solo ese canal): el
  * código traducido y, debajo y en pequeño, el detalle (motivo o texto de Dynatrace).
  */
-function MarkerError({
+export function MarkerError({
   error,
   busy,
   onRetry

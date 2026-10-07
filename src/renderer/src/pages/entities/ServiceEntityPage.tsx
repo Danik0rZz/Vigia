@@ -11,11 +11,13 @@ import {
   unavailableReason
 } from '../../data/modules'
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
+import { ServiceCharts } from './ServiceCharts'
 import { ServiceMarkers } from './ServiceMarkers'
 
 /**
  * Página de análisis de una entidad SERVICE: marcadores del rango global
- * (ficha 0008). Solo pide datos con «Actualizar» o con un rango nuevo (ADR-0004).
+ * (ficha 0008) y, debajo, los cuatro gráficos de peticiones (ficha 0009). Solo
+ * pide datos con «Actualizar» o con un rango nuevo (ADR-0004).
  */
 export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -56,6 +58,8 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
             metricsEnabled={metricsEnv !== null}
             problemsEnabled={problemsEnv !== null}
           />
+          {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
+          {metricsEnv !== null && <ServiceCharts serviceId={serviceId} metrics={metrics} />}
         </>
       )}
     </EntityPageFrame>
