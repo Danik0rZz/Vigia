@@ -234,15 +234,26 @@ now-7d; informe en `live-reports/service-metrics-explore.json`).**
   normales (la OpenAPI: puntos pedidos / máximo permitido por consulta). Ver la nota de abajo.
 - `tokenEnLog: false`; ningún id ni nombre en el informe (CA1).
 
-**Para el Orquestador (no reinterpretado en los tests).**
+**Para el Orquestador (no reinterpretado en los tests).** Las dos dudas de la primera ronda (CA3
+con `fold` e `Inf`, y CA6 con «< 1») están resueltas en "En espera" y en los tests de abajo.
 
-1. Con dos consultas no se puede tener a la vez `:fold(sum)` en los recuentos y `resolution=Inf`
-   en los tiempos (400). CA3 acepta, por cada marcador, recuentos con `:fold(sum)` o
-   `resolution=Inf` y tiempos con `resolution=Inf` o `:fold(avg)`, pero no las dos cosas en la
-   misma consulta; elegir (todo `Inf`, todo `fold`, o una tercera consulta, que CA3 no admite).
-2. CA6 está escrito como «ratio < 1 = recortado», igual que `metrics:query`; en vivo los ratios son
-   siempre < 0,01, así que con esa regla toda respuesta real saldría `partial`. El test sigue la
-   ficha; el simulador de los e2e no manda ratios.
+**Tests de los criterios ajustados (commit `14927c8`).** Fallan con el código actual.
+
+- CA3 → «CA3 (0006)» de `service-metrics.test.ts`: la consulta de marcadores lleva solo los tres
+  tiempos, con `resolution=Inf` y sin `:fold(`. CA4 comprueba que los totales de peticiones y
+  errores son la suma de la serie (el simulador devuelve otros recuentos en los marcadores, por si
+  main los pidiera ahí); CA7 (e2e), lo mismo.
+- CA6 → «CA6 (0006)» del mismo fichero: un ratio de 1,5 o 2 sale en `partial`; con 0,005 o 1, no.
+- CA8 → `src/main/modules/metrics.test.ts`, «CA8 (0006): solo los resultados con algún ratio > 1…» y
+  «CA8 (0006): ratios entre 0 y 1…», y `src/main/ipc/handlers/modules.test.ts`, «CA8 (0006):
+  metrics:query devuelve partial con los ratios > 1…». **Tests que fijaban la regla vieja (< 1) y
+  que han cambiado:** en `metrics.test.ts`, «solo los resultados con algún ratio < 1» y «ratio 0
+  también es recorte» (sustituidos por los dos CA8); en `modules.test.ts`, «AUD-13: metrics:query
+  devuelve partial con los ratios < 1 de la API» (ahora el CA8); y en `e2e/views.spec.ts`,
+  «AUD-13: recortes y warnings…», que pasa a llamarse «AUD-13 y CA8 (0006): …»: usa ratios de 1,5 y
+  4, ya no comprueba el porcentaje del aviso y, al final, con ratios de 0,005 no espera ningún aviso.
+  Con un ratio > 1, el porcentaje del aviso actual («solo parte de los puntos (150 %)») no tiene
+  sentido: el texto lo decide el developer (el test solo busca «solo parte de los puntos»).
 
 ## Resultado
 
