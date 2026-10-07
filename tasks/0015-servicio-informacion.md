@@ -1,7 +1,7 @@
 ---
 id: '0015'
 titulo: 'SERVICE: sección «Información» con propiedades, zonas, etiquetas y relaciones (nombres a demanda)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-2
@@ -212,6 +212,12 @@ revisor de la 0014); ese ya pasa, porque el hook es de la 0014.
   estado que ya usa `EntityPageFrame` para que «Volver» haga `back()`.
 - Dos columnas desde 990 px de ancho de ventana (`min-[990px]:`): entre la estrecha (960) y la del
   CI (1024), con margen para el redondeo de Windows.
+
+### Verifier, 2026-10-08, commit `9446ea6`, rango `main..9446ea6`: VERDE
+
+- check: 2211 tests en 115 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 223/223.
+- `-g "(0015)" --repeat-each 3 --workers=1`: 21/21.
 
 ## Resultado
 
