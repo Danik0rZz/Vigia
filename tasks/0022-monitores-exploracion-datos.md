@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics` (`metricSelector` con comodín `builtin:synthetic.browser.*` y `builtin:synthetic.http.*`, `fields`), `GET /metrics/{metricId}` y `GET /metrics/query`; `GET /entities/{entityId}` (de la 0014) para SYNTHETIC_TEST y HTTP_CHECK; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read` (ya en uso) y `entities.read` (0014).
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -129,6 +129,13 @@ en `null`; id validado antes del selector; `monitorMetricsRejected` (ADR-0005); 
 
 Opcional: los recuentos con `Inf` contradicen la lección de `src/main/CLAUDE.md` (recuentos sumando la
 serie); el live midió diferencias de menos del 1 %: matizar la lección y anotarlo en las notas de la API.
+
+### Ronda 2: APROBADO
+
+- Punto 1 resuelto: las 13 expresiones del canal coinciden carácter por carácter con las probadas en vivo.
+- La frase de la ficha es exacta; tests sin tocar desde `e1c7127` salvo el inventario de canales.
+- Opcionales: añadir `browser.availability` con `splitBy` al paréntesis de la ficha; matizar la lección de
+  recuentos con `Inf` (doc-writer).
 
 ## Verificación
 
