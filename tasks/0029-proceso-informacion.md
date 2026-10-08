@@ -1,7 +1,7 @@
 ---
 id: '0029'
 titulo: 'PROCESS_GROUP_INSTANCE: tarjeta «Información» del proceso (sin línea de comandos)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -149,4 +149,8 @@ en verde con el simulador ampliado.
 
 ## Resultado
 
-(pendiente)
+- **Commits** (`main..HEAD`): tests `8769183`; filtro en main `83d43a5`; filas y grupos `3e08f87`; tarjeta en la página `c0ac149`; puertos con « · » `8dc349e`; el resto, fichas.
+- **Ficheros principales:** `src/main/modules/entity-secrets.ts` (+ `entities.ts`), `src/renderer/src/pages/entities/process-info.ts`, `ProcessInfo.tsx`, `ProcessEntityPage.tsx`, `EntityInfoCard.tsx` y los locales es y en.
+- **Rondas de revisión:** 1 (aprobada). Verifier en verde (2494 unitarios, 215 e2e afectados).
+- **ADR nuevo:** ninguno. Sin migraciones.
+- Sugerencias del revisor pasadas a "Mejoras anotadas" del BACKLOG; la de seguridad, prioritaria.

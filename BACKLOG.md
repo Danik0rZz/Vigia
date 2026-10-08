@@ -9,7 +9,7 @@ bueno de Dani o de peticiones en su nombre.
 - Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020, hecho) → lote **monitores** (0022 a 0026, hecho)
   ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
   browser y HTTP monitor) → lote **proceso**
-  ([0027](tasks/0027-proceso-exploracion-datos.md), hecha–[0028](tasks/0028-proceso-marcadores-graficos.md), hecha–[0029](tasks/0029-proceso-informacion.md)).
+  ([0027](tasks/0027-proceso-exploracion-datos.md), hecha–[0028](tasks/0028-proceso-marcadores-graficos.md), hecha–[0029](tasks/0029-proceso-informacion.md), hecha).
 
 ## Próximo
 
@@ -151,6 +151,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - e2e inestable `e2e/shell.spec.ts:402`: el tooltip de «nav-problems» no aparece en 5 s tras `hoverFresh` (visto en el CI del push de la 0027, run 37733715700, intento 1; al relanzar pasó). Posible arreglo: esperar más o reintentar el hover; ver la lección del tooltip de Radix en `e2e/CLAUDE.md`. (surgió en 0027)
 - Host: los `warnings` de la API se repiten en las dos tarjetas (discos y procesos); mostrarlos una
   sola vez. (surgió en 0019)
+- **Prioritaria (seguridad):** filtro de `entity-secrets.ts`: `isHiddenEntry` solo mira elementos de lista; un `{ key: "COMMAND_LINE_ARGS", value }` como valor directo de una propiedad saldría. Cubrirlo en la rama de objetos de `withoutHiddenValues`. No visto en vivo. (surgió en 0029)
+- `entity-secrets.ts` quita `env` y `environment` exactos en todas las entidades; anotar si se ve en vivo un uso inocuo. (surgió en 0029)
+- Otras claves de `metadata` con rutas (`JAVA_JAR_PATH`, `PHP_SCRIPT_PATH`, `PYTHON_SCRIPT_PATH`, `NODE_JS_APP_BASE_DIRECTORY`, `CATALINA_HOME`…) pueden llevar el nombre del usuario y hoy pasan; si Dani lo quiere, basta añadirlas a `src/main/modules/entity-secrets.ts`. (surgió en 0029)
 
 ## Aparcado
 
@@ -211,3 +214,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0026](tasks/0026-monitores-informacion.md) (lote monitores): tarjeta «Información» en las páginas de browser y HTTP monitor, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; la tarjeta se comparte con servicio y host. Con ella queda completo el lote «monitores» (0022 a 0026).
 - [0027](tasks/0027-proceso-exploracion-datos.md) (lote proceso): canal `entities:processMetrics` con series y marcadores de CPU, memoria, red, salud de red, disponibilidad y recursos de un proceso, y análisis de métricas en vivo (sin cambios visibles hasta la 0028).
 - [0028](tasks/0028-proceso-marcadores-graficos.md) (lote proceso): página del proceso con hasta cinco marcadores (CPU con umbrales 80/90 %, disponibilidad con 95/99 %) y cuatro gráficos (CPU con la franja de problemas, memoria, red y salud de red o recursos), con «Abrir en Métricas» y exportación.
+- [0029](tasks/0029-proceso-informacion.md) (lote proceso): tarjeta «Información» en la página del proceso, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; main filtra la línea de comandos, los argumentos, el entorno y las rutas de ejecutable de las propiedades de cualquier entidad. Con ella queda completo el lote «proceso» (0027 a 0029).
