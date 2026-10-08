@@ -11143,8 +11143,9 @@ test('CA4 (0026): las tarjetas del servicio y del host siguen igual (sus filas y
  * Con la decisión del Orquestador de la 0027, el canal tiene métrica para los seis papeles: un
  * papel sin datos llega con series vacías y su marcador a null, y eso es lo que el simulador puede
  * dejar «sin métrica» (`sim.processEmpty`). Ese papel no se pinta. «Disponibilidad o Recursos» y
- * «Salud de red o Recursos» son «el que haya»: con los dos, la ficha no dice cuál, así que con
- * todos los datos se acepta cualquiera de los dos (uno solo); sin uno de ellos, sale el otro.
+ * «Salud de red o Recursos» son «el que haya»; con los dos, por la decisión del Orquestador en la
+ * ficha 0028, el cuarto marcador es Disponibilidad y el cuarto gráfico, Salud de red; sin el
+ * primero, sale el segundo.
  *
  * Nombres que fijan estos tests (los del host con el prefijo `process`): la fila
  * `process-markers`; cada marcador `process-marker-<id>` (cpu, memory, network, availability o
@@ -11158,8 +11159,9 @@ test('CA4 (0026): las tarjetas del servicio y del host siguen igual (sus filas y
  * `process-problem-band`, dentro del panel de la CPU; cada tramo, `process-problem-segment` con
  * `data-problem-id`.
  *
- * Duda abierta (0027): `fileDescriptorsPercentUsed` dice Percent pero llega en [0, 1]; el
- * marcador de recursos (0,9) se acepta como 0,9 % o como 90 %.
+ * Formato (decisión del Orquestador, ficha 0028): Recursos, como porcentaje tal cual (0,9 →
+ * «0,9 %»); la red, como en el host, en bits por segundo (`formatBitRate`): bytesRx y bytesTx
+ * llegan en BytePerSecond (docs/notas-api-v2.md), así que se multiplican por 8.
  */
 const PROCESS_PAGE_TEST_ID = 'entity-page-process_group_instance'
 const PROCESS_METRIC_MARKERS = ['cpu', 'memory', 'network'] as const
@@ -11243,7 +11245,7 @@ async function processChartKinds(): Promise<string[]> {
 async function expectProcessFourthMarker(id: ProcessFourthMarker): Promise<void> {
   const value = processMarker(id).getByTestId('process-marker-value')
   if (id === 'availability') await expect(value).toHaveText(/^83,5\s?%$/)
-  else await expect(value).toHaveText(/^(0,9|90(,0)?)\s?%$/)
+  else await expect(value).toHaveText(/^0,9\s?%$/)
 }
 
 /**
@@ -11264,13 +11266,12 @@ async function expectProcessMetricMarkers(options: { network?: boolean } = {}): 
     /(^|[^\d.,])330(,0)?\sMB/
   )
   if (options.network === false) return
-  // Red: entrada media 2560 B/s y salida media 384 B/s (en bytes o en bits por segundo).
+  // Red: entrada media 2560 B/s y salida media 384 B/s, en bits por segundo como el host
+  // (20 480 y 3072 bit/s).
   const network = processMarker('network')
-  await expect(network.getByTestId('process-marker-value')).toHaveText(
-    /^(2,56?\skB\/s|20,5\skbit\/s)$/
-  )
+  await expect(network.getByTestId('process-marker-value')).toHaveText(/^20,5\skbit\/s$/)
   await expect(network.getByTestId('process-marker-secondary')).toContainText(
-    /(^|[^\d.,])(384\sB\/s|3,1\skbit\/s)/
+    /(^|[^\d.,])3,1\skbit\/s/
   )
 }
 
@@ -11281,17 +11282,15 @@ async function expectProcessProblems(open: string, closed: string): Promise<void
   await expect(problems.getByTestId('process-marker-closed')).toHaveText(loneNumber(closed))
 }
 
-/** Ficha 0028: cuál de «Disponibilidad» y «Recursos» sale (uno solo, con todos los datos). */
+/**
+ * Ficha 0028: con datos de disponibilidad, el cuarto marcador es el de disponibilidad y el de
+ * recursos no sale (decisión del Orquestador).
+ */
 async function shownFourthMarker(): Promise<ProcessFourthMarker> {
   const row = processPage().getByTestId('process-markers')
-  await expect(
-    row.locator(
-      '[data-testid="process-marker-availability"], [data-testid="process-marker-resources"]'
-    )
-  ).toHaveCount(1)
-  return (await row.getByTestId('process-marker-availability').count()) === 1
-    ? 'availability'
-    : 'resources'
+  await expect(row.getByTestId('process-marker-availability')).toHaveCount(1)
+  await expect(row.getByTestId('process-marker-resources')).toHaveCount(0)
+  return 'availability'
 }
 
 /** Ficha 0028: todos los marcadores del proceso inventado con todos sus datos. */
@@ -11306,7 +11305,7 @@ test('CA1 (0028): la página de un proceso enseña sus marcadores y sus cuatro g
   const row = entityPage.getByTestId('process-markers')
   await expect(row).toBeVisible()
 
-  // Cinco marcadores: CPU, memoria, red, disponibilidad o recursos (uno) y problemas.
+  // Cinco marcadores: CPU, memoria, red, disponibilidad (antes que recursos) y problemas.
   const fourth = await shownFourthMarker()
   for (const id of [...PROCESS_METRIC_MARKERS, fourth, 'problems']) {
     await expect(row.getByTestId(`process-marker-${id}`), id).toBeVisible()
@@ -11316,14 +11315,13 @@ test('CA1 (0028): la página de un proceso enseña sus marcadores y sus cuatro g
   }
   await expectProcessMarkers()
 
-  // Cuatro gráficos en su orden: CPU, memoria, red y salud de red o recursos (uno).
+  // Cuatro gráficos en su orden: CPU, memoria, red y salud de red (antes que recursos).
   const section = entityPage.getByTestId('process-charts')
   await expect(section).toBeVisible()
   const panels = section.getByTestId('process-chart-panel')
   await expect(panels).toHaveCount(4)
   const kinds = await processChartKinds()
-  expect(kinds.slice(0, 3)).toEqual(['cpu', 'memory', 'network'])
-  expect(['network-health', 'resources']).toContain(kinds[3])
+  expect(kinds).toEqual(['cpu', 'memory', 'network', 'network-health'])
   for (const [index, kind] of (kinds as ProcessChartKind[]).entries()) {
     await expect(panels.nth(index).getByRole('heading').first(), kind).toContainText(
       PROCESS_CHART_TITLES[kind]
@@ -11529,6 +11527,7 @@ test('CA4 (0028): si falla el canal de métricas, sus marcadores y cada gráfico
   })
   await expectProcessMarkers()
   await expect(processPage().getByTestId('process-chart-panel')).toHaveCount(4)
+  expect(await processChartKinds()).toEqual(['cpu', 'memory', 'network', 'network-health'])
   for (const kind of (await processChartKinds()) as ProcessChartKind[]) {
     await expectProcessChartSeries(kind)
   }
@@ -11557,6 +11556,7 @@ test('CA5 (0028): desde la tabla de procesos del host, pulsar un proceso abre su
   await expectProcessFourthMarker(await shownFourthMarker())
   await expectProcessProblems('0', '0')
   await expect(entityPage.getByTestId('process-chart-panel')).toHaveCount(4)
+  expect(await processChartKinds()).toEqual(['cpu', 'memory', 'network', 'network-health'])
   for (const kind of (await processChartKinds()) as ProcessChartKind[]) {
     await expectProcessChartSeries(kind)
   }

@@ -53,6 +53,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 ## Pruebas a mano para Dani
 
 - Con procesos reales, que marcadores y gráficos cuadran con Dynatrace en el mismo rango.
+- Que el marcador de Recursos (descriptores de fichero, en %) cuadra con Dynatrace: si sale 100
+  veces más pequeño, la métrica es una fracción y hay que corregirlo.
 
 ## Fuera de alcance
 
@@ -76,12 +78,24 @@ el simulador ampliado) siguen en verde.
 
 Cómo leen los tests la decisión del Orquestador de la 0027: el canal tiene métrica para los seis
 papeles, así que «papel `null`» es el papel sin datos (series vacías y marcador a `null`), lo que
-el simulador da con `sim.processEmpty`; ese papel no se pinta. «Disponibilidad o Recursos» y
-«Salud de red o Recursos» son «el que haya»: con todos los datos, los tests aceptan cualquiera de
-los dos (uno solo); sin uno, sale el otro. El marcador de recursos (0,9 en el simulador,
-`fileDescriptorsPercentUsed` en [0, 1]) se acepta como 0,9 % o 90 %, y la red en bytes o en bits
-por segundo: la ficha no lo fija. Nombres (testids) en el comentario del bloque de la 0028 de
+el simulador da con `sim.processEmpty`; ese papel no se pinta. Con la decisión de abajo, ajustada
+en los tests: con todos los datos, el cuarto marcador es Disponibilidad (Recursos no sale) y los
+gráficos son exactamente CPU, Memoria, Red y Salud de red (CA1, CA4 y CA5); sin uno, sale el otro
+(CA2). Recursos, «0,9 %» (0,9 en el simulador); la red, en bits por segundo como el host: bytesRx y
+bytesTx llegan en BytePerSecond (`docs/notas-api-v2.md`), así que 2560 y 384 B/s salen como
+«20,5 kbit/s» y «3,1 kbit/s». Nombres (testids) en el comentario del bloque de la 0028 de
 `e2e/views.spec.ts`; textos en `entities.process.markers` y `entities.process.charts`.
+
+**Decisión del Orquestador (delegada por Dani, refinable), 2026-10-08:**
+
+- «Papel `null`» = papel sin datos (series vacías y marcador a `null`), como lo leen los tests.
+- Con todos los datos, el cuarto marcador es **Disponibilidad** (antes que Recursos: dice si el
+  proceso está vivo) y el cuarto gráfico es **Salud de red** (antes que Recursos); sin datos del
+  primero, sale el segundo. Los tests lo fijan.
+- Recursos se pinta como porcentaje tal cual (la métrica dice Percent): 0,9 → «0,9 %». Si con
+  procesos reales resulta ser fracción, se corrige (prueba a mano).
+- La red, como en el host: bits por segundo con `formatBitRate` (si la métrica viene en bytes, se
+  multiplica por 8 según la unidad del catálogo de la 0027). Los tests lo fijan.
 
 Cambios en el simulador: `processMetricsFail`, `processEmpty`, los problemas del proceso
 (`processBandProblems`, uno abierto y uno cerrado) y las métricas del proceso también para los
