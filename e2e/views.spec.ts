@@ -1741,6 +1741,124 @@ function hostMetricResponse(query: URLSearchParams): [number, unknown] {
 }
 
 /**
+ * Ficha 0022: métricas de un browser monitor y de un HTTP monitor (canal
+ * entities:monitorMetrics), con ids inventados. Imita lo observado en vivo (paso 0): un resultado
+ * por expresión, en el orden pedido y con el metricId igual a la expresión; disponibilidad en %
+ * (0–100) y tiempos en ms; las métricas por localización traen una serie por localización salvo
+ * con splitBy(); http.resultStatus, una por «Result status» salvo con filter(eq(...)); y
+ * http.duration.geo:median devuelve lo mismo que :avg (no hay mediana en HTTP). fold con
+ * resolution=Inf da 400.
+ */
+const MONITOR_BROWSER_ID = 'SYNTHETIC_TEST-00000000000E2E40'
+const MONITOR_HTTP_ID = 'HTTP_CHECK-00000000000E2E41'
+const MONITOR_T0 = Date.parse('2026-10-03T08:00:00.000Z')
+const MONITOR_TIMESTAMPS = [0, 1, 2].map((i) => MONITOR_T0 + i * 600_000)
+/** Series del monitor, por clave de métrica (ya juntas las localizaciones). */
+const MONITOR_SERIES: Record<string, (number | null)[]> = {
+  'builtin:synthetic.browser.availability.location.total': [100, null, 50],
+  'builtin:synthetic.browser.totalDuration': [4200, null, 4800],
+  'builtin:synthetic.browser.success': [3, null, 1],
+  'builtin:synthetic.browser.failure': [0, null, 1],
+  'builtin:synthetic.browser.largestContentfulPaint.load': [1900, null, 2300],
+  'builtin:synthetic.browser.visuallyComplete.load': [2500, null, 2900],
+  'builtin:synthetic.browser.cumulativeLayoutShift.load': [0.05, null, 0.2],
+  'builtin:synthetic.browser.speedIndex.load': [1600, null, 1800],
+  'builtin:synthetic.http.availability.location.total': [100, null, 75],
+  'builtin:synthetic.http.duration.geo': [280, null, 350],
+  'resultStatus:SUCCESS': [6, null, 4],
+  'resultStatus:FAILURE': [0, null, 2],
+  'builtin:synthetic.http.dns.geo': [3, null, 5],
+  'builtin:synthetic.http.tcpConnectTime.geo': [10, null, 12],
+  'builtin:synthetic.http.tlsHandshakeTime.geo': [20, null, 25],
+  'builtin:synthetic.http.timeToFirstByte.geo': [120, null, 160]
+}
+/** Valor del rango (resolution=Inf), por clave de métrica (y «:median» en la del browser). */
+const MONITOR_MARKERS: Record<string, number> = {
+  'builtin:synthetic.browser.availability.location.total': 87.5,
+  'builtin:synthetic.browser.totalDuration': 4550,
+  'builtin:synthetic.browser.totalDuration:median': 4400,
+  'builtin:synthetic.browser.success': 4,
+  'builtin:synthetic.browser.failure': 1,
+  'builtin:synthetic.http.availability.location.total': 92.5,
+  'builtin:synthetic.http.duration.geo': 310,
+  'resultStatus:SUCCESS': 10,
+  'resultStatus:FAILURE': 2
+}
+
+const monitorKey = (expression: string): string =>
+  /^builtin:[A-Za-z.]+/.exec(expression)?.[0].replace(/\.$/, '') ?? ''
+
+/** Clave de las tablas de arriba: la métrica, o «resultStatus:<valor>» si filtra el estado. */
+function monitorEntry(expression: string, marker: boolean): string {
+  const key = monitorKey(expression)
+  if (key === 'builtin:synthetic.http.resultStatus') {
+    const status = /eq\(\s*"Result status"\s*,\s*"(SUCCESS|FAILURE)"\s*\)/.exec(expression)?.[1]
+    return status === undefined ? key : `resultStatus:${status}`
+  }
+  // Observado en vivo: en HTTP, :median da lo mismo que :avg.
+  if (marker && /:median\b/.test(expression) && key.startsWith('builtin:synthetic.browser.'))
+    return `${key}:median`
+  return key
+}
+
+/** ¿Es una consulta de métricas de los monitores inventados? */
+function isMonitorMetricsQuery(query: URLSearchParams): boolean {
+  const selector = query.get('metricSelector') ?? ''
+  const scope = `${selector} ${query.get('entitySelector') ?? ''}`
+  return (
+    selector.startsWith('builtin:synthetic.') &&
+    (scope.includes(MONITOR_BROWSER_ID) || scope.includes(MONITOR_HTTP_ID))
+  )
+}
+
+/** Respuesta del simulador a una consulta de métricas de los monitores inventados. */
+function monitorMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && selector.includes(':fold(')) {
+    return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
+  }
+  const marker = inf || selector.includes(':fold(')
+  const scope = `${selector} ${query.get('entitySelector') ?? ''}`
+  const id = scope.includes(MONITOR_BROWSER_ID) ? MONITOR_BROWSER_ID : MONITOR_HTTP_ID
+  const expressions = splitSelector(selector)
+  const dataOf = (expression: string): (number | null)[][] => {
+    const entry = monitorEntry(expression, marker)
+    const one = marker
+      ? MONITOR_MARKERS[entry] === undefined
+        ? undefined
+        : [MONITOR_MARKERS[entry]]
+      : MONITOR_SERIES[entry]
+    if (one === undefined) return []
+    // Por localización o por estado: una serie por cada uno si no se juntan.
+    const perLocation =
+      entry.endsWith('.geo') ||
+      entry.endsWith('availability.location.total') ||
+      entry === 'builtin:synthetic.http.resultStatus'
+    return perLocation && !/:splitBy\(/.test(expression) ? [one, one] : [one]
+  }
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '10m',
+      result: expressions.map((expression) => ({
+        metricId: expression.split(`"${id}"`).join(id),
+        data: dataOf(expression).map((values, i) => ({
+          dimensionMap: {
+            'dt.entity.synthetic_location': `SYNTHETIC_LOCATION-000000000000000${i}`
+          },
+          dimensions: [`SYNTHETIC_LOCATION-000000000000000${i}`],
+          timestamps: marker ? [MONITOR_T0 + 1_800_000] : MONITOR_TIMESTAMPS,
+          values
+        }))
+      }))
+    }
+  ]
+}
+
+/**
  * Ficha 0017: discos y procesos de una entidad HOST (canal entities:hostBreakdown), con un id
  * inventado. Imita lo observado en vivo (paso 0): una serie por disco con entityId("<host>") en
  * entitySelector; los procesos del host solo con la relación isProcessOf (en entitySelector o en
@@ -2010,6 +2128,8 @@ const defaultSim = () => ({
   serviceMetricQueries: [] as URLSearchParams[],
   /** Ficha 0016: consultas de métricas del host inventado (sus query). */
   hostMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0022: consultas de métricas de los monitores inventados (sus query). */
+  monitorMetricQueries: [] as URLSearchParams[],
   /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
   hostBreakdownQueries: [] as URLSearchParams[],
   /** Ficha 0019: las consultas de discos y procesos fallan con un 400. */
@@ -2278,6 +2398,12 @@ async function startServer(): Promise<void> {
         if (isHostBreakdownQuery(url.searchParams)) {
           sim.hostBreakdownQueries.push(url.searchParams)
           const [status, body] = hostBreakdownResponse(url.searchParams)
+          return send(status, body)
+        }
+        // Ficha 0022: las del canal entities:monitorMetrics, aparte.
+        if (isMonitorMetricsQuery(url.searchParams)) {
+          sim.monitorMetricQueries.push(url.searchParams)
+          const [status, body] = monitorMetricResponse(url.searchParams)
           return send(status, body)
         }
         // Ficha 0016: las del canal entities:hostMetrics, aparte (antes que la vista Métricas).
@@ -6313,6 +6439,89 @@ test('CA7 (0016): entities:hostMetrics por IPC con un id inventado: dos consulta
       network: { in: 3600, out: 650 },
       disk: { max: 92 },
       load: { avg: 2.25 }
+    },
+    warnings: [],
+    partial: []
+  })
+})
+
+test('CA6 (0022): entities:monitorMetrics por IPC con ids inventados de browser y HTTP monitor', async () => {
+  const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: MONITOR_TIMESTAMPS,
+    values
+  })
+
+  const browser = await invoke<Record<string, unknown>>('entities:monitorMetrics', {
+    environmentId: env['Producción'],
+    entityId: MONITOR_BROWSER_ID,
+    timeRange: '2h'
+  })
+  // Dos consultas al simulador (series y marcadores con Inf), las dos con el rango global y
+  // solo con el catálogo de su tipo.
+  expect(sim.monitorMetricQueries).toHaveLength(2)
+  for (const query of sim.monitorMetricQueries) {
+    expect(query.get('from')).toBe('now-2h')
+    expect(query.get('metricSelector') ?? '').not.toContain('builtin:synthetic.http.')
+  }
+  expect(sim.monitorMetricQueries.map((q) => q.get('resolution') ?? 'API').sort()).toEqual([
+    'API',
+    'Inf'
+  ])
+  expect(browser).toMatchObject({
+    kind: 'browser',
+    resolution: '10m',
+    series: {
+      availability: series([100, null, 50]),
+      duration: series([4200, null, 4800]),
+      executions: { ok: series([3, null, 1]), failed: series([0, null, 1]) },
+      performance: {
+        largestContentfulPaint: series([1900, null, 2300]),
+        visuallyComplete: series([2500, null, 2900]),
+        cumulativeLayoutShift: series([0.05, null, 0.2]),
+        speedIndex: series([1600, null, 1800])
+      },
+      httpTimings: null
+    },
+    totals: {
+      availability: 87.5,
+      duration: { avg: 4550, median: 4400 },
+      executions: { ok: 4, failed: 1 }
+    },
+    warnings: [],
+    partial: []
+  })
+
+  const http = await invoke<Record<string, unknown>>('entities:monitorMetrics', {
+    environmentId: env['Producción'],
+    entityId: MONITOR_HTTP_ID,
+    timeRange: '2h'
+  })
+  expect(sim.monitorMetricQueries).toHaveLength(4)
+  for (const query of sim.monitorMetricQueries.slice(2)) {
+    expect(query.get('from')).toBe('now-2h')
+    expect(query.get('metricSelector') ?? '').not.toContain('builtin:synthetic.browser.')
+  }
+  expect(http).toMatchObject({
+    kind: 'http',
+    resolution: '10m',
+    series: {
+      // Todas las localizaciones juntas.
+      availability: series([100, null, 75]),
+      duration: series([280, null, 350]),
+      executions: { ok: series([6, null, 4]), failed: series([0, null, 2]) },
+      httpTimings: {
+        dns: series([3, null, 5]),
+        tcpConnect: series([10, null, 12]),
+        tlsHandshake: series([20, null, 25]),
+        timeToFirstByte: series([120, null, 160])
+      },
+      performance: null
+    },
+    // Sin mediana en HTTP (paso 0 de la ficha).
+    totals: {
+      availability: 92.5,
+      duration: { avg: 310, median: null },
+      executions: { ok: 10, failed: 2 }
     },
     warnings: [],
     partial: []

@@ -201,3 +201,60 @@ describe('CA2 (0016): entrada de entities:hostMetrics', () => {
     expect(input().safeParse({ ...base, entityId, timeRange: '3h' }).success).toBe(false)
   })
 })
+
+describe('CA2 (0022): entrada de entities:monitorMetrics', () => {
+  /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
+  const input = (): { safeParse: (value: unknown) => { success: boolean } } => {
+    const contract = ipcContract as unknown as Record<
+      string,
+      { input: { safeParse: (value: unknown) => { success: boolean } } } | undefined
+    >
+    const entry = contract['entities:monitorMetrics']
+    expect(entry, 'canal entities:monitorMetrics').toBeDefined()
+    return entry!.input
+  }
+  const base = { environmentId: '00000000-0000-4000-8000-000000000001', timeRange: '2h' }
+
+  it.each([
+    ['browser monitor', 'SYNTHETIC_TEST-0123456789ABCDEF'],
+    ['HTTP monitor', 'HTTP_CHECK-FEDCBA9876543210']
+  ])('acepta un %s con 16 hexadecimales en mayúsculas, con rango relativo o absoluto', (_c, id) => {
+    expect(input().safeParse({ ...base, entityId: id }).success).toBe(true)
+    expect(
+      input().safeParse({
+        ...base,
+        entityId: id,
+        timeRange: { from: '2026-10-01T08:00:00.000Z', to: '2026-10-01T10:00:00.000Z' }
+      }).success
+    ).toBe(true)
+  })
+
+  it.each([
+    ['otro tipo', 'SERVICE-0123456789ABCDEF'],
+    ['un host', 'HOST-0123456789ABCDEF'],
+    ['un paso de browser monitor', 'SYNTHETIC_TEST_STEP-0123456789ABCDEF'],
+    ['una petición de HTTP monitor', 'HTTP_CHECK_STEP-0123456789ABCDEF'],
+    ['una localización', 'SYNTHETIC_LOCATION-0123456789ABCDEF'],
+    ['un monitor de la API v1 (sin tipo de entidad)', 'SYNTHETIC_TEST_0123456789ABCDEF'],
+    ['minúsculas en el id', 'SYNTHETIC_TEST-0123456789abcdef'],
+    ['minúsculas en el tipo', 'http_check-0123456789ABCDEF'],
+    ['15 hexadecimales', 'HTTP_CHECK-0123456789ABCDE'],
+    ['17 hexadecimales', 'SYNTHETIC_TEST-0123456789ABCDEF0'],
+    ['letras que no son hexadecimales', 'HTTP_CHECK-0123456789ABCDEG'],
+    ['comillas', 'SYNTHETIC_TEST-0123456789ABCDE"'],
+    ['paréntesis', 'HTTP_CHECK-0123456789ABCDE)'],
+    ['coma', 'SYNTHETIC_TEST-0123456789ABCDE,'],
+    ['inyección tras un id válido', 'HTTP_CHECK-0123456789ABCDEF"),type("HOST'],
+    ['espacios alrededor', ' SYNTHETIC_TEST-0123456789ABCDEF '],
+    ['vacío', ''],
+    ['sin id', undefined]
+  ])('rechaza %s', (_case, entityId) => {
+    expect(input().safeParse({ ...base, entityId }).success).toBe(false)
+  })
+
+  it('rechaza un entorno que no es uuid y un rango que no es el de la app', () => {
+    const entityId = 'HTTP_CHECK-0123456789ABCDEF'
+    expect(input().safeParse({ ...base, entityId, environmentId: 'x' }).success).toBe(false)
+    expect(input().safeParse({ ...base, entityId, timeRange: '3h' }).success).toBe(false)
+  })
+})
