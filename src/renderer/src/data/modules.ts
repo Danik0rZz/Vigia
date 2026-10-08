@@ -232,6 +232,28 @@ export function useServiceMetrics(
   })
 }
 
+/**
+ * Métricas de un HOST en el rango global (canal de la ficha 0016; marcadores y gráficos de la
+ * 0018, una sola llamada). Con `entityId` null (id que no es de un host) no se pide nada.
+ */
+export function useHostMetrics(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:hostMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { hostMetrics: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:hostMetrics', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
 /** Problemas abiertos y cerrados de una entidad en el rango global (fichas 0007 y 0008). */
 export function useEntityProblemCounts(
   envId: string | null,
