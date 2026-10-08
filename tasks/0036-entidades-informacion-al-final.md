@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -63,7 +63,16 @@ cumplan solas. La tarjeta no cambia por dentro.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+Ficha ligera: los tests del developer cubren CA1 y CA2 tal como están escritos, en las cinco páginas
+(servicio, host, browser monitor, HTTP monitor y proceso), y fallarían con el orden anterior. CA3
+queda para el verifier. Sin tocar tests tras `7fb2780`. Los e2e de 0015, 0020, 0026 y 0029 solo
+cambian «encima» por «debajo de los marcadores». `EntitySections` fija el orden; solo renderer, sin
+IPC, API, dependencias ni textos nuevos. Los avisos de módulo sin acceso siguen antes de los
+marcadores: no son secciones (decisión del developer, aceptada).
+
+Opcional: un e2e sin acceso a Métricas confirmaría el orden con avisos y sin gráficos.
 
 ## Verificación
 
