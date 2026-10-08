@@ -12,7 +12,7 @@ adrs: [6]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -82,7 +82,14 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO (ficha ligera)
+
+- CA1: solo cambian las lecturas (`exportTo` → `exportSaved`); ninguna comprobación cambia, tampoco en los dos
+  tests del mini gráfico. `exportTo` solo se usa dentro de `exportSaved`.
+- `exportSaved` no se ablanda: aviso exacto (es o en) en el contenedor del menú y fichero no vacío.
+- CA2 detecta las lecturas sin `exportSaved`; `b9329a7` lo endurece por la decisión del Orquestador.
+- Opcionales: CA2 no ve `let f; f = await exportTo(...)`; `usesExportDir` marcaría una lectura legítima de
+  `exportDir` tras un `exportSaved` (hoy no existe).
 
 ## Verificación
 
