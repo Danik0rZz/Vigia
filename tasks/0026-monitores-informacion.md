@@ -1,7 +1,7 @@
 ---
 id: '0026'
 titulo: 'Monitores: tarjeta «Información» con los datos de la entidad'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -132,6 +132,11 @@ ampliado (25 de 28 con `-g "(0015|0020|0024|0025|0026)"`; los 3 en rojo, los de 
   (`…E2EB*`, `…E2EC*`, `…E2ED*`) y nombres en `ENTITY_NAMES`; el HTTP «Monitoriza» a
   `INFO_FEW_ID` (para abrir la página del servicio) y una relación `belongsTo` (ENVIRONMENT) para
   «Otras relaciones».
+
+### Verifier, 2026-10-08, commit `aafc43e`, rango `main..feat/0026-monitores-informacion`: VERDE
+
+- check: 2426 tests en 133 ficheros, cobertura ok.
+- e2e afectados: 203/203 (incluye CA2, CA3 y CA4 de la 0026).
 
 ## Resultado
 
