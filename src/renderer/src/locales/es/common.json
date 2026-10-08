@@ -837,6 +837,30 @@
           "tls": "Handshake TLS",
           "ttfb": "Primer byte"
         }
+      },
+      "locations": {
+        "title": "Localizaciones",
+        "label": "Localizaciones del monitor",
+        "empty": "Sin localizaciones",
+        "columns": {
+          "name": "Localización",
+          "availability": "Disponibilidad",
+          "duration": "Duración media",
+          "failed": "Fallidas"
+        }
+      },
+      "steps": {
+        "titleBrowser": "Pasos",
+        "titleHttp": "Peticiones",
+        "labelBrowser": "Pasos del monitor",
+        "labelHttp": "Peticiones del monitor",
+        "empty": "Sin datos",
+        "slowest": "El más lento",
+        "columns": {
+          "name": "Nombre",
+          "duration": "Duración media",
+          "share": "Peso en la duración"
+        }
       }
     },
     "service": {

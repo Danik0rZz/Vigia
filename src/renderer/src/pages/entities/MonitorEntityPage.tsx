@@ -14,6 +14,7 @@ import {
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
 import { MonitorCharts } from './MonitorCharts'
 import { MonitorMarkers } from './MonitorMarkers'
+import { MonitorTables } from './MonitorTables'
 
 /** Prefijo del id de cada tipo de monitor: el de la otra página no se pide aquí. */
 const ID_PREFIX: Record<MonitorKind, string> = {
@@ -28,7 +29,8 @@ const ID_PREFIX: Record<MonitorKind, string> = {
  * con la franja de los problemas del monitor sobre el de la disponibilidad. Marcadores y gráficos
  * salen de una sola llamada a `entities:monitorMetrics` (ficha 0022); las localizaciones, de
  * `entities:monitorBreakdown` (0023). Solo pide datos con «Actualizar» o con un rango nuevo
- * (ADR-0004). Las localizaciones y pasos uno a uno (0025) y la información (0026) van aparte.
+ * (ADR-0004). Debajo de los gráficos, las tablas de localizaciones y de pasos o peticiones
+ * (0025), con el mismo desglose que el marcador. La información (0026) va aparte.
  */
 export function MonitorEntityPage({
   monitorKind,
@@ -90,12 +92,15 @@ export function MonitorEntityPage({
           />
           {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
           {metricsEnv !== null && (
-            <MonitorCharts
-              monitorKind={monitorKind}
-              monitorId={monitorId}
-              metrics={metrics}
-              problemList={problemsEnv !== null ? problemList : null}
-            />
+            <>
+              <MonitorCharts
+                monitorKind={monitorKind}
+                monitorId={monitorId}
+                metrics={metrics}
+                problemList={problemsEnv !== null ? problemList : null}
+              />
+              <MonitorTables monitorKind={monitorKind} breakdown={breakdown} />
+            </>
           )}
         </>
       )}

@@ -837,6 +837,30 @@
           "tls": "TLS handshake",
           "ttfb": "Time to first byte"
         }
+      },
+      "locations": {
+        "title": "Locations",
+        "label": "Monitor locations",
+        "empty": "No locations",
+        "columns": {
+          "name": "Location",
+          "availability": "Availability",
+          "duration": "Average duration",
+          "failed": "Failed"
+        }
+      },
+      "steps": {
+        "titleBrowser": "Steps",
+        "titleHttp": "Requests",
+        "labelBrowser": "Monitor steps",
+        "labelHttp": "Monitor requests",
+        "empty": "No data",
+        "slowest": "Slowest",
+        "columns": {
+          "name": "Name",
+          "duration": "Average duration",
+          "share": "Share of duration"
+        }
       }
     },
     "service": {
