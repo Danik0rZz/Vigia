@@ -1267,6 +1267,126 @@ function hostInfoFewBody(entityId: string): Record<string, unknown> {
   }
 }
 
+/**
+ * Ficha 0026: los dos monitores de la 0024 (MONITOR_BROWSER_ID y MONITOR_HTTP_ID) en
+ * /entities/{id}, para la tarjeta «Información». Claves y relaciones, las que la 0022 vio en vivo
+ * (en sus mismas direcciones); valores e ids inventados y solo tipos estándar. Las localizaciones
+ * y los pasos de la tarjeta tienen sus propios ids (no los del desglose de la 0023 y la 0025).
+ *
+ * - Browser: todas las claves de SYNTHETIC_TEST (capturas y nombre detectado incluidos), activo,
+ *   cada 15, 3 localizaciones (runsOn de from), 5 pasos (isStepOf de to), la aplicación que
+ *   monitoriza (monitors de from), dos zonas y dos etiquetas; sin otras relaciones.
+ * - HTTP: las de HTTP_CHECK, inactivo, cada 5, 4 localizaciones, 2 peticiones, «Monitoriza» con un
+ *   servicio (calls de from: INFO_FEW_ID, para abrir su página) y una aplicación
+ *   (isApplicationOfSyntheticTest de to), y una relación más (belongsTo) para «Otras relaciones».
+ */
+const MONITOR_INFO_APP = 'APPLICATION-00000000000E2EA0'
+const MONITOR_INFO_HTTP_APP = 'APPLICATION-00000000000E2EA1'
+const MONITOR_INFO_OTHER = 'ENVIRONMENT-00000000000E2EA2'
+const MONITOR_INFO_LOCATIONS = [1, 2, 3, 4].map((n) => `SYNTHETIC_LOCATION-00000000000E2EB${n}`)
+const MONITOR_INFO_STEPS = [1, 2, 3, 4, 5].map((n) => `SYNTHETIC_TEST_STEP-00000000000E2EC${n}`)
+const MONITOR_INFO_REQUESTS = [1, 2].map((n) => `HTTP_CHECK_STEP-00000000000E2ED${n}`)
+const MONITOR_INFO_FIRST_SEEN = Date.parse('2026-07-01T08:00:00.000Z')
+const MONITOR_INFO_LAST_SEEN = Date.parse('2026-10-03T11:00:00.000Z')
+Object.assign(ENTITY_NAMES, {
+  [MONITOR_INFO_APP]: 'aplicacion-monitor-e2e',
+  [MONITOR_INFO_HTTP_APP]: 'aplicacion-http-e2e',
+  ...Object.fromEntries(
+    MONITOR_INFO_LOCATIONS.map((id, i) => [id, `localizacion-info-${i + 1}-e2e`])
+  ),
+  ...Object.fromEntries(MONITOR_INFO_STEPS.map((id, i) => [id, `paso-info-${i + 1}-e2e`])),
+  ...Object.fromEntries(MONITOR_INFO_REQUESTS.map((id, i) => [id, `peticion-info-${i + 1}-e2e`]))
+})
+/** Claves del browser monitor que nunca son fila: solo en «Todas las propiedades». */
+const MONITOR_INFO_HIDDEN = {
+  detectedName: 'nombre-detectado-monitor-e2e',
+  syntheticScreenshotRegularUri: 'captura-normal-e2e',
+  syntheticScreenshotRegularErrorUri: 'captura-error-e2e',
+  syntheticScreenshotThumbnailUri: 'captura-mini-e2e',
+  syntheticScreenshotThumbnailErrorUri: 'captura-mini-error-e2e'
+}
+function monitorInfoBrowserBody(): Record<string, unknown> {
+  return {
+    entityId: MONITOR_BROWSER_ID,
+    displayName: 'browser-monitor-e2e',
+    type: 'SYNTHETIC_TEST',
+    firstSeenTms: MONITOR_INFO_FIRST_SEEN,
+    lastSeenTms: MONITOR_INFO_LAST_SEEN,
+    managementZones: [
+      { id: '2601', name: 'Zona monitor A' },
+      { id: '2602', name: 'Zona monitor B' }
+    ],
+    tags: [
+      { context: 'CONTEXTLESS', key: 'equipo', value: 'web', stringRepresentation: 'equipo:web' },
+      { context: 'CONTEXTLESS', key: 'entorno', value: 'pro', stringRepresentation: 'entorno:pro' }
+    ],
+    properties: {
+      ...MONITOR_INFO_HIDDEN,
+      steps: MONITOR_INFO_STEPS.map((id, i) => ({ id, name: `paso-info-${i + 1}-e2e` })),
+      syntheticMonitorFrequency: 15,
+      createdBy: 'autor-e2e',
+      assignedLocations: MONITOR_INFO_LOCATIONS.slice(0, 3),
+      isEnabled: true,
+      browserMonitorSubtype: 'CLICKPATH',
+      customizedName: 'nombre-propio-monitor-e2e',
+      deviceProfile: 'Desktop',
+      lastExecutionTimestamp: MONITOR_INFO_LAST_SEEN,
+      lastModificationSource: 'UI',
+      lastModifiedBy: 'autor-e2e',
+      manuallyAssignedApplications: [MONITOR_INFO_APP],
+      modificationTimestamp: MONITOR_INFO_FIRST_SEEN,
+      url: 'https://monitor-e2e.invalid/'
+    },
+    fromRelationships: {
+      runsOn: MONITOR_INFO_LOCATIONS.slice(0, 3).map((id) => ({ id, type: 'SYNTHETIC_LOCATION' })),
+      monitors: [{ id: MONITOR_INFO_APP, type: 'APPLICATION' }]
+    },
+    toRelationships: {
+      isStepOf: MONITOR_INFO_STEPS.map((id) => ({ id, type: 'SYNTHETIC_TEST_STEP' }))
+    }
+  }
+}
+/**
+ * Número de propiedades del browser monitor (todas salen en «Todas las propiedades»). Función y no
+ * constante: MONITOR_BROWSER_ID se declara más abajo.
+ */
+const monitorInfoBrowserPropertyCount = (): number =>
+  Object.keys((monitorInfoBrowserBody()['properties'] ?? {}) as Record<string, unknown>).length
+function monitorInfoHttpBody(): Record<string, unknown> {
+  return {
+    entityId: MONITOR_HTTP_ID,
+    displayName: 'http-monitor-e2e',
+    type: 'HTTP_CHECK',
+    firstSeenTms: MONITOR_INFO_FIRST_SEEN,
+    lastSeenTms: MONITOR_INFO_LAST_SEEN,
+    managementZones: [{ id: '2603', name: 'Zona monitor H' }],
+    tags: [],
+    properties: {
+      detectedName: 'nombre-detectado-http-e2e',
+      isEnabled: false,
+      httpMonitorSubtype: 'MULTI_REQUEST',
+      syntheticMonitorFrequency: 5,
+      assignedLocations: MONITOR_INFO_LOCATIONS,
+      steps: MONITOR_INFO_REQUESTS.map((id, i) => ({ id, name: `peticion-info-${i + 1}-e2e` })),
+      createdBy: 'autor-e2e',
+      lastExecutionTimestamp: MONITOR_INFO_LAST_SEEN,
+      lastModificationSource: 'API',
+      lastModifiedBy: 'autor-e2e',
+      manuallyAssignedApplications: [],
+      modificationTimestamp: MONITOR_INFO_FIRST_SEEN
+    },
+    fromRelationships: {
+      calls: [{ id: INFO_FEW_ID, type: 'SERVICE' }],
+      belongsTo: [{ id: MONITOR_INFO_OTHER, type: 'ENVIRONMENT' }],
+      runsOn: MONITOR_INFO_LOCATIONS.map((id) => ({ id, type: 'SYNTHETIC_LOCATION' }))
+    },
+    toRelationships: {
+      isStepOf: MONITOR_INFO_REQUESTS.map((id) => ({ id, type: 'HTTP_CHECK_STEP' })),
+      isApplicationOfSyntheticTest: [{ id: MONITOR_INFO_HTTP_APP, type: 'APPLICATION' }]
+    }
+  }
+}
+
 /** Ficha 0015: lo que devuelve el simulador en /entities/{id}, por id (el resto, 404). */
 function entityBodies(): Record<string, Record<string, unknown>> {
   return {
@@ -1276,7 +1396,10 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     [SVC_ID]: infoFewBody(SVC_ID),
     // Ficha 0020.
     [HOST_INFO_FULL_ID]: hostInfoFullBody(),
-    [HOST_METRICS_ID]: hostInfoFewBody(HOST_METRICS_ID)
+    [HOST_METRICS_ID]: hostInfoFewBody(HOST_METRICS_ID),
+    // Ficha 0026.
+    [MONITOR_BROWSER_ID]: monitorInfoBrowserBody(),
+    [MONITOR_HTTP_ID]: monitorInfoHttpBody()
   }
 }
 
@@ -10432,4 +10555,355 @@ test('CA3 (0025): sin pasos que enseñar (lista vacía del canal), no sale la ta
   }
 
   // Que con pasos sí sale (no falta siempre) lo prueba CA2 con los mismos testids.
+})
+
+/**
+ * Ficha 0026: tarjeta «Información» de las páginas de un browser monitor (MONITOR_BROWSER_ID) y
+ * de un HTTP monitor (MONITOR_HTTP_ID), canal entities:get, con la forma de la del servicio
+ * (0015) y la del host (0020) y sus nombres con el prefijo `monitor-info`.
+ *
+ * Nombres que fijan estos tests: la tarjeta `monitor-info`, entre la cabecera y
+ * `monitor-markers`; cada fila, `monitor-info-row` con `data-key` (las claves de
+ * `buildMonitorInfo`) y su valor en `monitor-info-value`; los chips, `monitor-info-chip`. Las
+ * relaciones, en `monitor-info-relations`: cada grupo `monitor-info-group` con `data-group`
+ * (monitors, locations, steps o requests, y other), con `monitor-info-group-toggle`
+ * (aria-expanded), `monitor-info-group-count` y, desplegado, sus `monitor-info-entity` (enlaces,
+ * con `data-entity-id`), el botón `monitor-info-names` («Ver nombres») y cada nombre en
+ * `monitor-info-entity-name`. «Todas las propiedades», `monitor-info-properties-toggle` y cada
+ * una `monitor-info-property` con `data-key`. Las filas obligatorias van en su orden relativo; el
+ * developer puede añadir otras entre ellas (la ficha se las deja a él).
+ */
+const MONITOR_INFO_REQUIRED: Record<MonitorPageKind, string[]> = {
+  browser: [
+    'monitorType',
+    'enabled',
+    'frequency',
+    'locations',
+    'steps',
+    'firstSeen',
+    'lastSeen',
+    'managementZones',
+    'tags'
+  ],
+  // Sin etiquetas: no hay fila.
+  http: [
+    'monitorType',
+    'enabled',
+    'frequency',
+    'locations',
+    'requests',
+    'firstSeen',
+    'lastSeen',
+    'managementZones'
+  ]
+}
+const monitorInfoCard = (): Locator => page.getByTestId('monitor-info')
+const monitorInfoRow = (key: string): Locator =>
+  monitorInfoCard().locator(`[data-testid="monitor-info-row"][data-key="${key}"]`)
+const monitorInfoValue = (key: string): Locator =>
+  monitorInfoRow(key).getByTestId('monitor-info-value')
+const monitorInfoGroup = (key: string): Locator =>
+  monitorInfoCard().locator(`[data-testid="monitor-info-group"][data-group="${key}"]`)
+const monitorInfoEntity = (group: string, id: string): Locator =>
+  monitorInfoGroup(group).locator(`[data-testid="monitor-info-entity"][data-entity-id="${id}"]`)
+
+/** Ficha 0026: ¿están las claves `expected` en `actual`, en ese orden relativo? */
+function inRelativeOrder(actual: string[], expected: string[]): boolean {
+  let index = 0
+  for (const key of actual) if (key === expected[index]) index += 1
+  return index === expected.length
+}
+
+/** Ficha 0026: abre la página del monitor y espera su tarjeta con filas. */
+async function openMonitorInfo(kind: MonitorPageKind): Promise<Locator> {
+  await openMonitorPage(kind)
+  const card = monitorInfoCard()
+  await expect(card).toBeVisible()
+  await expect(card.getByTestId('monitor-info-row').first()).toBeVisible()
+  return card
+}
+
+/** Ficha 0026: despliega un grupo de relaciones del monitor (si no lo está). */
+async function expandMonitorGroup(key: string): Promise<Locator> {
+  const group = monitorInfoGroup(key)
+  const toggle = group.getByTestId('monitor-info-group-toggle')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await clickInPlace(toggle, { scroll: true })
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return group
+}
+
+/** Ficha 0026: filas obligatorias en su orden, sin repetirse, y sin «undefined» en la tarjeta. */
+async function expectMonitorInfoRows(kind: MonitorPageKind): Promise<void> {
+  const keys = await dataKeys(monitorInfoCard().getByTestId('monitor-info-row'))
+  expect(inRelativeOrder(keys, MONITOR_INFO_REQUIRED[kind]), JSON.stringify(keys)).toBe(true)
+  expect(new Set(keys).size, JSON.stringify(keys)).toBe(keys.length)
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(monitorInfoCard(), text).not.toContainText(text)
+  }
+}
+
+/** Ficha 0026: los grupos de relaciones, en su orden, con su nombre y su número. */
+async function expectMonitorGroups(expected: [string, string, string][]): Promise<void> {
+  const relations = monitorInfoCard().getByTestId('monitor-info-relations')
+  await expect(relations).toContainText('Relaciones')
+  const groups = relations.getByTestId('monitor-info-group')
+  await expect(groups).toHaveCount(expected.length)
+  expect(await dataKeys(groups, 'data-group')).toEqual(expected.map(([key]) => key))
+  for (const [key, title, count] of expected) {
+    await expect(monitorInfoGroup(key), key).toContainText(title)
+    await expect(monitorInfoGroup(key).getByTestId('monitor-info-group-count'), key).toHaveText(
+      new RegExp(`^\\s*${count}\\s*$`)
+    )
+  }
+}
+
+test('CA2 (0026): la página de un browser monitor enseña la tarjeta «Información» con sus filas (tipo, activo, frecuencia, localizaciones, pasos…), sus relaciones con «Ver nombres» a demanda y enlaces que abren cada entidad', async () => {
+  const card = await openMonitorInfo('browser')
+  await expect(card).toContainText('Información')
+
+  // Entre la cabecera y los marcadores.
+  const cardBox = await settledBox(card)
+  const markersBox = await settledBox(page.getByTestId('monitor-markers'))
+  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
+    markersBox.y + 1
+  )
+
+  // Las filas y sus valores.
+  await expectMonitorInfoRows('browser')
+  await expect(monitorInfoValue('monitorType')).toContainText('CLICKPATH')
+  await expect(monitorInfoValue('enabled')).toHaveText(/\S/)
+  await expect(monitorInfoValue('enabled')).not.toContainText(/true|false/)
+  await expect(monitorInfoValue('frequency')).toContainText(loneNumber('15'))
+  await expect(monitorInfoValue('locations')).toContainText(loneNumber('3'))
+  await expect(monitorInfoValue('steps')).toContainText(loneNumber('5'))
+  await expect(monitorInfoValue('firstSeen')).toContainText('2026')
+  await expect(monitorInfoValue('lastSeen')).toContainText('2026')
+  await expect(monitorInfoRow('managementZones').getByTestId('monitor-info-chip')).toHaveText([
+    'Zona monitor A',
+    'Zona monitor B'
+  ])
+  await expect(monitorInfoRow('tags').getByTestId('monitor-info-chip')).toHaveText([
+    'equipo:web',
+    'entorno:pro'
+  ])
+
+  // Capturas y nombre detectado, nunca en una fila; «Todas las propiedades» empieza plegada.
+  const rows = card.getByTestId('monitor-info-row')
+  for (const [key, value] of Object.entries(MONITOR_INFO_HIDDEN)) {
+    await expect(rows.filter({ hasText: value }), key).toHaveCount(0)
+    await expect(monitorInfoRow(key), key).toHaveCount(0)
+  }
+  await expect(card.getByTestId('monitor-info-property')).toHaveCount(0)
+  const toggle = card.getByTestId('monitor-info-properties-toggle')
+  await expect(toggle).toContainText('Todas las propiedades')
+  await clickInPlace(toggle, { scroll: true })
+  await expect(card.getByTestId('monitor-info-property')).toHaveCount(
+    monitorInfoBrowserPropertyCount()
+  )
+  await expect(
+    card.locator('[data-testid="monitor-info-property"][data-key="detectedName"]')
+  ).toContainText(MONITOR_INFO_HIDDEN.detectedName)
+
+  // Sin las tarjetas del servicio ni del host.
+  await expect(page.getByTestId('service-info')).toHaveCount(0)
+  await expect(page.getByTestId('host-info')).toHaveCount(0)
+
+  // Relaciones: Monitoriza, Localizaciones y Pasos (sin otras), con su número.
+  await expectMonitorGroups([
+    ['monitors', 'Monitoriza', '1'],
+    ['locations', 'Localizaciones', '3'],
+    ['steps', 'Pasos', '5']
+  ])
+  const locations = await expandMonitorGroup('locations')
+  expect(await dataKeys(locations.getByTestId('monitor-info-entity'), 'data-entity-id')).toEqual(
+    MONITOR_INFO_LOCATIONS.slice(0, 3)
+  )
+  const steps = await expandMonitorGroup('steps')
+  expect(await dataKeys(steps.getByTestId('monitor-info-entity'), 'data-entity-id')).toEqual(
+    MONITOR_INFO_STEPS
+  )
+  await expandMonitorGroup('monitors')
+  await settledRequests()
+  expect(sim.entityNamesQueries, 'nombres antes de «Ver nombres»').toHaveLength(0)
+
+  // «Ver nombres» de «Localizaciones»: una llamada con sus tres ids y los nombres en su sitio.
+  const button = locations.getByTestId('monitor-info-names')
+  await expect(button).toHaveText('Ver nombres')
+  await clickInPlace(button, { scroll: true })
+  await expect.poll(() => sim.entityNamesQueries.length).toBe(1)
+  const selector = sim.entityNamesQueries[0]?.get('entitySelector') ?? ''
+  for (const id of MONITOR_INFO_LOCATIONS.slice(0, 3)) expect(selector).toContain(id)
+  for (const [index, id] of MONITOR_INFO_LOCATIONS.slice(0, 3).entries()) {
+    await expect(
+      monitorInfoEntity('locations', id).getByTestId('monitor-info-entity-name')
+    ).toHaveText(`localizacion-info-${index + 1}-e2e`)
+  }
+  // Los de otros grupos, sin pedir.
+  await settledRequests()
+  expect(sim.entityNamesQueries).toHaveLength(1)
+  await expect(
+    monitorInfoEntity('steps', MONITOR_INFO_STEPS[0] ?? '').getByTestId('monitor-info-entity-name')
+  ).toHaveCount(0)
+
+  // Cada entidad es un enlace a su página; pulsar la aplicación abre la suya.
+  const app = monitorInfoEntity('monitors', MONITOR_INFO_APP)
+  await expect(app).toHaveRole('link')
+  await expect(app).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/APPLICATION/${MONITOR_INFO_APP}$`)
+  )
+  await expect(monitorInfoEntity('steps', MONITOR_INFO_STEPS[0] ?? '')).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/SYNTHETIC_TEST_STEP/${MONITOR_INFO_STEPS[0]}$`)
+  )
+  const monitorQueries = (): number =>
+    sim.requests.filter((request) => request.includes(`/entities/${MONITOR_BROWSER_ID}`)).length
+  const before = monitorQueries()
+  await clickInPlace(app, { scroll: true })
+  const appPage = page.getByTestId('entity-page-application')
+  await expect(appPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/APPLICATION/${MONITOR_INFO_APP}`)
+  await expect(appPage.getByTestId('entity-page-id')).toHaveText(MONITOR_INFO_APP)
+  await expect(page.getByTestId('monitor-info')).toHaveCount(0)
+
+  // «Volver» regresa al monitor, sin volver a pedir sus datos.
+  await clickInPlace(appPage.getByTestId('entity-back'), { scroll: true })
+  await expect(monitorPage('browser')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SYNTHETIC_TEST/${MONITOR_BROWSER_ID}`)
+  await expect(monitorInfoValue('monitorType')).toContainText('CLICKPATH')
+  await settledRequests()
+  expect(monitorQueries(), 'entities:get del monitor al volver').toBe(before)
+})
+
+test('CA2 (0026): la página de un HTTP monitor enseña su tarjeta con «Peticiones», «Monitoriza» con el servicio y la aplicación, «Otras relaciones» plegada, y pulsar el servicio abre su página', async () => {
+  // El «activo» del browser monitor, para compararlo con el «inactivo» de este.
+  await openMonitorInfo('browser')
+  const enabledText = (await monitorInfoValue('enabled').textContent())?.trim() ?? ''
+  expect(enabledText).not.toBe('')
+
+  const card = await openMonitorInfo('http')
+  await expect(card).toContainText('Información')
+  await expectMonitorInfoRows('http')
+  await expect(monitorInfoRow('steps')).toHaveCount(0)
+  await expect(monitorInfoRow('tags')).toHaveCount(0)
+  await expect(monitorInfoValue('monitorType')).toContainText('MULTI_REQUEST')
+  await expect(monitorInfoValue('enabled')).toHaveText(/\S/)
+  await expect(monitorInfoValue('enabled')).not.toContainText(/true|false/)
+  await expect(monitorInfoValue('enabled')).not.toHaveText(enabledText)
+  await expect(monitorInfoValue('frequency')).toContainText(loneNumber('5'))
+  await expect(monitorInfoValue('locations')).toContainText(loneNumber('4'))
+  await expect(monitorInfoValue('requests')).toContainText(loneNumber('2'))
+  await expect(monitorInfoRow('managementZones').getByTestId('monitor-info-chip')).toHaveText([
+    'Zona monitor H'
+  ])
+  await expect(
+    card.getByTestId('monitor-info-row').filter({ hasText: 'nombre-detectado-http-e2e' })
+  ).toHaveCount(0)
+
+  await expectMonitorGroups([
+    ['monitors', 'Monitoriza', '2'],
+    ['locations', 'Localizaciones', '4'],
+    ['requests', 'Peticiones', '2'],
+    ['other', 'Otras relaciones', '1']
+  ])
+  // «Otras relaciones», plegada.
+  await expect(monitorInfoGroup('other').getByTestId('monitor-info-group-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  )
+  await expect(monitorInfoGroup('other').getByTestId('monitor-info-entity')).toHaveCount(0)
+  const other = await expandMonitorGroup('other')
+  await expect(other).toContainText('belongsTo')
+  await expect(monitorInfoEntity('other', MONITOR_INFO_OTHER)).toContainText(MONITOR_INFO_OTHER)
+
+  const monitors = await expandMonitorGroup('monitors')
+  expect(
+    [...(await dataKeys(monitors.getByTestId('monitor-info-entity'), 'data-entity-id'))].sort()
+  ).toEqual([INFO_FEW_ID, MONITOR_INFO_HTTP_APP].sort())
+
+  // «Ver nombres» de «Peticiones».
+  const requests = await expandMonitorGroup('requests')
+  await settledRequests()
+  expect(sim.entityNamesQueries, 'nombres antes de «Ver nombres»').toHaveLength(0)
+  await clickInPlace(requests.getByTestId('monitor-info-names'), { scroll: true })
+  await expect.poll(() => sim.entityNamesQueries.length).toBe(1)
+  for (const [index, id] of MONITOR_INFO_REQUESTS.entries()) {
+    await expect(
+      monitorInfoEntity('requests', id).getByTestId('monitor-info-entity-name')
+    ).toHaveText(`peticion-info-${index + 1}-e2e`)
+  }
+
+  // Pulsar el servicio abre su página; «Volver» regresa al monitor.
+  const service = monitorInfoEntity('monitors', INFO_FEW_ID)
+  await expect(service).toHaveRole('link')
+  await expect(service).toHaveAttribute('href', new RegExp(`#/entities/SERVICE/${INFO_FEW_ID}$`))
+  await clickInPlace(service, { scroll: true })
+  const servicePage = page.getByTestId('entity-page-service')
+  await expect(servicePage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FEW_ID}`)
+  await expect(page.getByTestId('monitor-info')).toHaveCount(0)
+  await clickInPlace(servicePage.getByTestId('entity-back'), { scroll: true })
+  await expect(monitorPage('http')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HTTP_CHECK/${MONITOR_HTTP_ID}`)
+  await expect(monitorInfoValue('monitorType')).toContainText('MULTI_REQUEST')
+})
+
+test('CA3 (0026): sin entities.read, la tarjeta del monitor dice qué scope falta y los marcadores y gráficos siguen', async () => {
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEntities = await createEnvironment(
+    clientId,
+    'Sin entidades monitor',
+    'other',
+    TOKEN_NO_ENTITIES
+  )
+  try {
+    await invoke('connection:test', { environmentId: noEntities })
+    await invoke('environments:setActive', { environmentId: noEntities })
+    await reloadUi()
+    await openMonitorPage('browser')
+    const unavailable = monitorInfoCard().getByTestId('module-unavailable')
+    await expect(unavailable).toBeVisible()
+    await expect(unavailable).toContainText('entities.read')
+    await expect(monitorInfoCard().getByTestId('monitor-info-row')).toHaveCount(0)
+    // Marcadores y gráficos, con sus datos.
+    await expectBrowserMonitorMarkers()
+    for (const kind of MONITOR_CHART_KINDS) await expectMonitorChartSeries('browser', kind)
+    await settledRequests()
+    expect(sim.entityInfoQueries, 'entities:get sin el scope').toHaveLength(0)
+  } finally {
+    await invoke('environments:setActive', { environmentId: env['Producción'] })
+    await invoke('environments:delete', { id: noEntities })
+    await reloadUi()
+  }
+})
+
+test('CA4 (0026): las tarjetas del servicio y del host siguen igual (sus filas y sus grupos, sin nada del monitor); sus e2e de la 0015 y la 0020 siguen sin tocar', async () => {
+  const serviceCard = await openServiceInfo(INFO_FULL_ID)
+  expect(
+    await dataKeys(serviceCard.getByTestId('service-info-service').getByTestId('service-info-row'))
+  ).toEqual(INFO_ROW_ORDER)
+  expect(await dataKeys(serviceCard.getByTestId('service-info-group'), 'data-group')).toEqual([
+    'runsOn',
+    'calls',
+    'calledBy',
+    'other'
+  ])
+  await expect(page.locator('[data-testid^="monitor-info"]')).toHaveCount(0)
+
+  const hostCard = await openHostInfo(HOST_INFO_FULL_ID)
+  expect(await dataKeys(hostCard.getByTestId('host-info-section'), 'data-section')).toEqual(
+    HOST_INFO_SECTIONS.map(([key]) => key)
+  )
+  expect(await dataKeys(hostCard.getByTestId('host-info-group'), 'data-group')).toEqual([
+    'processes',
+    'services',
+    'runsOn',
+    'hostGroup',
+    'other'
+  ])
+  await expect(page.locator('[data-testid^="monitor-info"]')).toHaveCount(0)
+  await expect(page.getByTestId('service-info')).toHaveCount(0)
 })
