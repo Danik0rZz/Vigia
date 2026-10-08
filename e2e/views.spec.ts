@@ -1859,6 +1859,178 @@ function monitorMetricResponse(query: URLSearchParams): [number, unknown] {
 }
 
 /**
+ * Ficha 0023: desglose de un browser monitor y de un HTTP monitor por localización y por paso o
+ * petición (canal entities:monitorBreakdown), con ids inventados. Responde SOLO a las expresiones
+ * confirmadas en vivo (paso 0 de la ficha) y con el ámbito con que se probaron; a cualquier otra,
+ * como la API: 200 con series también de otro monitor. Un resultado por expresión, en el orden
+ * pedido; el metricId sin las comillas de los valores de filter(eq(...)); el nombre en
+ * dimensionMap («<dimensión>.name») por llevar :names; las series de cada métrica, en otro orden
+ * de localizaciones; sin fallos en una localización, su serie de FAILURE no llega.
+ */
+const BREAKDOWN_BROWSER_ID = 'SYNTHETIC_TEST-00000000000E2E42'
+const BREAKDOWN_HTTP_ID = 'HTTP_CHECK-00000000000E2E43'
+const MONITOR_BREAKDOWN_T0 = Date.parse('2026-10-03T08:00:00.000Z')
+const breakdownLocation = (n: number): string => `SYNTHETIC_LOCATION-00000000000E2E5${n}`
+const breakdownStep = (type: string, n: number): string => `${type}-00000000000E2E6${n}`
+type BreakdownItem = { id: string; name?: string; value: number | null }
+type BreakdownRole = 'availability' | 'duration' | 'failed' | 'steps'
+/** Expresión confirmada → papel y ámbitos probados (`monitor`, `steps` o sin entitySelector). */
+function breakdownExpressions(
+  id: string
+): Record<string, { role: BreakdownRole; scopes: ('monitor' | 'steps' | 'none')[] }> {
+  const location = ':splitBy("dt.entity.synthetic_location")'
+  if (id === BREAKDOWN_BROWSER_ID) {
+    const own = `:filter(eq("dt.entity.synthetic_test","${id}"))`
+    return {
+      [`builtin:synthetic.browser.availability${location}:avg:names`]: {
+        role: 'availability',
+        scopes: ['monitor']
+      },
+      [`builtin:synthetic.browser.duration${own}${location}:avg:names`]: {
+        role: 'duration',
+        scopes: ['monitor', 'none']
+      },
+      [`builtin:synthetic.browser.step.duration${own}:splitBy("dt.entity.synthetic_test_step"):avg:names`]:
+        { role: 'steps', scopes: ['monitor', 'none'] }
+    }
+  }
+  return {
+    [`builtin:synthetic.http.availability${location}:avg:names`]: {
+      role: 'availability',
+      scopes: ['monitor']
+    },
+    [`builtin:synthetic.http.duration.geo${location}:avg:names`]: {
+      role: 'duration',
+      scopes: ['monitor']
+    },
+    [`builtin:synthetic.http.resultStatus:filter(eq("Result status","FAILURE"))${location}:sum:names`]:
+      { role: 'failed', scopes: ['monitor'] },
+    ['builtin:synthetic.http.request.duration.geo:splitBy("dt.entity.http_check_step"):avg:names']:
+      { role: 'steps', scopes: ['steps'] }
+  }
+}
+/** Datos de cada monitor, en el orden en que llegan (no el esperado). */
+const BREAKDOWN_DATA: Record<string, Partial<Record<BreakdownRole, BreakdownItem[]>>> = {
+  [BREAKDOWN_BROWSER_ID]: {
+    availability: [
+      { id: breakdownLocation(1), name: 'Localización uno', value: 100 },
+      { id: breakdownLocation(2), name: 'Localización dos', value: 80 },
+      // Sin nombre: llega el id.
+      { id: breakdownLocation(3), value: 97.5 }
+    ],
+    duration: [
+      { id: breakdownLocation(3), value: 5200 },
+      { id: breakdownLocation(1), name: 'Localización uno', value: 4100 },
+      { id: breakdownLocation(2), name: 'Localización dos', value: 6300 }
+    ],
+    // Total 4000 ms: pesos 25, 62.5 y 12.5 %.
+    steps: [
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 1), name: 'Paso uno', value: 1000 },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 2), name: 'Paso dos', value: 2500 },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 3), name: 'Paso tres', value: 500 }
+    ]
+  },
+  [BREAKDOWN_HTTP_ID]: {
+    availability: [
+      { id: breakdownLocation(1), name: 'Localización uno', value: 99 },
+      { id: breakdownLocation(2), name: 'Localización dos', value: 100 },
+      { id: breakdownLocation(3), name: 'Localización tres', value: 90 }
+    ],
+    duration: [
+      { id: breakdownLocation(2), name: 'Localización dos', value: 250 },
+      { id: breakdownLocation(3), name: 'Localización tres', value: 420 },
+      { id: breakdownLocation(1), name: 'Localización uno', value: 310 }
+    ],
+    // La localización dos, sin fallos: su serie no llega.
+    failed: [
+      { id: breakdownLocation(3), name: 'Localización tres', value: 4 },
+      { id: breakdownLocation(1), name: 'Localización uno', value: 1 }
+    ],
+    // Total 400 ms: pesos 20, 30 y 50 %.
+    steps: [
+      { id: breakdownStep('HTTP_CHECK_STEP', 1), name: 'Petición uno', value: 80 },
+      { id: breakdownStep('HTTP_CHECK_STEP', 2), name: 'Petición dos', value: 120 },
+      { id: breakdownStep('HTTP_CHECK_STEP', 3), name: 'Petición tres', value: 200 }
+    ]
+  }
+}
+
+/** ¿Es una consulta del desglose de los monitores inventados? */
+function isMonitorBreakdownQuery(query: URLSearchParams): boolean {
+  const selector = query.get('metricSelector') ?? ''
+  const scope = `${selector} ${query.get('entitySelector') ?? ''}`
+  return (
+    selector.startsWith('builtin:synthetic.') &&
+    (scope.includes(BREAKDOWN_BROWSER_ID) || scope.includes(BREAKDOWN_HTTP_ID))
+  )
+}
+
+/** Respuesta del simulador a una consulta del desglose de los monitores inventados. */
+function monitorBreakdownResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && selector.includes(':fold(')) {
+    return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
+  }
+  const id = `${selector} ${query.get('entitySelector') ?? ''}`.includes(BREAKDOWN_BROWSER_ID)
+    ? BREAKDOWN_BROWSER_ID
+    : BREAKDOWN_HTTP_ID
+  const stepType = id === BREAKDOWN_BROWSER_ID ? 'SYNTHETIC_TEST_STEP' : 'HTTP_CHECK_STEP'
+  const entitySelector = query.get('entitySelector')
+  const scope =
+    entitySelector === null
+      ? 'none'
+      : entitySelector === `entityId("${id}")`
+        ? 'monitor'
+        : entitySelector === `type("${stepType}"),fromRelationships.isStepOf(entityId("${id}"))`
+          ? 'steps'
+          : 'other'
+  const known = breakdownExpressions(id)
+  const expressions = splitSelector(selector)
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '10m',
+      result: expressions.map((expression) => {
+        const entry = known[expression]
+        const valid = entry !== undefined && (entry.scopes as string[]).includes(scope)
+        const isStep = expression.includes('step.') || expression.includes('request.')
+        const dimension = isStep
+          ? id === BREAKDOWN_BROWSER_ID
+            ? 'dt.entity.synthetic_test_step'
+            : 'dt.entity.http_check_step'
+          : 'dt.entity.synthetic_location'
+        // No confirmada o con otro ámbito: como la API, también series de otro monitor.
+        const items: BreakdownItem[] = valid
+          ? (BREAKDOWN_DATA[id]?.[entry.role] ?? [])
+          : [
+              {
+                id: isStep ? breakdownStep(stepType, 9) : breakdownLocation(9),
+                name: 'De otro monitor',
+                value: 1
+              }
+            ]
+        return {
+          metricId: expression.split(`"${id}"`).join(id).split('"FAILURE"').join('FAILURE'),
+          dataPointCountRatio: 0.001,
+          dimensionCountRatio: 0.001,
+          data: items.map((item) => ({
+            dimensionMap: {
+              [dimension]: item.id,
+              ...(item.name === undefined ? {} : { [`${dimension}.name`]: item.name })
+            },
+            dimensions: [item.id],
+            timestamps: inf ? [MONITOR_BREAKDOWN_T0 + 1_800_000] : [MONITOR_BREAKDOWN_T0],
+            values: [item.value]
+          }))
+        }
+      })
+    }
+  ]
+}
+/**
  * Ficha 0017: discos y procesos de una entidad HOST (canal entities:hostBreakdown), con un id
  * inventado. Imita lo observado en vivo (paso 0): una serie por disco con entityId("<host>") en
  * entitySelector; los procesos del host solo con la relación isProcessOf (en entitySelector o en
@@ -2130,6 +2302,8 @@ const defaultSim = () => ({
   hostMetricQueries: [] as URLSearchParams[],
   /** Ficha 0022: consultas de métricas de los monitores inventados (sus query). */
   monitorMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0023: consultas del desglose de los monitores inventados (sus query). */
+  monitorBreakdownQueries: [] as URLSearchParams[],
   /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
   hostBreakdownQueries: [] as URLSearchParams[],
   /** Ficha 0019: las consultas de discos y procesos fallan con un 400. */
@@ -2398,6 +2572,12 @@ async function startServer(): Promise<void> {
         if (isHostBreakdownQuery(url.searchParams)) {
           sim.hostBreakdownQueries.push(url.searchParams)
           const [status, body] = hostBreakdownResponse(url.searchParams)
+          return send(status, body)
+        }
+        // Ficha 0023: las del canal entities:monitorBreakdown, aparte.
+        if (isMonitorBreakdownQuery(url.searchParams)) {
+          sim.monitorBreakdownQueries.push(url.searchParams)
+          const [status, body] = monitorBreakdownResponse(url.searchParams)
           return send(status, body)
         }
         // Ficha 0022: las del canal entities:monitorMetrics, aparte.
@@ -6526,6 +6706,106 @@ test('CA6 (0022): entities:monitorMetrics por IPC con ids inventados de browser 
     warnings: [],
     partial: []
   })
+})
+
+test('CA5 (0023): entities:monitorBreakdown por IPC con ids inventados de browser y HTTP monitor', async () => {
+  const browser = await invoke<Record<string, unknown>>('entities:monitorBreakdown', {
+    environmentId: env['Producción'],
+    entityId: BREAKDOWN_BROWSER_ID,
+    timeRange: '2h'
+  })
+  // Las consultas llegan al simulador, con el rango global y solo con el catálogo de su tipo.
+  expect(sim.monitorBreakdownQueries.length).toBeGreaterThan(0)
+  const browserQueries = sim.monitorBreakdownQueries.length
+  for (const query of sim.monitorBreakdownQueries) {
+    expect(query.get('from')).toBe('now-2h')
+    expect(query.get('resolution')).toBe('Inf')
+    expect(query.get('metricSelector') ?? '').not.toContain('builtin:synthetic.http.')
+  }
+  expect(browser).toMatchObject({
+    // De peor a mejor disponibilidad; el browser monitor no tiene fallidas por localización.
+    locations: [
+      {
+        id: breakdownLocation(2),
+        name: 'Localización dos',
+        availability: 80,
+        duration: 6300,
+        failed: null
+      },
+      {
+        id: breakdownLocation(3),
+        name: breakdownLocation(3),
+        availability: 97.5,
+        duration: 5200,
+        failed: null
+      },
+      {
+        id: breakdownLocation(1),
+        name: 'Localización uno',
+        availability: 100,
+        duration: 4100,
+        failed: null
+      }
+    ],
+    // Por duración (la dimensión no trae número de secuencia), con su peso en el total.
+    steps: [
+      {
+        id: breakdownStep('SYNTHETIC_TEST_STEP', 2),
+        name: 'Paso dos',
+        duration: 2500,
+        share: 62.5
+      },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 1), name: 'Paso uno', duration: 1000, share: 25 },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 3), name: 'Paso tres', duration: 500, share: 12.5 }
+    ]
+  })
+  expect((browser['locations'] as unknown[]).length).toBe(3)
+  expect((browser['steps'] as unknown[]).length).toBe(3)
+
+  const http = await invoke<Record<string, unknown>>('entities:monitorBreakdown', {
+    environmentId: env['Producción'],
+    entityId: BREAKDOWN_HTTP_ID,
+    timeRange: '2h'
+  })
+  expect(sim.monitorBreakdownQueries.length).toBeGreaterThan(browserQueries)
+  for (const query of sim.monitorBreakdownQueries.slice(browserQueries)) {
+    expect(query.get('from')).toBe('now-2h')
+    expect(query.get('resolution')).toBe('Inf')
+    expect(query.get('metricSelector') ?? '').not.toContain('builtin:synthetic.browser.')
+  }
+  expect(http).toMatchObject({
+    locations: [
+      {
+        id: breakdownLocation(3),
+        name: 'Localización tres',
+        availability: 90,
+        duration: 420,
+        failed: 4
+      },
+      {
+        id: breakdownLocation(1),
+        name: 'Localización uno',
+        availability: 99,
+        duration: 310,
+        failed: 1
+      },
+      // Sin serie de FAILURE: 0 fallidas.
+      {
+        id: breakdownLocation(2),
+        name: 'Localización dos',
+        availability: 100,
+        duration: 250,
+        failed: 0
+      }
+    ],
+    steps: [
+      { id: breakdownStep('HTTP_CHECK_STEP', 3), name: 'Petición tres', duration: 200, share: 50 },
+      { id: breakdownStep('HTTP_CHECK_STEP', 2), name: 'Petición dos', duration: 120, share: 30 },
+      { id: breakdownStep('HTTP_CHECK_STEP', 1), name: 'Petición uno', duration: 80, share: 20 }
+    ]
+  })
+  expect((http['locations'] as unknown[]).length).toBe(3)
+  expect((http['steps'] as unknown[]).length).toBe(3)
 })
 
 test('CA6 (0017): entities:hostBreakdown por IPC con un id inventado: discos por uso y los 10 procesos con más CPU', async () => {
