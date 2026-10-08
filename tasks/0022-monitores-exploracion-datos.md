@@ -1,7 +1,7 @@
 ---
 id: '0022'
 titulo: 'Monitores (browser y HTTP): análisis de métricas en vivo y canal de series y marcadores'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -164,8 +164,13 @@ problemas de los últimos 7 días) y 3 HTTP monitors (2 de los problemas y 1 de
 - `builtin:synthetic.{browser,http}.availability` dice `Count`, pero sus valores son % (0–100) y
   trae la dimensión `interpolated` (`true`/`false`).
 - Expresiones del canal comprobadas en los 6 monitores (`entitySelector=entityId("<id>")`): todas
-  200, una serie tras `splitBy("<dimensión del monitor>")`, `metricId` igual a la expresión,
-  ratios < 0,01. Resolución `10m` con `now-24h`. Con Inf, `:avg` ≈ media de la serie y los
+  200, `metricId` igual a la expresión, ratios < 0,01 y una sola serie (en series y con Inf),
+  salvo la FAILURE de un HTTP monitor sin fallos (sin series). En HTTP, todas se probaron con
+  `splitBy("dt.entity.http_check")`. En browser, solo `availability.location.total` (y su
+  variante sin mantenimiento) se probó con `splitBy("dt.entity.synthetic_test")`;
+  `totalDuration:avg`, `totalDuration:median`, `success`, `failure` y las cuatro `*.load:avg` de
+  rendimiento se probaron sin `splitBy`. (`browser.duration` con ese `splitBy` dio 2 a 9 series:
+  no se usa.) Resolución `10m` con `now-24h`. Con Inf, `:avg` ≈ media de la serie y los
   recuentos = suma de la serie (iguales o < 1 %).
 - `http.duration.geo:median` da 200 pero devuelve lo mismo que `:avg` (median no está en sus
   agregaciones): el HTTP monitor no tiene mediana. `browser.totalDuration:median` sí es distinta.
@@ -241,9 +246,10 @@ Papeles sin métrica: **mediana de la duración en HTTP** (no hay agregación me
 
 **Decisiones del developer (delegadas por Dani, a refinar si hace falta):**
 
-- Todas las expresiones van con `entitySelector=entityId("<id>")` y
-  `splitBy("<dimensión del monitor>")` (lo que el paso 0 comprobó en vivo), en
-  `src/main/modules/monitor-metrics.ts`; se casan por posición, como en el servicio y el host.
+- Todas las expresiones van con `entitySelector=entityId("<id>")` y son exactamente las que el
+  paso 0 comprobó en vivo (en browser, `splitBy` solo en `availability.location.total`; ronda 1
+  del revisor), en `src/main/modules/monitor-metrics.ts`; se casan por posición, como en el
+  servicio y el host.
 - Recuentos del rango (`totals.executions`) del marcador con Inf, no de sumar la serie: el paso 0
   los vio iguales (o < 1 %) y así sale todo de la misma consulta. Sin dato, 0.
 - HTTP: la consulta de marcadores no pide `:median` (daría lo mismo que `:avg`); `median` va a
