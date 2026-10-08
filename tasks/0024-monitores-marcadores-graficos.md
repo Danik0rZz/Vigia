@@ -1,7 +1,7 @@
 ---
 id: '0024'
 titulo: 'Monitores: marcadores y cuatro gráficos en las páginas de browser monitor y HTTP monitor'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -175,6 +175,8 @@ fallidas]`; rendimiento en browser, LCP, visually complete y speed index (el CLS
 - `-g "(0024)|(0010)" --repeat-each 3 --workers=1`: 36/36.
 
 ## Resultado
+
+Commits: `4b08411` (tests), `5b6b42b` y `327a7d6` (código). Una ronda de revisión (CAMBIOS solo en la ficha, sin código). ADR nuevo: ninguno. Sin migraciones.
 
 Implementado en `5b6b42b` (consultas, niveles y textos) y `327a7d6` (marcadores y gráficos). Las
 dos páginas usan `MonitorEntityPage.tsx`, `MonitorMarkers.tsx`, `MonitorCharts.tsx` y

@@ -6,7 +6,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020, hecho) → lote **monitores** (0022 y 0023 hechas)
+- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020, hecho) → lote **monitores** (0022 a 0024 hechas)
   ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
   browser y HTTP monitor) → lote **proceso**
   ([0027](tasks/0027-proceso-exploracion-datos.md)–[0029](tasks/0029-proceso-informacion.md)).
@@ -139,6 +139,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Información de la nube del host: filas de región y tamaño de instancia. Solo llegan con claves propias de cada proveedor (`gce*`…); decide Dani de qué claves salen por proveedor. (surgió en 0020)
 - Ficha 0022: añadir `browser.availability` con `splitBy` al paréntesis de la sección «Verificación» (la lista de lo probado con `splitBy` en browser). (surgió en 0022)
 - Monitores: añadir la de pasos a la consulta de localización de browser (`CHANNEL_LOCATIONS.browser`) en la próxima pasada en vivo; hoy se probó sola (mismo ámbito, riesgo bajo). (surgió en 0023)
+- Franja de problemas: los comentarios de `ProblemBand.tsx` y `EntityChartPanel.tsx` solo nombran servicio y host; añadir los monitores. (surgió en 0024)
+- Marcador «Localizaciones» de monitores: el pie «Localizaciones con datos» solo es exacto si el desglose excluye las de sin dato; frente a «del rango», revisar el texto. (surgió en 0024)
+- «Abrir en Métricas» de monitores: el filtro por el id del monitor (en HTTP, con el `and` de «Result status») no está probado en vivo; prueba a mano de Dani. (surgió en 0024)
 - Host: los `warnings` de la API se repiten en las dos tarjetas (discos y procesos); mostrarlos una
   sola vez. (surgió en 0019)
 
@@ -196,3 +199,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0020](tasks/0020-host-informacion.md): tarjeta «Información» en la página del host, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; la tarjeta se comparte con el servicio. Con ella queda completo el lote «host» (0016 a 0020).
 - [0022](tasks/0022-monitores-exploracion-datos.md) (lote monitores): canal `entities:monitorMetrics` con series y marcadores de browser y HTTP monitor, y análisis de métricas en vivo (sin cambios visibles hasta la 0024).
 - [0023](tasks/0023-monitores-desglose-datos.md) (lote monitores): canal `entities:monitorBreakdown` con el desglose por localización y por paso o petición de browser y HTTP monitor (sin cambios visibles hasta la 0025).
+- [0024](tasks/0024-monitores-marcadores-graficos.md) (lote monitores): páginas de browser y HTTP monitor con cinco marcadores (disponibilidad con umbrales 95/99 %) y cuatro gráficos (disponibilidad con la franja de problemas, duración, ejecuciones y rendimiento), con «Abrir en Métricas» y exportación.
