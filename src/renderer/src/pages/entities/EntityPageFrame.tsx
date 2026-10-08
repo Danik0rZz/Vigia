@@ -95,18 +95,22 @@ export function EntityPageFrame({
 }
 
 /**
- * Secciones de una página de entidad, siempre en el mismo orden (ficha 0036): los avisos de
+ * Secciones de una página de entidad, siempre en el mismo orden (ficha 0036): la fila de
+ * etiquetas, justo debajo de la cabecera (ficha 0037), los avisos de
  * módulos sin acceso, los marcadores, los gráficos, las demás tarjetas (discos y procesos del
  * host, localizaciones y pasos de los monitores…) y, la última, la tarjeta «Información», que en
  * algunos tipos (el host) es muy alta. Una página nueva lo cumple con solo usar esta pieza.
  */
 export function EntitySections({
+  tags,
   notices,
   markers,
   charts,
   cards,
   info
 }: {
+  /** Las etiquetas como píldoras (`EntityTags`), antes que nada (ficha 0037). */
+  tags: ReactNode
   /** Avisos de los módulos sin acceso (Métricas, Problemas). */
   notices?: ReactNode
   markers: ReactNode
@@ -119,6 +123,7 @@ export function EntitySections({
 }): JSX.Element {
   return (
     <>
+      {tags}
       {notices}
       {markers}
       {charts}

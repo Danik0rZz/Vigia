@@ -13,6 +13,7 @@ import {
   uniqueUnavailable
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
+import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { MonitorCharts } from './MonitorCharts'
 import { MonitorInfo } from './MonitorInfo'
@@ -92,6 +93,7 @@ export function MonitorEntityPage({
         </p>
       ) : (
         <EntitySections
+          tags={<EntityTags access={entitiesAccess} info={info} />}
           notices={uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
