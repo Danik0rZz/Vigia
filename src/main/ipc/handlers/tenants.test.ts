@@ -655,13 +655,23 @@ describe('contrato IPC de secretos', () => {
       if (node?.def?.type === 'string') return true
       return node?.def?.innerType !== undefined ? isString(node.def.innerType) : false
     }
+    // Campos que se llaman así pero no son secretos, cada uno con su motivo.
+    const allowed = new Set([
+      // Ficha 0037: el valor de una etiqueta de Dynatrace (`EnrichedTagDto.value`, «clave:valor»).
+      'entities:get.tags[].value'
+    ])
     const suspicious: string[] = []
     const walk = (schema: unknown, path: string): void => {
       const node = schema as Node | undefined
       if (node === undefined || node === null) return
       for (const [key, child] of Object.entries(node.shape ?? {})) {
-        if (/(token|secret|password|value|plain|decrypted)/i.test(key) && isString(child)) {
-          suspicious.push(`${path}.${key}`)
+        const field = `${path}.${key}`
+        if (
+          /(token|secret|password|value|plain|decrypted)/i.test(key) &&
+          isString(child) &&
+          !allowed.has(field)
+        ) {
+          suspicious.push(field)
         }
         walk(child, `${path}.${key}`)
       }
