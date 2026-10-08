@@ -2040,6 +2040,51 @@ BREAKDOWN_DATA[MONITOR_HTTP_ID] = {
   steps: [{ id: breakdownStep('HTTP_CHECK_STEP', 1), name: 'Petición uno', value: 310 }]
 }
 
+/**
+ * Ficha 0025: desglose de las páginas de los monitores para las tablas (con sim.monitorTables).
+ * HTTP: 4 localizaciones con disponibilidades distintas (90, 97,5, 99,5 y 100 %: error, aviso y
+ * normal), en otro orden en cada métrica; la uno sin serie de FAILURE (0 fallidas). Browser: las
+ * 3 localizaciones de la 0023 y 5 pasos (total 5000 ms: pesos 24, 6, 50, 16 y 4 %), que llegan en
+ * otro orden que el de su duración.
+ */
+const MONITOR_TABLE_DATA: Record<string, Partial<Record<BreakdownRole, BreakdownItem[]>>> = {
+  [MONITOR_BROWSER_ID]: {
+    availability: BREAKDOWN_DATA[BREAKDOWN_BROWSER_ID]?.availability ?? [],
+    duration: BREAKDOWN_DATA[BREAKDOWN_BROWSER_ID]?.duration ?? [],
+    steps: [
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 1), name: 'Paso uno', value: 1200 },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 2), name: 'Paso dos', value: 300 },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 3), name: 'Paso tres', value: 2500 },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 4), name: 'Paso cuatro', value: 800 },
+      { id: breakdownStep('SYNTHETIC_TEST_STEP', 5), name: 'Paso cinco', value: 200 }
+    ]
+  },
+  [MONITOR_HTTP_ID]: {
+    availability: [
+      { id: breakdownLocation(1), name: 'Localización uno', value: 100 },
+      { id: breakdownLocation(4), name: 'Localización cuatro', value: 99.5 },
+      { id: breakdownLocation(2), name: 'Localización dos', value: 97.5 },
+      { id: breakdownLocation(3), name: 'Localización tres', value: 90 }
+    ],
+    duration: [
+      { id: breakdownLocation(3), name: 'Localización tres', value: 1500 },
+      { id: breakdownLocation(2), name: 'Localización dos', value: 310 },
+      { id: breakdownLocation(1), name: 'Localización uno', value: 250 },
+      { id: breakdownLocation(4), name: 'Localización cuatro', value: 420 }
+    ],
+    failed: [
+      { id: breakdownLocation(2), name: 'Localización dos', value: 1 },
+      { id: breakdownLocation(4), name: 'Localización cuatro', value: 2 },
+      { id: breakdownLocation(3), name: 'Localización tres', value: 6 }
+    ],
+    // Total 400 ms: pesos 25 y 75 %.
+    steps: [
+      { id: breakdownStep('HTTP_CHECK_STEP', 1), name: 'Petición uno', value: 100 },
+      { id: breakdownStep('HTTP_CHECK_STEP', 2), name: 'Petición dos', value: 300 }
+    ]
+  }
+}
+
 /** Id de monitor (de la 0023 o de las páginas de la 0024) que lleva la consulta, o null. */
 function breakdownMonitorId(query: URLSearchParams): string | null {
   const scope = `${query.get('metricSelector') ?? ''} ${query.get('entitySelector') ?? ''}`
@@ -2106,7 +2151,9 @@ function monitorBreakdownResponse(query: URLSearchParams): [number, unknown] {
           : 'dt.entity.synthetic_location'
         // No confirmada o con otro ámbito: como la API, también series de otro monitor.
         const items: BreakdownItem[] = valid
-          ? (BREAKDOWN_DATA[id]?.[entry.role] ?? [])
+          ? (((sim.monitorTables ? MONITOR_TABLE_DATA[id] : undefined) ?? BREAKDOWN_DATA[id])?.[
+              entry.role
+            ] ?? [])
           : [
               {
                 id: isStep ? breakdownStep(stepType, 9) : breakdownLocation(9),
@@ -2422,6 +2469,11 @@ const defaultSim = () => ({
   monitorBreakdownFail: false,
   /** Ficha 0024: las métricas de rendimiento del browser monitor llegan sin series. */
   monitorPerformanceEmpty: false,
+  /**
+   * Ficha 0025: las páginas de MONITOR_BROWSER_ID y MONITOR_HTTP_ID responden al desglose con
+   * MONITOR_TABLE_DATA (4 localizaciones y 5 pasos o 2 peticiones) en vez de con BREAKDOWN_DATA.
+   */
+  monitorTables: false,
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
   serviceMetricsFail: false,
   /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
@@ -10096,4 +10148,266 @@ test('CA6 (0024): si falla el desglose, el marcador «Localizaciones» enseña e
   await clickInPlace(locations.getByRole('button', { name: 'Reintentar' }), { scroll: true })
   await expectHttpMonitorMarkers()
   await expect(locations.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+/**
+ * Ficha 0025: tablas de localizaciones y de pasos (browser) o peticiones (HTTP) debajo de los
+ * gráficos de las páginas de monitor, con el desglose de MONITOR_TABLE_DATA (sim.monitorTables,
+ * canal entities:monitorBreakdown de la 0023).
+ *
+ * Nombres que fijan estos tests (las dos páginas comparten componentes y testids, como las tablas
+ * del host de la 0019): las tarjetas `monitor-locations` y `monitor-steps`, debajo de
+ * `monitor-charts`, con su título en un encabezado («Localizaciones»; «Pasos» en browser y
+ * «Peticiones» en HTTP); dentro, el `DataGrid` con `gridTestId` `monitor-locations-grid` y
+ * `monitor-steps-grid` y filas `monitor-location-row` (con `data-location-id`) y
+ * `monitor-step-row` (con `data-step-id`). Columnas, en este orden: localizaciones `name`,
+ * `availability` (barra `monitor-location-availability` con `data-level` y su %; si el nivel no es
+ * `normal`, su texto en `monitor-location-level`), `duration` y `failed`; pasos `name`,
+ * `duration` y `share` (barra `monitor-step-share` y su %). El paso más lento, con
+ * `data-slowest="true"` en su fila y un texto en `monitor-step-slowest` (solo en esa fila). El
+ * orden por columna, con `sort-<columna>` y `aria-sort` en `col-<columna>`, como en la 0019.
+ */
+const LOCATION_COLUMNS = ['name', 'availability', 'duration', 'failed'] as const
+const STEP_COLUMNS = ['name', 'duration', 'share'] as const
+const monitorLocations = (): Locator => page.getByTestId('monitor-locations')
+const monitorSteps = (): Locator => page.getByTestId('monitor-steps')
+const locationRow = (id: string): Locator =>
+  monitorLocations().locator(`[data-testid="monitor-location-row"][data-location-id="${id}"]`)
+const stepRow = (id: string): Locator =>
+  monitorSteps().locator(`[data-testid="monitor-step-row"][data-step-id="${id}"]`)
+const locationOrder = (): Promise<string[]> =>
+  tableOrder(monitorLocations(), 'monitor-location-row', 'data-location-id')
+const stepOrder = (): Promise<string[]> =>
+  tableOrder(monitorSteps(), 'monitor-step-row', 'data-step-id')
+/** Un número suelto con su unidad: «90 %» no casa con «190 %» ni con «90,5 %». */
+const withUnit = (value: string, unit: string): RegExp =>
+  new RegExp(`(^|[^\\d,.])${value}\\s?${unit}($|[^\\d,.])`)
+
+/** Ficha 0025: abre la página del monitor con el desglose de las tablas. */
+async function openMonitorTables(kind: MonitorPageKind): Promise<Locator> {
+  sim.monitorTables = true
+  return openMonitorPage(kind)
+}
+
+/** Ficha 0025: las localizaciones del HTTP monitor, de peor a mejor disponibilidad (es). */
+const HTTP_LOCATIONS = [
+  {
+    id: breakdownLocation(3),
+    name: 'Localización tres',
+    pct: withUnit('90(,0)?', '%'),
+    level: 'error',
+    duration: /^1,5\s?s$/,
+    failed: /^6$/
+  },
+  {
+    id: breakdownLocation(2),
+    name: 'Localización dos',
+    pct: withUnit('97,5', '%'),
+    level: 'warning',
+    duration: /^310\s?ms$/,
+    failed: /^1$/
+  },
+  {
+    id: breakdownLocation(4),
+    name: 'Localización cuatro',
+    pct: withUnit('99,5', '%'),
+    level: 'normal',
+    duration: /^420\s?ms$/,
+    failed: /^2$/
+  },
+  {
+    id: breakdownLocation(1),
+    name: 'Localización uno',
+    pct: withUnit('100(,0)?', '%'),
+    level: 'normal',
+    duration: /^250\s?ms$/,
+    // Sin serie de FAILURE: 0 fallidas.
+    failed: /^0$/
+  }
+] as const
+
+/** Ficha 0025: los 5 pasos del browser monitor, por duración (el orden que da el canal). */
+const BROWSER_STEPS = [
+  { n: 3, name: 'Paso tres', duration: /^2,5\s?s$/, share: '50(,0)?' },
+  { n: 1, name: 'Paso uno', duration: /^1,2\s?s$/, share: '24(,0)?' },
+  { n: 4, name: 'Paso cuatro', duration: /^800\s?ms$/, share: '16(,0)?' },
+  { n: 2, name: 'Paso dos', duration: /^300\s?ms$/, share: '6(,0)?' },
+  { n: 5, name: 'Paso cinco', duration: /^200\s?ms$/, share: '4(,0)?' }
+].map((step) => ({ ...step, id: breakdownStep('SYNTHETIC_TEST_STEP', step.n) }))
+
+/** Ficha 0025: espera a que las dos tablas tengan sus filas. */
+async function expectMonitorTablesLoaded(locations: number, steps: number): Promise<void> {
+  await expect(monitorLocations().getByTestId('monitor-location-row')).toHaveCount(locations)
+  await expect(monitorSteps().getByTestId('monitor-step-row')).toHaveCount(steps)
+}
+
+test('CA1 (0025): con 4 localizaciones, la tabla las enseña de peor a mejor disponibilidad, con su %, su nivel, la duración media y las fallidas', async () => {
+  await openMonitorTables('http')
+  const card = monitorLocations()
+  await expect(card).toBeVisible()
+  await expect(card.getByRole('heading').first()).toContainText('Localizaciones')
+  const grid = card.getByTestId('monitor-locations-grid')
+  await expect(grid).toHaveAttribute('role', 'grid')
+  await expect(card.getByTestId('monitor-location-row')).toHaveCount(4)
+  expect(await gridColumns(grid)).toEqual(LOCATION_COLUMNS.map((c) => `col-${c}`))
+  await expect(grid.getByTestId('col-availability')).toHaveAttribute('aria-sort', 'ascending')
+
+  // De peor a mejor: el simulador las da en otro orden en cada métrica.
+  expect(await locationOrder()).toEqual(HTTP_LOCATIONS.map((l) => l.id))
+
+  for (const location of HTTP_LOCATIONS) {
+    const cells = locationRow(location.id).getByRole('gridcell')
+    await expect(cells, location.name).toHaveCount(LOCATION_COLUMNS.length)
+    await expect(cells.nth(0), location.name).toHaveText(location.name)
+    // Barra con su % y su nivel (color en data-level y, si no es normal, también texto).
+    const availability = cells.nth(1)
+    await expect(availability, location.name).toContainText(location.pct)
+    await expect(
+      availability.getByTestId('monitor-location-availability'),
+      location.name
+    ).toHaveAttribute('data-level', location.level)
+    const levelText = availability.getByTestId('monitor-location-level')
+    if (location.level === 'normal') await expect(levelText, location.name).toHaveCount(0)
+    else await expect(levelText, location.name).toHaveText(/\S/)
+    await expect(cells.nth(2), location.name).toHaveText(location.duration)
+    await expect(cells.nth(3), location.name).toHaveText(location.failed)
+  }
+  // El aviso y el error no dicen lo mismo.
+  const warningText = await locationRow(breakdownLocation(2))
+    .getByTestId('monitor-location-level')
+    .textContent()
+  const errorText = await locationRow(breakdownLocation(3))
+    .getByTestId('monitor-location-level')
+    .textContent()
+  expect(warningText).not.toBe(errorText)
+
+  // Debajo de los gráficos.
+  const charts = await settledBox(page.getByTestId('monitor-charts'))
+  const locations = await settledBox(card)
+  expect(locations.y).toBeGreaterThanOrEqual(charts.y + charts.height - 1)
+})
+
+test('CA2 (0025): con 5 pasos, la tabla del browser monitor los enseña en su orden, con su duración y su peso, y marca el más lento; en un HTTP monitor la tarjeta se llama «Peticiones»', async () => {
+  await openMonitorTables('browser')
+  const card = monitorSteps()
+  await expect(card).toBeVisible()
+  await expect(card.getByRole('heading').first()).toHaveText(/^Pasos\b/)
+  const grid = card.getByTestId('monitor-steps-grid')
+  await expect(grid).toHaveAttribute('role', 'grid')
+  await expect(card.getByTestId('monitor-step-row')).toHaveCount(5)
+  expect(await gridColumns(grid)).toEqual(STEP_COLUMNS.map((c) => `col-${c}`))
+
+  // En el orden que da el canal (por duración: la dimensión no trae secuencia, 0023), no en el
+  // que llegan del simulador.
+  expect(await stepOrder()).toEqual(BROWSER_STEPS.map((s) => s.id))
+
+  for (const step of BROWSER_STEPS) {
+    const row = stepRow(step.id)
+    const cells = row.getByRole('gridcell')
+    await expect(cells, step.name).toHaveCount(STEP_COLUMNS.length)
+    await expect(cells.nth(0), step.name).toContainText(step.name)
+    await expect(cells.nth(1), step.name).toHaveText(step.duration)
+    await expect(cells.nth(2), step.name).toContainText(withUnit(step.share, '%'))
+    await expect(cells.nth(2).getByTestId('monitor-step-share'), step.name).toHaveCount(1)
+  }
+
+  // El más lento (Paso tres), resaltado con atributo y con texto; los demás, no.
+  const slowest = stepRow(breakdownStep('SYNTHETIC_TEST_STEP', 3))
+  await expect(slowest).toHaveAttribute('data-slowest', 'true')
+  await expect(slowest.getByTestId('monitor-step-slowest')).toHaveText(/\S/)
+  await expect(card.getByTestId('monitor-step-slowest')).toHaveCount(1)
+  for (const step of BROWSER_STEPS.slice(1)) {
+    await expect(stepRow(step.id), step.name).not.toHaveAttribute('data-slowest', 'true')
+  }
+
+  // Debajo de los gráficos, como las localizaciones.
+  const charts = await settledBox(page.getByTestId('monitor-charts'))
+  const steps = await settledBox(card)
+  expect(steps.y).toBeGreaterThanOrEqual(charts.y + charts.height - 1)
+
+  // En un HTTP monitor, «Peticiones» (y no «Pasos»), con sus peticiones y la más lenta marcada.
+  await openMonitorPage('http')
+  await expect(monitorSteps()).toBeVisible()
+  await expect(monitorSteps().getByRole('heading').first()).toHaveText(/^Peticiones\b/)
+  await expect(monitorSteps().getByRole('heading').first()).not.toContainText('Pasos')
+  await expect(monitorSteps().getByTestId('monitor-step-row')).toHaveCount(2)
+  const requests = [breakdownStep('HTTP_CHECK_STEP', 2), breakdownStep('HTTP_CHECK_STEP', 1)]
+  expect(await stepOrder()).toEqual(requests)
+  const slowestRequest = stepRow(requests[0] ?? '')
+  await expect(slowestRequest.getByRole('gridcell').nth(2)).toContainText(withUnit('75(,0)?', '%'))
+  await expect(slowestRequest).toHaveAttribute('data-slowest', 'true')
+  await expect(monitorSteps().getByTestId('monitor-step-slowest')).toHaveCount(1)
+})
+
+test('CA4 (0025): ordenar por otra columna (nombre en pasos, duración en localizaciones) reordena las filas', async () => {
+  await openMonitorTables('browser')
+  await expectMonitorTablesLoaded(3, 5)
+
+  // Pasos por nombre: «Paso cinco», «Paso cuatro», «Paso dos», «Paso tres» y «Paso uno».
+  const stepsGrid = monitorSteps().getByTestId('monitor-steps-grid')
+  const byName = BROWSER_STEPS.slice()
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    .map((s) => s.id)
+  expect(byName).not.toEqual(BROWSER_STEPS.map((s) => s.id))
+  expect(byName.slice().reverse()).not.toEqual(BROWSER_STEPS.map((s) => s.id))
+  await clickInPlace(stepsGrid.getByTestId('sort-name'), { scroll: true })
+  const nameCol = stepsGrid.getByTestId('col-name')
+  await expect(nameCol).toHaveAttribute('aria-sort', /^(ascending|descending)$/)
+  const nameAsc = (await nameCol.getAttribute('aria-sort')) === 'ascending'
+  expect(await stepOrder()).toEqual(nameAsc ? byName : byName.slice().reverse())
+  await clickInPlace(stepsGrid.getByTestId('sort-name'), { scroll: true })
+  await expect(nameCol).toHaveAttribute('aria-sort', nameAsc ? 'descending' : 'ascending')
+  expect(await stepOrder()).toEqual(nameAsc ? byName.slice().reverse() : byName)
+  // Ordenar no quita la marca del más lento.
+  await expect(stepRow(breakdownStep('SYNTHETIC_TEST_STEP', 3))).toHaveAttribute(
+    'data-slowest',
+    'true'
+  )
+
+  // Localizaciones del HTTP monitor por duración media: uno 250, dos 310, cuatro 420, tres 1500.
+  await openMonitorPage('http')
+  await expectMonitorTablesLoaded(4, 2)
+  const locationsGrid = monitorLocations().getByTestId('monitor-locations-grid')
+  const byDuration = [1, 2, 4, 3].map((n) => breakdownLocation(n))
+  await clickInPlace(locationsGrid.getByTestId('sort-duration'), { scroll: true })
+  const durationCol = locationsGrid.getByTestId('col-duration')
+  await expect(durationCol).toHaveAttribute('aria-sort', /^(ascending|descending)$/)
+  await expect(locationsGrid.getByTestId('col-availability')).toHaveAttribute('aria-sort', 'none')
+  const durationAsc = (await durationCol.getAttribute('aria-sort')) === 'ascending'
+  expect(await locationOrder()).toEqual(durationAsc ? byDuration : byDuration.slice().reverse())
+  await clickInPlace(locationsGrid.getByTestId('sort-duration'), { scroll: true })
+  await expect(durationCol).toHaveAttribute('aria-sort', durationAsc ? 'descending' : 'ascending')
+  expect(await locationOrder()).toEqual(durationAsc ? byDuration.slice().reverse() : byDuration)
+})
+
+test('CA4 (0025): si falla el canal, las dos tarjetas enseñan el aviso con Reintentar y los gráficos siguen', async () => {
+  sim.monitorBreakdownFail = true
+  await openMonitorTables('browser')
+
+  for (const card of [monitorLocations(), monitorSteps()]) {
+    await expect(card).toBeVisible()
+    await expect(card.getByRole('alert').first()).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  }
+  await expect(monitorLocations().getByTestId('monitor-location-row')).toHaveCount(0)
+  await expect(monitorSteps().getByTestId('monitor-step-row')).toHaveCount(0)
+
+  // Los gráficos, con sus series y sin aviso.
+  for (const kind of MONITOR_CHART_KINDS) {
+    await expectMonitorChartSeries('browser', kind)
+    await expect(
+      monitorChartPanel(kind).getByRole('button', { name: 'Reintentar' }),
+      kind
+    ).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llegan las dos tablas.
+  sim.monitorBreakdownFail = false
+  await clickInPlace(monitorLocations().getByRole('button', { name: 'Reintentar' }), {
+    scroll: true
+  })
+  await expectMonitorTablesLoaded(3, 5)
+  for (const card of [monitorLocations(), monitorSteps()]) {
+    await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  }
 })
