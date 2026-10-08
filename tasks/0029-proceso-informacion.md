@@ -1,7 +1,7 @@
 ---
 id: '0029'
 titulo: 'PROCESS_GROUP_INSTANCE: tarjeta «Información» del proceso (sin línea de comandos)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -68,7 +68,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Otras claves de `metadata` con rutas (`JAVA_JAR_PATH`, `PHP_SCRIPT_PATH`,
+  `PYTHON_SCRIPT_PATH`, `NODE_JS_APP_BASE_DIRECTORY`…) también pueden llevar el nombre del usuario;
+  no se filtran porque la ficha solo pide la ruta del ejecutable. Si Dani lo quiere, basta con
+  añadirlas a `src/main/modules/entity-secrets.ts`.
 
 ## Notas del revisor
 
@@ -118,6 +121,18 @@ en verde con el simulador ampliado.
   group, dos servicios (`INFO_FEW_ID` para abrir su página) y `isPgiOfCgi` para «Otras
   relaciones»; ids nuevos `…E2E90` a `…E2E93`. CA3 mira el HTML y el texto de toda la página con
   todo desplegado y otra vez al volver.
+
+**Decisiones del developer:**
+
+- **Filtro en main** (`src/main/modules/entity-secrets.ts`, usado por `toEntityData` para todas
+  las entidades, no solo procesos): fuera la propiedad o el campo anidado, y la entrada
+  `{ key, value }` de una lista, cuya clave (en minúsculas y sin `_`, `-`, `.`) contenga
+  `commandline`, `cmdline`, `commandpath`, `exepath`, `environmentvariable` o `envvar`, o sea
+  `args`, `arguments`, `argv`, `env`, `environment` o `dotnetcommand`. Cubre `COMMAND_LINE_ARGS`,
+  `EXE_PATH`, `DOTNET_COMMAND` y `DOTNET_COMMAND_PATH` del enum de metadata de la Configuration API.
+- **Puertos de escucha** en la vista separados por « · » («8080 · 8443»): `buildProcessInfo` los da
+  tal cual («8080, 8443»), pero con la coma pegada CA3 (`loneNumber`) no ve el número suelto, y
+  además se leería como un decimal.
 
 ## Resultado
 
