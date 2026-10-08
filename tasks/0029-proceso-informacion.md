@@ -1,7 +1,7 @@
 ---
 id: '0029'
 titulo: 'PROCESS_GROUP_INSTANCE: tarjeta «Información» del proceso (sin línea de comandos)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -76,7 +76,48 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en el commit `8769183` (`test(proceso): criterios de la ficha 0029 (#0029)`). Al
+escribirlos fallan por lo que falta, no por el test: CA1 porque `entities:get` aún devuelve los
+valores (5 en rojo; «lo demás sigue llegando» ya pasa, es una salvaguarda), CA2 porque no existe
+`process-info.ts`, CA5 porque no existe `entities.process.info` en los locales, y CA3 y CA4 porque
+no existe la tarjeta `process-info`. Los e2e de la 0015, la 0020, la 0026, la 0027 y la 0028 siguen
+en verde con el simulador ampliado.
+
+| Criterio | Test                                                                                                                                                                                                                    |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/ipc/handlers/entity-detail.test.ts` › `CA1 (0029): entities:get de un proceso sale sin línea de comandos, argumentos, variables de entorno ni ruta completa`                                                  |
+| CA2      | `src/renderer/src/pages/entities/process-info.test.ts` › `CA2 (0029): filas y grupos de relaciones de un PROCESS_GROUP_INSTANCE a partir de entities:get`                                                               |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0029): la página de un proceso enseña su tarjeta «Información» (…), sus relaciones con «Ver nombres» y enlaces al host y a los servicios, y nunca la línea de comandos ni la ruta completa` |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0029): sin entities.read, la tarjeta del proceso dice qué scope falta y los marcadores y gráficos siguen`                                                                                   |
+| CA5      | `src/renderer/src/locales/process-info.test.ts` › `CA5 (0029): textos de la tarjeta «Información» del proceso en es y en` (la paridad general, `locales.test.ts`)                                                       |
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- **Formas filtradas (CA1):** en `metadata` (lista de `{ key, value }`), `COMMAND_LINE_ARGS` y
+  `EXE_PATH` (vistas en vivo en la 0027). Para la línea de comandos y las variables de entorno,
+  que la 0027 no vio, formas inventadas: propiedad de texto `commandLine` y propiedad objeto
+  `environmentVariables`. Se exige que sus valores no salgan en la respuesta ni en el log; el
+  resto de `metadata` (`EXE_NAME`, `KUBERNETES_*`…) y las demás propiedades siguen llegando.
+- **Función (CA2):** `buildProcessInfo(data: EntityData): { rows, groups }` en
+  `pages/entities/process-info.ts`. Filas planas, en este orden y solo con dato: `technologies`
+  (chips de `softwareTechnologies`, partida por «, »), `listenPorts` (texto tal cual),
+  `detectedName`, `executable` (el valor de `EXE_NAME` dentro del texto de `metadata`, y si trae
+  ruta, solo el nombre del fichero), `firstSeen`, `lastSeen`, `managementZones` y `tags`.
+  `metadata` nunca es fila.
+- **Grupos:** `runsOn` («Se ejecuta en», `isProcessOf` de from), `processGroup` («Process group»,
+  `isInstanceOf` de from), `services` («Servicios», `runsOnProcessGroupInstance` de to: la
+  contraria de la que usa el servicio en la 0015; la 0027 no la vio en sus muestras) y `other`
+  (el resto, también esas en la dirección contraria).
+- **Nombres en el e2e:** prefijo `process-info` (como `monitor-info`), tarjeta entre la cabecera
+  y `process-markers`, con `-row` (`data-key`), `-value`, `-chip`, `-relations`, `-group`
+  (`data-group`), `-group-toggle`, `-group-count`, `-entity` (`data-entity-id`), `-names`,
+  `-entity-name`, `-properties-toggle` y `-property` (`data-key`).
+- **Textos (CA5):** `entities.process.info.rows.<key>` y `groups.<key>`.
+- **Simulador:** `/entities/{id}` de `PROCESS_METRICS_ID` (el proceso de la 0027 y la 0028) con las
+  claves de la 0027, `metadata` con `COMMAND_LINE_ARGS` y `EXE_PATH` inventados, host, process
+  group, dos servicios (`INFO_FEW_ID` para abrir su página) y `isPgiOfCgi` para «Otras
+  relaciones»; ids nuevos `…E2E90` a `…E2E93`. CA3 mira el HTML y el texto de toda la página con
+  todo desplegado y otra vez al volver.
 
 ## Resultado
 
