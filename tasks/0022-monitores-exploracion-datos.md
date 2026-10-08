@@ -1,7 +1,7 @@
 ---
 id: '0022'
 titulo: 'Monitores (browser y HTTP): análisis de métricas en vivo y canal de series y marcadores'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -264,6 +264,11 @@ Papeles sin métrica: **mediana de la duración en HTTP** (no hay agregación me
 - Motivo nuevo `monitorMetricsRejected` (400 y 404), con su texto en es y en.
 - `src/main/ipc/channel-coverage.test.ts` y `src/main/ipc/handlers/modules.test.ts` (registros de
   canales, no tests de la ficha) llevan el canal nuevo, como en la 0016.
+
+### Verifier, 2026-10-08, commit `3b2f61c`, rango `main..3b2f61c`: VERDE
+
+- check: 2367 tests en 125 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 243/243.
 
 ## Resultado
 
