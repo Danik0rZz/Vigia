@@ -1387,6 +1387,93 @@ function monitorInfoHttpBody(): Record<string, unknown> {
   }
 }
 
+/**
+ * Ficha 0029: el proceso inventado de la 0027 (PROCESS_METRICS_ID) en /entities/{id}, para la
+ * tarjeta «Información». Claves y relaciones, las que la 0027 vio en vivo (en sus mismas
+ * direcciones) y «Servicios» con `runsOnProcessGroupInstance` de toRelationships (la contraria
+ * de la del servicio en la 0015); valores e ids inventados y solo tipos estándar.
+ *
+ * - `metadata` como lista de `{ key, value }` con `COMMAND_LINE_ARGS` (la línea de comandos, con
+ *   una contraseña y un token inventados) y `EXE_PATH` (la ruta completa, con un nombre de
+ *   usuario inventado): ninguno de los dos se enseña en ningún sitio (main los filtra). `EXE_NAME`
+ *   da la fila «Ejecutable».
+ * - Relaciones: el host (isProcessOf de from), el process group (isInstanceOf de from), dos
+ *   servicios (runsOnProcessGroupInstance de to: INFO_FEW_ID, para abrir su página, y otro) y
+ *   una más (isPgiOfCgi) para «Otras relaciones».
+ */
+const PROCESS_INFO_HOST = 'HOST-00000000000E2E90'
+const PROCESS_INFO_PG = 'PROCESS_GROUP-00000000000E2E91'
+const PROCESS_INFO_SERVICE_2 = 'SERVICE-00000000000E2E92'
+const PROCESS_INFO_CGI = 'CONTAINER_GROUP_INSTANCE-00000000000E2E93'
+const PROCESS_INFO_FIRST_SEEN = Date.parse('2026-08-10T06:00:00.000Z')
+const PROCESS_INFO_LAST_SEEN = Date.parse('2026-10-03T11:30:00.000Z')
+/** Valores que no pueden salir en ningún sitio de la página. */
+const PROCESS_INFO_SECRETS = {
+  commandLineArgs: '-Dclave.bd=CLAVE-LINEA-E2E --token TOKEN-LINEA-E2E -Xmx768m',
+  exePath: '/home/usuario-e2e-0029/apps/bin/pagos-worker-e2e'
+}
+const PROCESS_INFO_SECRET_PARTS = [
+  PROCESS_INFO_SECRETS.commandLineArgs,
+  PROCESS_INFO_SECRETS.exePath,
+  'CLAVE-LINEA-E2E',
+  'TOKEN-LINEA-E2E',
+  '-Xmx768m',
+  'usuario-e2e-0029',
+  '/apps/bin/'
+]
+Object.assign(ENTITY_NAMES, {
+  [PROCESS_INFO_HOST]: 'host-proceso-e2e',
+  [PROCESS_INFO_PG]: 'grupo-proceso-e2e',
+  [PROCESS_INFO_SERVICE_2]: 'servicio-proceso-e2e'
+})
+function processInfoBody(): Record<string, unknown> {
+  return {
+    entityId: PROCESS_METRICS_ID,
+    displayName: 'proceso-metricas-e2e',
+    type: 'PROCESS_GROUP_INSTANCE',
+    firstSeenTms: PROCESS_INFO_FIRST_SEEN,
+    lastSeenTms: PROCESS_INFO_LAST_SEEN,
+    managementZones: [{ id: '2901', name: 'Zona proceso A' }],
+    tags: [
+      {
+        context: 'CONTEXTLESS',
+        key: 'equipo',
+        value: 'proceso',
+        stringRepresentation: 'equipo:proceso'
+      }
+    ],
+    properties: {
+      awsNameTag: '',
+      detectedName: 'pagos-worker-detectado-e2e',
+      hasPublicTraffic: false,
+      bitness: '64',
+      processType: 'JAVA',
+      listenPorts: [8080, 8443],
+      softwareTechnologies: [
+        { type: 'JAVA', edition: 'OpenJDK', version: '17.0.2' },
+        { type: 'APACHE_TOMCAT', version: '10.1' }
+      ],
+      metadata: [
+        { key: 'COMMAND_LINE_ARGS', value: PROCESS_INFO_SECRETS.commandLineArgs },
+        { key: 'EXE_NAME', value: 'pagos-worker-e2e' },
+        { key: 'EXE_PATH', value: PROCESS_INFO_SECRETS.exePath },
+        { key: 'OSAGENT_GROUPID_NAME', value: 'grupo-agente-e2e' }
+      ]
+    },
+    fromRelationships: {
+      isProcessOf: [{ id: PROCESS_INFO_HOST, type: 'HOST' }],
+      isInstanceOf: [{ id: PROCESS_INFO_PG, type: 'PROCESS_GROUP' }],
+      isPgiOfCgi: [{ id: PROCESS_INFO_CGI, type: 'CONTAINER_GROUP_INSTANCE' }]
+    },
+    toRelationships: {
+      runsOnProcessGroupInstance: [
+        { id: INFO_FEW_ID, type: 'SERVICE' },
+        { id: PROCESS_INFO_SERVICE_2, type: 'SERVICE' }
+      ]
+    }
+  }
+}
+
 /** Ficha 0015: lo que devuelve el simulador en /entities/{id}, por id (el resto, 404). */
 function entityBodies(): Record<string, Record<string, unknown>> {
   return {
@@ -1399,7 +1486,9 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     [HOST_METRICS_ID]: hostInfoFewBody(HOST_METRICS_ID),
     // Ficha 0026.
     [MONITOR_BROWSER_ID]: monitorInfoBrowserBody(),
-    [MONITOR_HTTP_ID]: monitorInfoHttpBody()
+    [MONITOR_HTTP_ID]: monitorInfoHttpBody(),
+    // Ficha 0029.
+    [PROCESS_METRICS_ID]: processInfoBody()
   }
 }
 
@@ -11567,4 +11656,270 @@ test('CA5 (0028): desde la tabla de procesos del host, pulsar un proceso abre su
   const queries = sim.processMetricQueries.slice(processQueriesBefore)
   expect(queries).toHaveLength(2)
   for (const query of queries) expect(query.get('entitySelector')).toBe(`entityId("${id}")`)
+})
+
+/**
+ * Ficha 0029: tarjeta «Información» de la página de un proceso (PROCESS_METRICS_ID, con
+ * processInfoBody), canal entities:get, con la forma de la del servicio (0015), el host (0020) y
+ * el monitor (0026) y sus nombres con el prefijo `process-info`.
+ *
+ * Nombres que fijan estos tests: la tarjeta `process-info`, entre la cabecera y
+ * `process-markers`; cada fila, `process-info-row` con `data-key` (las claves de
+ * `buildProcessInfo`: technologies, listenPorts, detectedName, executable, firstSeen, lastSeen,
+ * managementZones y tags, en ese orden) y su valor en `process-info-value`; los chips,
+ * `process-info-chip`. Las relaciones, en `process-info-relations`: cada grupo
+ * `process-info-group` con `data-group` (runsOn, processGroup, services y other), con
+ * `process-info-group-toggle` (aria-expanded), `process-info-group-count` y, desplegado, sus
+ * `process-info-entity` (enlaces, con `data-entity-id`), el botón `process-info-names` («Ver
+ * nombres») y cada nombre en `process-info-entity-name`. «Todas las propiedades»,
+ * `process-info-properties-toggle` y cada una `process-info-property` con `data-key`.
+ */
+const PROCESS_INFO_ROWS = [
+  'technologies',
+  'listenPorts',
+  'detectedName',
+  'executable',
+  'firstSeen',
+  'lastSeen',
+  'managementZones',
+  'tags'
+]
+const processInfoCard = (): Locator => page.getByTestId('process-info')
+const processInfoRow = (key: string): Locator =>
+  processInfoCard().locator(`[data-testid="process-info-row"][data-key="${key}"]`)
+const processInfoValue = (key: string): Locator =>
+  processInfoRow(key).getByTestId('process-info-value')
+const processInfoGroup = (key: string): Locator =>
+  processInfoCard().locator(`[data-testid="process-info-group"][data-group="${key}"]`)
+const processInfoEntity = (group: string, id: string): Locator =>
+  processInfoGroup(group).locator(`[data-testid="process-info-entity"][data-entity-id="${id}"]`)
+const processInfoProperty = (key: string): Locator =>
+  processInfoCard().locator(`[data-testid="process-info-property"][data-key="${key}"]`)
+
+/** Ficha 0029: abre la página del proceso y espera su tarjeta con filas. */
+async function openProcessInfo(): Promise<Locator> {
+  await openProcessPage()
+  const card = processInfoCard()
+  await expect(card).toBeVisible()
+  await expect(card.getByTestId('process-info-row').first()).toBeVisible()
+  return card
+}
+
+/** Ficha 0029: despliega un grupo de relaciones del proceso (si no lo está). */
+async function expandProcessGroup(key: string): Promise<Locator> {
+  const group = processInfoGroup(key)
+  const toggle = group.getByTestId('process-info-group-toggle')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await clickInPlace(toggle, { scroll: true })
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return group
+}
+
+/**
+ * Ficha 0029: ni la línea de comandos ni la ruta completa del simulador aparecen en ningún sitio
+ * de la página: ni en el texto ni en el HTML (atributos, títulos, tooltips).
+ */
+async function expectNoProcessSecrets(where: string): Promise<void> {
+  const html = await page.content()
+  const text = await page.locator('body').innerText()
+  for (const part of PROCESS_INFO_SECRET_PARTS) {
+    expect(html, `${where}: HTML con «${part}»`).not.toContain(part)
+    expect(text, `${where}: texto con «${part}»`).not.toContain(part)
+  }
+}
+
+test('CA3 (0029): la página de un proceso enseña su tarjeta «Información» (tecnologías, puertos, ejecutable…), sus relaciones con «Ver nombres» y enlaces al host y a los servicios, y nunca la línea de comandos ni la ruta completa', async () => {
+  const card = await openProcessInfo()
+  await expect(card).toContainText('Información')
+
+  // Entre la cabecera y los marcadores.
+  const cardBox = await settledBox(card)
+  const markersBox = await settledBox(page.getByTestId('process-markers'))
+  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
+    markersBox.y + 1
+  )
+
+  // Las filas, en su orden y con sus valores.
+  expect(await dataKeys(card.getByTestId('process-info-row'))).toEqual(PROCESS_INFO_ROWS)
+  await expect(processInfoRow('technologies').getByTestId('process-info-chip')).toHaveText([
+    'JAVA OpenJDK 17.0.2',
+    'APACHE_TOMCAT 10.1'
+  ])
+  await expect(processInfoValue('listenPorts')).toContainText(loneNumber('8080'))
+  await expect(processInfoValue('listenPorts')).toContainText(loneNumber('8443'))
+  await expect(processInfoValue('detectedName')).toContainText('pagos-worker-detectado-e2e')
+  // Solo el nombre del fichero.
+  await expect(processInfoValue('executable')).toHaveText(/^\s*pagos-worker-e2e\s*$/)
+  await expect(processInfoValue('firstSeen')).toContainText('2026')
+  await expect(processInfoValue('lastSeen')).toContainText('2026')
+  await expect(processInfoRow('managementZones').getByTestId('process-info-chip')).toHaveText([
+    'Zona proceso A'
+  ])
+  await expect(processInfoRow('tags').getByTestId('process-info-chip')).toHaveText([
+    'equipo:proceso'
+  ])
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(card, text).not.toContainText(text)
+  }
+  // Sin las tarjetas de otros tipos.
+  for (const other of ['service-info', 'host-info', 'monitor-info']) {
+    await expect(page.getByTestId(other), other).toHaveCount(0)
+  }
+
+  // Relaciones: Se ejecuta en, Process group, Servicios y Otras relaciones (plegada).
+  const relations = card.getByTestId('process-info-relations')
+  await expect(relations).toContainText('Relaciones')
+  const groups = relations.getByTestId('process-info-group')
+  await expect(groups).toHaveCount(4)
+  expect(await dataKeys(groups, 'data-group')).toEqual([
+    'runsOn',
+    'processGroup',
+    'services',
+    'other'
+  ])
+  for (const [key, title, count] of [
+    ['runsOn', 'Se ejecuta en', '1'],
+    ['processGroup', 'Process group', '1'],
+    ['services', 'Servicios', '2'],
+    ['other', 'Otras relaciones', '1']
+  ] as const) {
+    await expect(processInfoGroup(key), key).toContainText(title)
+    await expect(processInfoGroup(key).getByTestId('process-info-group-count'), key).toHaveText(
+      new RegExp(`^\\s*${count}\\s*$`)
+    )
+  }
+  await expect(processInfoGroup('other').getByTestId('process-info-group-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  )
+  await expect(processInfoGroup('other').getByTestId('process-info-entity')).toHaveCount(0)
+
+  // Desplegados, con sus entidades; ningún nombre pedido aún.
+  await expandProcessGroup('runsOn')
+  await expandProcessGroup('processGroup')
+  const services = await expandProcessGroup('services')
+  expect(await dataKeys(services.getByTestId('process-info-entity'), 'data-entity-id')).toEqual([
+    INFO_FEW_ID,
+    PROCESS_INFO_SERVICE_2
+  ])
+  const other = await expandProcessGroup('other')
+  await expect(other).toContainText('isPgiOfCgi')
+  await expect(processInfoEntity('other', PROCESS_INFO_CGI)).toContainText(PROCESS_INFO_CGI)
+  await settledRequests()
+  expect(sim.entityNamesQueries, 'nombres antes de «Ver nombres»').toHaveLength(0)
+
+  // «Ver nombres» de «Servicios»: una llamada con sus dos ids y los nombres en su sitio.
+  const button = services.getByTestId('process-info-names')
+  await expect(button).toHaveText('Ver nombres')
+  await clickInPlace(button, { scroll: true })
+  await expect.poll(() => sim.entityNamesQueries.length).toBe(1)
+  const selector = sim.entityNamesQueries[0]?.get('entitySelector') ?? ''
+  expect(selector).toContain(INFO_FEW_ID)
+  expect(selector).toContain(PROCESS_INFO_SERVICE_2)
+  await expect(
+    processInfoEntity('services', INFO_FEW_ID).getByTestId('process-info-entity-name')
+  ).toHaveText('info-pocas-e2e')
+  await expect(
+    processInfoEntity('services', PROCESS_INFO_SERVICE_2).getByTestId('process-info-entity-name')
+  ).toHaveText('servicio-proceso-e2e')
+  // Los de otros grupos, sin pedir; «Ver nombres» del host, aparte.
+  await settledRequests()
+  expect(sim.entityNamesQueries).toHaveLength(1)
+  await expect(
+    processInfoEntity('runsOn', PROCESS_INFO_HOST).getByTestId('process-info-entity-name')
+  ).toHaveCount(0)
+  await clickInPlace(processInfoGroup('runsOn').getByTestId('process-info-names'), {
+    scroll: true
+  })
+  await expect(
+    processInfoEntity('runsOn', PROCESS_INFO_HOST).getByTestId('process-info-entity-name')
+  ).toHaveText('host-proceso-e2e')
+
+  // «Todas las propiedades», plegada; desplegada, con metadata pero sin la línea de comandos.
+  await expect(card.getByTestId('process-info-property')).toHaveCount(0)
+  const toggle = card.getByTestId('process-info-properties-toggle')
+  await expect(toggle).toContainText('Todas las propiedades')
+  await clickInPlace(toggle, { scroll: true })
+  await expect(processInfoProperty('detectedName')).toContainText('pagos-worker-detectado-e2e')
+  await expect(processInfoProperty('metadata')).toContainText('pagos-worker-e2e')
+
+  // Con todo desplegado: ni la línea de comandos ni la ruta completa en ningún sitio.
+  await expectNoProcessSecrets('todo desplegado')
+
+  // Enlaces: el host, el process group y los servicios, a su página.
+  const host = processInfoEntity('runsOn', PROCESS_INFO_HOST)
+  await expect(host).toHaveRole('link')
+  await expect(host).toHaveAttribute('href', new RegExp(`#/entities/HOST/${PROCESS_INFO_HOST}$`))
+  await expect(processInfoEntity('processGroup', PROCESS_INFO_PG)).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/PROCESS_GROUP/${PROCESS_INFO_PG}$`)
+  )
+  const service = processInfoEntity('services', INFO_FEW_ID)
+  await expect(service).toHaveRole('link')
+  await expect(service).toHaveAttribute('href', new RegExp(`#/entities/SERVICE/${INFO_FEW_ID}$`))
+
+  const processQueries = (): number =>
+    sim.requests.filter((request) => request.includes(`/entities/${PROCESS_METRICS_ID}`)).length
+  const before = processQueries()
+
+  // Pulsar el host abre su página; «Volver» regresa al proceso.
+  await clickInPlace(host, { scroll: true })
+  const hostPage = page.getByTestId('entity-page-host')
+  await expect(hostPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${PROCESS_INFO_HOST}`)
+  await expect(page.getByTestId('process-info')).toHaveCount(0)
+  await clickInPlace(hostPage.getByTestId('entity-back'), { scroll: true })
+  await expect(processPage()).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP_INSTANCE/${PROCESS_METRICS_ID}`)
+  await expect(processInfoValue('executable')).toContainText('pagos-worker-e2e')
+
+  // Pulsar un servicio abre la suya; «Volver» regresa al proceso sin volver a pedir sus datos.
+  await expandProcessGroup('services')
+  await clickInPlace(processInfoEntity('services', INFO_FEW_ID), { scroll: true })
+  const servicePage = page.getByTestId('entity-page-service')
+  await expect(servicePage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FEW_ID}`)
+  await expect(servicePage.getByTestId('entity-page-id')).toHaveText(INFO_FEW_ID)
+  await clickInPlace(servicePage.getByTestId('entity-back'), { scroll: true })
+  await expect(processPage()).toBeVisible()
+  await expect(processInfoValue('executable')).toContainText('pagos-worker-e2e')
+  await settledRequests()
+  expect(processQueries(), 'entities:get del proceso al volver').toBe(before)
+
+  // Tampoco al volver, con la tarjeta recién pintada.
+  await expectNoProcessSecrets('al volver')
+})
+
+test('CA4 (0029): sin entities.read, la tarjeta del proceso dice qué scope falta y los marcadores y gráficos siguen', async () => {
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEntities = await createEnvironment(
+    clientId,
+    'Sin entidades proceso',
+    'other',
+    TOKEN_NO_ENTITIES
+  )
+  try {
+    await invoke('connection:test', { environmentId: noEntities })
+    await invoke('environments:setActive', { environmentId: noEntities })
+    await reloadUi()
+    await openProcessPage()
+    const unavailable = processInfoCard().getByTestId('module-unavailable')
+    await expect(unavailable).toBeVisible()
+    await expect(unavailable).toContainText('entities.read')
+    await expect(processInfoCard().getByTestId('process-info-row')).toHaveCount(0)
+    // Marcadores y gráficos, con sus datos.
+    await expectProcessMarkers()
+    await expect(processPage().getByTestId('process-chart-panel')).toHaveCount(4)
+    for (const kind of (await processChartKinds()) as ProcessChartKind[]) {
+      await expectProcessChartSeries(kind)
+    }
+    await settledRequests()
+    expect(sim.entityInfoQueries, 'entities:get sin el scope').toHaveLength(0)
+  } finally {
+    await invoke('environments:setActive', { environmentId: env['Producción'] })
+    await invoke('environments:delete', { id: noEntities })
+    await reloadUi()
+  }
 })

@@ -433,3 +433,165 @@ describe('CA7 (0014): entities:names construye entityId(...), devuelve nombres y
     expect(result).toEqual({ ok: true, data: { names: [], missing: [PGI_ID] } })
   })
 })
+
+/**
+ * Ficha 0029, CA1: la línea de comandos, los argumentos, las variables de entorno y la ruta
+ * completa del ejecutable de un proceso (PROCESS_GROUP_INSTANCE) no salen de `entities:get`, ni
+ * en las propiedades que dan filas ni en «Todas las propiedades»: main los filtra antes de mandar
+ * la entidad a la interfaz (pueden llevar contraseñas, tokens o el nombre del usuario).
+ *
+ * Formas (decisión del test-writer, delegada por Dani y refinable):
+ * - Vistas en vivo en la 0027 (docs/notas-api-v2.md): `properties.metadata` es una lista de
+ *   `{ key, value }`; los argumentos llegan con la clave `COMMAND_LINE_ARGS` y la ruta completa con
+ *   `EXE_PATH` (las dos, en el enum de claves de metadata de la Configuration API).
+ * - No vistas en vivo, inventadas para la línea de comandos y las variables de entorno que pide
+ *   el criterio: una propiedad de texto `commandLine` y una propiedad objeto
+ *   `environmentVariables` (nombre → valor).
+ * El resto de `metadata` (por ejemplo, `EXE_NAME`, que da la fila «Ejecutable») y las demás
+ * propiedades siguen llegando.
+ */
+describe('CA1 (0029): entities:get de un proceso sale sin línea de comandos, argumentos, variables de entorno ni ruta completa', () => {
+  const PROCESS_ID = 'PROCESS_GROUP_INSTANCE-00000000000029A1'
+  const SECRETS = {
+    args: 'ARGS-SECRETO-0029',
+    argsToken: 'TOKEN-ARGS-0029',
+    commandLine: 'LINEA-SECRETA-0029',
+    envPassword: 'ENV-CLAVE-0029',
+    envToken: 'ENV-TOKEN-0029',
+    userName: 'usuario-inventado-0029'
+  }
+  const EXE_PATH = `/home/${SECRETS.userName}/apps/bin/pagos-worker`
+  const ARGS = `--db-password=${SECRETS.args} --token ${SECRETS.argsToken} -Xmx512m`
+  const COMMAND_LINE = `/home/${SECRETS.userName}/apps/bin/pagos-worker --clave ${SECRETS.commandLine}`
+
+  /** Entity de un proceso con datos inventados (solo tipos estándar). */
+  function processBody(properties: Record<string, unknown>): Record<string, unknown> {
+    return {
+      entityId: PROCESS_ID,
+      displayName: 'pagos-worker',
+      type: 'PROCESS_GROUP_INSTANCE',
+      firstSeenTms: FIRST_SEEN,
+      lastSeenTms: LAST_SEEN,
+      properties,
+      fromRelationships: {
+        isProcessOf: [{ id: HOST_ID, type: 'HOST' }],
+        isInstanceOf: [{ id: 'PROCESS_GROUP-00000000000029A2', type: 'PROCESS_GROUP' }]
+      }
+    }
+  }
+
+  const metadata = (...entries: [string, string][]): { key: string; value: string }[] =>
+    entries.map(([key, value]) => ({ key, value }))
+
+  async function getProcess(properties: Record<string, unknown>): Promise<{
+    data: EntityData
+    text: string
+  }> {
+    respondEntity = (id) =>
+      id === PROCESS_ID
+        ? json(200, processBody(properties))
+        : json(404, { error: { code: 404, message: `Entity ${id} not found` } })
+    const result = await call(GET, { entityId: PROCESS_ID })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    return { data: result.data as EntityData, text: JSON.stringify(result) }
+  }
+
+  /** Ninguno de los valores sale de main: ni en la respuesta ni en el log. */
+  function expectNone(text: string, values: string[]): void {
+    for (const value of values) expect(text, value).not.toContain(value)
+    const logged = JSON.stringify([
+      vi.mocked(deps.logger.warn).mock.calls,
+      vi.mocked(deps.logger.error).mock.calls
+    ])
+    for (const value of values) expect(logged, `log: ${value}`).not.toContain(value)
+  }
+
+  it('los argumentos (COMMAND_LINE_ARGS de metadata, visto en vivo) no salen', async () => {
+    const { text } = await getProcess({
+      metadata: metadata(['EXE_NAME', 'pagos-worker'], ['COMMAND_LINE_ARGS', ARGS])
+    })
+    expectNone(text, [ARGS, SECRETS.args, SECRETS.argsToken, '-Xmx512m'])
+  })
+
+  it('la ruta completa del ejecutable (EXE_PATH de metadata, visto en vivo) no sale', async () => {
+    const { text } = await getProcess({
+      metadata: metadata(['EXE_PATH', EXE_PATH], ['EXE_NAME', 'pagos-worker'])
+    })
+    expectNone(text, [EXE_PATH, SECRETS.userName, '/home/', 'apps/bin'])
+  })
+
+  it('la línea de comandos (propiedad commandLine) no sale', async () => {
+    const { data, text } = await getProcess({
+      detectedName: 'pagos-worker',
+      commandLine: COMMAND_LINE
+    })
+    expectNone(text, [COMMAND_LINE, SECRETS.commandLine, SECRETS.userName])
+    expect(data.properties.map((p) => p.key)).toContain('detectedName')
+  })
+
+  it('las variables de entorno (propiedad environmentVariables) no salen', async () => {
+    const { text } = await getProcess({
+      detectedName: 'pagos-worker',
+      environmentVariables: { DB_PASSWORD: SECRETS.envPassword, API_TOKEN: SECRETS.envToken }
+    })
+    expectNone(text, [SECRETS.envPassword, SECRETS.envToken])
+  })
+
+  it('todo junto: ninguno de esos valores sale, ni en las propiedades ni en ningún otro sitio de la salida', async () => {
+    const { data, text } = await getProcess({
+      detectedName: 'pagos-worker',
+      commandLine: COMMAND_LINE,
+      environmentVariables: { DB_PASSWORD: SECRETS.envPassword, API_TOKEN: SECRETS.envToken },
+      metadata: metadata(
+        ['COMMAND_LINE_ARGS', ARGS],
+        ['EXE_NAME', 'pagos-worker'],
+        ['EXE_PATH', EXE_PATH],
+        ['KUBERNETES_NAMESPACE', 'espacio-pagos']
+      )
+    })
+    expectNone(text, [
+      ARGS,
+      EXE_PATH,
+      COMMAND_LINE,
+      ...Object.values(SECRETS),
+      '/home/',
+      '-Xmx512m'
+    ])
+    for (const property of data.properties) {
+      for (const value of Object.values(SECRETS)) {
+        expect(property.text, `${property.key}: ${value}`).not.toContain(value)
+      }
+    }
+  })
+
+  it('lo demás sigue llegando: el nombre del ejecutable y el resto de metadata, y las otras propiedades', async () => {
+    const { data } = await getProcess({
+      detectedName: 'pagos-worker',
+      listenPorts: [8080, 8443],
+      softwareTechnologies: [{ type: 'JAVA', edition: 'OpenJDK', version: '17.0.2' }],
+      commandLine: COMMAND_LINE,
+      metadata: metadata(
+        ['COMMAND_LINE_ARGS', ARGS],
+        ['EXE_NAME', 'pagos-worker'],
+        ['EXE_PATH', EXE_PATH],
+        ['KUBERNETES_NAMESPACE', 'espacio-pagos']
+      )
+    })
+    const text = (key: string): string => data.properties.find((p) => p.key === key)?.text ?? ''
+    expect(data.properties.map((p) => p.key)).toEqual(
+      expect.arrayContaining(['detectedName', 'listenPorts', 'softwareTechnologies', 'metadata'])
+    )
+    expect(text('detectedName')).toBe('pagos-worker')
+    for (const port of ['8080', '8443']) expect(text('listenPorts')).toContain(port)
+    expect(text('softwareTechnologies')).toContain('JAVA')
+    // metadata conserva sus otras entradas, con su clave y su valor (como las demás listas).
+    for (const part of ['EXE_NAME', 'pagos-worker', 'KUBERNETES_NAMESPACE', 'espacio-pagos']) {
+      expect(text('metadata'), part).toContain(part)
+    }
+    // Las relaciones, tal cual.
+    expect(data.relationships.map((r) => `${r.direction} ${r.name}`).sort()).toEqual([
+      'from isInstanceOf',
+      'from isProcessOf'
+    ])
+  })
+})
