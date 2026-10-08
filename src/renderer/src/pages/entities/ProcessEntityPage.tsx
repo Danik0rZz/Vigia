@@ -12,7 +12,7 @@ import {
   uniqueUnavailable
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
-import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
+import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { ProcessCharts } from './ProcessCharts'
 import { ProcessInfo } from './ProcessInfo'
 import { ProcessMarkers } from './ProcessMarkers'
@@ -23,8 +23,8 @@ import { ProcessMarkers } from './ProcessMarkers'
  * debajo, los gráficos (CPU, memoria, red y salud de red o recursos), con la franja de los
  * problemas del proceso sobre el de la CPU. Marcadores y gráficos salen de una sola llamada a
  * `entities:processMetrics` (ficha 0027); lo que no tiene datos no se pinta. Solo pide datos con
- * «Actualizar» o con un rango nuevo (ADR-0004). Entre la cabecera y los marcadores, la tarjeta
- * «Información» (0029, canal `entities:get`), como en el servicio, el host y los monitores.
+ * «Actualizar» o con un rango nuevo (ADR-0004). Al final, la tarjeta «Información» (0029, canal
+ * `entities:get`), como en todas las páginas de entidad (`EntitySections`, ficha 0036).
  */
 export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -69,27 +69,31 @@ export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
           {t('entities.process.invalidId')}
         </p>
       ) : (
-        <>
-          {/* Ficha 0029: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
-          <ProcessInfo access={entitiesAccess} info={info} />
-          {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
+        <EntitySections
+          notices={uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
-          <ProcessMarkers
-            metrics={metrics}
-            problems={problems}
-            metricsEnabled={metricsEnv !== null}
-            problemsEnabled={problemsEnv !== null}
-          />
-          {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
-          {metricsEnv !== null && (
-            <ProcessCharts
-              processId={processId}
+          markers={
+            <ProcessMarkers
               metrics={metrics}
-              problemList={problemsEnv !== null ? problemList : null}
+              problems={problems}
+              metricsEnabled={metricsEnv !== null}
+              problemsEnabled={problemsEnv !== null}
             />
-          )}
-        </>
+          }
+          // Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—».
+          charts={
+            metricsEnv !== null && (
+              <ProcessCharts
+                processId={processId}
+                metrics={metrics}
+                problemList={problemsEnv !== null ? problemList : null}
+              />
+            )
+          }
+          // Ficha 0029 (al final desde la 0036): si falla, lo demás sigue.
+          info={<ProcessInfo access={entitiesAccess} info={info} />}
+        />
       )}
     </EntityPageFrame>
   )

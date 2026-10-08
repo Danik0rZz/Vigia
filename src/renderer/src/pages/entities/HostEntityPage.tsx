@@ -13,7 +13,7 @@ import {
   uniqueUnavailable
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
-import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
+import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { HostCharts } from './HostCharts'
 import { HostInfo } from './HostInfo'
 import { HostMarkers } from './HostMarkers'
@@ -25,8 +25,8 @@ import { HostTables } from './HostTables'
  * franja de los problemas del host sobre el de la CPU; debajo, las tablas de discos y procesos
  * (ficha 0019, canal `entities:hostBreakdown`). Marcadores y gráficos salen de una sola
  * llamada a `entities:hostMetrics` (ficha 0016). Solo pide datos con «Actualizar» o con un rango
- * nuevo (ADR-0004). Entre la cabecera y los marcadores, la tarjeta «Información» (ficha 0020,
- * canal `entities:get`), como en el servicio.
+ * nuevo (ADR-0004). Al final, la tarjeta «Información» (ficha 0020, canal `entities:get`), como
+ * en todas las páginas de entidad (`EntitySections`, ficha 0036).
  */
 export function HostEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -76,30 +76,32 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
           {t('entities.host.invalidId')}
         </p>
       ) : (
-        <>
-          {/* Ficha 0020: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
-          <HostInfo access={entitiesAccess} info={info} />
-          {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
+        <EntitySections
+          notices={uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
-          <HostMarkers
-            metrics={metrics}
-            problems={problems}
-            metricsEnabled={metricsEnv !== null}
-            problemsEnabled={problemsEnv !== null}
-          />
-          {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
-          {metricsEnv !== null && (
-            <>
+          markers={
+            <HostMarkers
+              metrics={metrics}
+              problems={problems}
+              metricsEnabled={metricsEnv !== null}
+              problemsEnabled={problemsEnv !== null}
+            />
+          }
+          // Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—».
+          charts={
+            metricsEnv !== null && (
               <HostCharts
                 hostId={hostId}
                 metrics={metrics}
                 problemList={problemsEnv !== null ? problemList : null}
               />
-              <HostTables breakdown={breakdown} />
-            </>
-          )}
-        </>
+            )
+          }
+          cards={metricsEnv !== null && <HostTables breakdown={breakdown} />}
+          // Ficha 0020 (al final desde la 0036): si falla, lo demás sigue.
+          info={<HostInfo access={entitiesAccess} info={info} />}
+        />
       )}
     </EntityPageFrame>
   )

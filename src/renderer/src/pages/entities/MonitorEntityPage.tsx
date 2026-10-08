@@ -13,7 +13,7 @@ import {
   uniqueUnavailable
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
-import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
+import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { MonitorCharts } from './MonitorCharts'
 import { MonitorInfo } from './MonitorInfo'
 import { MonitorMarkers } from './MonitorMarkers'
@@ -33,8 +33,8 @@ const ID_PREFIX: Record<MonitorKind, string> = {
  * salen de una sola llamada a `entities:monitorMetrics` (ficha 0022); las localizaciones, de
  * `entities:monitorBreakdown` (0023). Solo pide datos con «Actualizar» o con un rango nuevo
  * (ADR-0004). Debajo de los gráficos, las tablas de localizaciones y de pasos o peticiones
- * (0025), con el mismo desglose que el marcador. Entre la cabecera y los marcadores, la tarjeta
- * «Información» (0026, canal `entities:get`), como en el servicio y el host.
+ * (0025), con el mismo desglose que el marcador. Al final, la tarjeta «Información» (0026, canal
+ * `entities:get`), como en todas las páginas de entidad (`EntitySections`, ficha 0036).
  */
 export function MonitorEntityPage({
   monitorKind,
@@ -91,33 +91,37 @@ export function MonitorEntityPage({
           {t(`entities.monitor.invalidId.${monitorKind}`)}
         </p>
       ) : (
-        <>
-          {/* Ficha 0026: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
-          <MonitorInfo access={entitiesAccess} info={info} />
-          {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
+        <EntitySections
+          notices={uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
-          <MonitorMarkers
-            monitorKind={monitorKind}
-            metrics={metrics}
-            breakdown={breakdown}
-            problems={problems}
-            metricsEnabled={metricsEnv !== null}
-            problemsEnabled={problemsEnv !== null}
-          />
-          {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
-          {metricsEnv !== null && (
-            <>
+          markers={
+            <MonitorMarkers
+              monitorKind={monitorKind}
+              metrics={metrics}
+              breakdown={breakdown}
+              problems={problems}
+              metricsEnabled={metricsEnv !== null}
+              problemsEnabled={problemsEnv !== null}
+            />
+          }
+          // Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—».
+          charts={
+            metricsEnv !== null && (
               <MonitorCharts
                 monitorKind={monitorKind}
                 monitorId={monitorId}
                 metrics={metrics}
                 problemList={problemsEnv !== null ? problemList : null}
               />
-              <MonitorTables monitorKind={monitorKind} breakdown={breakdown} />
-            </>
-          )}
-        </>
+            )
+          }
+          cards={
+            metricsEnv !== null && <MonitorTables monitorKind={monitorKind} breakdown={breakdown} />
+          }
+          // Ficha 0026 (al final desde la 0036): si falla, lo demás sigue.
+          info={<MonitorInfo access={entitiesAccess} info={info} />}
+        />
       )}
     </EntityPageFrame>
   )

@@ -12,7 +12,7 @@ import {
   uniqueUnavailable
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
-import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
+import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { ServiceCharts } from './ServiceCharts'
 import { ServiceInfo } from './ServiceInfo'
 import { ServiceMarkers } from './ServiceMarkers'
@@ -21,7 +21,8 @@ import { ServiceMarkers } from './ServiceMarkers'
  * Página de análisis de una entidad SERVICE: marcadores del rango global
  * (ficha 0008) y, debajo, los cuatro gráficos de peticiones (ficha 0009), con la
  * franja de los problemas de la entidad sobre la tasa de error (ficha 0010). Solo
- * pide datos con «Actualizar» o con un rango nuevo (ADR-0004).
+ * pide datos con «Actualizar» o con un rango nuevo (ADR-0004). La tarjeta «Información»
+ * (ficha 0015) va al final, como en todas las páginas de entidad (`EntitySections`, ficha 0036).
  */
 export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -66,27 +67,31 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
           {t('entities.service.invalidId')}
         </p>
       ) : (
-        <>
-          {/* Ficha 0015: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
-          <ServiceInfo access={entitiesAccess} info={info} />
-          {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
+        <EntitySections
+          notices={uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
-          <ServiceMarkers
-            metrics={metrics}
-            problems={problems}
-            metricsEnabled={metricsEnv !== null}
-            problemsEnabled={problemsEnv !== null}
-          />
-          {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
-          {metricsEnv !== null && (
-            <ServiceCharts
-              serviceId={serviceId}
+          markers={
+            <ServiceMarkers
               metrics={metrics}
-              problemList={problemsEnv !== null ? problemList : null}
+              problems={problems}
+              metricsEnabled={metricsEnv !== null}
+              problemsEnabled={problemsEnv !== null}
             />
-          )}
-        </>
+          }
+          // Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—».
+          charts={
+            metricsEnv !== null && (
+              <ServiceCharts
+                serviceId={serviceId}
+                metrics={metrics}
+                problemList={problemsEnv !== null ? problemList : null}
+              />
+            )
+          }
+          // Ficha 0015 (al final desde la 0036): si falla, lo demás sigue.
+          info={<ServiceInfo access={entitiesAccess} info={info} />}
+        />
       )}
     </EntityPageFrame>
   )

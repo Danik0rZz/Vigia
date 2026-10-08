@@ -94,6 +94,40 @@ export function EntityPageFrame({
   )
 }
 
+/**
+ * Secciones de una página de entidad, siempre en el mismo orden (ficha 0036): los avisos de
+ * módulos sin acceso, los marcadores, los gráficos, las demás tarjetas (discos y procesos del
+ * host, localizaciones y pasos de los monitores…) y, la última, la tarjeta «Información», que en
+ * algunos tipos (el host) es muy alta. Una página nueva lo cumple con solo usar esta pieza.
+ */
+export function EntitySections({
+  notices,
+  markers,
+  charts,
+  cards,
+  info
+}: {
+  /** Avisos de los módulos sin acceso (Métricas, Problemas). */
+  notices?: ReactNode
+  markers: ReactNode
+  /** Sin acceso a Métricas no hay gráficos. */
+  charts?: ReactNode
+  /** Las demás tarjetas de la página, detrás de los gráficos. */
+  cards?: ReactNode
+  /** La tarjeta «Información», al final. */
+  info: ReactNode
+}): JSX.Element {
+  return (
+    <>
+      {notices}
+      {markers}
+      {charts}
+      {cards}
+      {info}
+    </>
+  )
+}
+
 /** Bloque «Página en construcción» con el faro (que ya respeta reducir el movimiento). */
 export function UnderConstruction({ text }: { text: string }): JSX.Element {
   const { t } = useTranslation()
