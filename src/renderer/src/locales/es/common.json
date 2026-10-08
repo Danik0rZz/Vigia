@@ -750,7 +750,8 @@
       },
       "info": {
         "label": "Información del host",
-        "ipsMore": "Ver las {{count}} IP restantes",
+        "ipsMore_one": "Ver la IP restante",
+        "ipsMore_other": "Ver las {{count}} IP restantes",
         "sections": {
           "system": "Sistema",
           "capacity": "Capacidad",
@@ -876,7 +877,8 @@
         "yes": "Sí",
         "loading": "Cargando la información…",
         "noRelations": "Sin relaciones.",
-        "tagsMore": "Ver las {{count}} etiquetas restantes",
+        "tagsMore_one": "Ver la etiqueta restante",
+        "tagsMore_other": "Ver las {{count}} etiquetas restantes",
         "groups": {
           "runsOn": "Se ejecuta en",
           "calls": "Llama a",
