@@ -52,8 +52,9 @@ export interface RelatedEntity {
   direction: 'from' | 'to'
 }
 
-export interface RelationGroup {
-  key: RelationGroupKey
+/** Un grupo de relaciones de la tarjeta (del servicio o, con sus claves, del host: ficha 0020). */
+export interface RelationGroup<K extends string = RelationGroupKey> {
+  key: K
   /** Cuántas hay según la API (suma de los `total` de sus relaciones); puede ser más que las listadas. */
   total: number
   entities: RelatedEntity[]
@@ -86,7 +87,7 @@ const TEXT_PROPERTIES = new Set<ServiceRowKey>([
 /** Separador de las listas en el texto de una propiedad (formato de main, ficha 0014). */
 const LIST_SEPARATOR = ', '
 
-const splitList = (text: string | null): string[] =>
+export const splitList = (text: string | null): string[] =>
   text === null
     ? []
     : text
