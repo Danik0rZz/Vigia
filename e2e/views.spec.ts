@@ -1140,13 +1140,143 @@ function infoFewBody(entityId: string): Record<string, unknown> {
     toRelationships: {}
   }
 }
+/**
+ * Ficha 0020: hosts inventados para la tarjeta «Información» del HOST (canal entities:get) y los
+ * nombres de sus relaciones (entities:names). Solo tipos estándar e ids inventados; las claves
+ * y las relaciones son las que se vieron en vivo en la 0020 (en sus mismas direcciones).
+ *
+ * - HOST_INFO_FULL_ID: todas las claves de la ficha (en otro orden y mezcladas con otras), las
+ *   dos memorias (physicalMemory manda), 4 IPs, dos zonas, dos etiquetas y relaciones de todos
+ *   los grupos: «Procesos» (isProcessOf de to: 2 procesos), «Servicios» (runsOnHost de to: 2
+ *   servicios, uno INFO_FEW_ID para abrir su página), «Se ejecuta en» (runsOn de from: una
+ *   instancia EC2), «Grupo de hosts» (isInstanceOf de from) y otras (runsOn de to, isDiskOf e
+ *   isNetworkClientOfHost).
+ * - HOST_METRICS_ID (el de la 0018 y la 0019): pocas claves (osType, memoryTotal y unas vacías),
+ *   solo la última vez visto, sin zonas, etiquetas ni relaciones.
+ */
+const HOST_INFO_FULL_ID = 'HOST-00000000000E2E60'
+const HOST_INFO_PGIS = [
+  'PROCESS_GROUP_INSTANCE-00000000000E2E61',
+  'PROCESS_GROUP_INSTANCE-00000000000E2E62'
+]
+const HOST_INFO_SERVICE_2 = 'SERVICE-00000000000E2E63'
+const HOST_INFO_EC2 = 'EC2_INSTANCE-00000000000E2E64'
+const HOST_INFO_GROUP = 'HOST_GROUP-00000000000E2E65'
+const HOST_INFO_PG = 'PROCESS_GROUP-00000000000E2E66'
+const HOST_INFO_DISK = 'DISK-00000000000E2E67'
+const HOST_INFO_PEER = 'HOST-00000000000E2E68'
+const HOST_INFO_FIRST_SEEN = Date.parse('2026-08-20T07:15:00.000Z')
+const HOST_INFO_LAST_SEEN = Date.parse('2026-10-03T11:00:00.000Z')
+const HOST_INFO_IPS = ['192.0.2.10', '192.0.2.11', '198.51.100.7', '2001:db8::10']
+Object.assign(ENTITY_NAMES, {
+  [HOST_INFO_PGIS[0] ?? '']: 'proceso-host-1',
+  [HOST_INFO_PGIS[1] ?? '']: 'proceso-host-2',
+  [INFO_FEW_ID]: 'info-pocas-e2e',
+  [HOST_INFO_SERVICE_2]: 'servicio-host-e2e',
+  [HOST_INFO_EC2]: 'instancia-e2e',
+  [HOST_INFO_GROUP]: 'grupo-hosts-e2e'
+})
+/** Claves de HOST_INFO_FULL_ID que la ficha no nombra: solo en «Todas las propiedades». */
+const HOST_INFO_OTHER = {
+  detectedName: 'nombre-detectado-host-e2e',
+  macAddresses: ['00-00-5E-00-53-01'],
+  standalone: false,
+  oneAgentCustomHostName: 'nombre-propio-host-e2e'
+}
+function hostInfoFullBody(): Record<string, unknown> {
+  return {
+    entityId: HOST_INFO_FULL_ID,
+    displayName: 'host-info-completo-e2e',
+    type: 'HOST',
+    firstSeenTms: HOST_INFO_FIRST_SEEN,
+    lastSeenTms: HOST_INFO_LAST_SEEN,
+    icon: { primaryIconType: 'linux' },
+    managementZones: [
+      { id: '2001', name: 'Zona host A' },
+      { id: '2002', name: 'Zona host B' }
+    ],
+    tags: [
+      {
+        context: 'CONTEXTLESS',
+        key: 'equipo',
+        value: 'sistemas',
+        stringRepresentation: 'equipo:sistemas'
+      },
+      { context: 'CONTEXTLESS', key: 'entorno', value: 'pre', stringRepresentation: 'entorno:pre' }
+    ],
+    properties: {
+      detectedName: HOST_INFO_OTHER.detectedName,
+      hypervisorType: 'KVM',
+      state: 'RUNNING',
+      memoryTotal: 15_500_000_000,
+      ipAddress: HOST_INFO_IPS,
+      osVersion: 'Ubuntu 24.04 e2e',
+      macAddresses: HOST_INFO_OTHER.macAddresses,
+      cpuCores: 4,
+      standalone: HOST_INFO_OTHER.standalone,
+      installerVersion: '1.300.12.20260901-e2e',
+      cloudType: 'EC2',
+      osType: 'LINUX',
+      physicalMemory: 16_000_000_000,
+      networkZone: 'zona-red-e2e',
+      hostGroupName: 'grupo-hosts-e2e',
+      bitness: '64',
+      logicalCpuCores: 8,
+      monitoringMode: 'FULL_STACK',
+      osArchitecture: 'X86',
+      oneAgentCustomHostName: HOST_INFO_OTHER.oneAgentCustomHostName
+    },
+    fromRelationships: {
+      isNetworkClientOfHost: [{ id: HOST_INFO_PEER, type: 'HOST' }],
+      runsOn: [{ id: HOST_INFO_EC2, type: 'EC2_INSTANCE' }],
+      isInstanceOf: [{ id: HOST_INFO_GROUP, type: 'HOST_GROUP' }]
+    },
+    toRelationships: {
+      isDiskOf: [{ id: HOST_INFO_DISK, type: 'DISK' }],
+      runsOn: [{ id: HOST_INFO_PG, type: 'PROCESS_GROUP' }],
+      runsOnHost: [
+        { id: INFO_FEW_ID, type: 'SERVICE' },
+        { id: HOST_INFO_SERVICE_2, type: 'SERVICE' }
+      ],
+      isProcessOf: HOST_INFO_PGIS.map((id) => ({ id, type: 'PROCESS_GROUP_INSTANCE' }))
+    }
+  }
+}
+/** Número de propiedades de HOST_INFO_FULL_ID (todas salen en «Todas las propiedades»). */
+const HOST_INFO_FULL_PROPERTY_COUNT = Object.keys(
+  (hostInfoFullBody()['properties'] ?? {}) as Record<string, unknown>
+).length
+function hostInfoFewBody(entityId: string): Record<string, unknown> {
+  return {
+    entityId,
+    displayName: 'host-metricas',
+    type: 'HOST',
+    lastSeenTms: HOST_INFO_LAST_SEEN,
+    managementZones: [],
+    tags: [],
+    properties: {
+      osType: 'WINDOWS',
+      osVersion: '',
+      memoryTotal: 8_000_000_000,
+      ipAddress: [],
+      hostGroupName: '',
+      detectedName: 'solo-detectado-host-e2e'
+    },
+    fromRelationships: {},
+    toRelationships: {}
+  }
+}
+
 /** Ficha 0015: lo que devuelve el simulador en /entities/{id}, por id (el resto, 404). */
 function entityBodies(): Record<string, Record<string, unknown>> {
   return {
     [ENTITY_INFO_ID]: entityInfoBody(),
     [INFO_FULL_ID]: infoFullBody(),
     [INFO_FEW_ID]: infoFewBody(INFO_FEW_ID),
-    [SVC_ID]: infoFewBody(SVC_ID)
+    [SVC_ID]: infoFewBody(SVC_ID),
+    // Ficha 0020.
+    [HOST_INFO_FULL_ID]: hostInfoFullBody(),
+    [HOST_METRICS_ID]: hostInfoFewBody(HOST_METRICS_ID)
   }
 }
 
@@ -8603,4 +8733,342 @@ test('Aviso de recorte de procesos (0019): con la métrica de procesos en partia
   await expect(hostProcesses().getByTestId('host-processes-count')).toHaveText(
     /^10 de 15 procesos$/
   )
+})
+
+/**
+ * Ficha 0020: tarjeta «Información» de la página de un HOST (HOST_INFO_FULL_ID y HOST_METRICS_ID,
+ * canal entities:get), con la misma forma que la del servicio (0015) y sus nombres con el prefijo
+ * `host-info`.
+ *
+ * Nombres que fijan estos tests: la tarjeta `host-info`, entre la cabecera y `host-markers`;
+ * dentro, cada grupo de filas en un `host-info-section` con `data-section` (system, capacity,
+ * network, monitoring, grouping y cloud, en ese orden y solo los que tengan filas) y su nombre
+ * en un encabezado; cada fila, `host-info-row` con `data-key` (las claves de `buildHostInfo`) y
+ * su valor en `host-info-value`; los chips, `host-info-chip`; las IPs, las 2 primeras y un botón
+ * `host-info-more` con «+N» que enseña el resto. Las relaciones, en `host-info-relations`: cada
+ * grupo `host-info-group` con `data-group` (processes, services, runsOn, hostGroup y other), con
+ * `host-info-group-toggle` (aria-expanded), `host-info-group-count` y, desplegado, sus
+ * `host-info-entity` (enlaces, con `data-entity-id`), el botón `host-info-names` («Ver nombres»)
+ * y cada nombre en `host-info-entity-name`. «Todas las propiedades», `host-info-properties-toggle`
+ * y cada una `host-info-property` con `data-key`. La memoria, en GB (10^9 bytes, como la 0018).
+ */
+const HOST_INFO_SECTIONS: [string, string, string[]][] = [
+  ['system', 'Sistema', ['osType', 'osVersion', 'osArchitecture', 'bitness']],
+  ['capacity', 'Capacidad', ['cpuCores', 'logicalCpuCores', 'memory']],
+  ['network', 'Red', ['ipAddress', 'networkZone']],
+  [
+    'monitoring',
+    'Monitorización',
+    ['monitoringMode', 'state', 'installerVersion', 'firstSeen', 'lastSeen']
+  ],
+  ['grouping', 'Agrupación', ['hostGroupName', 'managementZones', 'tags']],
+  ['cloud', 'Nube o virtualización', ['cloudType', 'hypervisorType']]
+]
+const hostInfoCard = (): Locator => page.getByTestId('host-info')
+const hostInfoSection = (key: string): Locator =>
+  hostInfoCard().locator(`[data-testid="host-info-section"][data-section="${key}"]`)
+const hostInfoRow = (key: string): Locator =>
+  hostInfoCard().locator(`[data-testid="host-info-row"][data-key="${key}"]`)
+const hostInfoValue = (key: string): Locator => hostInfoRow(key).getByTestId('host-info-value')
+const hostInfoGroup = (key: string): Locator =>
+  hostInfoCard().locator(`[data-testid="host-info-group"][data-group="${key}"]`)
+const hostInfoEntity = (group: string, id: string): Locator =>
+  hostInfoGroup(group).locator(`[data-testid="host-info-entity"][data-entity-id="${id}"]`)
+
+/** Ficha 0020: abre la página de un host por URL y espera la tarjeta con sus filas. */
+async function openHostInfo(id: string): Promise<Locator> {
+  await goToRoute(`/entities/HOST/${id}`)
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+  const card = hostInfoCard()
+  await expect(card).toBeVisible()
+  await expect(card.getByTestId('host-info-row').first()).toBeVisible()
+  return card
+}
+
+/** Ficha 0020: despliega un grupo de relaciones del host (si no lo está), trayéndolo a la vista. */
+async function expandHostGroup(key: string): Promise<Locator> {
+  const group = hostInfoGroup(key)
+  const toggle = group.getByTestId('host-info-group-toggle')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await clickInPlace(toggle, { scroll: true })
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return group
+}
+
+test('CA2 (0020): la página de un HOST enseña la tarjeta «Información» con sus grupos (Sistema, Capacidad, Red…), memoria en GB, IPs con «+N» y lo demás solo en «Todas las propiedades»', async () => {
+  const card = await openHostInfo(HOST_INFO_FULL_ID)
+  await expect(card).toContainText('Información')
+
+  // Entre la cabecera y los marcadores.
+  const cardBox = await settledBox(card)
+  const markersBox = await settledBox(page.getByTestId('host-markers'))
+  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
+    markersBox.y + 1
+  )
+
+  // Los grupos de filas, en su orden y con su nombre; las filas de cada uno, en el suyo.
+  const sections = card.getByTestId('host-info-section')
+  await expect(sections).toHaveCount(HOST_INFO_SECTIONS.length)
+  expect(await dataKeys(sections, 'data-section')).toEqual(HOST_INFO_SECTIONS.map(([key]) => key))
+  for (const [key, title, rows] of HOST_INFO_SECTIONS) {
+    await expect(hostInfoSection(key).getByRole('heading').first(), key).toContainText(title)
+    expect(await dataKeys(hostInfoSection(key).getByTestId('host-info-row')), key).toEqual(rows)
+  }
+
+  // Los valores.
+  const texts: [string, string][] = [
+    ['osType', 'LINUX'],
+    ['osVersion', 'Ubuntu 24.04 e2e'],
+    ['osArchitecture', 'X86'],
+    ['bitness', '64'],
+    ['cpuCores', '4'],
+    ['logicalCpuCores', '8'],
+    ['networkZone', 'zona-red-e2e'],
+    ['monitoringMode', 'FULL_STACK'],
+    ['state', 'RUNNING'],
+    ['installerVersion', '1.300.12.20260901-e2e'],
+    ['hostGroupName', 'grupo-hosts-e2e'],
+    ['cloudType', 'EC2'],
+    ['hypervisorType', 'KVM'],
+    ['firstSeen', '2026'],
+    ['lastSeen', '2026']
+  ]
+  for (const [key, text] of texts) {
+    await expect(hostInfoValue(key), key).toContainText(text)
+  }
+  // Memoria: physicalMemory (16 GB), no memoryTotal (15,5 GB), en GB y sin bytes.
+  await expect(hostInfoValue('memory')).toHaveText(/^16,0\sGB$/)
+
+  // IPs: las 2 primeras y «+2», que enseña el resto.
+  const ipChips = hostInfoRow('ipAddress').getByTestId('host-info-chip')
+  await expect(ipChips).toHaveText(HOST_INFO_IPS.slice(0, 2))
+  const more = hostInfoRow('ipAddress').getByTestId('host-info-more')
+  await expect(more).toHaveText('+2')
+  await clickInPlace(more, { scroll: true })
+  await expect(ipChips).toHaveText(HOST_INFO_IPS)
+
+  // Zonas y etiquetas, como chips.
+  await expect(hostInfoRow('managementZones').getByTestId('host-info-chip')).toHaveText([
+    'Zona host A',
+    'Zona host B'
+  ])
+  await expect(hostInfoRow('tags').getByTestId('host-info-chip')).toHaveText([
+    'equipo:sistemas',
+    'entorno:pre'
+  ])
+
+  // Lo que la ficha no nombra, fuera de las filas; «Todas las propiedades» empieza plegada.
+  const otherTexts = [
+    ...Object.keys(HOST_INFO_OTHER),
+    'nombre-detectado-host-e2e',
+    'nombre-propio-host-e2e',
+    '00-00-5E-00-53-01',
+    'memoryTotal',
+    'physicalMemory',
+    '15,5',
+    '16000000000'
+  ]
+  const allSections = card.locator('[data-testid="host-info-section"]')
+  for (const text of otherTexts) {
+    for (const [key] of HOST_INFO_SECTIONS) {
+      await expect(hostInfoSection(key), `${key}: ${text}`).not.toContainText(text)
+    }
+  }
+  await expect(allSections).toHaveCount(HOST_INFO_SECTIONS.length)
+  await expect(card.getByTestId('host-info-property')).toHaveCount(0)
+  const toggle = card.getByTestId('host-info-properties-toggle')
+  await expect(toggle).toContainText('Todas las propiedades')
+  await clickInPlace(toggle, { scroll: true })
+  await expect(card.getByTestId('host-info-property')).toHaveCount(HOST_INFO_FULL_PROPERTY_COUNT)
+  const property = (key: string): Locator =>
+    card.locator(`[data-testid="host-info-property"][data-key="${key}"]`)
+  await expect(property('detectedName')).toContainText('nombre-detectado-host-e2e')
+  await expect(property('macAddresses')).toContainText('00-00-5E-00-53-01')
+  await expect(property('memoryTotal')).toContainText('memoryTotal')
+
+  // Sin la tarjeta del servicio en la página del host.
+  await expect(page.getByTestId('service-info')).toHaveCount(0)
+})
+
+test('CA2 (0020): con un HOST con pocas claves solo salen los grupos y las filas con dato, sin «undefined»', async () => {
+  const card = await openHostInfo(HOST_METRICS_ID)
+  // osType, memoryTotal (8 GB) y la última vez visto; osVersion, ipAddress y hostGroupName
+  // vacíos, sin primera vez, sin zonas, sin etiquetas y sin nube: ninguna de esas filas.
+  await expect(card.getByTestId('host-info-row')).toHaveCount(3)
+  expect(await dataKeys(card.getByTestId('host-info-section'), 'data-section')).toEqual([
+    'system',
+    'capacity',
+    'monitoring'
+  ])
+  expect(await dataKeys(card.getByTestId('host-info-row'))).toEqual([
+    'osType',
+    'memory',
+    'lastSeen'
+  ])
+  await expect(hostInfoValue('osType')).toContainText('WINDOWS')
+  await expect(hostInfoValue('memory')).toHaveText(/^8,0\sGB$/)
+  await expect(hostInfoValue('lastSeen')).toHaveText(/\S/)
+  // Sin relaciones, ningún grupo.
+  await expect(card.getByTestId('host-info-group')).toHaveCount(0)
+  await clickInPlace(card.getByTestId('host-info-properties-toggle'), { scroll: true })
+  await expect(card.getByTestId('host-info-property').first()).toBeVisible()
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(card, text).not.toContainText(text)
+  }
+  // El resto de la página sigue: marcadores con sus valores.
+  await expectHostMarkerValues()
+})
+
+test('CA3 (0020): las relaciones salen en su orden con su número; «Ver nombres» los trae a demanda; pulsar un servicio abre su página y «Volver» regresa al host', async () => {
+  const card = await openHostInfo(HOST_INFO_FULL_ID)
+  const relations = card.getByTestId('host-info-relations')
+  await expect(relations).toContainText('Relaciones')
+
+  const groups = relations.getByTestId('host-info-group')
+  await expect(groups).toHaveCount(5)
+  expect(await dataKeys(groups, 'data-group')).toEqual([
+    'processes',
+    'services',
+    'runsOn',
+    'hostGroup',
+    'other'
+  ])
+  const expected = [
+    ['processes', 'Procesos', '2'],
+    ['services', 'Servicios', '2'],
+    ['runsOn', 'Se ejecuta en', '1'],
+    ['hostGroup', 'Grupo de hosts', '1'],
+    ['other', 'Otras relaciones', '3']
+  ] as const
+  for (const [key, title, count] of expected) {
+    await expect(hostInfoGroup(key), key).toContainText(title)
+    await expect(hostInfoGroup(key).getByTestId('host-info-group-count'), key).toHaveText(
+      new RegExp(`^\\s*${count}\\s*$`)
+    )
+  }
+  // «Otras relaciones», plegada.
+  await expect(hostInfoGroup('other').getByTestId('host-info-group-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  )
+  await expect(hostInfoGroup('other').getByTestId('host-info-entity')).toHaveCount(0)
+
+  // Desplegados, con sus entidades en el orden de la respuesta; ningún nombre pedido aún.
+  const processes = await expandHostGroup('processes')
+  expect(await dataKeys(processes.getByTestId('host-info-entity'), 'data-entity-id')).toEqual(
+    HOST_INFO_PGIS
+  )
+  const services = await expandHostGroup('services')
+  expect(await dataKeys(services.getByTestId('host-info-entity'), 'data-entity-id')).toEqual([
+    INFO_FEW_ID,
+    HOST_INFO_SERVICE_2
+  ])
+  await expandHostGroup('runsOn')
+  await expect(hostInfoEntity('runsOn', HOST_INFO_EC2)).toContainText(HOST_INFO_EC2)
+  await expandHostGroup('hostGroup')
+  await expect(hostInfoEntity('hostGroup', HOST_INFO_GROUP)).toContainText(HOST_INFO_GROUP)
+  const other = await expandHostGroup('other')
+  for (const name of ['runsOn', 'isDiskOf', 'isNetworkClientOfHost']) {
+    await expect(other, name).toContainText(name)
+  }
+  expect(
+    [...(await dataKeys(other.getByTestId('host-info-entity'), 'data-entity-id'))].sort()
+  ).toEqual([HOST_INFO_DISK, HOST_INFO_PEER, HOST_INFO_PG].sort())
+  await settledRequests()
+  expect(sim.entityNamesQueries, 'nombres antes de «Ver nombres»').toHaveLength(0)
+
+  // «Ver nombres» de «Servicios»: una llamada con sus dos ids y los nombres en su sitio.
+  const button = services.getByTestId('host-info-names')
+  await expect(button).toHaveText('Ver nombres')
+  await clickInPlace(button, { scroll: true })
+  await expect.poll(() => sim.entityNamesQueries.length).toBe(1)
+  const selector = sim.entityNamesQueries[0]?.get('entitySelector') ?? ''
+  expect(selector).toContain(INFO_FEW_ID)
+  expect(selector).toContain(HOST_INFO_SERVICE_2)
+  const service = hostInfoEntity('services', INFO_FEW_ID)
+  await expect(service.getByTestId('host-info-entity-name')).toHaveText('info-pocas-e2e')
+  await expect(
+    hostInfoEntity('services', HOST_INFO_SERVICE_2).getByTestId('host-info-entity-name')
+  ).toHaveText('servicio-host-e2e')
+  // Los de otros grupos, sin pedir.
+  await settledRequests()
+  expect(sim.entityNamesQueries).toHaveLength(1)
+  await expect(
+    hostInfoEntity('processes', HOST_INFO_PGIS[0] ?? '').getByTestId('host-info-entity-name')
+  ).toHaveCount(0)
+
+  // Cada entidad es un enlace a su página; pulsar el servicio abre la del servicio.
+  await expect(service).toHaveRole('link')
+  await expect(service).toHaveAttribute('href', new RegExp(`#/entities/SERVICE/${INFO_FEW_ID}$`))
+  await expect(hostInfoEntity('processes', HOST_INFO_PGIS[0] ?? '')).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${HOST_INFO_PGIS[0]}$`)
+  )
+  const hostQueries = (): number =>
+    sim.requests.filter((request) => request.includes(`/entities/${HOST_INFO_FULL_ID}`)).length
+  const hostQueriesBefore = hostQueries()
+  await clickInPlace(service, { scroll: true })
+  const servicePage = page.getByTestId('entity-page-service')
+  await expect(servicePage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FEW_ID}`)
+  await expect(servicePage.getByTestId('entity-page-id')).toHaveText(INFO_FEW_ID)
+  await expect(page.getByTestId('host-info')).toHaveCount(0)
+
+  // «Volver» regresa al host, sin volver a pedir sus datos.
+  await clickInPlace(servicePage.getByTestId('entity-back'), { scroll: true })
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${HOST_INFO_FULL_ID}`)
+  await expect(hostInfoValue('osType')).toContainText('LINUX')
+  await settledRequests()
+  expect(hostQueries(), 'entities:get del host al volver').toBe(hostQueriesBefore)
+})
+
+test('CA4 (0020): sin entities.read, la tarjeta del host dice qué scope falta y los marcadores y gráficos siguen', async () => {
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEntities = await createEnvironment(
+    clientId,
+    'Sin entidades host',
+    'other',
+    TOKEN_NO_ENTITIES
+  )
+  try {
+    await invoke('connection:test', { environmentId: noEntities })
+    await invoke('environments:setActive', { environmentId: noEntities })
+    await reloadUi()
+    await goToRoute(`/entities/HOST/${HOST_METRICS_ID}`)
+    await expect(page.getByTestId('entity-page-host')).toBeVisible()
+    const unavailable = hostInfoCard().getByTestId('module-unavailable')
+    await expect(unavailable).toBeVisible()
+    await expect(unavailable).toContainText('entities.read')
+    await expect(hostInfoCard().getByTestId('host-info-row')).toHaveCount(0)
+    // Marcadores y gráficos, con sus datos.
+    await expectHostMarkerValues()
+    for (const kind of HOST_CHART_KINDS) {
+      expect(await hostChartSeries(kind), kind).toHaveLength(HOST_CHART_SERIES[kind].length)
+    }
+    await settledRequests()
+    expect(sim.entityInfoQueries, 'entities:get sin el scope').toHaveLength(0)
+  } finally {
+    await invoke('environments:setActive', { environmentId: env['Producción'] })
+    await invoke('environments:delete', { id: noEntities })
+    await reloadUi()
+  }
+})
+
+test('CA5 (0020): la tarjeta del servicio sigue igual (sus filas, sus grupos y sin nada del host); los e2e de la 0015 siguen sin tocar', async () => {
+  const card = await openServiceInfo(INFO_FULL_ID)
+  expect(
+    await dataKeys(card.getByTestId('service-info-service').getByTestId('service-info-row'))
+  ).toEqual(INFO_ROW_ORDER)
+  expect(await dataKeys(card.getByTestId('service-info-group'), 'data-group')).toEqual([
+    'runsOn',
+    'calls',
+    'calledBy',
+    'other'
+  ])
+  await expect(card.locator('[data-testid^="host-info"]')).toHaveCount(0)
+  await expect(page.getByTestId('host-info')).toHaveCount(0)
+  await expect(page.getByTestId('service-markers')).toBeVisible()
 })

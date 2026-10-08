@@ -416,3 +416,191 @@ describe.skipIf(live === null)('Ficha 0014: datos de una entidad (paso 0)', () =
     expect(observed.size).toBeGreaterThan(0)
   })
 })
+
+/**
+ * Ficha 0020: EXPLORACIÓN EN VIVO de `GET /entities/{entityId}` sobre como mucho 3 HOST de los
+ * problemas de los últimos 7 días (autorizada por Dani, solo lectura): qué claves de
+ * `properties` y qué relaciones trae un host de verdad. El informe guarda SOLO nombres de la API
+ * (claves y relaciones que define `GET /entityTypes/HOST`, o que nombra la ficha) con la forma de
+ * su valor; nunca un id, un nombre ni un valor.
+ */
+const MAX_HOSTS = 3
+
+/**
+ * Forma de un valor sin sus claves: las de un objeto pueden ser datos del tenant (etiquetas de
+ * Kubernetes, metadatos propios del host).
+ */
+function shapeOf(value: unknown): string {
+  if (Array.isArray(value)) {
+    const inner = [...new Set(value.map(shapeOf))].sort()
+    return inner.length === 0 ? 'lista vacía' : `lista de ${inner.join('|')}`
+  }
+  if (value !== null && typeof value === 'object') return 'objeto'
+  return value === null ? 'null' : typeof value
+}
+
+/** Claves de `properties` de un HOST que nombra la ficha 0020 (de la API, no del tenant). */
+const HOST_PROPERTY_KEYS = new Set([
+  'osType',
+  'osVersion',
+  'osArchitecture',
+  'bitness',
+  'cpuCores',
+  'logicalCpuCores',
+  'physicalMemory',
+  'memoryTotal',
+  'ipAddress',
+  'networkZone',
+  'monitoringMode',
+  'state',
+  'installerVersion',
+  'hostGroupName',
+  'cloudType',
+  'hypervisorType'
+])
+
+/** Relaciones de un HOST que nombra la ficha 0020. */
+const HOST_RELATIONS = new Set(['isProcessOf', 'runsOnHost', 'runsOn', 'isInstanceOf'])
+
+describe.skipIf(live === null)('Ficha 0020: datos de un HOST (exploración)', () => {
+  const hosts: string[] = []
+  const hostObserved = new Set<string>()
+  /** Nombres que define el tipo HOST (propiedades y relaciones): se pueden escribir. */
+  const typeNames = new Set<string>()
+  const hostReport: Record<string, unknown> = {}
+
+  const watch = (value: unknown): void => {
+    if (typeof value === 'string') hostObserved.add(value)
+    else if (typeof value === 'number') hostObserved.add(String(value))
+    else if (Array.isArray(value)) for (const item of value) watch(item)
+    else if (value !== null && typeof value === 'object')
+      for (const v of Object.values(value)) watch(v)
+  }
+
+  it('lee la definición del tipo HOST (nombres de propiedades y relaciones)', async () => {
+    const { code, body } = await codeOf(get('/entityTypes/HOST', {}))
+    hostReport['entityTypes/HOST'] = code
+    for (const property of (body?.['properties'] as Raw[] | undefined) ?? []) {
+      if (typeof property['id'] === 'string') typeNames.add(property['id'])
+    }
+    for (const key of ['fromRelationships', 'toRelationships']) {
+      for (const relation of (body?.[key] as Raw[] | undefined) ?? []) {
+        if (typeof relation['id'] === 'string') typeNames.add(relation['id'])
+      }
+    }
+    hostReport['nombres en la definición'] = bucket(typeNames.size)
+  })
+
+  it('elige como mucho 3 hosts de los problemas de los últimos 7 días', async () => {
+    const list = (await get('/problems', { from: 'now-7d', pageSize: 50 })) as Raw
+    for (const problem of (list['problems'] as Raw[] | undefined) ?? []) {
+      watch(problem['problemId'])
+      watch(problem['displayId'])
+      for (const key of ['affectedEntities', 'impactedEntities']) {
+        for (const entity of (problem[key] as Raw[] | undefined) ?? []) {
+          const id = asObject(entity['entityId'])?.['id']
+          watch(entity['name'])
+          if (typeof id !== 'string') continue
+          hostObserved.add(id)
+          if (/^HOST-[0-9A-F]{16}$/.test(id) && !hosts.includes(id)) hosts.push(id)
+        }
+      }
+    }
+    hostReport['hosts sacados de problemas'] = Math.min(hosts.length, MAX_HOSTS)
+    if (hosts.length < MAX_HOSTS) {
+      // Pocos en los problemas: se completa con hosts cualesquiera (una sola lectura).
+      const page = (await get('/entities', {
+        entitySelector: 'type("HOST")',
+        from: 'now-3d',
+        pageSize: 10
+      })) as Raw
+      for (const entity of (page['entities'] as Raw[] | undefined) ?? []) {
+        watch(entity)
+        const id = String(entity['entityId'])
+        if (!hosts.includes(id)) hosts.push(id)
+      }
+    }
+    hosts.splice(MAX_HOSTS)
+    hostReport['hosts'] = hosts.length
+  })
+
+  it('GET /entities/{id} de cada host: claves de properties y relaciones', async () => {
+    const isApiName = (name: string): boolean =>
+      typeNames.has(name) || HOST_PROPERTY_KEYS.has(name) || HOST_RELATIONS.has(name)
+    const perHost: unknown[] = []
+    const seenKeys = new Map<string, number>()
+    const seenRelations = new Map<string, number>()
+    for (const [index, id] of hosts.entries()) {
+      const { code, body } = await codeOf(get(`/entities/${id}`, { fields: FIELDS }))
+      const row: Record<string, unknown> = { host: `#${index + 1}`, codigo: code }
+      if (body === null) {
+        perHost.push(row)
+        continue
+      }
+      watch(body)
+      const properties = asObject(body['properties']) ?? {}
+      const keys = Object.keys(properties)
+      for (const key of keys.filter(isApiName)) seenKeys.set(key, (seenKeys.get(key) ?? 0) + 1)
+      row['claves'] = bucket(keys.length)
+      row['clavesFueraDeLaDefinicion'] = keys.filter((key) => !isApiName(key)).length
+      row['formaPorClave'] = Object.fromEntries(
+        keys
+          .filter(isApiName)
+          .sort()
+          .map((key) => [key, shapeOf(properties[key])])
+      )
+      // Unidad de la memoria, por su orden de magnitud (sin el valor): bytes si pasa de 2^30.
+      for (const key of ['physicalMemory', 'memoryTotal']) {
+        const value = properties[key]
+        row[`${key}Magnitud`] =
+          typeof value === 'number'
+            ? value >= 2 ** 30
+              ? '≥ 1 GiB'
+              : value >= 2 ** 20
+                ? 'entre 1 MiB y 1 GiB'
+                : 'menos de 1 MiB'
+            : 'sin dato'
+      }
+      row['physicalMemoryIgualAMemoryTotal'] =
+        properties['physicalMemory'] === properties['memoryTotal']
+      const relations: Record<string, unknown> = {}
+      for (const direction of ['fromRelationships', 'toRelationships'] as const) {
+        const short = direction === 'fromRelationships' ? 'from' : 'to'
+        for (const [name, items] of Object.entries(asObject(body[direction]) ?? {})) {
+          const label = isApiName(name) ? name : 'otra (fuera de la definición)'
+          const list = Array.isArray(items) ? (items as Raw[]) : []
+          const types = [...new Set(list.map((item) => String(item['type'])))]
+          seenRelations.set(`${short}.${label}`, (seenRelations.get(`${short}.${label}`) ?? 0) + 1)
+          relations[`${short}.${label}`] = {
+            ids: bucket(list.length),
+            tipos: types.every(isStandardType) ? types.sort() : 'alguno no estándar'
+          }
+        }
+      }
+      row['relaciones'] = relations
+      perHost.push(row)
+    }
+    hostReport['por host'] = perHost
+    hostReport['claves vistas (en cuántos hosts)'] = Object.fromEntries([...seenKeys].sort())
+    hostReport['relaciones vistas (en cuántos hosts)'] = Object.fromEntries(
+      [...seenRelations].sort()
+    )
+    hostReport['claves de la ficha que no llegaron'] = [...HOST_PROPERTY_KEYS]
+      .filter((key) => !seenKeys.has(key))
+      .sort()
+    report['hosts (0020)'] = hostReport
+  })
+
+  it('CA1 (0020): el informe de hosts no contiene ningún id, nombre ni valor observado', () => {
+    const text = JSON.stringify(hostReport)
+    for (const value of hostObserved) {
+      if (value.length < 6) continue
+      if ([...typeNames, ...HOST_PROPERTY_KEYS, ...HOST_RELATIONS].some((n) => n.includes(value)))
+        continue
+      // Enumerados de la API en mayúsculas (LINUX, KUBERNETES…) forman parte de los tipos
+      // estándar del informe (KUBERNETES_NODE…): no son datos del tenant.
+      if (isStandardType(value)) continue
+      expect(text.includes(value), 'el informe contiene un dato observado').toBe(false)
+    }
+  })
+})
