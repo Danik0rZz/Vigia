@@ -1,7 +1,7 @@
 ---
 id: '0026'
 titulo: 'Monitores: tarjeta «Información» con los datos de la entidad'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -157,3 +157,10 @@ ampliado (25 de 28 con `-g "(0015|0020|0024|0025|0026)"`; los 3 en rojo, los de 
   cambia el texto.
 - «Si está activo» se enseña como «Activo» o «Inactivo» (fila «Estado»). Textos en
   `entities.monitor.info` (es y en), con `column` («Monitor») como título de la columna de filas.
+- **Commits:** `6be05b8` (tests), `89eb065` (filas y relaciones), `5ec195a` (tarjeta en las páginas).
+  Ficheros principales: `monitor-info.ts`, `MonitorInfo.tsx`, `MonitorEntityPage.tsx`,
+  `EntityInfoCard.tsx` (ajuste menor), locales es y en, y `e2e/views.spec.ts`.
+- **Revisión:** 1 ronda (APROBADO). Verifier en verde. ADR nuevo: ninguno. Sin migraciones.
+- **Pendiente de Dani (a mano):** que la tarjeta se lee de un vistazo con monitores reales y que la
+  frecuencia («Cada N minutos») coincide con la que muestra Dynatrace (unidad sin confirmar en vivo).
+  `docs/pendiente-dani.md` se rellena por versión en `/cerrar-version`.
