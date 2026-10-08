@@ -1,7 +1,7 @@
 ---
 id: '0036'
 titulo: 'Páginas de entidad: la tarjeta «Información» va al final'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: mejoras-entidades
@@ -92,6 +92,11 @@ Tests (ficha ligera, escritos por el developer): commit 7fb2780, en `e2e/views.s
 Decisión (developer): la pieza común es `EntitySections` en `EntityPageFrame.tsx` (avisos de
 módulos sin acceso, marcadores, gráficos, tarjetas, información). Los avisos de módulo sin acceso
 siguen antes de los marcadores: son avisos de la página, no secciones.
+
+### Verifier, 2026-10-09, commit `e2f48c7`, rango `main..feat/0036-entidades-informacion-al-final`: VERDE
+
+- check: 2494 tests en 139 ficheros, cobertura ok.
+- e2e afectados: 193/193 (incluye CA1 y CA2 de la 0036; CA3 son los e2e existentes, en verde).
 
 ## Resultado
 
