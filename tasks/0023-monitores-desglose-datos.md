@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics/query` con las métricas por localización y por paso o petición que eligió la 0022; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -75,7 +75,14 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Las 7 expresiones coinciden carácter por carácter con las confirmadas en vivo, con su ámbito (`entityId` o
+  `isStepOf`); id validado (sin inyección); `Inf` sin `fold`/`:last`.
+- CA1-CA5 con su test; orden, `share`, `failed` y `steps` como dice la ficha; tests sin tocar salvo el
+  inventario de canales; `monitorBreakdownRejected` (ADR-0005); sin datos del tenant.
+- Opcional: en browser, la de pasos va en la misma consulta que las de localización y en vivo se probó
+  sola (mismo ámbito, riesgo bajo); añadirla a `CHANNEL_LOCATIONS.browser` en la próxima pasada en vivo.
 
 ## Verificación
 
