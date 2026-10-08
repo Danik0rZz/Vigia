@@ -926,6 +926,26 @@
           "networkHealth": "Retransmissions",
           "resources": "File descriptors used"
         }
+      },
+      "info": {
+        "label": "Process information",
+        "column": "Process",
+        "rows": {
+          "technologies": "Technologies",
+          "listenPorts": "Listen ports",
+          "detectedName": "Detected name",
+          "executable": "Executable",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen",
+          "managementZones": "Management zones",
+          "tags": "Tags"
+        },
+        "groups": {
+          "runsOn": "Runs on",
+          "processGroup": "Process group",
+          "services": "Services",
+          "other": "Other relationships"
+        }
       }
     },
     "service": {

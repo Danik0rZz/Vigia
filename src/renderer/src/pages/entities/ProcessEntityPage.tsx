@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { processEntityIdSchema } from '@shared/modules'
 import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
+  useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
   useModuleAccess,
@@ -10,8 +11,10 @@ import {
   useProcessMetrics,
   uniqueUnavailable
 } from '../../data/modules'
+import { useConnectionStatusKnown } from '../../data/tenants'
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
 import { ProcessCharts } from './ProcessCharts'
+import { ProcessInfo } from './ProcessInfo'
 import { ProcessMarkers } from './ProcessMarkers'
 
 /**
@@ -20,7 +23,8 @@ import { ProcessMarkers } from './ProcessMarkers'
  * debajo, los gráficos (CPU, memoria, red y salud de red o recursos), con la franja de los
  * problemas del proceso sobre el de la CPU. Marcadores y gráficos salen de una sola llamada a
  * `entities:processMetrics` (ficha 0027); lo que no tiene datos no se pinta. Solo pide datos con
- * «Actualizar» o con un rango nuevo (ADR-0004).
+ * «Actualizar» o con un rango nuevo (ADR-0004). Entre la cabecera y los marcadores, la tarjeta
+ * «Información» (0029, canal `entities:get`), como en el servicio, el host y los monitores.
  */
 export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -30,11 +34,19 @@ export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
   const problemsAccess = useModuleAccess('problems')
   const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
   const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
+  const entitiesAccess = useModuleAccess('entities')
+  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
+  const statusKnown = useConnectionStatusKnown(
+    entitiesAccess.available ? entitiesAccess.envId : null
+  )
+  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
   const metrics = useProcessMetrics(metricsEnv, processId)
   const problems = useEntityProblemCounts(problemsEnv, processId)
   const problemList = useEntityProblems(problemsEnv, processId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv, 'entities')
-  const canFetch = processId !== null && (metricsEnv !== null || problemsEnv !== null)
+  const info = useEntityInfo(entitiesEnv, processId)
+  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  const canFetch =
+    processId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -45,7 +57,9 @@ export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
         canFetch ? (
           <RefreshButton
             onRefresh={refresh}
-            busy={metrics.isFetching || problems.isFetching || problemList.isFetching}
+            busy={
+              metrics.isFetching || problems.isFetching || problemList.isFetching || info.isFetching
+            }
           />
         ) : undefined
       }
@@ -56,6 +70,8 @@ export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
         </p>
       ) : (
         <>
+          {/* Ficha 0029: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
+          <ProcessInfo access={entitiesAccess} info={info} />
           {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
