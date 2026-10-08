@@ -1,7 +1,7 @@
 ---
 id: '0017'
 titulo: 'HOST: canal con el detalle por disco y los procesos que más consumen'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -179,6 +179,21 @@ Comportamientos observados:
   `entityId("HOST-00000000000E2E31")` y las de `builtin:tech.generic.` con la relación a ese id
   (antes que las de la 0016 y la vista Métricas) y las guarda en `sim.hostBreakdownQueries`. El
   módulo de producción nuevo necesitará su área en `e2e/areas.json`.
+
+**Decisiones del developer (delegadas por Dani, refinables):**
+
+- Tres consultas a `/metrics/query` en paralelo, todas con `:names` en cada expresión
+  (`src/main/modules/host-breakdown.ts`): series de disco sin Inf (`usedPct`, `used` y `avail`:
+  último punto con dato), disco con Inf (`usedPct:max`, `bytesRead:avg` y `bytesWritten:avg`) y
+  procesos con Inf (`cpu.usage:avg`, `cpu.usage:max` y `workingSetSize:avg`). Discos con
+  `entitySelector=entityId("<id>")`; procesos con la relación `isProcessOf` en `entitySelector`.
+  Resultados casados por posición y series por el id de la dimensión (una serie sin id se
+  descarta).
+- Los procesos se piden todos (sin `:sort` ni `:limit`): así sale `total` sin otra consulta (en
+  vivo, como mucho 51–150 por host) y el top 10 se ordena en main por CPU media, con los null al
+  final. Los discos son la unión de las 6 series (el que solo trae lectura y escritura, al final).
+- Salida con `warnings` y `partial` (`truncatedResults`), como la 0016. Motivo nuevo
+  `hostBreakdownRejected` (400 y 404), con texto en es y en.
 
 ## Resultado
 
