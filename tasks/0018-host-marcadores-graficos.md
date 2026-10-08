@@ -1,7 +1,7 @@
 ---
 id: '0018'
 titulo: 'HOST: marcadores y cuatro gráficos (CPU, memoria, red y disco) con la franja de problemas'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -186,6 +186,12 @@ escribirlos, fallan los cinco e2e nuevos (no hay `host-markers` ni `host-charts`
   `CA8 (0003)` admite en la página del host solo `GET /api/v2/metrics/query` y
   `GET /api/v2/problems`; y `CA7 (0008)` saca el HOST de la lista de tipos en construcción (sigue
   comprobando que no lleva los marcadores del servicio). Los del servicio no cambian.
+
+### Verifier, 2026-10-08, commit `c497837`, rango `main..c497837`: VERDE
+
+- check: 2286 tests en 120 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 230/230.
+- `-g "(0018)|(0010)|(0013)" --repeat-each 3 --workers=1`: 39/39.
 
 ## Resultado
 
