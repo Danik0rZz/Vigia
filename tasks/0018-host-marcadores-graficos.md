@@ -55,6 +55,11 @@ común; el servicio no cambia de aspecto.
 Sin líneas de rejilla horizontales (como el servicio tras la 0012). Tooltip con fecha y hora y cada
 serie con su unidad; `null` como hueco. Estados de carga y error por panel. Textos en es y en.
 
+**Decisión del Orquestador (2026-10-08, delegada por Dani; refinable):** la 0016 confirmó en vivo que
+`user + system + iowait` no suma el uso total de CPU. Apiladas en área parecerían un reparto del total que
+no cuadra, así que el desglose va en **líneas separadas, sin apilar**, junto al total. CA2 no cambia (las
+series siguen siendo las mismas).
+
 ## Criterios de aceptación
 
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
