@@ -126,6 +126,9 @@ Decisiones del developer (delegadas por Dani, refinables):
   el «+N» de la tarjeta).
 - La guarda del contrato IPC de secretos (`tenants.test.ts`) marcaba `entities:get.tags[].value`
   por llamarse `value`: se permite solo esa ruta, con su motivo, en un commit propio.
+- El e2e «CA8 (0014)» (`entities:get` por IPC) esperaba `tags: ['equipo:pagos']`; el
+  test-writer no lo adaptó y CA1 obliga al formato nuevo. Se adapta solo esa línea, en un commit
+  propio, a `{ context: 'CONTEXTLESS', key: 'equipo', value: 'pagos' }`.
 
 ## Resultado
 
