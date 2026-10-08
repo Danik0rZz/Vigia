@@ -1,7 +1,7 @@
 ---
 id: '0023'
 titulo: 'Monitores: canal con el desglose por localización y por paso o petición'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -63,7 +63,9 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- Ordenar los pasos en el orden del monitor con `sequenceNumber` de las entidades de paso
+  (`GET /entities` con `type("SYNTHETIC_TEST_STEP")` o `type("HTTP_CHECK_STEP")`, `isStepOf` y
+  `+properties`): una petición más; la dimensión de la métrica no lo trae.
 
 ## Notas del revisor
 
@@ -71,7 +73,77 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `8a225df` (`test(monitores): criterios de la ficha 0023`). Los unitarios y el e2e
+fallan porque el canal no existe (`implementación de entities:monitorBreakdown: expected undefined`
+en los 20 unitarios nuevos; `UNKNOWN_CHANNEL` en el e2e), no por el test.
+
+| Criterio | Test                                                                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CA1      | `src/main/ipc/handlers/monitor-breakdown.test.ts` › `CA1 (0023): las consultas llevan las métricas confirmadas, con su splitBy, el id y el rango` (e id no válido) |
+| CA2      | `src/main/ipc/handlers/monitor-breakdown.test.ts` › `CA2 (0023): 4 localizaciones y 5 pasos, ordenados y con el peso de cada paso`                                 |
+| CA3      | `src/main/ipc/handlers/monitor-breakdown.test.ts` › `CA3 (0023): nombres de dimensionMap o, si faltan, el id; steps según la métrica de pasos` (ver la nota)       |
+| CA4      | `src/main/ipc/handlers/monitor-breakdown.test.ts` › `CA4 (0023): errores de Dynatrace` (400 y 404, browser y http)                                                 |
+| CA5      | `e2e/views.spec.ts` › `CA5 (0023): entities:monitorBreakdown por IPC con ids inventados de browser y HTTP monitor`                                                 |
+
+**Lectura en vivo (solo lectura), 2026-10-08:** `src/main/modules/monitor-breakdown-explore.live.test.ts`,
+3 browser monitors y 3 HTTP monitors (de los problemas de 7 días y de `type(...)`), `now-24h`, 118
+GET, token fuera del log. Informe en `live-reports/monitor-breakdown-explore.json` (ignorado), sin
+ids ni nombres. Cada expresión, sola y en el selector del canal, con y sin `resolution=Inf`: todas
+200, ratios < 0,01 y como mucho 9 series (lejos del tope de 1000).
+
+- **Ámbito:** `browser.duration` y `browser.step.duration` con `entitySelector=entityId("<id>")`
+  (o con `type("SYNTHETIC_TEST_STEP"),fromRelationships.isStepOf(...)`) **no se acotan**: traen las
+  series de todos los monitores del entorno (más series que localizaciones o pasos, y las mismas en
+  los 3 monitores). Las acota `:filter(eq("dt.entity.synthetic_test","<id>"))`, con o sin
+  `entitySelector`. `browser.availability` sí se acota con `entityId`. En HTTP,
+  `request.duration.geo` con `entityId` del monitor sale vacía; la acota el selector de los pasos
+  por la relación `isStepOf`.
+- **Nombres:** con `:names`, `dimensionMap` trae `dt.entity.synthetic_location.name`,
+  `dt.entity.synthetic_test_step.name` y `dt.entity.http_check_step.name` en todas las series.
+- **Secuencia:** ninguna dimensión trae número de secuencia. Está en las `properties` de las
+  entidades de paso (`sequenceNumber`, en SYNTHETIC_TEST_STEP y HTTP_CHECK_STEP).
+- **Orden:** las series de cada métrica no llegan en el mismo orden de localizaciones: se casan por id.
+- **metricId:** con `filter(eq(...))` la API devuelve la expresión sin las comillas del valor
+  (`eq("dt.entity.synthetic_test",<id>)`, `eq("Result status",FAILURE)`): no es igual a la enviada;
+  los resultados se casan por posición.
+- **Fallidas por localización:** el browser monitor no tiene métrica (`browser.failure` solo tiene
+  la dimensión del monitor y el catálogo no tiene otra con la de localización). En HTTP,
+  `resultStatus` FAILURE por localización; sin fallos, la localización no trae serie.
+
+**Expresiones confirmadas** (las únicas que aceptan los tests de CA1; `<id>` es el id validado):
+
+| Tipo    | Papel                   | Expresión                                                                                                                                  | Ámbito (`entitySelector`)                                              |
+| ------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| browser | Disponibilidad por loc. | `builtin:synthetic.browser.availability:splitBy("dt.entity.synthetic_location"):avg:names`                                                 | `entityId("<id>")`                                                     |
+| browser | Duración por loc.       | `builtin:synthetic.browser.duration:filter(eq("dt.entity.synthetic_test","<id>")):splitBy("dt.entity.synthetic_location"):avg:names`       | `entityId("<id>")` o ninguno                                           |
+| browser | Duración por paso       | `builtin:synthetic.browser.step.duration:filter(eq("dt.entity.synthetic_test","<id>")):splitBy("dt.entity.synthetic_test_step"):avg:names` | `entityId("<id>")` o ninguno                                           |
+| http    | Disponibilidad por loc. | `builtin:synthetic.http.availability:splitBy("dt.entity.synthetic_location"):avg:names`                                                    | `entityId("<id>")`                                                     |
+| http    | Duración por loc.       | `builtin:synthetic.http.duration.geo:splitBy("dt.entity.synthetic_location"):avg:names`                                                    | `entityId("<id>")`                                                     |
+| http    | Fallidas por loc.       | `builtin:synthetic.http.resultStatus:filter(eq("Result status","FAILURE")):splitBy("dt.entity.synthetic_location"):sum:names`              | `entityId("<id>")`                                                     |
+| http    | Duración por petición   | `builtin:synthetic.http.request.duration.geo:splitBy("dt.entity.http_check_step"):avg:names`                                               | `type("HTTP_CHECK_STEP"),fromRelationships.isStepOf(entityId("<id>"))` |
+
+Las de localización de cada tipo se probaron también juntas en una consulta con `entityId`.
+`http.availability.location.total` con el mismo `splitBy` también responde bien, pero no se usa (la
+tabla de la 0022 eligió `http.availability` para «por localización»).
+
+**Decisiones del test-writer (delegadas por Dani, a refinar si hace falta):**
+
+- Todas las consultas con `resolution=Inf` (valor del rango, sin `fold`) y el rango del usuario;
+  cada expresión una vez y ≤ 10 por consulta. Cuántas consultas haga main es libre.
+- Salida: `{ locations: [{ id, name, availability, duration, failed }], steps: [{ id, name, duration, share }] | null }`
+  (puede llevar más campos, como `warnings` y `partial`). `share` es el peso en % (0–100) sobre la
+  **suma de las duraciones de los pasos**: suman 100.
+- Localizaciones de peor a mejor disponibilidad; sin disponibilidad (null), al final. Fallidas:
+  `null` en browser (no hay métrica); en HTTP, `0` si la localización no trae serie de FAILURE.
+- Pasos **por duración, de mayor a menor**: la dimensión no da número de secuencia (la ficha pide
+  el orden del monitor solo si lo da la dimensión).
+- Solo entran las localizaciones y los pasos que llegan en las series confirmadas.
+- Un id que no cumple el patrón de la 0022 se rechaza sin llamar a Dynatrace.
+
+**Nota sobre CA3 («sin métrica de pasos, `steps` es `null`»):** tal como está escrito no se puede
+probar: la 0022 encontró métrica de pasos para los dos tipos, así que con el catálogo actual
+`steps` nunca es `null`. El test de CA3 comprueba que es una lista (vacía si no hay series) en los
+dos tipos; la rama `null` queda sin test hasta que haya un tipo sin métrica de pasos.
 
 ## Resultado
 
