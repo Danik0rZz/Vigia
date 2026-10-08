@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics` (`metricSelector=builtin:tech.generic.*` y `builtin:pgi.*`, `fields`), `GET /metrics/{metricId}` y `GET /metrics/query`; `GET /entities/{entityId}` (de la 0014) para PROCESS_GROUP_INSTANCE; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read` y `entities.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -96,7 +96,14 @@ llevan el reason nuevo `processMetricsRejected` (es y en).
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test y en rojo sin el canal; el developer no tocó tests. El ajuste de `bb10baf` lo hizo el test-writer tras la decisión del Orquestador: el «papeles null» de CA4 se prueba con marcadores a `null`. Canal con Zod de entrada (id estricto) y salida, selectores en main, `reason` nuevo `processMetricsRejected` en es y en (ADR-0005). Endpoints y parámetros en la OpenAPI v2; expresiones las confirmadas en vivo. Live de solo lectura sin ids, nombres ni valores; ids de test inventados.
+
+Sugerencias, no bloquean:
+
+- Tabla final en `docs/notas-api-v2.md` y en "Resultado" (doc-writer), con las lecciones: `network.packets.retransmissionIn/Out` y `sessions.connectivity` sin `resolution=Inf`; métricas sin dimensiones (`fileDescriptorsPercentUsed.new`) que con `entityId(...)` traen series de otros procesos; `COMMAND_LINE_ARGS` y `EXE_PATH` en `metadata`. Quizá también en `src/main/CLAUDE.md`.
+- `fileDescriptorsPercentUsed` con valores en [0, 1] aunque diga Percent: lo mira la 0028.
 
 ## Verificación
 
