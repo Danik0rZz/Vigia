@@ -1,7 +1,7 @@
 ---
 id: '0022'
 titulo: 'Monitores (browser y HTTP): análisis de métricas en vivo y canal de series y marcadores'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -119,7 +119,112 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `e1c7127` (`test(monitores): criterios de la ficha 0022`). Los unitarios y el e2e
+fallan porque el canal no existe (`canal entities:monitorMetrics: expected undefined`,
+`implementación de entities:monitorMetrics: expected undefined`, `UNKNOWN_CHANNEL` en el e2e), no
+por el test: 38 unitarios nuevos en rojo (21 de CA2 y 17 de CA3 a CA5) y el e2e de CA6 en rojo.
+
+| Criterio | Test                                                                                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/monitor-metrics-explore.live.test.ts` › `CA1 (0022): el informe no contiene ningún id ni nombre observado` (ya pasa: paso 0 hecho)                   |
+| CA2      | `src/shared/ipc.test.ts` › `CA2 (0022): entrada de entities:monitorMetrics`                                                                                            |
+| CA3      | `src/main/ipc/handlers/monitor-metrics.test.ts` › `CA3 (0022): cada tipo pide las métricas de su catálogo, con el id y el rango` (browser y http, relativo y absoluto) |
+| CA4      | `src/main/ipc/handlers/monitor-metrics.test.ts` › `CA4 (0022): la respuesta se transforma por papel`                                                                   |
+| CA5      | `src/main/ipc/handlers/monitor-metrics.test.ts` › `CA5 (0022): errores de Dynatrace y monitor sin datos` (browser y http)                                              |
+| CA6      | `e2e/views.spec.ts` › `CA6 (0022): entities:monitorMetrics por IPC con ids inventados de browser y HTTP monitor`                                                       |
+
+**Paso 0 (CA1), en vivo y de solo lectura, el 2026-10-08:** 3 browser monitors (los 3 de los
+problemas de los últimos 7 días) y 3 HTTP monitors (2 de los problemas y 1 de
+`type("HTTP_CHECK")`), `now-24h`, 124 peticiones GET, token fuera del log. Informe en
+`live-reports/monitor-metrics-explore.json` (ignorado), sin ids ni nombres.
+
+- Catálogo: `GET /metrics?metricSelector=builtin:synthetic.browser.*` da 109 métricas y
+  `…http.*` 22, en una sola página (`pageSize=500`). Todas admiten `resolution=Inf`.
+- Las métricas `*.event.*` (browser) y `*.request.*` (HTTP) no tienen la dimensión del monitor,
+  solo la del paso: con `filter(eq("dt.entity.synthetic_test", …))` salen vacías. Con
+  `entitySelector=type("SYNTHETIC_TEST_STEP")` (o `"HTTP_CHECK_STEP"`)
+  `,fromRelationships.isStepOf(entityId("<id>"))` sí traen datos.
+- Con `:names`, `dimensionMap` trae `<dimensión>.name` de monitor, localización y paso.
+- Las de browser con sufijo `.geo` y `availability.location.total` van por
+  `dt.entity.geolocation` (región), no por `dt.entity.synthetic_location`; en HTTP, las `.geo` y
+  `availability.location.total` sí van por `dt.entity.synthetic_location`.
+- `builtin:synthetic.{browser,http}.availability` dice `Count`, pero sus valores son % (0–100) y
+  trae la dimensión `interpolated` (`true`/`false`).
+- Expresiones del canal comprobadas en los 6 monitores (`entitySelector=entityId("<id>")`): todas
+  200, una serie tras `splitBy("<dimensión del monitor>")`, `metricId` igual a la expresión,
+  ratios < 0,01. Resolución `10m` con `now-24h`. Con Inf, `:avg` ≈ media de la serie y los
+  recuentos = suma de la serie (iguales o < 1 %).
+- `http.duration.geo:median` da 200 pero devuelve lo mismo que `:avg` (median no está en sus
+  agregaciones): el HTTP monitor no tiene mediana. `browser.totalDuration:median` sí es distinta.
+- `http.resultStatus` tiene «Result status» = `SUCCESS` / `FAILURE`; con
+  `filter(eq("Result status","FAILURE"))` y sin fallos, el resultado llega sin series.
+  `http.execution.status` (`execution_state` = `SUCCESS` / `FAIL`) da los mismos recuentos.
+- Entidad (`GET /entities/{id}` con `+properties,+fromRelationships,+toRelationships,+firstSeenTms,+lastSeenTms`):
+  - `properties` de SYNTHETIC_TEST: `assignedLocations`, `browserMonitorSubtype`, `createdBy`,
+    `customizedName`, `detectedName`, `deviceProfile`, `isEnabled`, `lastExecutionTimestamp`,
+    `lastModificationSource`, `lastModifiedBy`, `manuallyAssignedApplications`,
+    `modificationTimestamp`, `steps`, `syntheticMonitorFrequency`, `syntheticScreenshot*Uri` (4)
+    y, no siempre, `url`.
+  - `properties` de HTTP_CHECK: `assignedLocations`, `createdBy`, `detectedName`,
+    `httpMonitorSubtype`, `isEnabled`, `lastExecutionTimestamp`, `lastModificationSource`,
+    `lastModifiedBy`, `manuallyAssignedApplications`, `modificationTimestamp`, `steps`,
+    `syntheticMonitorFrequency`.
+  - Relaciones: `fromRelationships.runsOn` (SYNTHETIC_LOCATION), `toRelationships.isStepOf`
+    (SYNTHETIC_TEST_STEP / HTTP_CHECK_STEP), a veces `fromRelationships.monitors` (APPLICATION);
+    en HTTP, a veces `fromRelationships.calls` (SERVICE) y `toRelationships.isApplicationOfSyntheticTest`
+    (APPLICATION). `firstSeenTms` y `lastSeenTms`, números.
+
+**Elección por papel** (la primera candidata con datos; todas con datos en los 3 monitores de su
+tipo):
+
+| Tipo    | Papel                            | Métrica                                                                                         | Unidad      | Agregación (por defecto; usada)                | Dimensiones                                                                                 |
+| ------- | -------------------------------- | ----------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| browser | Disponibilidad                   | `builtin:synthetic.browser.availability.location.total`                                         | Percent     | avg; `splitBy("dt.entity.synthetic_test"):avg` | `dt.entity.synthetic_test`, `dt.entity.geolocation`                                         |
+| browser | Disp. sin mantenimiento          | `builtin:synthetic.browser.availability.location.totalWoMaintenanceWindow`                      | Percent     | avg                                            | igual                                                                                       |
+| browser | Duración                         | `builtin:synthetic.browser.totalDuration`                                                       | MilliSecond | avg; `:avg` y `:median` (marcador)             | `dt.entity.synthetic_test`                                                                  |
+| browser | Ejecuciones correctas            | `builtin:synthetic.browser.success`                                                             | Count       | value                                          | `dt.entity.synthetic_test`                                                                  |
+| browser | Ejecuciones fallidas             | `builtin:synthetic.browser.failure`                                                             | Count       | value                                          | `dt.entity.synthetic_test`                                                                  |
+| browser | Disp. por localización           | `builtin:synthetic.browser.availability`                                                        | Count (%)   | avg                                            | `dt.entity.synthetic_location`, `dt.entity.synthetic_test`, `interpolated`                  |
+| browser | Duración por localización        | `builtin:synthetic.browser.duration`                                                            | MilliSecond | avg                                            | `dt.entity.synthetic_location`, `dt.entity.synthetic_test`                                  |
+| browser | Duración por paso                | `builtin:synthetic.browser.step.duration`                                                       | MilliSecond | avg                                            | `dt.entity.synthetic_test_step`, `dt.entity.synthetic_location`, `dt.entity.synthetic_test` |
+| browser | Rendimiento: LCP                 | `builtin:synthetic.browser.largestContentfulPaint.load`                                         | MilliSecond | avg                                            | `dt.entity.synthetic_test`                                                                  |
+| browser | Rendimiento: visually complete   | `builtin:synthetic.browser.visuallyComplete.load`                                               | MilliSecond | avg                                            | `dt.entity.synthetic_test`                                                                  |
+| browser | Rendimiento: CLS                 | `builtin:synthetic.browser.cumulativeLayoutShift.load`                                          | Unspecified | avg                                            | `dt.entity.synthetic_test`                                                                  |
+| browser | Rendimiento: speed index         | `builtin:synthetic.browser.speedIndex.load`                                                     | MilliSecond | avg                                            | `dt.entity.synthetic_test`                                                                  |
+| http    | Disponibilidad                   | `builtin:synthetic.http.availability.location.total`                                            | Percent     | avg; `splitBy("dt.entity.http_check"):avg`     | `dt.entity.http_check`, `dt.entity.synthetic_location`                                      |
+| http    | Disp. sin mantenimiento          | `builtin:synthetic.http.availability.location.totalWoMaintenanceWindow`                         | Percent     | avg                                            | igual                                                                                       |
+| http    | Duración                         | `builtin:synthetic.http.duration.geo`                                                           | MilliSecond | avg; `splitBy("dt.entity.http_check"):avg`     | `dt.entity.http_check`, `dt.entity.synthetic_location`                                      |
+| http    | Ejecuciones correctas y fallidas | `builtin:synthetic.http.resultStatus` con `filter(eq("Result status","SUCCESS"))` / `"FAILURE"` | Count       | avg; `splitBy("dt.entity.http_check"):sum`     | `dt.entity.http_check`, `Result status`, `dt.entity.synthetic_location`                     |
+| http    | Disp. por localización           | `builtin:synthetic.http.availability`                                                           | Count (%)   | avg                                            | `dt.entity.synthetic_location`, `dt.entity.http_check`, `interpolated`                      |
+| http    | Duración por localización        | `builtin:synthetic.http.duration.geo`                                                           | MilliSecond | avg                                            | `dt.entity.http_check`, `dt.entity.synthetic_location`                                      |
+| http    | Duración por petición            | `builtin:synthetic.http.request.duration.geo`                                                   | MilliSecond | avg                                            | `dt.entity.http_check_step`, `dt.entity.synthetic_location` (sin la del monitor)            |
+| http    | Tiempos HTTP: DNS                | `builtin:synthetic.http.dns.geo`                                                                | MilliSecond | avg; `splitBy("dt.entity.http_check"):avg`     | `dt.entity.http_check`, `dt.entity.synthetic_location`                                      |
+| http    | Tiempos HTTP: TCP                | `builtin:synthetic.http.tcpConnectTime.geo`                                                     | MilliSecond | avg; igual                                     | igual                                                                                       |
+| http    | Tiempos HTTP: TLS                | `builtin:synthetic.http.tlsHandshakeTime.geo`                                                   | MilliSecond | avg; igual                                     | igual                                                                                       |
+| http    | Tiempos HTTP: primer byte        | `builtin:synthetic.http.timeToFirstByte.geo`                                                    | MilliSecond | avg; igual                                     | igual                                                                                       |
+| http    | Código de estado                 | `builtin:synthetic.http.statusCode`                                                             | Count       | value                                          | `dt.entity.http_check`, `dt.entity.synthetic_location`, `Status code`                       |
+
+Papeles sin métrica: **mediana de la duración en HTTP** (no hay agregación median) y, por tipo,
+`performance` en HTTP y `httpTimings` en browser. Ningún tipo se quedó sin monitores en el tenant.
+
+**Decisiones del test-writer (delegadas por Dani, a refinar si hace falta):**
+
+- Disponibilidad = `availability.location.total` (cuenta las ventanas de mantenimiento). La variante
+  `totalWoMaintenanceWindow` tiene datos pero no va en la salida de la 0022.
+- Forma de la salida (con `resolution`, `warnings` y `partial`, como `entities:serviceMetrics`):
+  `series.availability`, `series.duration`, `series.executions.{ok,failed}`,
+  `series.performance.{largestContentfulPaint,visuallyComplete,cumulativeLayoutShift,speedIndex}`
+  (null en HTTP), `series.httpTimings.{dns,tcpConnect,tlsHandshake,timeToFirstByte}` (null en
+  browser); `totals.availability`, `totals.duration.{avg,median}` y
+  `totals.executions.{ok,failed}`.
+- Series sin `resolution` (la elige la API) y marcadores con `resolution=Inf` sin `fold`, ≤ 10
+  expresiones por consulta, todas acotadas al id (en `entitySelector` o en el filtro).
+- Marcadores de disponibilidad y duración, del valor Inf; los recuentos coinciden con la suma de
+  la serie (el test acepta cualquiera de los dos caminos).
+- Sin datos: disponibilidad y duraciones a `null`; recuentos a `0` (como el servicio). Un HTTP
+  monitor sin fallos recibe la serie de fallidas vacía y `failed: 0`.
+- Las métricas por localización y por paso o petición quedan en la tabla para la 0023; no van en
+  `entities:monitorMetrics`. El código de estado HTTP tampoco (los tiempos cubren el papel).
 
 ## Resultado
 
