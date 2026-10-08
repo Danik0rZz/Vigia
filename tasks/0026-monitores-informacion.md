@@ -56,6 +56,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 ## Pruebas a mano para Dani
 
 - Con monitores reales, que la tarjeta se lee de un vistazo y no sobra ni falta nada importante.
+- Que la frecuencia («Cada N minutos») coincide con la que muestra Dynatrace para ese monitor (la
+  unidad en minutos no está confirmada en vivo).
 
 ## Fuera de alcance
 
