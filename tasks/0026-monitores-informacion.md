@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:get` y `entities:names` de la 0014; scope `entities.read`)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -67,7 +67,23 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 con su test (CA4 es salvaguarda, como dice la ficha); sin tocar tests tras `6be05b8`. Sin
+canal ni esquema nuevos: reutiliza `entities:get` y `entities:names` con `useEntityInfo`, espera a
+`useConnectionStatusKnown` y respeta ADR-0004. Claves y relaciones las de la 0022 en
+`docs/notas-api-v2.md`. Simulador con ids inventados y dominio `.invalid`.
+
+Unidad de la frecuencia: basta para aprobar. `frequencyMin` está en la OpenAPI v2 («in minutes»);
+la propiedad de la entidad no está documentada, pero la equivalencia es razonable y la confirma la
+prueba a mano.
+
+Sugerencias, no bloquean:
+
+- Corregir en la ficha que la unidad viene de la OpenAPI v2, no de la v1, y que la prueba a mano
+  mire la unidad (hecho por el Orquestador).
+- `MonitorInfo.tsx:89`: el caso `'number'` da por hecho que el único número es la frecuencia;
+  comprobar `row.key` como con `tags` si entra otra fila numérica.
 
 ## Verificación
 
@@ -128,8 +144,9 @@ ampliado (25 de 28 con `-g "(0015|0020|0024|0025|0026)"`; los 3 en rojo, los de 
   peticiones). El resto (`createdBy`, `lastModifiedBy`, `url`, `customizedName`…), solo en
   «Todas las propiedades».
 - **Unidad de la frecuencia: minutos** («Cada 15 minutos»). La OpenAPI v2 no documenta la
-  propiedad `syntheticMonitorFrequency` de la entidad; se toma la de la configuración de la API v1
-  de sintéticos (`frequencyMin`). Sin confirmar en vivo: si con monitores reales no cuadra, se
+  propiedad `syntheticMonitorFrequency` de la entidad; se toma la de `frequencyMin` de la API de
+  monitores sintéticos, que la propia OpenAPI v2 define «in minutes» (corregido en la revisión).
+  Sin confirmar en vivo: la prueba a mano de Dani mira expresamente la unidad; si no cuadra, se
   cambia el texto.
 - «Si está activo» se enseña como «Activo» o «Inactivo» (fila «Estado»). Textos en
   `entities.monitor.info` (es y en), con `column` («Monitor») como título de la columna de filas.
