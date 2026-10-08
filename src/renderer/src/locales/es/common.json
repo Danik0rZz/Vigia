@@ -747,6 +747,46 @@
           "cpuMax": "CPU máxima",
           "memory": "Memoria media"
         }
+      },
+      "info": {
+        "label": "Información del host",
+        "ipsMore": "Ver las {{count}} IP restantes",
+        "sections": {
+          "system": "Sistema",
+          "capacity": "Capacidad",
+          "network": "Red",
+          "monitoring": "Monitorización",
+          "grouping": "Agrupación",
+          "cloud": "Nube o virtualización"
+        },
+        "rows": {
+          "osType": "Sistema operativo",
+          "osVersion": "Versión",
+          "osArchitecture": "Arquitectura",
+          "bitness": "Bits",
+          "cpuCores": "Núcleos",
+          "logicalCpuCores": "Núcleos lógicos",
+          "memory": "Memoria",
+          "ipAddress": "Direcciones IP",
+          "networkZone": "Network zone",
+          "monitoringMode": "Modo de monitorización",
+          "state": "Estado",
+          "installerVersion": "Versión de OneAgent",
+          "firstSeen": "Visto por primera vez",
+          "lastSeen": "Visto por última vez",
+          "hostGroupName": "Host group",
+          "managementZones": "Management zones",
+          "tags": "Etiquetas",
+          "cloudType": "Nube",
+          "hypervisorType": "Hipervisor"
+        },
+        "groups": {
+          "processes": "Procesos",
+          "services": "Servicios",
+          "runsOn": "Se ejecuta en",
+          "hostGroup": "Grupo de hosts",
+          "other": "Otras relaciones"
+        }
       }
     },
     "service": {

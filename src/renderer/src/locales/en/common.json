@@ -747,6 +747,46 @@
           "cpuMax": "Max CPU",
           "memory": "Average memory"
         }
+      },
+      "info": {
+        "label": "Information about the host",
+        "ipsMore": "Show the remaining {{count}} IP addresses",
+        "sections": {
+          "system": "System",
+          "capacity": "Capacity",
+          "network": "Network",
+          "monitoring": "Monitoring",
+          "grouping": "Grouping",
+          "cloud": "Cloud or virtualization"
+        },
+        "rows": {
+          "osType": "Operating system",
+          "osVersion": "Version",
+          "osArchitecture": "Architecture",
+          "bitness": "Bits",
+          "cpuCores": "Cores",
+          "logicalCpuCores": "Logical cores",
+          "memory": "Memory",
+          "ipAddress": "IP addresses",
+          "networkZone": "Network zone",
+          "monitoringMode": "Monitoring mode",
+          "state": "State",
+          "installerVersion": "OneAgent version",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen",
+          "hostGroupName": "Host group",
+          "managementZones": "Management zones",
+          "tags": "Tags",
+          "cloudType": "Cloud",
+          "hypervisorType": "Hypervisor"
+        },
+        "groups": {
+          "processes": "Processes",
+          "services": "Services",
+          "runsOn": "Runs on",
+          "hostGroup": "Group of hosts",
+          "other": "Other relationships"
+        }
       }
     },
     "service": {

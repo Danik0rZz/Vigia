@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { hostEntityIdSchema } from '@shared/modules'
 import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
+  useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
   useHostBreakdown,
@@ -11,8 +12,10 @@ import {
   useModuleRefresh,
   uniqueUnavailable
 } from '../../data/modules'
+import { useConnectionStatusKnown } from '../../data/tenants'
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
 import { HostCharts } from './HostCharts'
+import { HostInfo } from './HostInfo'
 import { HostMarkers } from './HostMarkers'
 import { HostTables } from './HostTables'
 
@@ -22,7 +25,8 @@ import { HostTables } from './HostTables'
  * franja de los problemas del host sobre el de la CPU; debajo, las tablas de discos y procesos
  * (ficha 0019, canal `entities:hostBreakdown`). Marcadores y gráficos salen de una sola
  * llamada a `entities:hostMetrics` (ficha 0016). Solo pide datos con «Actualizar» o con un rango
- * nuevo (ADR-0004).
+ * nuevo (ADR-0004). Entre la cabecera y los marcadores, la tarjeta «Información» (ficha 0020,
+ * canal `entities:get`), como en el servicio.
  */
 export function HostEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -32,12 +36,20 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
   const problemsAccess = useModuleAccess('problems')
   const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
   const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
+  const entitiesAccess = useModuleAccess('entities')
+  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
+  const statusKnown = useConnectionStatusKnown(
+    entitiesAccess.available ? entitiesAccess.envId : null
+  )
+  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
   const metrics = useHostMetrics(metricsEnv, hostId)
   const breakdown = useHostBreakdown(metricsEnv, hostId)
   const problems = useEntityProblemCounts(problemsEnv, hostId)
   const problemList = useEntityProblems(problemsEnv, hostId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv, 'entities')
-  const canFetch = hostId !== null && (metricsEnv !== null || problemsEnv !== null)
+  const info = useEntityInfo(entitiesEnv, hostId)
+  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  const canFetch =
+    hostId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -52,7 +64,8 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
               metrics.isFetching ||
               breakdown.isFetching ||
               problems.isFetching ||
-              problemList.isFetching
+              problemList.isFetching ||
+              info.isFetching
             }
           />
         ) : undefined
@@ -64,6 +77,8 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
         </p>
       ) : (
         <>
+          {/* Ficha 0020: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
+          <HostInfo access={entitiesAccess} info={info} />
           {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}
