@@ -1,7 +1,7 @@
 ---
 id: '0037'
 titulo: 'Páginas de entidad: etiquetas arriba del todo, como píldoras clave:valor'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: mejoras-entidades
@@ -62,7 +62,11 @@ marcadores**, una fila de píldoras:
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Las páginas «en construcción» (aplicación web, cloud application, process group,
+  entorno, genérica) no piden `entities:get` y no enseñan etiquetas; cuando tengan contenido,
+  basta con pasar `EntityTags` a `EntitySections`.
+- (developer) Nombres bonitos para los contextos conocidos (`KUBERNETES` → «Kubernetes»); hoy
+  sale el código tal cual, `[KUBERNETES]`.
 
 ## Notas del revisor
 
@@ -103,6 +107,25 @@ Decisiones del test-writer (delegadas por Dani, refinables):
 - Textos: `entities.tags.label` («Etiquetas» / «Tags») y `entities.tags.more_one`/`_other` (los
   que tenía el «+N» de la tarjeta).
 - El tooltip con `stringRepresentation` no tiene criterio y no se prueba.
+
+Decisiones del developer (delegadas por Dani, refinables):
+
+- Las páginas con fila de píldoras son las que ya piden `entities:get` (servicio, host, browser y
+  HTTP monitor, proceso). La fila es la primera pieza de `EntitySections` (prop `tags`
+  obligatoria), antes incluso de los avisos de módulos sin acceso; mientras llegan los datos no
+  sale (no hay esqueleto).
+- Tooltip: `title` nativo en cada píldora, siempre, con el texto completo rehecho como
+  `stringRepresentation` (`[CONTEXTO]clave:valor`); el canal no manda `stringRepresentation`
+  (CA1 fija `{ context, key, value }`).
+- Colores con los tokens que ya hay (sin token nuevo ni test de contraste nuevo): clave en
+  `muted-foreground`, valor en `foreground` y en negrita media, contexto pequeño en
+  `muted-foreground`; píldora `rounded-full` con `bg-hover` y borde.
+- Dos líneas: se miden con una copia invisible (sin alto, `aria-hidden`) y un `ResizeObserver`;
+  la cuenta es pura (`entity-tags.ts`, con su test). Orden: `Intl.Collator` del idioma, sin
+  distinguir mayúsculas y con los números en su orden. Desplegadas no se vuelven a plegar (como
+  el «+N» de la tarjeta).
+- La guarda del contrato IPC de secretos (`tenants.test.ts`) marcaba `entities:get.tags[].value`
+  por llamarse `value`: se permite solo esa ruta, con su motivo, en un commit propio.
 
 ## Resultado
 
