@@ -1,7 +1,7 @@
 ---
 id: '0028'
 titulo: 'PROCESS_GROUP_INSTANCE: marcadores y gráficos de la página del proceso'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -62,7 +62,24 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Recursos (descriptores de fichero) sin color de nivel: la ficha solo fija umbrales
+  para la CPU. Si Dani los quiere, los del host (80 y 90 %) encajan.
+
+**Decisiones del developer (2026-10-08):**
+
+- Qué se pinta lo decide `processLayout` (`src/renderer/src/pages/entities/process-charts.ts`): un
+  papel tiene datos si alguna de sus series trae un punto no nulo o su marcador tiene valor. CPU y
+  memoria salen siempre (sin datos, «—», como en el host). Mientras carga o si el canal falla, se
+  pinta lo que saldría con todos los papeles (los avisos con Reintentar salen en su sitio).
+- El marcador de disponibilidad lleva los umbrales de Dani del lote «monitores» (error < 95 %,
+  aviso < 99 %, con texto), con `availabilityLevel`; los textos de nivel se reutilizan de
+  `entities.host.markers.levels` y `entities.monitor.markers.levels`.
+- Ejes: CPU y recursos de 0 a 100 %; retransmisiones en % desde 0 sin tope (valores pequeños);
+  memoria en bytes (`formatBytes`); red en bits/s (bytes × 8, `toBits`).
+- «Abrir en Métricas»: las métricas del canal con
+  `:filter(eq("dt.entity.process_group_instance","<id>")):splitBy(...)`, como el host con su
+  dimensión (la de `tech.generic.*` según `docs/notas-api-v2.md`).
+- Tests unitarios propios, aparte de los de la ficha: `process-charts.test.ts`.
 
 ## Notas del revisor
 
