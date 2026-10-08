@@ -69,3 +69,61 @@ export function formatGigabytes(bytes: number | null, language: string): string 
   })
   return `${text}${NBSP}GB`
 }
+
+const BYTE_UNITS = ['kB', 'MB', 'GB', 'TB'] as const
+
+/**
+ * Bytes con la unidad adaptada, de 1000 en 1000 como Dynatrace (ficha 0019): B sin decimales por
+ * debajo de 1000 y kB, MB, GB o TB con un decimal. Por encima de 1000 TB se queda en TB.
+ */
+export function formatBytes(bytes: number | null, language: string): string {
+  if (bytes === null || !Number.isFinite(bytes)) return NO_DATA
+  return scaledBytes(bytes, language, '')
+}
+
+/** Bytes por segundo con la unidad adaptada (lectura y escritura de un disco, ficha 0019). */
+export function formatByteRate(bytesPerSecond: number | null, language: string): string {
+  if (bytesPerSecond === null || !Number.isFinite(bytesPerSecond)) return NO_DATA
+  return scaledBytes(bytesPerSecond, language, '/s')
+}
+
+function scaledBytes(value: number, language: string, suffix: string): string {
+  if (Math.abs(Math.round(value)) < 1000) {
+    return `${formatNumber(Math.round(value), language, { maximumFractionDigits: 0 })}${NBSP}B${suffix}`
+  }
+  let scaled = value / 1000
+  let unit = 0
+  // Como en formatBitRate: con el valor ya redondeado, 999.960 B/s es «1,0 MB/s».
+  while (unit < BYTE_UNITS.length - 1 && Math.abs(Math.round(scaled * 10) / 10) >= 1000) {
+    scaled /= 1000
+    unit += 1
+  }
+  const text = formatNumber(scaled, language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  })
+  return `${text}${NBSP}${BYTE_UNITS[unit] ?? 'TB'}${suffix}`
+}
+
+/** Barra de uso de un disco (ficha 0019): color, ancho, % y la clave del texto del nivel. */
+export interface UsageBar {
+  level: UsageLevel
+  /** Ancho de la barra en %, entre 0 y 100. */
+  width: number
+  text: string
+  /** Clave del texto del nivel (los de los marcadores de la 0018); null si es normal. */
+  levelKey: string | null
+}
+
+export function usageBar(pct: number | null, language: string): UsageBar {
+  if (pct === null || !Number.isFinite(pct)) {
+    return { level: 'normal', width: 0, text: NO_DATA, levelKey: null }
+  }
+  const level = usageLevel(pct)
+  return {
+    level,
+    width: Math.min(100, Math.max(0, pct)),
+    text: formatUsagePct(pct, language),
+    levelKey: level === 'normal' ? null : `entities.host.markers.levels.${level}`
+  }
+}

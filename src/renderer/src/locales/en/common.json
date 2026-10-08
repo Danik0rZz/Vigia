@@ -719,6 +719,34 @@
           "out": "Outbound",
           "disk": "Fullest disk"
         }
+      },
+      "disks": {
+        "title": "Disks",
+        "label": "Disks of the host",
+        "empty": "No disks",
+        "usedOfTotal": "{{used}} of {{total}}",
+        "columns": {
+          "name": "Disk",
+          "usage": "Usage",
+          "used": "Used / total",
+          "free": "Free",
+          "read": "Read",
+          "write": "Write"
+        }
+      },
+      "processes": {
+        "title": "Processes (top 10 by CPU)",
+        "label": "Processes of the host with the most CPU",
+        "empty": "No processes",
+        "count_one": "{{shown}} of {{count}} process",
+        "count_other": "{{shown}} of {{count}} processes",
+        "partial": "Dynatrace truncated the process query: the list and the total may be incomplete.",
+        "columns": {
+          "name": "Process",
+          "cpu": "Average CPU",
+          "cpuMax": "Max CPU",
+          "memory": "Average memory"
+        }
       }
     },
     "service": {

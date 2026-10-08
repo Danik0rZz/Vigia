@@ -719,6 +719,34 @@
           "out": "Salida",
           "disk": "Disco más lleno"
         }
+      },
+      "disks": {
+        "title": "Discos",
+        "label": "Discos del host",
+        "empty": "Sin discos",
+        "usedOfTotal": "{{used}} de {{total}}",
+        "columns": {
+          "name": "Disco",
+          "usage": "Uso",
+          "used": "Usado / total",
+          "free": "Libre",
+          "read": "Lectura",
+          "write": "Escritura"
+        }
+      },
+      "processes": {
+        "title": "Procesos (los 10 con más CPU)",
+        "label": "Procesos del host con más CPU",
+        "empty": "Sin procesos",
+        "count_one": "{{shown}} de {{count}} proceso",
+        "count_other": "{{shown}} de {{count}} procesos",
+        "partial": "Dynatrace ha recortado la consulta de procesos: la lista y el total pueden estar incompletos.",
+        "columns": {
+          "name": "Proceso",
+          "cpu": "CPU media",
+          "cpuMax": "CPU máxima",
+          "memory": "Memoria media"
+        }
       }
     },
     "service": {
