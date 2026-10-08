@@ -1,7 +1,7 @@
 ---
 id: '0028'
 titulo: 'PROCESS_GROUP_INSTANCE: marcadores y gráficos de la página del proceso'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -141,4 +141,8 @@ procesos de la tabla del host (0019).
 
 ## Resultado
 
-(pendiente)
+Commits: `c45fe8d` y `d920e69` (tests), `7c98a2a` (implementación), más los de ficha (`4e8d93b`, `3d990ed`, `0062b13`, `ee0f7ff`, `d7dce8c`).
+
+Ficheros principales: `src/renderer/src/pages/entities/ProcessEntityPage.tsx`, `ProcessMarkers.tsx`, `ProcessCharts.tsx`, `process-charts.ts` (con `process-charts.test.ts`), `ProblemBand.tsx`, `src/renderer/src/data/modules.ts`, los locales es y en, y `e2e/views.spec.ts`.
+
+Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Sin migraciones. Pendiente de Dani: las dos pruebas a mano.

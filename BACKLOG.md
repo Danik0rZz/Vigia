@@ -9,7 +9,7 @@ bueno de Dani o de peticiones en su nombre.
 - Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020, hecho) → lote **monitores** (0022 a 0026, hecho)
   ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
   browser y HTTP monitor) → lote **proceso**
-  ([0027](tasks/0027-proceso-exploracion-datos.md), hecha–[0029](tasks/0029-proceso-informacion.md)).
+  ([0027](tasks/0027-proceso-exploracion-datos.md), hecha–[0028](tasks/0028-proceso-marcadores-graficos.md), hecha–[0029](tasks/0029-proceso-informacion.md)).
 
 ## Próximo
 
@@ -146,6 +146,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `monitor-tables.ts`: el comentario de `compareNullable` («va por debajo de todo») debería decir «sin dato, primero en ascendente». (surgió en 0025)
 - `onActivate={() => undefined}` en las tablas de monitores: comprobar que `DataGrid` no pinte las filas como pulsables cuando no hacen nada (se une a la prop de filas no activables anotada en 0019). (surgió en 0025)
 - `MonitorInfo.tsx:89`: el caso `'number'` da por hecho que el único número es la frecuencia; comprobar `row.key` como con `tags` si entra otra fila numérica. (surgió en 0026)
+- Recursos del proceso (descriptores de fichero) sin color de nivel: la ficha solo fija umbrales para la CPU; si Dani los quiere, los del host (80 y 90 %) encajan. (surgió en 0028)
+- Eje de Recursos del proceso fijo de 0 a 100 % (`process-charts.ts:166`): si con procesos reales la métrica resulta ser fracción, corregir a la vez marcador y eje. (surgió en 0028)
+- e2e inestable `e2e/shell.spec.ts:402`: el tooltip de «nav-problems» no aparece en 5 s tras `hoverFresh` (visto en el CI del push de la 0027, run 37733715700, intento 1; al relanzar pasó). Posible arreglo: esperar más o reintentar el hover; ver la lección del tooltip de Radix en `e2e/CLAUDE.md`. (surgió en 0027)
 - Host: los `warnings` de la API se repiten en las dos tarjetas (discos y procesos); mostrarlos una
   sola vez. (surgió en 0019)
 
@@ -207,3 +210,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0025](tasks/0025-monitores-localizaciones-pasos.md) (lote monitores): tablas de localizaciones (disponibilidad con umbrales 95/99 %) y de pasos o peticiones (con el más lento resaltado) en las páginas de browser y HTTP monitor; sin pasos que enseñar, la tarjeta de pasos no sale.
 - [0026](tasks/0026-monitores-informacion.md) (lote monitores): tarjeta «Información» en las páginas de browser y HTTP monitor, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; la tarjeta se comparte con servicio y host. Con ella queda completo el lote «monitores» (0022 a 0026).
 - [0027](tasks/0027-proceso-exploracion-datos.md) (lote proceso): canal `entities:processMetrics` con series y marcadores de CPU, memoria, red, salud de red, disponibilidad y recursos de un proceso, y análisis de métricas en vivo (sin cambios visibles hasta la 0028).
+- [0028](tasks/0028-proceso-marcadores-graficos.md) (lote proceso): página del proceso con hasta cinco marcadores (CPU con umbrales 80/90 %, disponibilidad con 95/99 %) y cuatro gráficos (CPU con la franja de problemas, memoria, red y salud de red o recursos), con «Abrir en Métricas» y exportación.

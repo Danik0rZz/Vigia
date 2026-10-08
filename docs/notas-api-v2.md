@@ -550,6 +550,7 @@ confirmaron con 200, `metricId` igual a la expresión y ratios < 0,01.
 - Red y salud de red no tenían datos en las 3 muestras, pero sí en otras instancias del entorno;
   entraron por decisión del Orquestador. Un proceso sin datos de un papel llega con series vacías,
   no con `null` (el `null` es de los marcadores sin valor).
+- Las cinco métricas `tech.generic.*` usadas (`cpu.usage`, `mem.workingSetSize`, `network.bytesRx`, `network.bytesTx`, `network.packets.retransmission`) llevan la dimensión `dt.entity.process_group_instance`; se deduce de la exploración de la 0027 (una serie con `entityId(<PGI>)`) y es la del filtro de «Abrir en Métricas» (0028).
 - `network.packets.retransmissionIn`/`Out` y `network.sessions.connectivity` no admiten
   `resolution=Inf` (400). Varias métricas de red (`packets.reRx`, `sessions.new`…) van por
   `dt.entity.host` o `dt.entity.network_interface`, no por el proceso; sus variantes `…Aggr` sí.
