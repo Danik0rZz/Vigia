@@ -1,7 +1,7 @@
 ---
 id: '0020'
 titulo: 'HOST: tarjeta «Información» con los datos de la entidad y sus relaciones'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -192,6 +192,14 @@ plural `_one`/`_other` en `entities.host.info.ipsMore` y `entities.service.info.
 (test `src/renderer/src/locales/info-plurals.test.ts`, con 1 y con 3); el test en vivo «CA1
 (0020): el informe de hosts…» pasa a llamarse «Ficha 0020: …» y `CA5 (0020)` dice «salvo el
 recuento de CA5 (0015)».
+
+### Verifier, 2026-10-08, commit `f862fe5`, rango `main..f862fe5`: VERDE
+
+- check: 2327 tests en 124 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 242/242.
+- `-g "(0015)|(0020)" --repeat-each 3 --workers=1`: 36/36.
+- Sin ronda 2 de revisión (decisión del Orquestador): los retoques tras la ronda 1 eran los opcionales que
+  pidió el revisor (plurales y nombres de tests), con su test.
 
 ## Resultado
 
