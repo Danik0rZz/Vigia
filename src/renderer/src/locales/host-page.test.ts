@@ -80,3 +80,52 @@ describe('CA9 (0018): textos de la página del HOST en es y en', () => {
     }
   })
 })
+
+/**
+ * Ficha 0019: textos de las tablas de discos y procesos, en `entities.host.disks` y
+ * `entities.host.processes` (decisión delegada por Dani, refinable): título, vacío y cabecera de
+ * cada columna (`columns.<id>`, con los ids de los e2e); en procesos, además, el recuento
+ * («10 de N procesos», `count` o sus plurales `count_*`) y el aviso de recorte (`partial`).
+ */
+const DISK_COLUMN_IDS = ['name', 'usage', 'used', 'free', 'read', 'write']
+const PROCESS_COLUMN_IDS = ['name', 'cpu', 'cpuMax', 'memory']
+
+describe('CA7 (0019): textos de las tablas de discos y procesos en es y en', () => {
+  it('títulos y vacíos en español, como en la ficha', () => {
+    expect(esHost['disks.title']).toBe('Discos')
+    expect(String(esHost['processes.title'])).toMatch(/^Procesos/)
+    expect(esHost['disks.empty']).toBe('Sin discos')
+    expect(esHost['processes.empty']).toBe('Sin procesos')
+    expect(String(esHost['processes.partial'])).toMatch(/incomplet/i)
+  })
+
+  it('las mismas claves, sin vacíos, en es y en', () => {
+    const keys = [
+      'disks.title',
+      'disks.empty',
+      'processes.title',
+      'processes.empty',
+      'processes.partial',
+      ...DISK_COLUMN_IDS.map((id) => `disks.columns.${id}`),
+      ...PROCESS_COLUMN_IDS.map((id) => `processes.columns.${id}`)
+    ]
+    for (const texts of [esHost, enHost]) {
+      for (const key of keys) {
+        expect(typeof texts[key], key).toBe('string')
+        expect(String(texts[key]).trim(), key).not.toBe('')
+      }
+    }
+    expect(enHost['disks.empty']).not.toBe(esHost['disks.empty'])
+    expect(enHost['processes.empty']).not.toBe(esHost['processes.empty'])
+  })
+
+  it('el recuento de procesos, con sus dos valores, en es y en', () => {
+    for (const texts of [esHost, enHost]) {
+      const count = Object.keys(texts).filter((key) => /^processes\.count(_\w+)?$/.test(key))
+      expect(count.length).toBeGreaterThan(0)
+      for (const key of count) {
+        expect((String(texts[key]).match(/\{\{\s*\w+[^}]*\}\}/g) ?? []).length, key).toBe(2)
+      }
+    }
+  })
+})

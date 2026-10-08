@@ -1662,20 +1662,90 @@ const BREAKDOWN_PROCESSES = BREAKDOWN_CPU.map((avg, i) => ({
   memory: { last: (i + 1) * 50_000_000, avg: (i + 1) * 50_000_000, max: (i + 1) * 50_000_000 }
 }))
 
-const breakdownCompact = (text: string): string => text.replace(/["\s]/g, '')
-const BREAKDOWN_RELATION = `fromRelationships.isProcessOf(entityId(${BREAKDOWN_HOST_ID}))`
+/**
+ * Ficha 0019: los discos y procesos de la página del host (HOST_METRICS_ID, el de la 0018).
+ * Tres discos, que el simulador da en otro orden que el del más lleno (/datos 91 %, /var 85 % y
+ * / 40 %, último dato), todos de 1 a 999 GB para que «GB» no dependa de la escala elegida; lectura
+ * y escritura de B/s a MB/s. Quince procesos con CPU media distinta y memoria en otro orden.
+ */
+const GB = 1_000_000_000
+const HOST_PAGE_DISKS: typeof BREAKDOWN_DISKS = [
+  {
+    id: 'DISK-00000000000E2E11',
+    name: '/',
+    metrics: {
+      'builtin:host.disk.usedPct': { last: 40, avg: 41, max: 44 },
+      'builtin:host.disk.used': { last: 40 * GB, avg: 41 * GB, max: 44 * GB },
+      'builtin:host.disk.avail': { last: 60 * GB, avg: 59 * GB, max: 60 * GB },
+      'builtin:host.disk.bytesRead': { last: 200, avg: 300, max: 500 },
+      'builtin:host.disk.bytesWritten': { last: 1000, avg: 1500, max: 2500 }
+    }
+  },
+  {
+    id: 'DISK-00000000000E2E12',
+    name: '/datos',
+    metrics: {
+      'builtin:host.disk.usedPct': { last: 91, avg: 90, max: 92 },
+      'builtin:host.disk.used': { last: 455 * GB, avg: 450 * GB, max: 460 * GB },
+      'builtin:host.disk.avail': { last: 45 * GB, avg: 50 * GB, max: 55 * GB },
+      'builtin:host.disk.bytesRead': { last: 2_000_000, avg: 2_500_000, max: 3_500_000 },
+      'builtin:host.disk.bytesWritten': { last: 10_000, avg: 12_000, max: 16_000 }
+    }
+  },
+  {
+    id: 'DISK-00000000000E2E13',
+    name: '/var',
+    metrics: {
+      'builtin:host.disk.usedPct': { last: 85, avg: 84, max: 86 },
+      'builtin:host.disk.used': { last: 170 * GB, avg: 168 * GB, max: 172 * GB },
+      'builtin:host.disk.avail': { last: 30 * GB, avg: 32 * GB, max: 33 * GB },
+      'builtin:host.disk.bytesRead': { last: 0, avg: 0, max: 0 },
+      'builtin:host.disk.bytesWritten': { last: 700, avg: 800, max: 900 }
+    }
+  }
+]
+/** 15 procesos: CPU media (%), máxima = media + 5 y memoria media en múltiplos de 50 MB. */
+const HOST_PAGE_CPU = [12, 47, 3, 28, 61, 7, 19, 2, 35, 9, 1, 24, 15, 5, 40]
+const HOST_PAGE_PROCESSES = HOST_PAGE_CPU.map((avg, i) => {
+  const memory = (((i + 1) * 7) % 15) * 50_000_000 + 50_000_000
+  return {
+    id: `PROCESS_GROUP_INSTANCE-00000000000E2E${(i + 41).toString(16).toUpperCase()}`,
+    name: `proceso-host-${i + 1}`,
+    cpu: { last: avg, avg, max: avg + 5 },
+    memory: { last: memory, avg: memory, max: memory }
+  }
+})
 
-/** ¿Es una consulta de discos o procesos del host inventado? */
-function isHostBreakdownQuery(query: URLSearchParams): boolean {
+const breakdownCompact = (text: string): string => text.replace(/["\s]/g, '')
+const breakdownRelation = (hostId: string): string =>
+  `fromRelationships.isProcessOf(entityId(${hostId}))`
+
+/** ¿De qué host inventado es la consulta de discos o procesos (null si no es de ninguno)? */
+function hostBreakdownHost(query: URLSearchParams): string | null {
   const selector = query.get('metricSelector') ?? ''
   const scope = breakdownCompact(query.get('entitySelector') ?? '')
-  const disks =
-    selector.startsWith('builtin:host.disk.') &&
-    (scope === `entityId(${BREAKDOWN_HOST_ID})` || selector.includes(BREAKDOWN_HOST_ID))
-  const processes =
-    selector.startsWith('builtin:tech.generic.') &&
-    breakdownCompact(`${scope} ${selector}`).includes(BREAKDOWN_RELATION)
-  return disks || processes
+  for (const hostId of [BREAKDOWN_HOST_ID, HOST_METRICS_ID]) {
+    // Ficha 0019: en HOST_METRICS_ID también llegan las de entities:hostMetrics (0016), que
+    // juntan los discos con splitBy() o mezclan otras métricas; las de discos, por disco, no.
+    const perDisk =
+      hostId === BREAKDOWN_HOST_ID ||
+      (!selector.includes(':splitBy(') &&
+        splitSelector(selector).every((e) => e.startsWith('builtin:host.disk.')))
+    const disks =
+      selector.startsWith('builtin:host.disk.') &&
+      perDisk &&
+      (scope === `entityId(${hostId})` || selector.includes(hostId))
+    const processes =
+      selector.startsWith('builtin:tech.generic.') &&
+      breakdownCompact(`${scope} ${selector}`).includes(breakdownRelation(hostId))
+    if (disks || processes) return hostId
+  }
+  return null
+}
+
+/** ¿Es una consulta de discos o procesos de un host inventado? */
+function isHostBreakdownQuery(query: URLSearchParams): boolean {
+  return hostBreakdownHost(query) !== null
 }
 
 /** Respuesta del simulador a una consulta de discos o procesos del host inventado. */
@@ -1685,6 +1755,17 @@ function hostBreakdownResponse(query: URLSearchParams): [number, unknown] {
   if (inf && (selector.includes(':fold(') || /:last\b/.test(selector))) {
     return [400, { error: { code: 400, message: 'Transformación no admitida con Inf (simulado)' } }]
   }
+  // Ficha 0019: fallo del canal (un 400 en todas sus consultas).
+  if (sim.hostBreakdownFail) {
+    return [400, { error: { code: 400, message: 'Discos y procesos no disponibles (simulado)' } }]
+  }
+  const pageHost = hostBreakdownHost(query) === HOST_METRICS_ID
+  const disksData = sim.hostBreakdownEmpty ? [] : pageHost ? HOST_PAGE_DISKS : BREAKDOWN_DISKS
+  const processesData = sim.hostBreakdownEmpty
+    ? []
+    : pageHost
+      ? HOST_PAGE_PROCESSES
+      : BREAKDOWN_PROCESSES
   const single = inf || selector.includes(':fold(')
   const valueOf = (expression: string, stats: BreakdownStats): number => {
     const fold = /:fold\((\w*)\)/.exec(expression)?.[1]
@@ -1704,11 +1785,11 @@ function hostBreakdownResponse(query: URLSearchParams): [number, unknown] {
         const disk = key.startsWith('builtin:host.disk.')
         const dimension = disk ? 'dt.entity.disk' : 'dt.entity.process_group_instance'
         let items = disk
-          ? BREAKDOWN_DISKS.flatMap((d) => {
+          ? disksData.flatMap((d) => {
               const stats = d.metrics[key]
               return stats === undefined ? [] : [{ id: d.id, name: d.name, stats }]
             })
-          : BREAKDOWN_PROCESSES.map((p) => ({
+          : processesData.map((p) => ({
               id: p.id,
               name: p.name,
               stats: key === 'builtin:tech.generic.cpu.usage' ? p.cpu : p.memory
@@ -1721,10 +1802,12 @@ function hostBreakdownResponse(query: URLSearchParams): [number, unknown] {
         const limit = /:limit\((\d+)\)/.exec(expression)?.[1]
         if (limit !== undefined) items = items.slice(0, Number(limit))
         const names = hostAgg(expression, 'names')
+        // Ficha 0019: recorte simulado (ratio > 1) en las métricas de procesos o de discos.
+        const truncated = sim.hostBreakdownTruncated === (disk ? 'disks' : 'processes')
         return {
           metricId: expression,
           dataPointCountRatio: 0.005,
-          dimensionCountRatio: 0.005,
+          dimensionCountRatio: truncated ? 1.5 : 0.005,
           data: items.map((item) => {
             const dimensionMap: Record<string, string> = { [dimension]: item.id }
             if (disk) dimensionMap['dt.entity.host'] = BREAKDOWN_HOST_ID
@@ -1799,6 +1882,12 @@ const defaultSim = () => ({
   hostMetricQueries: [] as URLSearchParams[],
   /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
   hostBreakdownQueries: [] as URLSearchParams[],
+  /** Ficha 0019: las consultas de discos y procesos fallan con un 400. */
+  hostBreakdownFail: false,
+  /** Ficha 0019: las consultas de discos y procesos responden sin series. */
+  hostBreakdownEmpty: false,
+  /** Ficha 0019: qué métricas llegan recortadas (dimensionCountRatio > 1). */
+  hostBreakdownTruncated: null as 'processes' | 'disks' | null,
   /** Ficha 0018: las consultas de métricas del host inventado fallan con un 400. */
   hostMetricsFail: false,
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
@@ -8182,4 +8271,336 @@ test('CA7 (0018): si falla el canal de métricas, marcadores y gráficos enseña
   for (const id of HOST_MARKER_IDS) {
     await expect(hostMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
   }
+})
+
+/**
+ * Ficha 0019: tablas de discos y de los procesos que más consumen en la página de un HOST, con los
+ * datos de HOST_METRICS_ID (HOST_PAGE_DISKS y HOST_PAGE_PROCESSES, canal entities:hostBreakdown).
+ *
+ * Nombres que fijan estos tests: las tarjetas `host-disks` y `host-processes`, debajo de
+ * `host-charts`; dentro, el `DataGrid` con `gridTestId` `host-disks-grid` y `host-processes-grid`
+ * y filas `host-disk-row` (con `data-disk-id`) y `host-process-row` (con `data-process-id`).
+ * Columnas, en este orden: discos `name`, `usage`, `used` (usado / total), `free`, `read` y
+ * `write`; procesos `name`, `cpu` (media, con su barra `host-process-cpu-bar`), `cpuMax` y
+ * `memory`. La barra de uso del disco, `host-disk-usage` con `data-level`. El nombre del proceso
+ * es un enlace a su página. Debajo de los procesos, `host-processes-count` («10 de N procesos»)
+ * y, si la métrica de procesos llega recortada (`partial`), `host-processes-partial`.
+ */
+const DISK_COLUMNS = ['name', 'usage', 'used', 'free', 'read', 'write'] as const
+const PROCESS_COLUMNS = ['name', 'cpu', 'cpuMax', 'memory'] as const
+const hostDisks = (): Locator => page.getByTestId('host-disks')
+const hostProcesses = (): Locator => page.getByTestId('host-processes')
+const diskRow = (id: string): Locator =>
+  hostDisks().locator(`[data-testid="host-disk-row"][data-disk-id="${id}"]`)
+const processRow = (id: string): Locator =>
+  hostProcesses().locator(`[data-testid="host-process-row"][data-process-id="${id}"]`)
+
+/** Ficha 0019: ids de las filas de la tabla, en el orden en que se pintan. */
+async function tableOrder(card: Locator, rowTestId: string, attribute: string): Promise<string[]> {
+  return card
+    .getByTestId(rowTestId)
+    .evaluateAll(
+      (els, attr) =>
+        els
+          .sort(
+            (a, b) => Number(a.getAttribute('data-index')) - Number(b.getAttribute('data-index'))
+          )
+          .map((el) => el.getAttribute(attr) ?? ''),
+      attribute
+    )
+}
+const diskOrder = (): Promise<string[]> => tableOrder(hostDisks(), 'host-disk-row', 'data-disk-id')
+const processOrder = (): Promise<string[]> =>
+  tableOrder(hostProcesses(), 'host-process-row', 'data-process-id')
+
+/** Ficha 0019: las columnas del grid (sus testid), en orden. */
+async function gridColumns(grid: Locator): Promise<(string | null)[]> {
+  return grid
+    .locator('[role="columnheader"]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')))
+}
+
+/** Los 10 procesos de HOST_PAGE_PROCESSES con más CPU media, de más a menos. */
+const HOST_PAGE_TOP = HOST_PAGE_PROCESSES.slice()
+  .sort((a, b) => b.cpu.avg - a.cpu.avg)
+  .slice(0, 10)
+
+/** Ficha 0019: espera a que las dos tablas tengan sus filas (3 discos y 10 procesos). */
+async function expectHostTablesLoaded(): Promise<void> {
+  await expect(hostDisks().getByTestId('host-disk-row')).toHaveCount(3)
+  await expect(hostProcesses().getByTestId('host-process-row')).toHaveCount(10)
+}
+
+test('CA1 (0019): con 3 discos, la tabla los enseña del más lleno al menos, con su %, usado/total, libre, lectura y escritura formateados', async () => {
+  await openHostPage()
+  const card = hostDisks()
+  await expect(card).toBeVisible()
+  const grid = card.getByTestId('host-disks-grid')
+  await expect(grid).toHaveAttribute('role', 'grid')
+  await expect(card.getByTestId('host-disk-row')).toHaveCount(3)
+  expect(await gridColumns(grid)).toEqual(DISK_COLUMNS.map((c) => `col-${c}`))
+  await expect(grid.getByTestId('col-usage')).toHaveAttribute('aria-sort', 'descending')
+
+  // Del más lleno (último dato) al menos; el simulador los da en otro orden.
+  expect(await diskOrder()).toEqual([
+    'DISK-00000000000E2E12',
+    'DISK-00000000000E2E13',
+    'DISK-00000000000E2E11'
+  ])
+
+  const levels = es.entities.host.markers.levels
+  const expected = [
+    {
+      id: 'DISK-00000000000E2E12',
+      name: '/datos',
+      pct: /(^|[^\d,.])91\s?%/,
+      level: 'error',
+      used: /(^|[^\d,.])455,0\sGB.*(^|[^\d,.])500,0\sGB/,
+      free: /^45,0\sGB$/,
+      read: /^2,5\sMB\/s$/,
+      write: /^12,0\skB\/s$/
+    },
+    {
+      id: 'DISK-00000000000E2E13',
+      name: '/var',
+      pct: /(^|[^\d,.])85\s?%/,
+      level: 'warning',
+      used: /(^|[^\d,.])170,0\sGB.*(^|[^\d,.])200,0\sGB/,
+      free: /^30,0\sGB$/,
+      read: /^0\sB\/s$/,
+      write: /^800\sB\/s$/
+    },
+    {
+      id: 'DISK-00000000000E2E11',
+      name: '/',
+      pct: /(^|[^\d,.])40\s?%/,
+      level: 'normal',
+      used: /(^|[^\d,.])40,0\sGB.*(^|[^\d,.])100,0\sGB/,
+      free: /^60,0\sGB$/,
+      read: /^300\sB\/s$/,
+      write: /^1,5\skB\/s$/
+    }
+  ] as const
+  for (const disk of expected) {
+    const cells = diskRow(disk.id).getByRole('gridcell')
+    await expect(cells, disk.name).toHaveCount(DISK_COLUMNS.length)
+    await expect(cells.nth(0), disk.name).toHaveText(disk.name)
+    // Barra de uso con su % y su nivel (color en data-level y, si no es normal, texto).
+    const usage = cells.nth(1)
+    await expect(usage, disk.name).toContainText(disk.pct)
+    await expect(usage.getByTestId('host-disk-usage'), disk.name).toHaveAttribute(
+      'data-level',
+      disk.level
+    )
+    if (disk.level === 'normal') {
+      await expect(usage, disk.name).not.toContainText(levels.warning)
+      await expect(usage, disk.name).not.toContainText(levels.error)
+    } else {
+      await expect(usage, disk.name).toContainText(levels[disk.level])
+    }
+    await expect(cells.nth(2), disk.name).toContainText(disk.used)
+    await expect(cells.nth(3), disk.name).toHaveText(disk.free)
+    await expect(cells.nth(4), disk.name).toHaveText(disk.read)
+    await expect(cells.nth(5), disk.name).toHaveText(disk.write)
+  }
+
+  // Debajo de los gráficos.
+  const charts = await settledBox(page.getByTestId('host-charts'))
+  const disks = await settledBox(card)
+  expect(disks.y).toBeGreaterThanOrEqual(charts.y + charts.height - 1)
+  // Con el rango global.
+  await settledRequests()
+  expect(sim.hostBreakdownQueries.length).toBeGreaterThan(0)
+  for (const query of sim.hostBreakdownQueries) expect(query.get('from')).toBe('now-2h')
+})
+
+test('CA2 (0019): con 15 procesos, la tabla enseña los 10 con más CPU, ordenados, y «10 de 15 procesos»', async () => {
+  await openHostPage()
+  const card = hostProcesses()
+  await expect(card).toBeVisible()
+  const grid = card.getByTestId('host-processes-grid')
+  await expect(grid).toHaveAttribute('role', 'grid')
+  await expect(card.getByTestId('host-process-row')).toHaveCount(10)
+  expect(await gridColumns(grid)).toEqual(PROCESS_COLUMNS.map((c) => `col-${c}`))
+  await expect(grid.getByTestId('col-cpu')).toHaveAttribute('aria-sort', 'descending')
+
+  // Los 10 con más CPU media, de más a menos (los de 7, 5, 3, 2 y 1 % se quedan fuera).
+  expect(HOST_PAGE_TOP.map((p) => p.cpu.avg)).toEqual([61, 47, 40, 35, 28, 24, 19, 15, 12, 9])
+  expect(await processOrder()).toEqual(HOST_PAGE_TOP.map((p) => p.id))
+
+  // Cada fila: nombre, CPU media con su barra, máxima y memoria media.
+  for (const process of HOST_PAGE_TOP) {
+    const cells = processRow(process.id).getByRole('gridcell')
+    await expect(cells, process.name).toHaveCount(PROCESS_COLUMNS.length)
+    await expect(cells.nth(0), process.name).toHaveText(process.name)
+    await expect(cells.nth(1), process.name).toContainText(
+      new RegExp(`(^|[^\\d,.])${process.cpu.avg}\\s?%`)
+    )
+    await expect(cells.nth(1).getByTestId('host-process-cpu-bar'), process.name).toHaveCount(1)
+    await expect(cells.nth(2), process.name).toHaveText(new RegExp(`^${process.cpu.max}\\s?%$`))
+  }
+  // Memoria en su unidad: 300 MB y 750 MB.
+  const first = HOST_PAGE_TOP[0]
+  const second = HOST_PAGE_TOP[1]
+  expect(first?.memory.avg).toBe(300_000_000)
+  expect(second?.memory.avg).toBe(750_000_000)
+  await expect(
+    processRow(first?.id ?? '')
+      .getByRole('gridcell')
+      .nth(3)
+  ).toHaveText(/^300,0\sMB$/)
+  await expect(
+    processRow(second?.id ?? '')
+      .getByRole('gridcell')
+      .nth(3)
+  ).toHaveText(/^750,0\sMB$/)
+
+  await expect(card.getByTestId('host-processes-count')).toHaveText(/^10 de 15 procesos$/)
+  // Sin recorte, sin aviso.
+  await expect(card.getByTestId('host-processes-partial')).toHaveCount(0)
+
+  // Debajo de los gráficos, como los discos.
+  const charts = await settledBox(page.getByTestId('host-charts'))
+  const processes = await settledBox(card)
+  expect(processes.y).toBeGreaterThanOrEqual(charts.y + charts.height - 1)
+})
+
+test('CA3 (0019): pulsar un proceso abre su página de entidad con su nombre, y «Volver» regresa al host sin volver a pedir sus datos', async () => {
+  await openHostPage()
+  await expectHostTablesLoaded()
+  const target = HOST_PAGE_TOP[4]
+  const id = target?.id ?? ''
+  const name = target?.name ?? ''
+  const link = processRow(id).getByRole('link', { name })
+  await expect(link).toHaveAttribute('href', new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${id}$`))
+
+  await settledRequests()
+  const breakdownBefore = sim.hostBreakdownQueries.length
+  const metricsBefore = sim.hostMetricQueries.length
+  await clickInPlace(link, { scroll: true })
+  const processPage = page.getByTestId('entity-page-process_group_instance')
+  await expect(processPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP_INSTANCE/${id}`)
+  await expect(processPage.getByRole('heading', { level: 1 })).toHaveText(name)
+  await expect(processPage.getByTestId('entity-page-id')).toHaveText(id)
+
+  const before = await settledRequests()
+  await clickInPlace(processPage.getByTestId('entity-back'), { scroll: true })
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${HOST_METRICS_ID}`)
+  await expectHostTablesLoaded()
+  await expectHostMarkerValues()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver al host').toEqual([])
+  expect(sim.hostBreakdownQueries).toHaveLength(breakdownBefore)
+  expect(sim.hostMetricQueries).toHaveLength(metricsBefore)
+})
+
+test('CA4 (0019): ordenar por otra columna (libre en discos, memoria en procesos) reordena las filas', async () => {
+  await openHostPage()
+  await expectHostTablesLoaded()
+
+  // Discos por libre: /var 30 GB, /datos 45 GB y / 60 GB.
+  const disksGrid = hostDisks().getByTestId('host-disks-grid')
+  const byFree = ['DISK-00000000000E2E13', 'DISK-00000000000E2E12', 'DISK-00000000000E2E11']
+  await clickInPlace(disksGrid.getByTestId('sort-free'), { scroll: true })
+  const freeCol = disksGrid.getByTestId('col-free')
+  await expect(freeCol).toHaveAttribute('aria-sort', /^(ascending|descending)$/)
+  await expect(disksGrid.getByTestId('col-usage')).toHaveAttribute('aria-sort', 'none')
+  const freeAsc = (await freeCol.getAttribute('aria-sort')) === 'ascending'
+  expect(await diskOrder()).toEqual(freeAsc ? byFree : byFree.slice().reverse())
+  // La misma columna otra vez: al revés.
+  await clickInPlace(disksGrid.getByTestId('sort-free'), { scroll: true })
+  await expect(freeCol).toHaveAttribute('aria-sort', freeAsc ? 'descending' : 'ascending')
+  expect(await diskOrder()).toEqual(freeAsc ? byFree.slice().reverse() : byFree)
+
+  // Procesos por memoria media (los mismos 10, en otro orden que por CPU).
+  const processesGrid = hostProcesses().getByTestId('host-processes-grid')
+  const byMemory = HOST_PAGE_TOP.slice()
+    .sort((a, b) => a.memory.avg - b.memory.avg)
+    .map((p) => p.id)
+  expect(byMemory).not.toEqual(HOST_PAGE_TOP.map((p) => p.id))
+  expect(byMemory.slice().reverse()).not.toEqual(HOST_PAGE_TOP.map((p) => p.id))
+  await clickInPlace(processesGrid.getByTestId('sort-memory'), { scroll: true })
+  const memoryCol = processesGrid.getByTestId('col-memory')
+  await expect(memoryCol).toHaveAttribute('aria-sort', /^(ascending|descending)$/)
+  await expect(processesGrid.getByTestId('col-cpu')).toHaveAttribute('aria-sort', 'none')
+  const memoryAsc = (await memoryCol.getAttribute('aria-sort')) === 'ascending'
+  expect(await processOrder()).toEqual(memoryAsc ? byMemory : byMemory.slice().reverse())
+  await clickInPlace(processesGrid.getByTestId('sort-memory'), { scroll: true })
+  await expect(memoryCol).toHaveAttribute('aria-sort', memoryAsc ? 'descending' : 'ascending')
+  expect(await processOrder()).toEqual(memoryAsc ? byMemory.slice().reverse() : byMemory)
+  // Ordenar no cambia qué procesos salen ni el total.
+  await expect(hostProcesses().getByTestId('host-process-row')).toHaveCount(10)
+  await expect(hostProcesses().getByTestId('host-processes-count')).toHaveText(
+    /^10 de 15 procesos$/
+  )
+})
+
+test('CA6 (0019): si falla el canal, las dos tarjetas enseñan el aviso con Reintentar y los gráficos siguen', async () => {
+  sim.hostBreakdownFail = true
+  await openHostPage()
+
+  for (const card of [hostDisks(), hostProcesses()]) {
+    await expect(card).toBeVisible()
+    await expect(card.getByRole('alert').first()).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  }
+  await expect(hostDisks().getByTestId('host-disk-row')).toHaveCount(0)
+  await expect(hostProcesses().getByTestId('host-process-row')).toHaveCount(0)
+
+  // Marcadores y gráficos, con sus datos y sin aviso.
+  await expectHostMarkerValues()
+  for (const kind of HOST_CHART_KINDS) {
+    expect(await hostChartSeries(kind), kind).toHaveLength(HOST_CHART_SERIES[kind].length)
+    await expect(
+      hostChartPanel(kind).getByRole('button', { name: 'Reintentar' }),
+      kind
+    ).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llegan las dos tablas (un mismo canal).
+  sim.hostBreakdownFail = false
+  await clickInPlace(hostDisks().getByRole('button', { name: 'Reintentar' }), { scroll: true })
+  await expectHostTablesLoaded()
+  for (const card of [hostDisks(), hostProcesses()]) {
+    await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  }
+})
+
+test('CA6 (0019): sin datos, «Sin discos» y «Sin procesos»', async () => {
+  sim.hostBreakdownEmpty = true
+  await openHostPage()
+  await expect(hostDisks()).toContainText('Sin discos')
+  await expect(hostProcesses()).toContainText('Sin procesos')
+  await expect(hostDisks().getByTestId('host-disk-row')).toHaveCount(0)
+  await expect(hostProcesses().getByTestId('host-process-row')).toHaveCount(0)
+  for (const card of [hostDisks(), hostProcesses()]) {
+    await expect(card.getByRole('alert')).toHaveCount(0)
+    await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  }
+  // Los gráficos siguen.
+  expect(await hostChartSeries('cpu')).toHaveLength(HOST_CHART_SERIES.cpu.length)
+})
+
+test('Aviso de recorte de procesos (0019): con la métrica de procesos en partial, la tabla avisa de que la lista y el total pueden estar incompletos', async () => {
+  // Recortada solo una de discos: la de procesos no avisa.
+  sim.hostBreakdownTruncated = 'disks'
+  await openHostPage()
+  await expectHostTablesLoaded()
+  await settledRequests()
+  await expect(hostProcesses().getByTestId('host-processes-partial')).toHaveCount(0)
+
+  // Con la de procesos recortada, tras «Actualizar»: el aviso, sin quitar las filas ni el total.
+  sim.hostBreakdownTruncated = 'processes'
+  const before = sim.hostBreakdownQueries.length
+  await page.getByTestId('entity-page-host').getByTestId('module-refresh').click()
+  await expect.poll(() => sim.hostBreakdownQueries.length).toBeGreaterThan(before)
+  const notice = hostProcesses().getByTestId('host-processes-partial')
+  await expect(notice).toBeVisible()
+  await expect(notice).toContainText(/incomplet/i)
+  await expect(hostProcesses().getByTestId('host-process-row')).toHaveCount(10)
+  await expect(hostProcesses().getByTestId('host-processes-count')).toHaveText(
+    /^10 de 15 procesos$/
+  )
 })
