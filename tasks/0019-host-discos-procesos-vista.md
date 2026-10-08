@@ -1,7 +1,7 @@
 ---
 id: '0019'
 titulo: 'HOST: tablas de discos y de los procesos que más consumen'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -41,6 +41,31 @@ de tablas de la app (`DataGrid`):
 `entities:hostBreakdown` puede venir recortada en hosts de más de unos 333 procesos (tope de 1.000 series
 de la API). Cuando `partial` traiga la métrica de procesos, la tabla dice que la lista y el total pueden
 estar incompletos.
+
+**Decisiones del developer (2026-10-08, delegadas por Dani; refinables):**
+
+- **Piezas:** `HostTables.tsx` (las dos tarjetas sobre `DataGrid`, con `MarkerError` y
+  `MarkerSkeleton` de `EntityMarkers.tsx`) y `host-tables.ts` (comparadores puros para `sortRows`,
+  desempate por id, total del disco, recorte y id del enlace). `useHostBreakdown` en
+  `data/modules.ts`, con la clave de `entities`: el «Actualizar» de la página y el rango global la
+  recargan. Solo con acceso a Métricas, como los gráficos.
+- **Lado a lado desde `xl` (1280 px)**, no desde `lg` como los gráficos: con seis columnas, la de
+  discos no cabe en media página de 1024 px. Cada grid tiene ancho mínimo y scroll horizontal
+  propio.
+- **Formatos:** usado / total y libre con `formatBytes` (se adapta a TB en discos grandes); el % y
+  el orden por defecto, del último dato (`usedPct.last`, como ordena main). Sin dato, «—»; al
+  ordenar, sin dato va el último en descendente. Dirección con la que empieza cada columna: nombre
+  y libre ascendente, el resto descendente.
+- **Barra de CPU** del proceso en el color de acento y sin niveles (la ficha los pide en los
+  discos).
+- **Enlace al proceso:** solo si el id pasa `entityIdSchema` y empieza por
+  `PROCESS_GROUP_INSTANCE-`; si no, el nombre sin enlace. Lleva `fromProblem` y el nombre en el
+  estado (como `ServiceInfo`), así «Volver» hace `back()`. La fila entera también abre el proceso
+  (clic o Enter, con el roving tabindex del grid); el enlace corta la propagación para no navegar
+  dos veces y queda fuera del orden de Tab (la fila ya está). Las filas de discos no abren nada.
+- **Recuento** con plurales (`count_one` y `count_other`) y aviso de recorte
+  (`host-processes-partial`, `role="status"`, color de aviso) si algún `partial` es de
+  `builtin:tech.generic.*`. Los `warnings` de la API, con `ApiWarnings` en cada tarjeta.
 
 ## Criterios de aceptación
 
