@@ -1,7 +1,7 @@
 ---
 id: '0025'
 titulo: 'Monitores: tablas de localizaciones y de pasos o peticiones'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -157,4 +157,9 @@ datos no ocupa sitio.
 
 ## Resultado
 
-(pendiente)
+- Commits: `fec2154` y `42d2800` (tests), `b2b7244` (implementación), más los de ficha.
+- Ficheros principales: `src/renderer/src/pages/entities/MonitorTables.tsx`, `monitor-tables.ts`, `MonitorEntityPage.tsx`, locales es y en, `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (APROBADO). Verifier en verde.
+- ADR nuevo: ninguno. Sin migraciones.
+- Decisión del CA3: sin pasos que enseñar (`null` o lista vacía), la tarjeta de pasos no sale.
+- Pendiente de Dani: la prueba a mano con monitores reales.
