@@ -49,6 +49,13 @@ main lo escribe con `writeFile` directo, así que a veces se lee vacío.
 - **CA2** (`scripts/e2e-export-read.test.ts`): con el AST de TypeScript marca un `readFileSync` cuyo
   argumento es `await exportTo(...)` o una variable declarada con él (la declaración más cercana por
   bloques, para no confundir el `file` de un test con el de otro).
+- **Espera copiada a mano (decisión del Orquestador, 2026-10-08):** los dos tests del mini gráfico de
+  evidencias («v0.9.2: exportar las series del mini gráfico…» y «v0.10.2: «Abrir en Métricas» y la
+  exportación del mini gráfico usan el rango visible») leían el fichero sin esperar al aviso. Pasan a
+  `exportSaved`, que con `exportTo` y `exportNotice` acepta también el locator del menú dentro de
+  su contenedor; sus comprobaciones no cambian. CA2 lo vigila: marca también un `readFileSync` cuyo
+  argumento usa `exportDir` o llama a una función propia del spec que busca en `exportDir` (salvo
+  `exportSaved`).
 - El nombre del test de CA1 no cambia (no lleva «CA1 (0030)»): la ficha pide no tocarlo.
 
 ## Criterios de aceptación
@@ -71,10 +78,7 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-- (developer) Dos tests del mini gráfico de evidencias («v0.9.2: exportar las series del mini
-  gráfico…» y el de Info con el rango visible) copian a mano la espera de `exportTo` sobre el menú
-  dentro de su contenedor y leen el fichero sin esperar al aviso: misma carrera, fuera de lo que
-  pide esta ficha. Podrían usar un `exportSaved` que acepte el locator del menú.
+(ninguna: la del mini gráfico de evidencias entró en la ficha por decisión del Orquestador)
 
 ## Notas del revisor
 
