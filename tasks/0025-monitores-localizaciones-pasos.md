@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:monitorBreakdown` de la 0023)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -64,7 +64,21 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 con su test y en rojo sin el código; el developer no tocó los tests. Sin canal, endpoint,
+dependencia ni esquema nuevos: las tablas reutilizan la consulta `breakdown` de la 0023 (ADR-0004).
+Error con `MarkerError` (`role="alert"` y detalle), números con los formateadores, textos en es y
+en, ficheros dentro del área `views`. Simulador con datos inventados.
+
+Sugerencias, no bloquean:
+
+- `MonitorTables.tsx`: en `StepsCard`, la rama `isEmpty` (`entities.monitor.steps.empty`) no se ve
+  nunca porque `monitorStepsShown` oculta la tarjeta antes. Quitarla o comentarla como defensa.
+- `monitor-tables.ts`: el comentario de `compareNullable` («va por debajo de todo») debería decir
+  «sin dato, primero en ascendente».
+- `onActivate={() => undefined}` en las dos tablas: mirar que `DataGrid` no pinte las filas como
+  pulsables cuando no hacen nada.
 
 ## Verificación
 
