@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:hostMetrics` de la 0016, y `entities:problemCounts` y `entities:problems` de las fichas 0007 y 0010, que ya aceptan cualquier tipo estándar)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -123,7 +123,14 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1-CA9 con su test; de los e2e anteriores solo cambian CA2 (0003), CA8 (0003) y CA7 (0008), que suponían
+  el HOST en construcción; ningún e2e del servicio cambia (CA8).
+- Refactor `3231ec1`: movimiento literal; el servicio no cambia ni de aspecto ni de comportamiento.
+- Desglose de CPU sin `stack` ni `areaStyle` (con unitario); ejes 0-100 %; umbrales 80/90 con texto;
+  `formatNumber`; unidades coherentes con lo observado en vivo. Sin canales nuevos; id validado; ADR-0004.
+- Opcionales: el 80 y el 90 de los textos, desde las constantes; CA8 (0003) pasa también sin peticiones.
 
 ## Verificación
 
