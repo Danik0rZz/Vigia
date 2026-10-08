@@ -1559,6 +1559,50 @@ function hostBandProblems(): FakeProblem[] {
   }))
 }
 
+const PROCESS_BAND_OPEN = {
+  problemId: 'pd-process-band-open',
+  displayId: 'P-E2E81',
+  title: 'Proceso con CPU saturada'
+}
+const PROCESS_BAND_CLOSED = {
+  problemId: 'pd-process-band-closed',
+  displayId: 'P-E2E82',
+  title: 'Proceso caído'
+}
+
+/**
+ * Ficha 0028: los problemas del proceso inventado de la 0027 (PROCESS_METRICS_ID), uno abierto y
+ * uno cerrado, dentro de las últimas 2 h y sin solaparse. Salen en las consultas con
+ * affectedEntities (recuentos y franja) y en el detalle. Los procesos de la tabla del host, sin
+ * problemas.
+ */
+function processBandProblems(): FakeProblem[] {
+  const now = sim.bandNow
+  return (
+    [
+      [PROCESS_BAND_OPEN, 'OPEN', now - 40 * 60_000, -1],
+      [PROCESS_BAND_CLOSED, 'CLOSED', now - 110 * 60_000, now - 80 * 60_000]
+    ] as const
+  ).map(([ids, status, startTime, endTime]) => ({
+    ...ids,
+    status,
+    severityLevel: 'AVAILABILITY',
+    impactLevel: 'INFRASTRUCTURE',
+    startTime,
+    endTime,
+    affectedEntities: [
+      {
+        entityId: { id: PROCESS_METRICS_ID, type: 'PROCESS_GROUP_INSTANCE' },
+        name: 'proceso-metricas'
+      }
+    ],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: [],
+    evidenceDetails: { totalCount: 0, details: [] }
+  }))
+}
+
 const MONITOR_BAND_OPEN = {
   problemId: 'pd-monitor-band-open',
   displayId: 'P-E2E71',
@@ -2081,18 +2125,51 @@ const PROCESS_MARKERS: Record<string, number> = {
   'builtin:tech.generic.handles.fileDescriptorsPercentUsed:max': 0.9
 }
 
-/** ¿Es una consulta de métricas del proceso inventado? */
-function isProcessMetricsQuery(query: URLSearchParams): boolean {
-  return (query.get('entitySelector') ?? '').includes(PROCESS_METRICS_ID)
+/**
+ * Ficha 0028: ids de proceso a los que responde el simulador con las métricas de arriba: el
+ * inventado de la 0027 y los de la tabla de procesos del host (HOST_PAGE_PROCESSES, 0019), para
+ * abrir la página de un proceso desde esa tabla. Los del host se añaden tras definirlos.
+ */
+const PROCESS_METRICS_IDS = new Set<string>([PROCESS_METRICS_ID])
+
+/** Id del proceso de la consulta (entityId("…") del entitySelector), o null si no es de uno. */
+function processMetricsEntity(query: URLSearchParams): string | null {
+  const match = /^entityId\("(PROCESS_GROUP_INSTANCE-[0-9A-F]{16})"\)$/.exec(
+    (query.get('entitySelector') ?? '').trim()
+  )
+  const id = match?.[1] ?? null
+  return id !== null && PROCESS_METRICS_IDS.has(id) ? id : null
 }
 
-/** Respuesta del simulador a una consulta de métricas del proceso inventado. */
+/** ¿Es una consulta de métricas de uno de los procesos inventados? */
+function isProcessMetricsQuery(query: URLSearchParams): boolean {
+  return processMetricsEntity(query) !== null
+}
+
+/**
+ * Ficha 0028: ¿llega sin datos esta expresión? Con `sim.processEmpty` (claves de métrica, sin
+ * agregación), la métrica no trae series ni en la consulta de series ni en la de marcadores, como
+ * un proceso real sin esos datos (paso 0 de la 0027: `data` vacío).
+ */
+function processExpressionEmpty(expression: string): boolean {
+  return sim.processEmpty.some((key) => expression === key || expression.startsWith(`${key}:`))
+}
+
+/** Respuesta del simulador a una consulta de métricas de un proceso inventado. */
 function processMetricResponse(query: URLSearchParams): [number, unknown] {
   const selector = query.get('metricSelector') ?? ''
   const inf = query.get('resolution') === 'Inf'
+  // Ficha 0028: el canal falla (errores por panel).
+  if (sim.processMetricsFail) {
+    return [
+      400,
+      { error: { code: 400, message: 'Métricas del proceso no disponibles (simulado)' } }
+    ]
+  }
   if (inf && selector.includes(':fold(')) {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
+  const entityId = processMetricsEntity(query) ?? PROCESS_METRICS_ID
   const expressions = splitSelector(selector)
   return [
     200,
@@ -2101,11 +2178,13 @@ function processMetricResponse(query: URLSearchParams): [number, unknown] {
       nextPageKey: null,
       resolution: inf ? 'Inf' : '10m',
       result: expressions.map((expression) => {
-        const one = inf
-          ? PROCESS_MARKERS[expression] === undefined
-            ? undefined
-            : [PROCESS_MARKERS[expression]]
-          : PROCESS_SERIES[expression]
+        const one = processExpressionEmpty(expression)
+          ? undefined
+          : inf
+            ? PROCESS_MARKERS[expression] === undefined
+              ? undefined
+              : [PROCESS_MARKERS[expression]]
+            : PROCESS_SERIES[expression]
         return {
           metricId: expression,
           dataPointCountRatio: 0.005,
@@ -2115,8 +2194,8 @@ function processMetricResponse(query: URLSearchParams): [number, unknown] {
               ? []
               : [
                   {
-                    dimensionMap: { 'dt.entity.process_group_instance': PROCESS_METRICS_ID },
-                    dimensions: [PROCESS_METRICS_ID],
+                    dimensionMap: { 'dt.entity.process_group_instance': entityId },
+                    dimensions: [entityId],
                     timestamps: inf ? [PROCESS_T0 + 1_800_000] : PROCESS_TIMESTAMPS,
                     values: one
                   }
@@ -2489,6 +2568,9 @@ const HOST_PAGE_PROCESSES = HOST_PAGE_CPU.map((avg, i) => {
   }
 })
 
+// Ficha 0028: los procesos de la tabla del host también responden a las métricas del proceso.
+for (const process of HOST_PAGE_PROCESSES) PROCESS_METRICS_IDS.add(process.id)
+
 const breakdownCompact = (text: string): string => text.replace(/["\s]/g, '')
 const breakdownRelation = (hostId: string): string =>
   `fromRelationships.isProcessOf(entityId(${hostId}))`
@@ -2657,6 +2739,10 @@ const defaultSim = () => ({
   monitorMetricQueries: [] as URLSearchParams[],
   /** Ficha 0027: consultas de métricas del proceso inventado (sus query). */
   processMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0028: las consultas de métricas de los procesos inventados fallan con un 400. */
+  processMetricsFail: false,
+  /** Ficha 0028: métricas (sin agregación) que llegan sin series a los procesos inventados. */
+  processEmpty: [] as string[],
   /** Ficha 0023: consultas del desglose de los monitores inventados (sus query). */
   monitorBreakdownQueries: [] as URLSearchParams[],
   /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
@@ -2846,6 +2932,7 @@ async function startServer(): Promise<void> {
               ...shortProblems(),
               ...hostBandProblems(),
               ...monitorBandProblems(),
+              ...processBandProblems(),
               ...longIdProblems()
             ],
             selector
@@ -2888,7 +2975,8 @@ async function startServer(): Promise<void> {
             ...detailOnly,
             ...bandProblems(),
             ...hostBandProblems(),
-            ...monitorBandProblems()
+            ...monitorBandProblems(),
+            ...processBandProblems()
           ].find((p) => p['problemId'] === decodeURIComponent(single[1] ?? ''))
           return found
             ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
@@ -7694,7 +7782,8 @@ test('CA6 (0008): un servicio sin datos enseña «—» en los marcadores de mé
 
 // Ficha 0018: el HOST ya tiene su página (sus marcadores, no los del servicio); sale de la lista
 // de tipos en construcción. Ficha 0024: también salen SYNTHETIC_TEST y HTTP_CHECK (los prueban
-// los e2e de la 0024).
+// los e2e de la 0024). Ficha 0028: también sale PROCESS_GROUP_INSTANCE (lo prueban los e2e de
+// la 0028).
 test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcción, sin marcadores ni peticiones', async () => {
   // Desde «Analizar entidad» de una evidencia HOST del mismo problema: la del host, sin los
   // marcadores del servicio.
@@ -7708,7 +7797,6 @@ test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcc
 
   // Por URL, el resto de tipos del registro y uno que no está (genérica).
   const others = [
-    ['PROCESS_GROUP_INSTANCE', 'process_group_instance'],
     ['PROCESS_GROUP', 'process_group'],
     ['APPLICATION', 'application'],
     ['CLOUD_APPLICATION', 'cloud_application'],
@@ -11045,4 +11133,438 @@ test('CA4 (0026): las tarjetas del servicio y del host siguen igual (sus filas y
   ])
   await expect(page.locator('[data-testid^="monitor-info"]')).toHaveCount(0)
   await expect(page.getByTestId('service-info')).toHaveCount(0)
+})
+
+/**
+ * Ficha 0028: marcadores y gráficos de la página de un proceso (PROCESS_GROUP_INSTANCE), con las
+ * métricas del canal entities:processMetrics (0027: PROCESS_SERIES y PROCESS_MARKERS) y sus
+ * problemas (processBandProblems: uno abierto y uno cerrado).
+ *
+ * Con la decisión del Orquestador de la 0027, el canal tiene métrica para los seis papeles: un
+ * papel sin datos llega con series vacías y su marcador a null, y eso es lo que el simulador puede
+ * dejar «sin métrica» (`sim.processEmpty`). Ese papel no se pinta. «Disponibilidad o Recursos» y
+ * «Salud de red o Recursos» son «el que haya»: con los dos, la ficha no dice cuál, así que con
+ * todos los datos se acepta cualquiera de los dos (uno solo); sin uno de ellos, sale el otro.
+ *
+ * Nombres que fijan estos tests (los del host con el prefijo `process`): la fila
+ * `process-markers`; cada marcador `process-marker-<id>` (cpu, memory, network, availability o
+ * resources, y problems); dentro, el valor principal en `process-marker-value` (el de la CPU con
+ * `data-level`: `normal`, `warning` o `error`, umbrales del 80 y el 90 %) y lo de debajo en
+ * `process-marker-secondary` (máxima y salida); el texto del nivel, cuando no es `normal`, en
+ * `process-marker-level`; los recuentos, en `process-marker-open` y `process-marker-closed`. La
+ * sección `process-charts`; cada gráfico en un `process-chart-panel` con `data-kind` (cpu,
+ * memory, network y network-health o resources, en ese orden) y su título en un encabezado;
+ * dentro, el `Chart` con testid `process-chart-<kind>` (con `data-series`). La franja,
+ * `process-problem-band`, dentro del panel de la CPU; cada tramo, `process-problem-segment` con
+ * `data-problem-id`.
+ *
+ * Duda abierta (0027): `fileDescriptorsPercentUsed` dice Percent pero llega en [0, 1]; el
+ * marcador de recursos (0,9) se acepta como 0,9 % o como 90 %.
+ */
+const PROCESS_PAGE_TEST_ID = 'entity-page-process_group_instance'
+const PROCESS_METRIC_MARKERS = ['cpu', 'memory', 'network'] as const
+type ProcessFourthMarker = 'availability' | 'resources'
+type ProcessChartKind = 'cpu' | 'memory' | 'network' | 'network-health' | 'resources'
+const PROCESS_MARKER_LABELS: Record<string, string> = {
+  cpu: 'CPU',
+  memory: 'Memoria',
+  network: 'Red',
+  availability: 'Disponibilidad',
+  resources: 'Recursos',
+  problems: 'Problemas'
+}
+const PROCESS_CHART_TITLES: Record<ProcessChartKind, string> = {
+  cpu: 'CPU',
+  memory: 'Memoria',
+  network: 'Red',
+  'network-health': 'Salud de red',
+  resources: 'Recursos'
+}
+/** Las series de cada gráfico, en su orden: una por papel y la red con entrada y salida. */
+const PROCESS_CHART_SERIES: Record<ProcessChartKind, RegExp[]> = {
+  cpu: [/./],
+  memory: [/./],
+  network: [/entrada/i, /salida/i],
+  'network-health': [/./],
+  resources: [/./]
+}
+/** Claves de métrica de cada papel (las de PROCESS_SERIES), para dejarlas sin datos. */
+const PROCESS_ROLE_METRICS = {
+  network: ['builtin:tech.generic.network.bytesRx', 'builtin:tech.generic.network.bytesTx'],
+  networkHealth: ['builtin:tech.generic.network.packets.retransmission'],
+  availability: ['builtin:pgi.availability'],
+  resources: ['builtin:tech.generic.handles.fileDescriptorsPercentUsed']
+} as const
+
+const processPage = (): Locator => page.getByTestId(PROCESS_PAGE_TEST_ID)
+const processMarker = (id: string): Locator => page.getByTestId(`process-marker-${id}`)
+const processChartPanel = (kind: ProcessChartKind): Locator =>
+  page.locator(`[data-testid="process-chart-panel"][data-kind="${kind}"]`)
+const processChartPlot = (kind: ProcessChartKind): Locator =>
+  processChartPanel(kind).getByTestId(`process-chart-${kind}`)
+const processBand = (): Locator => processChartPanel('cpu').getByTestId('process-problem-band')
+const processSegment = (problemId: string): Locator =>
+  processBand().locator(`[data-testid="process-problem-segment"][data-problem-id="${problemId}"]`)
+
+/** Ficha 0028: abre por URL la página del proceso (por defecto, el inventado de la 0027). */
+async function openProcessPage(id: string = PROCESS_METRICS_ID): Promise<Locator> {
+  await goToRoute(`/entities/PROCESS_GROUP_INSTANCE/${id}`)
+  const entityPage = processPage()
+  await expect(entityPage).toBeVisible()
+  return entityPage
+}
+
+/** Ficha 0028: espera a que el gráfico tenga sus series (se monta vacío mientras carga). */
+async function processChartSeries(kind: ProcessChartKind): Promise<string[]> {
+  const plot = processChartPlot(kind)
+  await expect(plot.locator('canvas').first()).toBeVisible()
+  await expect(plot).toHaveAttribute('data-series', /\[.+\]/)
+  return JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
+}
+
+/** Ficha 0028: comprueba las series de un gráfico del proceso. */
+async function expectProcessChartSeries(kind: ProcessChartKind): Promise<void> {
+  const series = await processChartSeries(kind)
+  expect(series, kind).toHaveLength(PROCESS_CHART_SERIES[kind].length)
+  for (const [i, pattern] of PROCESS_CHART_SERIES[kind].entries()) {
+    expect(series[i], `${kind}[${i}]`).toMatch(pattern)
+  }
+}
+
+/** Ficha 0028: los `data-kind` de los paneles de gráficos, en el orden en que se pintan. */
+async function processChartKinds(): Promise<string[]> {
+  return processPage()
+    .getByTestId('process-charts')
+    .getByTestId('process-chart-panel')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-kind') ?? ''))
+}
+
+/** Ficha 0028: valor del cuarto marcador, según cuál sea (0027: 83,5 % y 0,9). */
+async function expectProcessFourthMarker(id: ProcessFourthMarker): Promise<void> {
+  const value = processMarker(id).getByTestId('process-marker-value')
+  if (id === 'availability') await expect(value).toHaveText(/^83,5\s?%$/)
+  else await expect(value).toHaveText(/^(0,9|90(,0)?)\s?%$/)
+}
+
+/**
+ * Ficha 0028: los marcadores de métricas con los valores del simulador, ya formateados (es). Con
+ * `network: false`, el de red no se comprueba (se comprueba aparte que no sale).
+ */
+async function expectProcessMetricMarkers(options: { network?: boolean } = {}): Promise<void> {
+  // CPU: media 15,25 % (un decimal) y máxima 91 %; normal, sin texto de nivel.
+  const cpu = processMarker('cpu')
+  await expect(cpu.getByTestId('process-marker-value')).toHaveText(/^15,[23]\s?%$/)
+  await expect(cpu.getByTestId('process-marker-secondary')).toContainText(/(^|[^\d.,])91(,0)?\s?%/)
+  await expect(cpu.getByTestId('process-marker-value')).toHaveAttribute('data-level', 'normal')
+  await expect(cpu.getByTestId('process-marker-level')).toHaveCount(0)
+  // Memoria (working set): media 310 MB y máxima 330 MB.
+  const memory = processMarker('memory')
+  await expect(memory.getByTestId('process-marker-value')).toHaveText(/^310(,0)?\sMB$/)
+  await expect(memory.getByTestId('process-marker-secondary')).toContainText(
+    /(^|[^\d.,])330(,0)?\sMB/
+  )
+  if (options.network === false) return
+  // Red: entrada media 2560 B/s y salida media 384 B/s (en bytes o en bits por segundo).
+  const network = processMarker('network')
+  await expect(network.getByTestId('process-marker-value')).toHaveText(
+    /^(2,56?\skB\/s|20,5\skbit\/s)$/
+  )
+  await expect(network.getByTestId('process-marker-secondary')).toContainText(
+    /(^|[^\d.,])(384\sB\/s|3,1\skbit\/s)/
+  )
+}
+
+/** Ficha 0028: el marcador de problemas, con sus recuentos. */
+async function expectProcessProblems(open: string, closed: string): Promise<void> {
+  const problems = processMarker('problems')
+  await expect(problems.getByTestId('process-marker-open')).toHaveText(loneNumber(open))
+  await expect(problems.getByTestId('process-marker-closed')).toHaveText(loneNumber(closed))
+}
+
+/** Ficha 0028: cuál de «Disponibilidad» y «Recursos» sale (uno solo, con todos los datos). */
+async function shownFourthMarker(): Promise<ProcessFourthMarker> {
+  const row = processPage().getByTestId('process-markers')
+  await expect(
+    row.locator(
+      '[data-testid="process-marker-availability"], [data-testid="process-marker-resources"]'
+    )
+  ).toHaveCount(1)
+  return (await row.getByTestId('process-marker-availability').count()) === 1
+    ? 'availability'
+    : 'resources'
+}
+
+/** Ficha 0028: todos los marcadores del proceso inventado con todos sus datos. */
+async function expectProcessMarkers(): Promise<void> {
+  await expectProcessMetricMarkers()
+  await expectProcessFourthMarker(await shownFourthMarker())
+  await expectProcessProblems('1', '1')
+}
+
+test('CA1 (0028): la página de un proceso enseña sus marcadores y sus cuatro gráficos con los valores y las series del simulador, sin «Página en construcción»', async () => {
+  const entityPage = await openProcessPage()
+  const row = entityPage.getByTestId('process-markers')
+  await expect(row).toBeVisible()
+
+  // Cinco marcadores: CPU, memoria, red, disponibilidad o recursos (uno) y problemas.
+  const fourth = await shownFourthMarker()
+  for (const id of [...PROCESS_METRIC_MARKERS, fourth, 'problems']) {
+    await expect(row.getByTestId(`process-marker-${id}`), id).toBeVisible()
+    await expect(row.getByTestId(`process-marker-${id}`), id).toContainText(
+      PROCESS_MARKER_LABELS[id] ?? id
+    )
+  }
+  await expectProcessMarkers()
+
+  // Cuatro gráficos en su orden: CPU, memoria, red y salud de red o recursos (uno).
+  const section = entityPage.getByTestId('process-charts')
+  await expect(section).toBeVisible()
+  const panels = section.getByTestId('process-chart-panel')
+  await expect(panels).toHaveCount(4)
+  const kinds = await processChartKinds()
+  expect(kinds.slice(0, 3)).toEqual(['cpu', 'memory', 'network'])
+  expect(['network-health', 'resources']).toContain(kinds[3])
+  for (const [index, kind] of (kinds as ProcessChartKind[]).entries()) {
+    await expect(panels.nth(index).getByRole('heading').first(), kind).toContainText(
+      PROCESS_CHART_TITLES[kind]
+    )
+    await expectProcessChartSeries(kind)
+  }
+
+  // Ni el bloque ni el texto de «Página en construcción», ni marcadores de otro tipo.
+  await expect(entityPage.getByTestId('entity-under-construction')).toHaveCount(0)
+  await expect(entityPage).not.toContainText('Página en construcción')
+  for (const other of ['service-markers', 'host-markers', 'monitor-markers']) {
+    await expect(page.getByTestId(other), other).toHaveCount(0)
+  }
+
+  // Marcadores y gráficos comparten una sola llamada al canal (sus dos consultas), con el proceso
+  // y el rango global.
+  await settledRequests()
+  expect(sim.processMetricQueries).toHaveLength(2)
+  for (const query of sim.processMetricQueries) {
+    expect(query.get('entitySelector')).toBe(`entityId("${PROCESS_METRICS_ID}")`)
+    expect(query.get('from')).toBe('now-2h')
+  }
+})
+
+test('CA2 (0028): sin datos de red ni de salud de red, el marcador y el gráfico de red no salen, el cuarto gráfico es el de recursos y el resto sigue', async () => {
+  sim.processEmpty = [...PROCESS_ROLE_METRICS.network, ...PROCESS_ROLE_METRICS.networkHealth]
+  const entityPage = await openProcessPage()
+
+  // Marcadores: CPU, memoria, el cuarto y problemas, con sus valores; el de red, no.
+  await expectProcessMetricMarkers({ network: false })
+  await expectProcessFourthMarker(await shownFourthMarker())
+  await expectProcessProblems('1', '1')
+  await expect(processMarker('network')).toHaveCount(0)
+
+  // Gráficos: CPU, memoria y recursos (el que hay de «salud de red o recursos»).
+  await expectProcessChartSeries('cpu')
+  await expectProcessChartSeries('resources')
+  await expect(entityPage.getByTestId('process-chart-panel')).toHaveCount(3)
+  expect(await processChartKinds()).toEqual(['cpu', 'memory', 'resources'])
+  await expect(processChartPanel('network')).toHaveCount(0)
+  await expect(processChartPanel('network-health')).toHaveCount(0)
+  await expect(page.getByTestId('process-chart-network')).toHaveCount(0)
+})
+
+test('CA2 (0028): sin datos de disponibilidad, el cuarto marcador es el de recursos', async () => {
+  sim.processEmpty = [...PROCESS_ROLE_METRICS.availability]
+  await openProcessPage()
+  await expectProcessMetricMarkers()
+  await expectProcessFourthMarker('resources')
+  await expectProcessProblems('1', '1')
+  await expect(processMarker('availability')).toHaveCount(0)
+  // Los gráficos no dependen de la disponibilidad: los cuatro.
+  await expectProcessChartSeries('cpu')
+  await expect(processPage().getByTestId('process-chart-panel')).toHaveCount(4)
+})
+
+test('CA2 (0028): sin datos de recursos, el cuarto marcador es el de disponibilidad y el cuarto gráfico, el de salud de red', async () => {
+  sim.processEmpty = [...PROCESS_ROLE_METRICS.resources]
+  await openProcessPage()
+  await expectProcessMetricMarkers()
+  await expectProcessFourthMarker('availability')
+  await expectProcessProblems('1', '1')
+  await expect(processMarker('resources')).toHaveCount(0)
+
+  await expectProcessChartSeries('network-health')
+  expect(await processChartKinds()).toEqual(['cpu', 'memory', 'network', 'network-health'])
+  await expect(processChartPanel('resources')).toHaveCount(0)
+})
+
+test('CA2 (0028): sin disponibilidad, recursos ni salud de red, ni cuarto marcador ni cuarto gráfico; el resto sí', async () => {
+  sim.processEmpty = [
+    ...PROCESS_ROLE_METRICS.availability,
+    ...PROCESS_ROLE_METRICS.resources,
+    ...PROCESS_ROLE_METRICS.networkHealth
+  ]
+  const entityPage = await openProcessPage()
+  await expectProcessMetricMarkers()
+  await expectProcessProblems('1', '1')
+  await expect(processMarker('availability')).toHaveCount(0)
+  await expect(processMarker('resources')).toHaveCount(0)
+
+  for (const kind of ['cpu', 'memory', 'network'] as const) await expectProcessChartSeries(kind)
+  await expect(entityPage.getByTestId('process-chart-panel')).toHaveCount(3)
+  expect(await processChartKinds()).toEqual(['cpu', 'memory', 'network'])
+})
+
+test('CA3 (0028): la franja de problemas sale sobre el gráfico de CPU con los problemas del proceso, y pulsar un tramo abre el problema', async () => {
+  await openProcessPage()
+  await processChartSeries('cpu')
+  const band = processBand()
+  await expect(band).toBeVisible()
+  await expect(band.getByTestId('process-problem-segment')).toHaveCount(2)
+  for (const { problemId } of [PROCESS_BAND_OPEN, PROCESS_BAND_CLOSED]) {
+    await expect(processSegment(problemId), problemId).toHaveCount(1)
+  }
+  // Solo en el panel de la CPU.
+  await expect(page.getByTestId('process-problem-band')).toHaveCount(1)
+
+  // La lista se pide con el proceso y el rango global.
+  await settledRequests()
+  const lists = sim.entityProblemListQueries.filter((query) =>
+    (query.get('problemSelector') ?? '').includes(PROCESS_METRICS_ID)
+  )
+  expect(lists).toHaveLength(1)
+  expect(lists[0]?.get('problemSelector')).toBe(`affectedEntities("${PROCESS_METRICS_ID}")`)
+  expect(lists[0]?.get('from')).toBe('now-2h')
+
+  // Encima del gráfico: la franja acaba antes de que empiece el canvas.
+  const bandBox = await settledBox(band)
+  const plotBox = await settledBox(processChartPlot('cpu'))
+  expect(bandBox.y + bandBox.height).toBeLessThanOrEqual(plotBox.y + 1)
+
+  // Pulsar un tramo (trayéndolo a la vista) abre ese problema.
+  await clickInPlace(processSegment(PROCESS_BAND_CLOSED.problemId), { scroll: true })
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(PROCESS_BAND_CLOSED.displayId)
+  expect(await currentRoute()).toBe(`/problems/${PROCESS_BAND_CLOSED.problemId}`)
+
+  // «Volver» regresa a la página del proceso.
+  await page.getByTestId('problem-back').click()
+  await expect(processPage()).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP_INSTANCE/${PROCESS_METRICS_ID}`)
+})
+
+test('CA4 (0028): cambiar el rango global vuelve a pedir los datos; «Actualizar» también; volver a la página sin cambios, no', async () => {
+  await openProcessPage()
+  await expectProcessMarkers()
+  await settledRequests()
+  // Al entrar: las dos consultas de métricas y las dos de recuentos, con el rango global.
+  expect(sim.processMetricQueries).toHaveLength(2)
+  expect(sim.entityProblemQueries).toHaveLength(2)
+  for (const query of [...sim.processMetricQueries, ...sim.entityProblemQueries]) {
+    expect(query.get('from')).toBe('now-2h')
+  }
+
+  // Rango nuevo: otra vez, con now-24h.
+  await page.getByTestId('time-range-24h').click()
+  await expect.poll(() => sim.processMetricQueries.length).toBe(4)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(4)
+  for (const query of [
+    ...sim.processMetricQueries.slice(2),
+    ...sim.entityProblemQueries.slice(2)
+  ]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectProcessMarkers()
+  await settledRequests()
+  expect(sim.processMetricQueries).toHaveLength(4)
+
+  // Fuera y vuelta, sin cambiar nada: ninguna petición nueva.
+  await goTo('metrics')
+  await expect(processPage()).toHaveCount(0)
+  const before = await settledRequests()
+  await openProcessPage()
+  await expectProcessMarkers()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver a la página').toEqual([])
+
+  // «Actualizar», en la cabecera de la página: otra vez, con el rango actual.
+  await processPage().getByTestId('module-refresh').click()
+  await expect.poll(() => sim.processMetricQueries.length).toBe(6)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(6)
+  for (const query of [
+    ...sim.processMetricQueries.slice(4),
+    ...sim.entityProblemQueries.slice(4)
+  ]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectProcessMarkers()
+})
+
+test('CA4 (0028): si falla el canal de métricas, sus marcadores y cada gráfico enseñan el aviso con Reintentar y el marcador de problemas sigue', async () => {
+  sim.processMetricsFail = true
+  await openProcessPage()
+
+  // El de problemas, con sus recuentos y sin aviso.
+  await expectProcessProblems('1', '1')
+  await expect(processMarker('problems').getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  // Cada marcador de métricas, en su sitio, con el aviso y Reintentar y sin valor.
+  for (const id of PROCESS_METRIC_MARKERS) {
+    const marker = processMarker(id)
+    await expect(marker, id).toBeVisible()
+    await expect(marker.getByRole('alert').first(), id).toBeVisible()
+    await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toBeVisible()
+    await expect(marker.getByTestId('process-marker-value'), id).toHaveCount(0)
+  }
+  // Cada gráfico (al menos CPU, memoria y red), con su aviso y Reintentar, sin gráfico.
+  for (const kind of ['cpu', 'memory', 'network'] as const) {
+    await expect(processChartPanel(kind), kind).toBeVisible()
+  }
+  for (const kind of (await processChartKinds()) as ProcessChartKind[]) {
+    const panel = processChartPanel(kind)
+    await expect(panel.getByRole('alert').first(), kind).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Reintentar' }), kind).toBeVisible()
+    await expect(panel.getByTestId(`process-chart-${kind}`), kind).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llegan valores y los cuatro gráficos.
+  sim.processMetricsFail = false
+  await clickInPlace(processMarker('cpu').getByRole('button', { name: 'Reintentar' }), {
+    scroll: true
+  })
+  await expectProcessMarkers()
+  await expect(processPage().getByTestId('process-chart-panel')).toHaveCount(4)
+  for (const kind of (await processChartKinds()) as ProcessChartKind[]) {
+    await expectProcessChartSeries(kind)
+  }
+  for (const id of PROCESS_METRIC_MARKERS) {
+    await expect(processMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
+})
+
+test('CA5 (0028): desde la tabla de procesos del host, pulsar un proceso abre su página con sus marcadores y gráficos', async () => {
+  await openHostPage()
+  await expectHostTablesLoaded()
+  const target = HOST_PAGE_TOP[2]
+  const id = target?.id ?? ''
+  const name = target?.name ?? ''
+  await settledRequests()
+  const processQueriesBefore = sim.processMetricQueries.length
+
+  await clickInPlace(processRow(id).getByRole('link', { name }), { scroll: true })
+  const entityPage = processPage()
+  await expect(entityPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP_INSTANCE/${id}`)
+  await expect(entityPage.getByRole('heading', { level: 1 })).toHaveText(name)
+
+  // Sus datos: los marcadores del simulador (sin problemas) y los cuatro gráficos.
+  await expectProcessMetricMarkers()
+  await expectProcessFourthMarker(await shownFourthMarker())
+  await expectProcessProblems('0', '0')
+  await expect(entityPage.getByTestId('process-chart-panel')).toHaveCount(4)
+  for (const kind of (await processChartKinds()) as ProcessChartKind[]) {
+    await expectProcessChartSeries(kind)
+  }
+  await expect(entityPage.getByTestId('entity-under-construction')).toHaveCount(0)
+
+  // Las consultas, de ese proceso.
+  await settledRequests()
+  const queries = sim.processMetricQueries.slice(processQueriesBefore)
+  expect(queries).toHaveLength(2)
+  for (const query of queries) expect(query.get('entitySelector')).toBe(`entityId("${id}")`)
 })
