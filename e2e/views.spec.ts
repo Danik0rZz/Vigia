@@ -1436,6 +1436,64 @@ function hostBandProblems(): FakeProblem[] {
   }))
 }
 
+const MONITOR_BAND_OPEN = {
+  problemId: 'pd-monitor-band-open',
+  displayId: 'P-E2E71',
+  title: 'Browser monitor sin disponibilidad'
+}
+const MONITOR_BAND_CLOSED = {
+  problemId: 'pd-monitor-band-closed',
+  displayId: 'P-E2E72',
+  title: 'Browser monitor lento'
+}
+const MONITOR_HTTP_BAND_CLOSED = {
+  problemId: 'pd-monitor-http-band-closed',
+  displayId: 'P-E2E73',
+  title: 'HTTP monitor con fallos'
+}
+
+/**
+ * Ficha 0024: los problemas de los monitores de las páginas, dentro de las últimas 2 h y sin
+ * solaparse: MONITOR_BROWSER_ID con uno abierto y uno cerrado; MONITOR_HTTP_ID con uno cerrado.
+ * Salen en las consultas con affectedEntities (recuentos y franja) y en el detalle.
+ */
+function monitorBandProblems(): FakeProblem[] {
+  const now = sim.bandNow
+  return (
+    [
+      [MONITOR_BAND_OPEN, 'OPEN', now - 30 * 60_000, -1, MONITOR_BROWSER_ID, 'SYNTHETIC_TEST'],
+      [
+        MONITOR_BAND_CLOSED,
+        'CLOSED',
+        now - 100 * 60_000,
+        now - 70 * 60_000,
+        MONITOR_BROWSER_ID,
+        'SYNTHETIC_TEST'
+      ],
+      [
+        MONITOR_HTTP_BAND_CLOSED,
+        'CLOSED',
+        now - 90 * 60_000,
+        now - 60 * 60_000,
+        MONITOR_HTTP_ID,
+        'HTTP_CHECK'
+      ]
+    ] as const
+  ).map(([ids, status, startTime, endTime, entityId, type]) => ({
+    ...ids,
+    status,
+    severityLevel: 'AVAILABILITY',
+    impactLevel: 'APPLICATION',
+    startTime,
+    endTime,
+    affectedEntities: [{ entityId: { id: entityId, type }, name: 'monitor-franja' }],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: [],
+    evidenceDetails: { totalCount: 0, details: [] }
+  }))
+}
+
 const BAND_SHORT = {
   problemId: 'pd-band-short',
   displayId: 'P-E2E43',
@@ -1819,11 +1877,20 @@ function monitorMetricResponse(query: URLSearchParams): [number, unknown] {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
   const marker = inf || selector.includes(':fold(')
+  // Ficha 0024: el canal de métricas del monitor falla (errores por panel).
+  if (sim.monitorMetricsFail) {
+    return [
+      400,
+      { error: { code: 400, message: 'Métricas del monitor no disponibles (simulado)' } }
+    ]
+  }
   const scope = `${selector} ${query.get('entitySelector') ?? ''}`
   const id = scope.includes(MONITOR_BROWSER_ID) ? MONITOR_BROWSER_ID : MONITOR_HTTP_ID
   const expressions = splitSelector(selector)
   const dataOf = (expression: string): (number | null)[][] => {
     const entry = monitorEntry(expression, marker)
+    // Ficha 0024: un browser monitor sin ninguna métrica de rendimiento (sin series).
+    if (sim.monitorPerformanceEmpty && entry.endsWith('.load')) return []
     const one = marker
       ? MONITOR_MARKERS[entry] === undefined
         ? undefined
@@ -1879,7 +1946,7 @@ function breakdownExpressions(
   id: string
 ): Record<string, { role: BreakdownRole; scopes: ('monitor' | 'steps' | 'none')[] }> {
   const location = ':splitBy("dt.entity.synthetic_location")'
-  if (id === BREAKDOWN_BROWSER_ID) {
+  if (id.startsWith('SYNTHETIC_TEST-')) {
     const own = `:filter(eq("dt.entity.synthetic_test","${id}"))`
     return {
       [`builtin:synthetic.browser.availability${location}:avg:names`]: {
@@ -1955,14 +2022,46 @@ const BREAKDOWN_DATA: Record<string, Partial<Record<BreakdownRole, BreakdownItem
   }
 }
 
-/** ¿Es una consulta del desglose de los monitores inventados? */
+/**
+ * Ficha 0024: las páginas de MONITOR_BROWSER_ID y MONITOR_HTTP_ID también piden el desglose (el
+ * marcador «Localizaciones»). El browser monitor, con las localizaciones de BREAKDOWN_BROWSER_ID
+ * (3, dos por debajo del 100 %); el HTTP monitor, con 4 localizaciones y una por debajo del 100 %.
+ */
+BREAKDOWN_DATA[MONITOR_BROWSER_ID] = BREAKDOWN_DATA[BREAKDOWN_BROWSER_ID] ?? {}
+BREAKDOWN_DATA[MONITOR_HTTP_ID] = {
+  availability: [
+    { id: breakdownLocation(1), name: 'Localización uno', value: 100 },
+    { id: breakdownLocation(2), name: 'Localización dos', value: 100 },
+    { id: breakdownLocation(3), name: 'Localización tres', value: 70 },
+    { id: breakdownLocation(4), name: 'Localización cuatro', value: 100 }
+  ],
+  duration: [1, 2, 3, 4].map((n) => ({ id: breakdownLocation(n), value: 300 + n * 10 })),
+  failed: [{ id: breakdownLocation(3), name: 'Localización tres', value: 2 }],
+  steps: [{ id: breakdownStep('HTTP_CHECK_STEP', 1), name: 'Petición uno', value: 310 }]
+}
+
+/** Id de monitor (de la 0023 o de las páginas de la 0024) que lleva la consulta, o null. */
+function breakdownMonitorId(query: URLSearchParams): string | null {
+  const scope = `${query.get('metricSelector') ?? ''} ${query.get('entitySelector') ?? ''}`
+  return (
+    [BREAKDOWN_BROWSER_ID, BREAKDOWN_HTTP_ID, MONITOR_BROWSER_ID, MONITOR_HTTP_ID].find((id) =>
+      scope.includes(id)
+    ) ?? null
+  )
+}
+
+/**
+ * ¿Es una consulta del desglose de los monitores inventados? Con los ids de la 0023, cualquiera;
+ * con los de las páginas de la 0024 (que también piden sus métricas), solo si todas sus
+ * expresiones son las confirmadas del desglose.
+ */
 function isMonitorBreakdownQuery(query: URLSearchParams): boolean {
   const selector = query.get('metricSelector') ?? ''
-  const scope = `${selector} ${query.get('entitySelector') ?? ''}`
-  return (
-    selector.startsWith('builtin:synthetic.') &&
-    (scope.includes(BREAKDOWN_BROWSER_ID) || scope.includes(BREAKDOWN_HTTP_ID))
-  )
+  const id = breakdownMonitorId(query)
+  if (!selector.startsWith('builtin:synthetic.') || id === null) return false
+  if (id === BREAKDOWN_BROWSER_ID || id === BREAKDOWN_HTTP_ID) return true
+  const known = breakdownExpressions(id)
+  return splitSelector(selector).every((expression) => known[expression] !== undefined)
 }
 
 /** Respuesta del simulador a una consulta del desglose de los monitores inventados. */
@@ -1972,10 +2071,13 @@ function monitorBreakdownResponse(query: URLSearchParams): [number, unknown] {
   if (inf && selector.includes(':fold(')) {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
-  const id = `${selector} ${query.get('entitySelector') ?? ''}`.includes(BREAKDOWN_BROWSER_ID)
-    ? BREAKDOWN_BROWSER_ID
-    : BREAKDOWN_HTTP_ID
-  const stepType = id === BREAKDOWN_BROWSER_ID ? 'SYNTHETIC_TEST_STEP' : 'HTTP_CHECK_STEP'
+  // Ficha 0024: el canal del desglose falla (el marcador «Localizaciones», con su aviso).
+  if (sim.monitorBreakdownFail) {
+    return [400, { error: { code: 400, message: 'Desglose del monitor no disponible (simulado)' } }]
+  }
+  const id = breakdownMonitorId(query) ?? BREAKDOWN_HTTP_ID
+  const browser = id.startsWith('SYNTHETIC_TEST-')
+  const stepType = browser ? 'SYNTHETIC_TEST_STEP' : 'HTTP_CHECK_STEP'
   const entitySelector = query.get('entitySelector')
   const scope =
     entitySelector === null
@@ -1998,7 +2100,7 @@ function monitorBreakdownResponse(query: URLSearchParams): [number, unknown] {
         const valid = entry !== undefined && (entry.scopes as string[]).includes(scope)
         const isStep = expression.includes('step.') || expression.includes('request.')
         const dimension = isStep
-          ? id === BREAKDOWN_BROWSER_ID
+          ? browser
             ? 'dt.entity.synthetic_test_step'
             : 'dt.entity.http_check_step'
           : 'dt.entity.synthetic_location'
@@ -2314,6 +2416,12 @@ const defaultSim = () => ({
   hostBreakdownTruncated: null as 'processes' | 'disks' | null,
   /** Ficha 0018: las consultas de métricas del host inventado fallan con un 400. */
   hostMetricsFail: false,
+  /** Ficha 0024: las consultas de métricas de los monitores inventados fallan con un 400. */
+  monitorMetricsFail: false,
+  /** Ficha 0024: las consultas del desglose de los monitores inventados fallan con un 400. */
+  monitorBreakdownFail: false,
+  /** Ficha 0024: las métricas de rendimiento del browser monitor llegan sin series. */
+  monitorPerformanceEmpty: false,
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
   serviceMetricsFail: false,
   /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
@@ -2477,6 +2585,7 @@ async function startServer(): Promise<void> {
               ...bandProblems(),
               ...shortProblems(),
               ...hostBandProblems(),
+              ...monitorBandProblems(),
               ...longIdProblems()
             ],
             selector
@@ -2518,7 +2627,8 @@ async function startServer(): Promise<void> {
             ...manyProblems,
             ...detailOnly,
             ...bandProblems(),
-            ...hostBandProblems()
+            ...hostBandProblems(),
+            ...monitorBandProblems()
           ].find((p) => p['problemId'] === decodeURIComponent(single[1] ?? ''))
           return found
             ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
@@ -7265,7 +7375,8 @@ test('CA6 (0008): un servicio sin datos enseña «—» en los marcadores de mé
 })
 
 // Ficha 0018: el HOST ya tiene su página (sus marcadores, no los del servicio); sale de la lista
-// de tipos en construcción.
+// de tipos en construcción. Ficha 0024: también salen SYNTHETIC_TEST y HTTP_CHECK (los prueban
+// los e2e de la 0024).
 test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcción, sin marcadores ni peticiones', async () => {
   // Desde «Analizar entidad» de una evidencia HOST del mismo problema: la del host, sin los
   // marcadores del servicio.
@@ -7281,8 +7392,6 @@ test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcc
   const others = [
     ['PROCESS_GROUP_INSTANCE', 'process_group_instance'],
     ['PROCESS_GROUP', 'process_group'],
-    ['SYNTHETIC_TEST', 'synthetic_test'],
-    ['HTTP_CHECK', 'http_check'],
     ['APPLICATION', 'application'],
     ['CLOUD_APPLICATION', 'cloud_application'],
     ['ENVIRONMENT', 'environment'],
@@ -9563,4 +9672,428 @@ test('CA5 (0020): la tarjeta del servicio sigue igual (sus filas, sus grupos y s
   await expect(card.locator('[data-testid^="host-info"]')).toHaveCount(0)
   await expect(page.getByTestId('host-info')).toHaveCount(0)
   await expect(page.getByTestId('service-markers')).toBeVisible()
+})
+
+/**
+ * Ficha 0024: marcadores y gráficos de las páginas de un browser monitor (MONITOR_BROWSER_ID) y
+ * de un HTTP monitor (MONITOR_HTTP_ID), con sus métricas (canal entities:monitorMetrics de la
+ * 0022), su desglose (entities:monitorBreakdown de la 0023, para «Localizaciones») y sus
+ * problemas (monitorBandProblems).
+ *
+ * Nombres que fijan estos tests (las dos páginas comparten componentes y testids): la fila
+ * `monitor-markers`; cada marcador `monitor-marker-<id>` (availability, duration, executions,
+ * locations y problems); dentro, el valor principal en `monitor-marker-value` (el de la
+ * disponibilidad con `data-level`: `normal`, `warning` o `error`, umbrales del 99 y el 95 %) y lo
+ * de debajo en `monitor-marker-secondary` (mediana, fallidas con `data-level` `error` si hay
+ * alguna y `normal` si no, y localizaciones por debajo del 100 %); el texto del nivel, cuando no es
+ * `normal`, en `monitor-marker-level`; los recuentos, en `monitor-marker-open` y
+ * `monitor-marker-closed`. La sección `monitor-charts`; cada gráfico en un `monitor-chart-panel`
+ * con `data-kind` (availability, duration, executions y performance, en ese orden; el cuarto es
+ * el de rendimiento en browser y el de tiempos HTTP en HTTP) y su título en un encabezado;
+ * dentro, el `Chart` con testid `monitor-chart-<kind>` (con `data-series`). La franja,
+ * `monitor-problem-band`, dentro del panel de la disponibilidad; cada tramo,
+ * `monitor-problem-segment` con `data-problem-id`.
+ */
+type MonitorPageKind = 'browser' | 'http'
+const MONITOR_PAGES: Record<MonitorPageKind, { type: string; id: string; testId: string }> = {
+  browser: {
+    type: 'SYNTHETIC_TEST',
+    id: MONITOR_BROWSER_ID,
+    testId: 'entity-page-synthetic_test'
+  },
+  http: { type: 'HTTP_CHECK', id: MONITOR_HTTP_ID, testId: 'entity-page-http_check' }
+}
+const MONITOR_MARKER_LABELS = [
+  ['availability', 'Disponibilidad'],
+  ['duration', 'Duración'],
+  ['executions', 'Ejecuciones'],
+  ['locations', 'Localizaciones'],
+  ['problems', 'Problemas']
+] as const
+const MONITOR_METRIC_MARKERS = ['availability', 'duration', 'executions'] as const
+const MONITOR_CHART_KINDS = ['availability', 'duration', 'executions', 'performance'] as const
+type MonitorChartKind = (typeof MONITOR_CHART_KINDS)[number]
+const MONITOR_CHART_TITLES: Record<MonitorChartKind, string> = {
+  availability: 'Disponibilidad',
+  duration: 'Duración',
+  executions: 'Ejecuciones',
+  performance: 'Rendimiento'
+}
+/**
+ * Las series de cada gráfico (`data-series`, en es). Las de rendimiento, por nombre y sin orden:
+ * en browser, LCP, visually complete y speed index (el CLS, sin unidad de tiempo, puede ir o no);
+ * en HTTP, DNS, TCP y TLS (el primer byte puede ir o no).
+ */
+const MONITOR_PERFORMANCE_SERIES: Record<MonitorPageKind, RegExp[]> = {
+  browser: [/LCP|largest\s*contentful\s*paint/i, /visually\s*complete/i, /speed\s*index/i],
+  http: [/DNS/i, /TCP/i, /TLS/i]
+}
+
+const monitorPage = (kind: MonitorPageKind): Locator => page.getByTestId(MONITOR_PAGES[kind].testId)
+const monitorMarker = (id: string): Locator => page.getByTestId(`monitor-marker-${id}`)
+const monitorChartPanel = (kind: MonitorChartKind): Locator =>
+  page.locator(`[data-testid="monitor-chart-panel"][data-kind="${kind}"]`)
+const monitorChartPlot = (kind: MonitorChartKind): Locator =>
+  monitorChartPanel(kind).getByTestId(`monitor-chart-${kind}`)
+const monitorBand = (): Locator =>
+  monitorChartPanel('availability').getByTestId('monitor-problem-band')
+const monitorSegment = (problemId: string): Locator =>
+  monitorBand().locator(`[data-testid="monitor-problem-segment"][data-problem-id="${problemId}"]`)
+
+/** Ficha 0024: abre por URL la página del monitor inventado de ese tipo. */
+async function openMonitorPage(kind: MonitorPageKind): Promise<Locator> {
+  const { type, id } = MONITOR_PAGES[kind]
+  await goToRoute(`/entities/${type}/${id}`)
+  const entityPage = monitorPage(kind)
+  await expect(entityPage).toBeVisible()
+  return entityPage
+}
+
+/** Ficha 0024: espera a que el gráfico tenga sus series (se monta vacío mientras carga). */
+async function monitorChartSeries(kind: MonitorChartKind): Promise<string[]> {
+  const plot = monitorChartPlot(kind)
+  await expect(plot.locator('canvas').first()).toBeVisible()
+  await expect(plot).toHaveAttribute('data-series', /\[.+\]/)
+  return JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
+}
+
+/** Ficha 0024: comprueba las series de un gráfico del monitor de ese tipo. */
+async function expectMonitorChartSeries(
+  pageKind: MonitorPageKind,
+  kind: MonitorChartKind
+): Promise<void> {
+  const series = await monitorChartSeries(kind)
+  if (kind === 'availability' || kind === 'duration') {
+    expect(series, kind).toHaveLength(1)
+    return
+  }
+  if (kind === 'executions') {
+    expect(series, kind).toHaveLength(2)
+    expect(series[0], 'correctas').toMatch(/correctas/i)
+    expect(series[1], 'fallidas').toMatch(/fallidas/i)
+    return
+  }
+  const expected = MONITOR_PERFORMANCE_SERIES[pageKind]
+  expect(series.length, `${pageKind}: series de rendimiento`).toBeGreaterThanOrEqual(3)
+  expect(series.length, `${pageKind}: series de rendimiento`).toBeLessThanOrEqual(4)
+  for (const pattern of expected) {
+    expect(
+      series.some((name) => pattern.test(name)),
+      `${pageKind}: ${String(pattern)} en ${JSON.stringify(series)}`
+    ).toBe(true)
+  }
+}
+
+/** Ficha 0024: los valores de los marcadores del browser monitor inventado, ya formateados (es). */
+async function expectBrowserMonitorMarkers(): Promise<void> {
+  // Disponibilidad del rango: 87,5 %, por debajo del 95 % (error, con texto además del color).
+  const availability = monitorMarker('availability')
+  await expect(availability.getByTestId('monitor-marker-value')).toHaveText(/^87,5\s?%$/)
+  await expect(availability.getByTestId('monitor-marker-value')).toHaveAttribute(
+    'data-level',
+    'error'
+  )
+  await expect(availability.getByTestId('monitor-marker-level')).toBeVisible()
+  await expect(availability.getByTestId('monitor-marker-level')).toHaveText(/\S/)
+  // Duración: media 4550 ms (en s, con un decimal) y mediana 4400 ms.
+  const duration = monitorMarker('duration')
+  await expect(duration.getByTestId('monitor-marker-value')).toHaveText(/^4,[56]\s?s$/)
+  await expect(duration.getByTestId('monitor-marker-secondary')).toContainText(/mediana/i)
+  await expect(duration.getByTestId('monitor-marker-secondary')).toContainText(/(^|[^\d.,])4,4\s?s/)
+  // Ejecuciones: 4 correctas y 1 fallida, en color de error.
+  const executions = monitorMarker('executions')
+  await expect(executions.getByTestId('monitor-marker-value')).toHaveText(/^4$/)
+  await expect(executions.getByTestId('monitor-marker-secondary')).toContainText(loneNumber('1'))
+  await expect(executions.getByTestId('monitor-marker-secondary')).toHaveAttribute(
+    'data-level',
+    'error'
+  )
+  // Localizaciones (0023): 3, dos por debajo del 100 %.
+  const locations = monitorMarker('locations')
+  await expect(locations.getByTestId('monitor-marker-value')).toHaveText(/^3$/)
+  await expect(locations.getByTestId('monitor-marker-secondary')).toContainText(loneNumber('2'))
+  // Problemas: 1 abierto y 1 cerrado.
+  const problems = monitorMarker('problems')
+  await expect(problems.getByTestId('monitor-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('monitor-marker-closed')).toHaveText(loneNumber('1'))
+}
+
+/** Ficha 0024: los valores de los marcadores del HTTP monitor inventado, ya formateados (es). */
+async function expectHttpMonitorMarkers(): Promise<void> {
+  // Disponibilidad del rango: 92,5 %, por debajo del 95 % (error, con texto).
+  const availability = monitorMarker('availability')
+  await expect(availability.getByTestId('monitor-marker-value')).toHaveText(/^92,5\s?%$/)
+  await expect(availability.getByTestId('monitor-marker-value')).toHaveAttribute(
+    'data-level',
+    'error'
+  )
+  await expect(availability.getByTestId('monitor-marker-level')).toHaveText(/\S/)
+  // Duración: media 310 ms; el HTTP monitor no tiene mediana (0022): no se pinta.
+  const duration = monitorMarker('duration')
+  await expect(duration.getByTestId('monitor-marker-value')).toHaveText(/^310\s?ms$/)
+  await expect(duration).not.toContainText(/mediana/i)
+  // Ejecuciones: 10 correctas y 2 fallidas, en color de error.
+  const executions = monitorMarker('executions')
+  await expect(executions.getByTestId('monitor-marker-value')).toHaveText(/^10$/)
+  await expect(executions.getByTestId('monitor-marker-secondary')).toContainText(loneNumber('2'))
+  await expect(executions.getByTestId('monitor-marker-secondary')).toHaveAttribute(
+    'data-level',
+    'error'
+  )
+  // Localizaciones (0023): 4, una por debajo del 100 %.
+  const locations = monitorMarker('locations')
+  await expect(locations.getByTestId('monitor-marker-value')).toHaveText(/^4$/)
+  await expect(locations.getByTestId('monitor-marker-secondary')).toContainText(loneNumber('1'))
+  // Problemas: 0 abiertos y 1 cerrado.
+  const problems = monitorMarker('problems')
+  await expect(problems.getByTestId('monitor-marker-open')).toHaveText(loneNumber('0'))
+  await expect(problems.getByTestId('monitor-marker-closed')).toHaveText(loneNumber('1'))
+}
+
+/** Ficha 0024: CA1 y CA2, la misma comprobación para cada tipo de monitor. */
+async function expectMonitorPage(kind: MonitorPageKind): Promise<void> {
+  const entityPage = await openMonitorPage(kind)
+  const row = entityPage.getByTestId('monitor-markers')
+  await expect(row).toBeVisible()
+
+  // Los cinco marcadores, con su nombre y sus valores.
+  for (const [id, label] of MONITOR_MARKER_LABELS) {
+    await expect(row.getByTestId(`monitor-marker-${id}`), id).toBeVisible()
+    await expect(row.getByTestId(`monitor-marker-${id}`), id).toContainText(label)
+  }
+  if (kind === 'browser') await expectBrowserMonitorMarkers()
+  else await expectHttpMonitorMarkers()
+
+  // Los cuatro gráficos, en su orden, con su título y sus series.
+  const section = entityPage.getByTestId('monitor-charts')
+  await expect(section).toBeVisible()
+  const panels = section.getByTestId('monitor-chart-panel')
+  await expect(panels).toHaveCount(4)
+  for (const [index, chart] of MONITOR_CHART_KINDS.entries()) {
+    const panel = panels.nth(index)
+    await expect(panel, `posición ${index + 1}`).toHaveAttribute('data-kind', chart)
+    await expect(panel.getByRole('heading').first(), chart).toContainText(
+      MONITOR_CHART_TITLES[chart]
+    )
+    await expectMonitorChartSeries(kind, chart)
+  }
+
+  // Ni el bloque ni el texto de «Página en construcción», ni marcadores de otro tipo.
+  await expect(entityPage.getByTestId('entity-under-construction')).toHaveCount(0)
+  await expect(entityPage).not.toContainText('Página en construcción')
+  await expect(page.getByTestId('service-markers')).toHaveCount(0)
+  await expect(page.getByTestId('host-markers')).toHaveCount(0)
+
+  // Marcadores y gráficos comparten una sola llamada al canal de métricas (sus dos consultas),
+  // con el monitor y el rango global.
+  await settledRequests()
+  expect(sim.monitorMetricQueries).toHaveLength(2)
+  for (const query of sim.monitorMetricQueries) {
+    expect(`${query.get('metricSelector')} ${query.get('entitySelector')}`).toContain(
+      MONITOR_PAGES[kind].id
+    )
+    expect(query.get('from')).toBe('now-2h')
+  }
+}
+
+test('CA1 (0024): la página de un browser monitor enseña los cinco marcadores con sus valores y los cuatro gráficos con sus series, sin «Página en construcción»', async () => {
+  await expectMonitorPage('browser')
+})
+
+test('CA2 (0024): la página de un HTTP monitor enseña los cinco marcadores con sus valores y los cuatro gráficos, el cuarto con los tiempos HTTP', async () => {
+  await expectMonitorPage('http')
+})
+
+// Lo que el simulador puede dejar «sin métrica» es el papel entero sin series: main da `null` por
+// tipo (rendimiento en HTTP, tiempos en browser), nunca en el gráfico de su propio tipo. Aquí, el
+// browser monitor sin ninguna métrica de rendimiento.
+test('CA3 (0024): con el rendimiento sin métrica, su gráfico no sale, la rejilla queda en tres y el resto de marcadores y gráficos sí', async () => {
+  sim.monitorPerformanceEmpty = true
+  const entityPage = await openMonitorPage('browser')
+
+  // Marcadores: los cinco, con sus valores.
+  for (const [id] of MONITOR_MARKER_LABELS) {
+    await expect(monitorMarker(id), id).toBeVisible()
+  }
+  await expectBrowserMonitorMarkers()
+
+  // Gráficos: los tres primeros, con sus series; el de rendimiento, ni el panel.
+  const panels = entityPage.getByTestId('monitor-charts').getByTestId('monitor-chart-panel')
+  for (const kind of ['availability', 'duration', 'executions'] as const) {
+    await expectMonitorChartSeries('browser', kind)
+  }
+  await expect(panels).toHaveCount(3)
+  expect(await panels.evaluateAll((els) => els.map((el) => el.getAttribute('data-kind')))).toEqual([
+    'availability',
+    'duration',
+    'executions'
+  ])
+  await expect(monitorChartPanel('performance')).toHaveCount(0)
+  await expect(page.getByTestId('monitor-chart-performance')).toHaveCount(0)
+})
+
+test('CA5 (0024): la franja de problemas sale sobre el gráfico de disponibilidad con los problemas del monitor, y pulsar un tramo abre el problema', async () => {
+  await openMonitorPage('browser')
+  await monitorChartSeries('availability')
+  const band = monitorBand()
+  await expect(band).toBeVisible()
+  await expect(band.getByTestId('monitor-problem-segment')).toHaveCount(2)
+  for (const { problemId } of [MONITOR_BAND_OPEN, MONITOR_BAND_CLOSED]) {
+    await expect(monitorSegment(problemId), problemId).toHaveCount(1)
+  }
+  // Solo en el panel de la disponibilidad.
+  await expect(page.getByTestId('monitor-problem-band')).toHaveCount(1)
+
+  // La lista se pide con el monitor y el rango global.
+  await settledRequests()
+  const lists = sim.entityProblemListQueries.filter((query) =>
+    (query.get('problemSelector') ?? '').includes(MONITOR_BROWSER_ID)
+  )
+  expect(lists).toHaveLength(1)
+  expect(lists[0]?.get('problemSelector')).toBe(`affectedEntities("${MONITOR_BROWSER_ID}")`)
+  expect(lists[0]?.get('from')).toBe('now-2h')
+
+  // Encima del gráfico: la franja acaba antes de que empiece el canvas.
+  const bandBox = await settledBox(band)
+  const plotBox = await settledBox(monitorChartPlot('availability'))
+  expect(bandBox.y + bandBox.height).toBeLessThanOrEqual(plotBox.y + 1)
+
+  // Pulsar un tramo (trayéndolo a la vista) abre ese problema.
+  await clickInPlace(monitorSegment(MONITOR_BAND_CLOSED.problemId), { scroll: true })
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(MONITOR_BAND_CLOSED.displayId)
+  expect(await currentRoute()).toBe(`/problems/${MONITOR_BAND_CLOSED.problemId}`)
+
+  // «Volver» regresa a la página del monitor.
+  await page.getByTestId('problem-back').click()
+  await expect(monitorPage('browser')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SYNTHETIC_TEST/${MONITOR_BROWSER_ID}`)
+})
+
+test('CA6 (0024): cambiar el rango global vuelve a pedir los datos; «Actualizar» también; volver a la página sin cambios, no', async () => {
+  await openMonitorPage('browser')
+  await expectBrowserMonitorMarkers()
+  await settledRequests()
+  // Al entrar: las dos consultas de métricas, el desglose y los recuentos, con el rango global.
+  expect(sim.monitorMetricQueries).toHaveLength(2)
+  expect(sim.entityProblemQueries).toHaveLength(2)
+  const breakdown = sim.monitorBreakdownQueries.length
+  expect(breakdown, 'consultas del desglose al entrar').toBeGreaterThan(0)
+  const all = (): URLSearchParams[] => [
+    ...sim.monitorMetricQueries,
+    ...sim.monitorBreakdownQueries,
+    ...sim.entityProblemQueries
+  ]
+  for (const query of all()) expect(query.get('from')).toBe('now-2h')
+
+  // Rango nuevo: otra vez, con now-24h.
+  await page.getByTestId('time-range-24h').click()
+  await expect.poll(() => sim.monitorMetricQueries.length).toBe(4)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(4)
+  await expect.poll(() => sim.monitorBreakdownQueries.length).toBe(breakdown * 2)
+  for (const query of [
+    ...sim.monitorMetricQueries.slice(2),
+    ...sim.monitorBreakdownQueries.slice(breakdown),
+    ...sim.entityProblemQueries.slice(2)
+  ]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectBrowserMonitorMarkers()
+  await settledRequests()
+  expect(sim.monitorMetricQueries).toHaveLength(4)
+
+  // Fuera y vuelta, sin cambiar nada: ninguna petición nueva.
+  await goTo('metrics')
+  await expect(monitorPage('browser')).toHaveCount(0)
+  const before = await settledRequests()
+  await openMonitorPage('browser')
+  await expectBrowserMonitorMarkers()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver a la página').toEqual([])
+
+  // «Actualizar», en la cabecera de la página: otra vez, con el rango actual.
+  await monitorPage('browser').getByTestId('module-refresh').click()
+  await expect.poll(() => sim.monitorMetricQueries.length).toBe(6)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(6)
+  await expect.poll(() => sim.monitorBreakdownQueries.length).toBe(breakdown * 3)
+  for (const query of [
+    ...sim.monitorMetricQueries.slice(4),
+    ...sim.monitorBreakdownQueries.slice(breakdown * 2),
+    ...sim.entityProblemQueries.slice(4)
+  ]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectBrowserMonitorMarkers()
+})
+
+test('CA6 (0024): si falla el canal de métricas, sus marcadores y cada gráfico enseñan el aviso con Reintentar; localizaciones y problemas siguen', async () => {
+  sim.monitorMetricsFail = true
+  await openMonitorPage('browser')
+
+  // Localizaciones y problemas, con su dato y sin aviso.
+  const locations = monitorMarker('locations')
+  await expect(locations.getByTestId('monitor-marker-value')).toHaveText(/^3$/)
+  await expect(locations.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  const problems = monitorMarker('problems')
+  await expect(problems.getByTestId('monitor-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('monitor-marker-closed')).toHaveText(loneNumber('1'))
+  await expect(problems.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  // Cada marcador de métricas, en su sitio, con el aviso y Reintentar y sin valor.
+  for (const id of MONITOR_METRIC_MARKERS) {
+    const marker = monitorMarker(id)
+    await expect(marker, id).toBeVisible()
+    await expect(marker.getByRole('alert').first(), id).toBeVisible()
+    await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toBeVisible()
+    await expect(marker.getByTestId('monitor-marker-value'), id).toHaveCount(0)
+  }
+  // Cada gráfico (al menos los tres que tiene todo monitor), con su aviso y Reintentar, sin gráfico.
+  const panels = page.getByTestId('monitor-chart-panel')
+  for (const kind of ['availability', 'duration', 'executions'] as const) {
+    await expect(monitorChartPanel(kind), kind).toBeVisible()
+  }
+  const shown = await panels.evaluateAll((els) => els.map((el) => el.getAttribute('data-kind')))
+  for (const kind of shown as MonitorChartKind[]) {
+    const panel = monitorChartPanel(kind)
+    await expect(panel.getByRole('alert').first(), kind).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Reintentar' }), kind).toBeVisible()
+    await expect(panel.getByTestId(`monitor-chart-${kind}`), kind).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llegan valores y los cuatro gráficos.
+  sim.monitorMetricsFail = false
+  await clickInPlace(monitorMarker('availability').getByRole('button', { name: 'Reintentar' }), {
+    scroll: true
+  })
+  await expectBrowserMonitorMarkers()
+  for (const kind of MONITOR_CHART_KINDS) await expectMonitorChartSeries('browser', kind)
+  for (const id of MONITOR_METRIC_MARKERS) {
+    await expect(monitorMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
+})
+
+test('CA6 (0024): si falla el desglose, el marcador «Localizaciones» enseña el aviso con Reintentar y el resto sigue', async () => {
+  sim.monitorBreakdownFail = true
+  await openMonitorPage('http')
+
+  const locations = monitorMarker('locations')
+  await expect(locations).toBeVisible()
+  await expect(locations.getByRole('alert').first()).toBeVisible()
+  await expect(locations.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  await expect(locations.getByTestId('monitor-marker-value')).toHaveCount(0)
+
+  // Los demás marcadores y los gráficos, con sus datos.
+  await expect(monitorMarker('availability').getByTestId('monitor-marker-value')).toHaveText(
+    /^92,5\s?%$/
+  )
+  await expect(monitorMarker('problems').getByTestId('monitor-marker-closed')).toHaveText(
+    loneNumber('1')
+  )
+  for (const kind of MONITOR_CHART_KINDS) await expectMonitorChartSeries('http', kind)
+
+  // Reintentar, con el canal ya bien.
+  sim.monitorBreakdownFail = false
+  await clickInPlace(locations.getByRole('button', { name: 'Reintentar' }), { scroll: true })
+  await expectHttpMonitorMarkers()
+  await expect(locations.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
 })
