@@ -6,14 +6,10 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020) → lote **monitores**
+- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020, hecho) → lote **monitores**
   ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
   browser y HTTP monitor) → lote **proceso**
   ([0027](tasks/0027-proceso-exploracion-datos.md)–[0029](tasks/0029-proceso-informacion.md)).
-- Lote **host** (página de análisis de una entidad HOST), aprobado por Dani el 2026-10-07. Orden:
-  [0016](tasks/0016-host-datos-metricas.md), [0017](tasks/0017-host-discos-procesos-datos.md),
-  [0018](tasks/0018-host-marcadores-graficos.md), [0019](tasks/0019-host-discos-procesos-vista.md) y
-  [0020](tasks/0020-host-informacion.md). La 0020 depende de la 0015 (lote servicio-2).
 
 ## Próximo
 
@@ -140,6 +136,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   acción. (surgió en 0019)
 - Unitarios de `processLinkId`, `processesTruncated` y `diskTotal` (`host-tables.ts`), hoy cubiertos
   solo por los e2e. (surgió en 0019)
+- Información de la nube del host: filas de región y tamaño de instancia. Solo llegan con claves propias de cada proveedor (`gce*`…); decide Dani de qué claves salen por proveedor. (surgió en 0020)
 - Host: los `warnings` de la API se repiten en las dos tarjetas (discos y procesos); mostrarlos una
   sola vez. (surgió en 0019)
 
@@ -194,3 +191,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0018](tasks/0018-host-marcadores-graficos.md): página del host con cinco marcadores (umbrales 80/90 %) y cuatro gráficos (CPU con la franja de problemas, memoria, red y disco), con «Abrir en Métricas» y exportación (lote host).
 - [0030](tasks/0030-e2e-exportacion-detalle.md): los e2e leen las exportaciones tras el aviso «Guardado» y con contenido (`exportSaved`); arregla un intermitente del CI.
 - [0019](tasks/0019-host-discos-procesos-vista.md): tablas de discos y de los 10 procesos con más CPU en la página del host, con orden por columna, enlace al proceso y aviso de lista recortada (lote host).
+- [0020](tasks/0020-host-informacion.md): tarjeta «Información» en la página del host, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; la tarjeta se comparte con el servicio. Con ella queda completo el lote «host» (0016 a 0020).

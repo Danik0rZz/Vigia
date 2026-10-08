@@ -1,7 +1,7 @@
 ---
 id: '0020'
 titulo: 'HOST: tarjeta «Información» con los datos de la entidad y sus relaciones'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:get` y `entities:names` de la 0014; scope `entities.read`)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -203,4 +203,8 @@ recuento de CA5 (0015)».
 
 ## Resultado
 
-(pendiente)
+Commits (`main..HEAD`): tests `995d469`; refactor de la tarjeta común `b09fc6c`; funcionalidad `0694d42`; ajuste de CA5 (0015) `2646be5`; plurales `dac5e39` y `8a47b0c`; nombres de tests `3197284`.
+
+Ficheros principales: `src/renderer/src/pages/entities/EntityInfoCard.tsx` (tarjeta común), `HostInfo.tsx`, `host-info.ts`, `ServiceInfo.tsx` (ahora solo sus filas), `HostEntityPage.tsx`, locales es y en, `e2e/views.spec.ts` y la ampliación del test en vivo.
+
+Rondas de revisión: 1 (aprobada, con retoques opcionales aplicados sin ronda 2). ADR nuevo: ninguno. Migraciones: ninguna.

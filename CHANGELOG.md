@@ -9,6 +9,7 @@ Sin migraciones nuevas.
 
 ### Añadido
 
+- Página del host: tarjeta «Información» entre la cabecera y los marcadores, breve y con el detalle plegado. Enseña, solo con lo que viene: sistema, capacidad (memoria en GB), red (las primeras IP y «+N»), monitorización, grupo, nube o virtualización, visto por primera y última vez, zonas y etiquetas. Debajo, las relaciones con procesos, servicios, «Se ejecuta en» y grupo de hosts, con «Ver nombres» a demanda y enlaces a cada página (con «Volver» al host), y «Todas las propiedades» plegadas. Sin el permiso de entidades sale el aviso de qué falta y el resto de la página sigue. La tarjeta del servicio no cambia. Corregido de paso: «Ver las N IP/etiquetas restantes» ahora concuerda en singular y plural. Sin migraciones nuevas. (ficha 0020)
 - Página del host: debajo de los gráficos, dos tablas lado a lado (una columna si la ventana es
   estrecha). «Discos»: uso con barra y nivel de aviso (más del 80 %) o error (más del 90 %) siempre
   con texto, usado y total, libre, lectura y escritura. «Procesos»: los 10 con más CPU, con CPU media

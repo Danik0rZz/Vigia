@@ -28,3 +28,4 @@
 - Todo número que se enseña pasa por `formatNumber` (`src/shared/format-number.ts`): en ejes y tooltips de ECharts, con `formatter` (si no, ECharts pone comas); los textos de i18next ya lo hacen con el formateador global (`app/i18n-numbers.ts`). Un test vigila que no haya `new Intl.NumberFormat` por libre.
 - Una consulta que depende de un scope espera a conocer `connection:status` (`useConnectionStatusKnown`, `data/tenants.ts`): `useModuleAccess` da el módulo por disponible hasta entonces y se pediría sin permiso (`ServiceInfo.tsx`).
 - Las páginas de entidad comparten `EntityMarkers.tsx`, `EntityChartPanel.tsx` y `entity-charts.ts`: un tipo nuevo reutiliza esas piezas y `ProblemBand` con `testIdPrefix` (servicio y host ya lo hacen).
+- Las tarjetas «Información» de entidad comparten `EntityInfoCard.tsx`: un tipo nuevo aporta su `buildXInfo` (como `host-info.ts`) con claves confirmadas en vivo.
