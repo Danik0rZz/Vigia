@@ -328,6 +328,47 @@ export const hostMetricsResultSchema = z.object({
 })
 export type HostMetricsResult = z.output<typeof hostMetricsResultSchema>
 
+/** Un disco del host (ficha 0017). Unidades sin convertir: % en 0–100, bytes y bytes/s. */
+export const hostDiskSchema = z.object({
+  id: z.string(),
+  /** De dimensionMap; si no llega, el id. */
+  name: z.string(),
+  /** Uso en %: último dato con valor y máximo del rango. */
+  usedPct: z.object({ last: z.number().nullable(), max: z.number().nullable() }),
+  /** Bytes usados y libres, del último dato con valor. */
+  used: z.number().nullable(),
+  avail: z.number().nullable(),
+  /** Lectura y escritura medias del rango, en bytes/s. */
+  read: z.number().nullable(),
+  write: z.number().nullable()
+})
+export type HostDisk = z.output<typeof hostDiskSchema>
+
+/** Un proceso del host (ficha 0017): CPU media y máxima (%) y memoria media (bytes). */
+export const hostProcessSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  cpu: z.object({ avg: z.number().nullable(), max: z.number().nullable() }),
+  memory: z.number().nullable()
+})
+export type HostProcess = z.output<typeof hostProcessSchema>
+
+/**
+ * Discos y procesos de un host en el rango (canal `entities:hostBreakdown`, ficha
+ * 0017): todos los discos, del más lleno al menos, y los 10 procesos con más CPU
+ * media, con `total` de procesos del host.
+ */
+export const hostBreakdownResultSchema = z.object({
+  disks: z.array(hostDiskSchema),
+  processes: z.object({
+    items: z.array(hostProcessSchema),
+    total: z.number().int().nonnegative()
+  }),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type HostBreakdownResult = z.output<typeof hostBreakdownResultSchema>
+
 export const metricInfoSchema = z.object({
   metricId: z.string(),
   displayName: z.string().nullable(),

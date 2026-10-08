@@ -23,6 +23,7 @@ import {
   entityProblemListSchema,
   hostEntityIdSchema,
   hostMetricsResultSchema,
+  hostBreakdownResultSchema,
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
@@ -348,6 +349,18 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: hostMetricsResultSchema
+  },
+  /**
+   * Discos y los 10 procesos con más CPU de una entidad HOST en el rango (ficha
+   * 0017). La interfaz manda el id y main construye los selectores.
+   */
+  'entities:hostBreakdown': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: hostEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: hostBreakdownResultSchema
   },
   'metrics:search': {
     input: z.object({ environmentId: z.uuid(), text: z.string().trim().min(1).max(100) }),

@@ -41,6 +41,13 @@ import {
   hostEntitySelector,
   toHostMetrics
 } from '../../modules/host-metrics'
+import {
+  DISK_RANGE_SELECTOR,
+  DISK_SERIES_SELECTOR,
+  PROCESS_RANGE_SELECTOR,
+  hostProcessSelector,
+  toHostBreakdown
+} from '../../modules/host-breakdown'
 import type { SavedQueryStore } from '../../modules/saved-queries'
 import { sloSchema, toSloSummary } from '../../modules/slos'
 import type { TenantRepository } from '../../tenants/repository'
@@ -58,6 +65,7 @@ type ModuleChannels =
   | 'metrics:search'
   | 'entities:serviceMetrics'
   | 'entities:hostMetrics'
+  | 'entities:hostBreakdown'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -377,6 +385,45 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'hostMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:hostBreakdown': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const query = (
+        metricSelector: string,
+        entitySelector: string,
+        resolution?: 'Inf'
+      ): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, entitySelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Discos acotados con entityId del host; procesos, por la relación isProcessOf
+        // (sus métricas no tienen la dimensión del host). Último dato de la serie
+        // (:last con Inf da 400); máximo y medias del rango con Inf.
+        const [diskSeries, diskRange, processRange] = await Promise.all([
+          query(DISK_SERIES_SELECTOR, hostEntitySelector(entityId)),
+          query(DISK_RANGE_SELECTOR, hostEntitySelector(entityId), 'Inf'),
+          query(PROCESS_RANGE_SELECTOR, hostProcessSelector(entityId), 'Inf')
+        ])
+        return toHostBreakdown(diskSeries, diskRange, processRange)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'hostBreakdownRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }

@@ -36,6 +36,7 @@ export const errorReasonKeys = [
   'entityProblemListRejected',
   'serviceMetricsRejected',
   'hostMetricsRejected',
+  'hostBreakdownRejected',
   'entityNotFound',
   'entityNamesRejected',
   // Datos locales

@@ -258,6 +258,7 @@
     "entityProblemListRejected": "Dynatrace ha rechazado la lista de problemas de la entidad ({{status}}): {{detail}}",
     "serviceMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del servicio ({{status}}): {{detail}}",
     "hostMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del host ({{status}}): {{detail}}",
+    "hostBreakdownRejected": "Dynatrace ha rechazado la consulta de discos y procesos del host ({{status}}): {{detail}}",
     "entityNotFound": "La entidad no existe en este entorno.",
     "entityNamesRejected": "Dynatrace ha rechazado la consulta de nombres de las entidades ({{status}}): {{detail}}",
     "clientMissing": "El cliente no existe.",

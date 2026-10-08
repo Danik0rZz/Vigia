@@ -258,6 +258,7 @@
     "entityProblemListRejected": "Dynatrace rejected the entity problem list ({{status}}): {{detail}}",
     "serviceMetricsRejected": "Dynatrace rejected the service metrics query ({{status}}): {{detail}}",
     "hostMetricsRejected": "Dynatrace rejected the host metrics query ({{status}}): {{detail}}",
+    "hostBreakdownRejected": "Dynatrace rejected the host disks and processes query ({{status}}): {{detail}}",
     "entityNotFound": "The entity does not exist in this environment.",
     "entityNamesRejected": "Dynatrace rejected the entity names query ({{status}}): {{detail}}",
     "clientMissing": "The client does not exist.",
