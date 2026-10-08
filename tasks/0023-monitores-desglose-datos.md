@@ -40,6 +40,12 @@ texto. Las colas trabajan solas de noche y lo que haya que refinar se refina des
     duración. Si la 0022 no encontró métrica por paso, `null`.
 - Main construye los selectores con el id validado. Errores con `reason`. El simulador responde.
 
+**Decisión del Orquestador (2026-10-08, delegada por Dani; refinable):** la 0022 encontró métrica de pasos
+o peticiones para los dos tipos de monitor, así que la rama «sin métrica de pasos, `steps` es `null`» de CA3
+no aplica a ningún tipo actual. `steps` es siempre una lista (vacía si no hay series); CA3 se cumple en lo
+que aplica (nombres de `dimensionMap` o el id). Si un tipo futuro no tiene métrica de pasos, se añade
+entonces la rama `null` con su test.
+
 ## Criterios de aceptación
 
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
