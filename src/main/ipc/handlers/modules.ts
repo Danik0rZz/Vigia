@@ -48,6 +48,12 @@ import {
   monitorSeriesSelector,
   toMonitorMetrics
 } from '../../modules/monitor-metrics'
+import {
+  PROCESS_MARKER_SELECTOR,
+  PROCESS_SERIES_SELECTOR,
+  processEntitySelector,
+  toProcessMetrics
+} from '../../modules/process-metrics'
 import { monitorBreakdownQueries, toMonitorBreakdown } from '../../modules/monitor-breakdown'
 import {
   DISK_RANGE_SELECTOR,
@@ -76,6 +82,7 @@ type ModuleChannels =
   | 'entities:hostBreakdown'
   | 'entities:monitorMetrics'
   | 'entities:monitorBreakdown'
+  | 'entities:processMetrics'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -395,6 +402,40 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'hostMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:processMetrics': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const entitySelector = processEntitySelector(entityId)
+      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, entitySelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Series con la resolución que elija la API; marcadores del rango con Inf
+        // (sin fold: mezclarlos da 400).
+        const [series, markers] = await Promise.all([
+          query(PROCESS_SERIES_SELECTOR),
+          query(PROCESS_MARKER_SELECTOR, 'Inf')
+        ])
+        return toProcessMetrics(series, markers)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'processMetricsRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }

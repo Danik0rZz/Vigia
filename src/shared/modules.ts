@@ -429,6 +429,55 @@ export const monitorMetricsResultSchema = z.object({
 })
 export type MonitorMetricsResult = z.output<typeof monitorMetricsResultSchema>
 
+/**
+ * Id de una entidad PROCESS_GROUP_INSTANCE de Dynatrace (ficha 0027). Como el del
+ * host: main construye el entitySelector con él y el formato estricto impide
+ * inyectar nada.
+ */
+export const processEntityIdSchema = z.string().regex(/^PROCESS_GROUP_INSTANCE-[0-9A-F]{16}$/)
+
+/** Una serie del proceso: `values[i]` es el valor en `timestamps[i]` (null sin dato). */
+export type ProcessSeries = ServiceSeries
+
+/**
+ * Métricas de un proceso en el rango (canal `entities:processMetrics`, ficha 0027).
+ * Unidades sin convertir: CPU, disponibilidad, retransmisiones y descriptores de
+ * fichero en %, memoria en bytes y red en bytes/s. Los seis papeles tienen métrica:
+ * un papel sin datos en el proceso llega con series vacías, y su marcador, a null.
+ */
+export const processMetricsResultSchema = z.object({
+  /** Resolución que devolvió la API para las series (por ejemplo, 10m o 1h). */
+  resolution: z.string(),
+  series: z.object({
+    /** Uso de CPU del proceso, en %. */
+    cpu: serviceSeriesSchema,
+    /** Working set del proceso, en bytes. */
+    memory: serviceSeriesSchema,
+    /** Bytes recibidos y enviados, en bytes/s. */
+    network: z.object({ in: serviceSeriesSchema, out: serviceSeriesSchema }),
+    /** Retransmisiones de paquetes, en %. */
+    networkHealth: serviceSeriesSchema,
+    /** Disponibilidad del proceso, en %. */
+    availability: serviceSeriesSchema,
+    /** Descriptores de fichero usados, en % (en vivo, valores en [0, 1]). */
+    resources: serviceSeriesSchema
+  }),
+  /** Marcadores del rango completo; null sin dato. Salud de red no lleva marcador. */
+  totals: z.object({
+    cpu: z.object({ avg: z.number().nullable(), max: z.number().nullable() }),
+    memory: z.object({ avg: z.number().nullable(), max: z.number().nullable() }),
+    /** Medias del rango, en bytes/s. */
+    network: z.object({ in: z.number().nullable(), out: z.number().nullable() }),
+    /** Disponibilidad media, en %. */
+    availability: z.number().nullable(),
+    /** Máximo de descriptores de fichero usados, en %. */
+    resources: z.number().nullable()
+  }),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type ProcessMetricsResult = z.output<typeof processMetricsResultSchema>
+
 /** Una localización del monitor en el rango (ficha 0023). */
 export const monitorLocationSchema = z.object({
   id: z.string(),

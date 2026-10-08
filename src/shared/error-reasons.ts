@@ -39,6 +39,7 @@ export const errorReasonKeys = [
   'hostBreakdownRejected',
   'monitorMetricsRejected',
   'monitorBreakdownRejected',
+  'processMetricsRejected',
   'entityNotFound',
   'entityNamesRejected',
   // Datos locales

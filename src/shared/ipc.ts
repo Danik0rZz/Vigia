@@ -31,6 +31,8 @@ import {
   monitorEntityIdSchema,
   monitorMetricsResultSchema,
   problemCommentSchema,
+  processEntityIdSchema,
+  processMetricsResultSchema,
   problemDetailOutputSchema,
   problemSummarySchema,
   resolutionSchema,
@@ -377,6 +379,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: monitorMetricsResultSchema
+  },
+  /**
+   * Métricas de una entidad PROCESS_GROUP_INSTANCE en el rango (ficha 0027): series
+   * y marcadores por papel (CPU, memoria, red, salud de red, disponibilidad y
+   * recursos). La interfaz manda el id y main construye los selectores.
+   */
+  'entities:processMetrics': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: processEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: processMetricsResultSchema
   },
   /**
    * Desglose de un browser monitor o de un HTTP monitor por localización y por paso o
