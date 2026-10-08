@@ -1,7 +1,7 @@
 ---
 id: '0025'
 titulo: 'Monitores: tablas de localizaciones y de pasos o peticiones'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -149,6 +149,11 @@ datos no ocupa sitio.
 - Texto del nivel de la barra de disponibilidad: el del marcador (`entities.monitor.markers.levels`).
   Fallidas del browser (`failed: null`, sin métrica): «—». Peso con `formatUsagePct` (hasta un
   decimal).
+
+### Verifier, 2026-10-08, commit `2507666`, rango `main..feat/0025-monitores-localizaciones-pasos`: VERDE
+
+- check: 2411 tests en 131 ficheros, cobertura ok.
+- e2e afectados: 199/199, sin reintentos (incluye CA1 a CA4 de la 0025).
 
 ## Resultado
 
