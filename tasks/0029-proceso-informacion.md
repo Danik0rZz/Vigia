@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:get` y `entities:names` de la 0014; scope `entities.read`)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -75,7 +75,15 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 con su test; sin tocar tests tras `8769183`. CA1 mira respuesta y log y que no se quite de más; CA3 busca en HTML y texto con todo desplegado y al volver. El filtro (`entity-secrets.ts`) va en `toEntityData`, único paso de las `properties` a la interfaz; main no guarda caché, el log no lleva valores y «Todas las propiedades» recibe lo ya filtrado. Claves en el enum de metadata de la Configuration API. Puertos con « · »: decisión refinable aceptada.
+
+Sugerencias, no bloquean:
+
+- Seguridad: `isHiddenEntry` solo mira elementos de lista; un `{ key: "COMMAND_LINE_ARGS", value }` como valor directo de una propiedad saldría. No visto en vivo; cubrirlo en la rama de objetos de `withoutHiddenValues`.
+- Quitar de más: `env` y `environment` exactos se quitan en todas las entidades; anotarlo si se ve en vivo un uso inocuo.
+- Otras rutas de metadata (`JAVA_JAR_PATH`, `PHP_SCRIPT_PATH`, `CATALINA_HOME`…) siguen pasando: en "Ideas surgidas", lo decide Dani.
 
 ## Verificación
 
