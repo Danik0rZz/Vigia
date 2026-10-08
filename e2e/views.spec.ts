@@ -7553,7 +7553,8 @@ test('CA8 (0014): entities:get y entities:names por IPC con ids inventados: lo q
     lastSeen: ENTITY_INFO_LAST_SEEN,
     iconType: 'java',
     managementZones: ['Zona e2e'],
-    tags: ['equipo:pagos']
+    // Ficha 0037: las etiquetas llegan separadas en contexto, clave y valor.
+    tags: [{ context: 'CONTEXTLESS', key: 'equipo', value: 'pagos' }]
   })
   expect(data.properties.map((p) => p.key)).toEqual(['serviceType', 'port', 'webServiceName'])
   expect(data.properties[0]?.text).toBe('WEB_REQUEST_SERVICE')
