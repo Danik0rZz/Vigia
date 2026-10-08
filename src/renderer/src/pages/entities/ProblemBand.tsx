@@ -30,7 +30,7 @@ const SEGMENT_BOX = 'rounded border py-px text-xs leading-4'
 const MIN_SEGMENT_WIDTH = 'calc(0.75rem + 8px)'
 
 /** Páginas que llevan la franja: el servicio (ficha 0010) y el host (ficha 0018). */
-export type BandTestIdPrefix = 'service' | 'host'
+export type BandTestIdPrefix = 'service' | 'host' | 'monitor'
 
 /**
  * Franja de los problemas de la entidad sobre el gráfico «Tasa de error» del servicio (ficha 0010)

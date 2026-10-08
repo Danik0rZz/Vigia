@@ -1,17 +1,12 @@
 import type { JSX } from 'react'
-import { useTranslation } from 'react-i18next'
-import { EntityPageFrame, UnderConstruction, type EntityPageProps } from './EntityPageFrame'
+import type { EntityPageProps } from './EntityPageFrame'
+import { MonitorEntityPage } from './MonitorEntityPage'
 
-/** Página de análisis de una entidad HTTP_CHECK (en construcción, ficha 0003). */
+/**
+ * Página de análisis de una entidad HTTP_CHECK (HTTP monitor, ficha 0024): marcadores y gráficos
+ * comunes con el browser monitor (`MonitorEntityPage`); el cuarto gráfico es el de los tiempos
+ * HTTP (DNS, TCP, TLS y primer byte).
+ */
 export function HttpMonitorEntityPage(props: EntityPageProps): JSX.Element {
-  const { t } = useTranslation()
-  return (
-    <EntityPageFrame
-      {...props}
-      testId="entity-page-http_check"
-      typeText={t('entities.types.HTTP_CHECK')}
-    >
-      <UnderConstruction text={t('entities.underConstructionText')} />
-    </EntityPageFrame>
-  )
+  return <MonitorEntityPage {...props} monitorKind="http" testId="entity-page-http_check" />
 }
