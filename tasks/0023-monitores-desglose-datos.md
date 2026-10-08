@@ -1,7 +1,7 @@
 ---
 id: '0023'
 titulo: 'Monitores: canal con el desglose por localización y por paso o petición'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -153,4 +153,17 @@ dos tipos; la rama `null` queda sin test hasta que haya un tipo sin métrica de 
 
 ## Resultado
 
-(pendiente)
+**Desarrollo (developer, 2026-10-08):** canal en `fe270c6`. En `d8f0e1b`, el canal se registra en
+los tests de cobertura de canales (`channel-coverage.test.ts` y `modules.test.ts`); no son de la
+ficha: cada canal nuevo se añade ahí, como en la 0022.
+
+- Lógica en `src/main/modules/monitor-breakdown.ts` (`monitorBreakdownQueries` y
+  `toMonitorBreakdown`); canal en `createModuleHandlers`; esquemas en `src/shared/modules.ts`
+  (`monitorBreakdownResultSchema`, con `warnings` y `partial` por `truncatedResults`).
+- **Decisión (developer):** en browser, una consulta con `entityId` y sus 3 expresiones (las de
+  duración admiten ese ámbito); en HTTP, dos: las 3 de localización con `entityId` y la de
+  peticiones con el selector `isStepOf`. Todas con `resolution=Inf`; los resultados se casan por
+  posición y las series por id.
+- **Decisión (developer):** `share` es `null` si el paso no tiene duración o la suma es 0; los pasos
+  sin duración van al final.
+- Error 400 o 404 con `reason` `monitorBreakdownRejected` (es y en).
