@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:processMetrics` de la 0027 y los canales de problemas de las fichas 0007 y 0010)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -83,7 +83,14 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test; el developer no tocó tests (el ajuste de `d920e69` fija la decisión del Orquestador, antes del developer). Sin canal nuevo; `useProcessMetrics` en `MANUAL` (ADR-0004); id validado antes de ir a main; textos en es y en; umbrales con texto. La dimensión `dt.entity.process_group_instance` de «Abrir en Métricas» no es inventada: se deduce de la exploración en vivo de la 0027 (red, retransmisiones y descriptores dieron una serie con `entityId(<PGI>)`).
+
+Sugerencias, no bloquean:
+
+- Doc-writer: dejar escrita en `docs/notas-api-v2.md` (tabla de la 0027) la dimensión de las cinco métricas de `tech.generic.*` y precisar la nota del developer en la ficha.
+- Eje de Recursos fijo de 0 a 100 % (`process-charts.ts:166`): si la métrica es fracción, corregir a la vez marcador y eje (lo cubre la prueba a mano).
 
 ## Verificación
 
