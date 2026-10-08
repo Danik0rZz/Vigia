@@ -27,7 +27,10 @@
 - `GET /problems` con `affectedEntities("<id>"),status("open")`: los criterios se combinan con AND y
   `pageSize=1` ya trae `totalCount`; para contar no hace falta paginar (ficha 0007).
 - `GET /metrics/query`: `:fold(...)` y `resolution=Inf` en la misma consulta dan 400; para el valor
-  de todo el rango, `Inf` (tiempos) o sumar la serie (recuentos). `dataPointCountRatio` y
+  de todo el rango, `Inf` (tiempos) o sumar la serie (recuentos; en los monitores, los recuentos con
+  `Inf` difieren menos del 1 % de la suma). Cada expresión del canal tiene que ser exactamente la
+  probada en vivo: el simulador acepta variantes que la API puede no aceptar (ficha 0022).
+  `dataPointCountRatio` y
   `dimensionCountRatio` son «pedido / máximo permitido» y llegan siempre: recortado es un ratio
   **mayor que 1**, no menor (`truncatedResults`, ficha 0006).
 - `GET /metrics/query`: los nombres de disco y proceso solo llegan con `:names` en cada expresión;

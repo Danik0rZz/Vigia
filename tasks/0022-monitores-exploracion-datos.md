@@ -1,7 +1,7 @@
 ---
 id: '0022'
 titulo: 'Monitores (browser y HTTP): análisis de métricas en vivo y canal de series y marcadores'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -272,4 +272,10 @@ Papeles sin métrica: **mediana de la duración en HTTP** (no hay agregación me
 
 ## Resultado
 
-(pendiente)
+- Commits: `e1c7127` (tests), `4e68d16` (canal), `ab5afc8` (ronda 1: expresiones de browser como las del paso 0); el resto, fichas.
+- Ficheros principales: `src/main/modules/monitor-metrics.ts`, `src/main/ipc/handlers/modules.ts`,
+  `src/shared/ipc.ts`, `src/shared/modules.ts`, `src/shared/error-reasons.ts` (`monitorMetricsRejected`),
+  `src/main/modules/monitor-metrics-explore.live.test.ts` y `e2e/views.spec.ts`.
+- Rondas de revisión: 2 (ronda 1 con cambios; ronda 2 aprobada). Sin ADR nuevo ni migraciones.
+- Tabla papel a métrica: ver «Elección por papel» y `docs/notas-api-v2.md`.
+- Sin entrada en el CHANGELOG: no hay cambios visibles hasta la 0024.

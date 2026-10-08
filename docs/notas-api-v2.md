@@ -468,6 +468,52 @@ Muestra: 3 hosts, con `now-2h` y `now-7d`. Las 7 candidatas existen, todas con
 - Con `now-2h` el último punto de las series de disco puede ser `null`; `used / (used + avail)`
   coincide con `usedPct`. `bytesRead`/`bytesWritten` pueden traer más discos que `usedPct`.
 
+### Métricas de browser y HTTP monitor (ficha 0022, observado en vivo, solo lectura)
+
+Muestra: 3 browser monitors y 3 HTTP monitors, con `now-24h`. `builtin:synthetic.browser.*` da 109
+métricas y `builtin:synthetic.http.*` 22, en una sola página; todas admiten `resolution=Inf`.
+
+| Papel (browser)                | Métrica                                                                                                              | Unidad      |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Disponibilidad                 | `builtin:synthetic.browser.availability.location.total`                                                              | Percent     |
+| Duración                       | `builtin:synthetic.browser.totalDuration` (`:avg`, `:median`)                                                        | MilliSecond |
+| Ejecuciones correctas/fallidas | `builtin:synthetic.browser.success` / `.failure`                                                                     | Count       |
+| Rendimiento                    | `largestContentfulPaint.load`, `visuallyComplete.load`, `cumulativeLayoutShift.load` (sin unidad), `speedIndex.load` | MilliSecond |
+
+| Papel (HTTP)                   | Métrica                                                                                         | Unidad      |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- | ----------- |
+| Disponibilidad                 | `builtin:synthetic.http.availability.location.total`                                            | Percent     |
+| Duración                       | `builtin:synthetic.http.duration.geo` (`:avg`)                                                  | MilliSecond |
+| Ejecuciones correctas/fallidas | `builtin:synthetic.http.resultStatus` con `filter(eq("Result status","SUCCESS"))` / `"FAILURE"` | Count       |
+| Tiempos                        | `dns.geo`, `tcpConnectTime.geo`, `tlsHandshakeTime.geo`, `timeToFirstByte.geo`                  | MilliSecond |
+
+- **`splitBy`:** en HTTP, todas las expresiones llevan `splitBy("dt.entity.http_check")`. En browser,
+  solo `availability.location.total` lleva `splitBy("dt.entity.synthetic_test")`; `totalDuration`,
+  `success`, `failure` y las de rendimiento van sin `splitBy`. Con él, `browser.duration` da de 2 a
+  9 series. El simulador acepta las dos formas: cada expresión del canal tiene que ser la probada.
+- **HTTP no tiene mediana de duración:** `http.duration.geo:median` da 200 pero devuelve lo mismo
+  que `:avg`. En browser, `totalDuration:median` sí es distinta.
+- **Disponibilidad:** `availability` dice `Count` pero sus valores son % (0 a 100); trae la
+  dimensión `interpolated`. Las `.geo` y `availability.location.total` de browser van por
+  `dt.entity.geolocation`; en HTTP, por `dt.entity.synthetic_location`.
+- **Pasos y peticiones:** las métricas `*.event.*` (browser) y `*.request.*` (HTTP) no traen la
+  dimensión del monitor; se limitan con `entitySelector=type("SYNTHETIC_TEST_STEP")` (o
+  `"HTTP_CHECK_STEP"`)`,fromRelationships.isStepOf(entityId("<id>"))`. Con `:names`, `dimensionMap`
+  trae los nombres.
+- **Sin fallos:** `filter(eq("Result status","FAILURE"))` de un HTTP monitor sin fallos llega sin series.
+- **Recuentos con `Inf`:** dan lo mismo que sumar la serie o menos del 1 % de diferencia.
+- **`GET /entities/{id}`** (con `+properties`, relaciones y `+firstSeenTms`/`+lastSeenTms`).
+  Claves de `properties` de SYNTHETIC_TEST: `assignedLocations`, `browserMonitorSubtype`,
+  `createdBy`, `customizedName`, `detectedName`, `deviceProfile`, `isEnabled`,
+  `lastExecutionTimestamp`, `lastModificationSource`, `lastModifiedBy`,
+  `manuallyAssignedApplications`, `modificationTimestamp`, `steps`, `syntheticMonitorFrequency`,
+  cuatro `syntheticScreenshot*Uri` y, a veces, `url`. De HTTP_CHECK: las mismas menos las de
+  navegador (`browserMonitorSubtype`, `customizedName`, `deviceProfile`, capturas, `url`), más
+  `httpMonitorSubtype`. Relaciones: `fromRelationships.runsOn` (SYNTHETIC_LOCATION),
+  `toRelationships.isStepOf` (SYNTHETIC_TEST_STEP / HTTP_CHECK_STEP), a veces
+  `fromRelationships.monitors` (APPLICATION); en HTTP, a veces `fromRelationships.calls` (SERVICE) y
+  `toRelationships.isApplicationOfSyntheticTest` (APPLICATION).
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2
