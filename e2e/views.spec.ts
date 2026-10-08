@@ -2049,6 +2049,79 @@ function monitorMetricResponse(query: URLSearchParams): [number, unknown] {
 }
 
 /**
+ * Ficha 0027: métricas de un proceso (canal entities:processMetrics), con un id inventado. Imita
+ * lo observado en vivo (paso 0): con entitySelector=entityId(...), un resultado por expresión, en
+ * el orden pedido, con el metricId igual a la expresión y una sola serie; CPU y disponibilidad en
+ * % (0–100), memoria en bytes y descriptores de fichero en %. Red y salud de red no tienen
+ * métrica (ningún proceso de muestra las traía). fold con resolution=Inf da 400.
+ */
+const PROCESS_METRICS_ID = 'PROCESS_GROUP_INSTANCE-00000000000E2E50'
+const PROCESS_T0 = Date.parse('2026-10-03T08:00:00.000Z')
+const PROCESS_TIMESTAMPS = [0, 1, 2].map((i) => PROCESS_T0 + i * 600_000)
+/** Series del proceso, por expresión (las exactas del paso 0). */
+const PROCESS_SERIES: Record<string, (number | null)[]> = {
+  'builtin:tech.generic.cpu.usage': [8, null, 22.5],
+  'builtin:tech.generic.mem.workingSetSize': [300_000_000, null, 320_000_000],
+  'builtin:pgi.availability': [100, null, 50],
+  'builtin:tech.generic.handles.fileDescriptorsPercentUsed': [0.5, null, 0.8]
+}
+/** Valor del rango (resolution=Inf), por expresión. */
+const PROCESS_MARKERS: Record<string, number> = {
+  'builtin:tech.generic.cpu.usage:avg': 15.25,
+  'builtin:tech.generic.cpu.usage:max': 91,
+  'builtin:tech.generic.mem.workingSetSize:avg': 310_000_000,
+  'builtin:tech.generic.mem.workingSetSize:max': 330_000_000,
+  'builtin:pgi.availability:avg': 83.5,
+  'builtin:tech.generic.handles.fileDescriptorsPercentUsed:max': 0.9
+}
+
+/** ¿Es una consulta de métricas del proceso inventado? */
+function isProcessMetricsQuery(query: URLSearchParams): boolean {
+  return (query.get('entitySelector') ?? '').includes(PROCESS_METRICS_ID)
+}
+
+/** Respuesta del simulador a una consulta de métricas del proceso inventado. */
+function processMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && selector.includes(':fold(')) {
+    return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
+  }
+  const expressions = splitSelector(selector)
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '10m',
+      result: expressions.map((expression) => {
+        const one = inf
+          ? PROCESS_MARKERS[expression] === undefined
+            ? undefined
+            : [PROCESS_MARKERS[expression]]
+          : PROCESS_SERIES[expression]
+        return {
+          metricId: expression,
+          dataPointCountRatio: 0.005,
+          dimensionCountRatio: 0.005,
+          data:
+            one === undefined
+              ? []
+              : [
+                  {
+                    dimensionMap: { 'dt.entity.process_group_instance': PROCESS_METRICS_ID },
+                    dimensions: [PROCESS_METRICS_ID],
+                    timestamps: inf ? [PROCESS_T0 + 1_800_000] : PROCESS_TIMESTAMPS,
+                    values: one
+                  }
+                ]
+        }
+      })
+    }
+  ]
+}
+
+/**
  * Ficha 0023: desglose de un browser monitor y de un HTTP monitor por localización y por paso o
  * petición (canal entities:monitorBreakdown), con ids inventados. Responde SOLO a las expresiones
  * confirmadas en vivo (paso 0 de la ficha) y con el ámbito con que se probaron; a cualquier otra,
@@ -2576,6 +2649,8 @@ const defaultSim = () => ({
   hostMetricQueries: [] as URLSearchParams[],
   /** Ficha 0022: consultas de métricas de los monitores inventados (sus query). */
   monitorMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0027: consultas de métricas del proceso inventado (sus query). */
+  processMetricQueries: [] as URLSearchParams[],
   /** Ficha 0023: consultas del desglose de los monitores inventados (sus query). */
   monitorBreakdownQueries: [] as URLSearchParams[],
   /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
@@ -2856,6 +2931,12 @@ async function startServer(): Promise<void> {
             send(status, body)
           }, sim.eventMetricDelayMs)
           return
+        }
+        // Ficha 0027: las del canal entities:processMetrics, aparte.
+        if (isProcessMetricsQuery(url.searchParams)) {
+          sim.processMetricQueries.push(url.searchParams)
+          const [status, body] = processMetricResponse(url.searchParams)
+          return send(status, body)
         }
         // Ficha 0017: las del canal entities:hostBreakdown, aparte.
         if (isHostBreakdownQuery(url.searchParams)) {
@@ -6991,6 +7072,50 @@ test('CA6 (0022): entities:monitorMetrics por IPC con ids inventados de browser 
       availability: 92.5,
       duration: { avg: 310, median: null },
       executions: { ok: 10, failed: 2 }
+    },
+    warnings: [],
+    partial: []
+  })
+})
+
+test('CA6 (0027): entities:processMetrics por IPC con un id inventado: dos consultas, series por papel y marcadores', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:processMetrics', {
+    environmentId: env['Producción'],
+    entityId: PROCESS_METRICS_ID,
+    timeRange: '2h'
+  })
+  // Dos consultas al simulador (series y marcadores con Inf), acotadas al proceso y con el rango.
+  expect(sim.processMetricQueries).toHaveLength(2)
+  for (const query of sim.processMetricQueries) {
+    expect(query.get('from')).toBe('now-2h')
+    expect(query.get('entitySelector')).toBe(`entityId("${PROCESS_METRICS_ID}")`)
+  }
+  expect(sim.processMetricQueries.map((q) => q.get('resolution') ?? 'API').sort()).toEqual([
+    'API',
+    'Inf'
+  ])
+
+  const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: PROCESS_TIMESTAMPS,
+    values
+  })
+  expect(data).toMatchObject({
+    resolution: '10m',
+    series: {
+      cpu: series([8, null, 22.5]),
+      memory: series([300_000_000, null, 320_000_000]),
+      availability: series([100, null, 50]),
+      resources: series([0.5, null, 0.8]),
+      // Papeles sin métrica (paso 0 de la ficha).
+      network: null,
+      networkHealth: null
+    },
+    totals: {
+      cpu: { avg: 15.25, max: 91 },
+      memory: { avg: 310_000_000, max: 330_000_000 },
+      network: null,
+      availability: 83.5,
+      resources: 0.9
     },
     warnings: [],
     partial: []

@@ -258,3 +258,59 @@ describe('CA2 (0022): entrada de entities:monitorMetrics', () => {
     expect(input().safeParse({ ...base, entityId, timeRange: '3h' }).success).toBe(false)
   })
 })
+
+describe('CA2 (0027): entrada de entities:processMetrics', () => {
+  /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
+  const input = (): { safeParse: (value: unknown) => { success: boolean } } => {
+    const contract = ipcContract as unknown as Record<
+      string,
+      { input: { safeParse: (value: unknown) => { success: boolean } } } | undefined
+    >
+    const entry = contract['entities:processMetrics']
+    expect(entry, 'canal entities:processMetrics').toBeDefined()
+    return entry!.input
+  }
+  const base = { environmentId: '00000000-0000-4000-8000-000000000001', timeRange: '2h' }
+  const PROCESS_ID = 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF'
+
+  it('acepta un PROCESS_GROUP_INSTANCE con 16 hexadecimales en mayúsculas, con rango relativo o absoluto', () => {
+    expect(input().safeParse({ ...base, entityId: PROCESS_ID }).success).toBe(true)
+    expect(
+      input().safeParse({
+        ...base,
+        entityId: PROCESS_ID,
+        timeRange: { from: '2026-10-01T08:00:00.000Z', to: '2026-10-01T10:00:00.000Z' }
+      }).success
+    ).toBe(true)
+  })
+
+  it.each([
+    ['un host', 'HOST-0123456789ABCDEF'],
+    ['un servicio', 'SERVICE-0123456789ABCDEF'],
+    ['un process group (sin instancia)', 'PROCESS_GROUP-0123456789ABCDEF'],
+    ['un browser monitor', 'SYNTHETIC_TEST-0123456789ABCDEF'],
+    ['minúsculas en el id', 'PROCESS_GROUP_INSTANCE-0123456789abcdef'],
+    ['minúsculas en el tipo', 'process_group_instance-0123456789ABCDEF'],
+    ['15 hexadecimales', 'PROCESS_GROUP_INSTANCE-0123456789ABCDE'],
+    ['17 hexadecimales', 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF0'],
+    ['letras que no son hexadecimales', 'PROCESS_GROUP_INSTANCE-0123456789ABCDEG'],
+    ['comillas', 'PROCESS_GROUP_INSTANCE-0123456789ABCDE"'],
+    ['paréntesis', 'PROCESS_GROUP_INSTANCE-0123456789ABCDE)'],
+    ['coma', 'PROCESS_GROUP_INSTANCE-0123456789ABCDE,'],
+    ['inyección tras un id válido', 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF"),type("HOST'],
+    ['espacios alrededor', ' PROCESS_GROUP_INSTANCE-0123456789ABCDEF '],
+    ['vacío', ''],
+    ['sin id', undefined]
+  ])('rechaza %s', (_case, entityId) => {
+    expect(input().safeParse({ ...base, entityId }).success).toBe(false)
+  })
+
+  it('rechaza un entorno que no es uuid y un rango que no es el de la app', () => {
+    expect(input().safeParse({ ...base, entityId: PROCESS_ID, environmentId: 'x' }).success).toBe(
+      false
+    )
+    expect(input().safeParse({ ...base, entityId: PROCESS_ID, timeRange: '3h' }).success).toBe(
+      false
+    )
+  })
+})

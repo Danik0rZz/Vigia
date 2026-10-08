@@ -765,6 +765,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'HTTP_CHECK-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0027: métricas de un proceso (su comportamiento, en process-metrics.test).
+    await call('entities:processMetrics' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     // Ficha 0023: desglose de un monitor (su comportamiento, en monitor-breakdown.test).
     await call('entities:monitorBreakdown' as IpcChannel, {
       environmentId: envId,
