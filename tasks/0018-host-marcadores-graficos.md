@@ -1,7 +1,7 @@
 ---
 id: '0018'
 titulo: 'HOST: marcadores y cuatro gráficos (CPU, memoria, red y disco) con la franja de problemas'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -60,6 +60,31 @@ serie con su unidad; `null` como hueco. Estados de carga y error por panel. Text
 no cuadra, así que el desglose va en **líneas separadas, sin apilar**, junto al total. CA2 no cambia (las
 series siguen siendo las mismas).
 
+**Decisiones del developer (2026-10-08, delegadas por Dani; refinables):**
+
+- **Piezas comunes sacadas del servicio** (su aspecto y sus testids no cambian; sus e2e pasan sin
+  tocarlos): tarjeta, estado del canal, recuento, línea del rango y `MarkerError` en
+  `pages/entities/EntityMarkers.tsx`; el panel de gráfico con «Abrir en Métricas» y exportación en
+  `EntityChartPanel.tsx` (testids con el prefijo del tipo); `NO_COLORS` y `visibleRange` en
+  `entity-charts.ts`; `ProblemBand` con `testIdPrefix` (`service` por defecto); y
+  `uniqueUnavailable` en `data/modules.ts`. Los textos comunes (Reintentar, abiertos y cerrados,
+  cargando, columnas de la exportación, franja) siguen en `entities.service.*`.
+- **Desglose de la CPU:** `user`, `system` e `iowait` en líneas discontinuas y más finas que el
+  total, con los colores de serie que ya había (`accent` para el total, `chart-2`, `chart-3` y
+  `muted-foreground` para `iowait`): sin token nuevo. Un unitario (`host-charts.test.ts`)
+  comprueba que ninguna serie lleva `stack` ni `areaStyle`.
+- **Ejes:** CPU, memoria y disco de 0 a 100 % fijos; la red, sin máximo y con `formatBitRate` en el
+  eje y en el tooltip. Mismos márgenes que el servicio, para que la franja se alinee.
+- **Marcadores:** debajo del valor principal, qué es («Media del rango», «Entrada media», «Disco
+  más lleno»); la línea secundaria es «Máxima: 95 %», «10,0 GB de 16,0 GB», «Salida media: 650
+  bit/s» y, en el disco (sin nombre en la 0016), «Máximo del rango». El nivel va con color
+  (`status-warning` o `danger`) y con el texto «Aviso: más del 80 %» o «Crítico: más del 90 %»;
+  la red no lleva nivel.
+- **«Abrir en Métricas»:** las métricas de main filtradas con `:filter(eq("dt.entity.host",…))`
+  y `:splitBy("dt.entity.host")`, con `:sum` en la red y `:max` en el disco, como hace main.
+- **Inglés:** «Markers for the host» y «Metrics for the host»: el test del glosario exige que
+  «Host» con mayúscula se escriba igual en los dos idiomas, y el español va en minúscula.
+
 ## Criterios de aceptación
 
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
@@ -93,7 +118,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Cuando la 0019 traiga los discos (`entities:hostBreakdown`), el marcador «Disco»
+  podría enseñar debajo el nombre del disco más lleno en vez de «Máximo del rango».
 
 ## Notas del revisor
 
