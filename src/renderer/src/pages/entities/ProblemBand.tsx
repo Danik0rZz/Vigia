@@ -10,9 +10,12 @@ import { cn } from '../../lib/cn'
 import { dateLang } from '../../lib/date-lang'
 import type { ProblemDetailLocationState } from '../ProblemDetailPage'
 import { PROBLEM_BAND_MAX_ROWS, problemBandLayout } from './problem-band'
-import { MarkerError } from './ServiceMarkers'
+import { MarkerError } from './EntityMarkers'
 
-/** Márgenes del área de dibujo del gráfico (`grid` de `serviceChartOption`): la franja se alinea con ella. */
+/**
+ * Márgenes del área de dibujo del gráfico (`grid` de `serviceChartOption` y de `hostChartOption`):
+ * la franja se alinea con ella.
+ */
 const PLOT_LEFT = 64
 const PLOT_RIGHT = 16
 /**
@@ -26,19 +29,26 @@ const SEGMENT_BOX = 'rounded border py-px text-xs leading-4'
  */
 const MIN_SEGMENT_WIDTH = 'calc(0.75rem + 8px)'
 
+/** Páginas que llevan la franja: el servicio (ficha 0010) y el host (ficha 0018). */
+export type BandTestIdPrefix = 'service' | 'host'
+
 /**
- * Franja de los problemas de la entidad sobre el gráfico «Tasa de error» (ficha 0010):
+ * Franja de los problemas de la entidad sobre el gráfico «Tasa de error» del servicio (ficha 0010)
+ * o el de la CPU del host (ficha 0018):
  * un tramo por problema, del inicio al fin (los abiertos, hasta el final del rango),
  * en filas si se solapan. Sin problemas en el rango no ocupa nada; si el canal falla,
  * enseña su aviso con Reintentar y el gráfico sigue.
  */
 export function ProblemBand({
   query,
-  range
+  range,
+  testIdPrefix = 'service'
 }: {
   query: UseQueryResult<EntityProblemList>
   /** Rango visible del gráfico, en ms. */
   range: { from: number; to: number }
+  /** Prefijo de los testids (`service-problem-band`…): el tipo de la página (ficha 0018). */
+  testIdPrefix?: BandTestIdPrefix
 }): JSX.Element | null {
   const { t } = useTranslation()
   const data = query.data
@@ -50,7 +60,7 @@ export function ProblemBand({
   if (query.isError) {
     return (
       <div
-        data-testid="service-problem-band"
+        data-testid={`${testIdPrefix}-problem-band`}
         role="group"
         aria-label={t('entities.service.problemBand.label')}
         className="rounded-lg border border-danger/50 p-2"
@@ -74,7 +84,7 @@ export function ProblemBand({
 
   return (
     <div
-      data-testid="service-problem-band"
+      data-testid={`${testIdPrefix}-problem-band`}
       role="group"
       aria-label={t('entities.service.problemBand.label')}
       className="grid gap-1"
@@ -88,7 +98,7 @@ export function ProblemBand({
             </span>
             {layout.overflow > 0 && row === PROBLEM_BAND_MAX_ROWS - 1 && (
               <span
-                data-testid="service-problem-more"
+                data-testid={`${testIdPrefix}-problem-more`}
                 className={cn(
                   SEGMENT_BOX,
                   'absolute top-0 right-full mr-2 border-transparent whitespace-nowrap text-muted-foreground'
@@ -107,6 +117,7 @@ export function ProblemBand({
                     problem={problem}
                     left={(segment.start - range.from) / span}
                     width={(segment.end - segment.start) / span}
+                    testIdPrefix={testIdPrefix}
                   />
                 )
               })}
@@ -114,7 +125,10 @@ export function ProblemBand({
         ))}
       </div>
       {data.truncated && (
-        <p data-testid="service-problem-truncated" className="text-xs text-muted-foreground">
+        <p
+          data-testid={`${testIdPrefix}-problem-truncated`}
+          className="text-xs text-muted-foreground"
+        >
           {t('entities.service.problemBand.truncated', {
             count: data.problems.length,
             total: data.totalCount ?? data.problems.length
@@ -137,9 +151,11 @@ export function ProblemBand({
 function Segment({
   problem,
   left,
-  width
+  width,
+  testIdPrefix
 }: {
   problem: EntityProblem
+  testIdPrefix: BandTestIdPrefix
   /** Posición y ancho, en fracción del área de dibujo (0 a 1). */
   left: number
   width: number
@@ -161,7 +177,7 @@ function Segment({
       <Tooltip.Trigger asChild>
         <button
           type="button"
-          data-testid="service-problem-segment"
+          data-testid={`${testIdPrefix}-problem-segment`}
           data-problem-id={problem.problemId}
           data-status={open ? 'open' : 'closed'}
           aria-label={`${statusText} · ${problem.displayId} · ${problem.title}`}
@@ -188,7 +204,7 @@ function Segment({
       </Tooltip.Trigger>
       <Tooltip.Portal>
         <Tooltip.Content
-          data-testid="service-problem-tooltip"
+          data-testid={`${testIdPrefix}-problem-tooltip`}
           sideOffset={6}
           className="glass z-50 grid max-w-80 gap-1 rounded-md px-3 py-2 text-xs text-foreground"
         >

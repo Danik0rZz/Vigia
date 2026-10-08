@@ -53,6 +53,24 @@ export function unavailableReason(access: Exclude<ModuleAccess, { available: tru
   return { key: access.reason === 'classicToken' ? 'module.classicToken' : 'module.noEnvironment' }
 }
 
+/** Los motivos de no disponible, sin repetir el mismo texto (por ejemplo, sin entorno). */
+export function uniqueUnavailable(
+  accesses: ModuleAccess[],
+  t: (key: string, params?: Record<string, string>) => string
+): Exclude<ModuleAccess, { available: true }>[] {
+  const seen = new Set<string>()
+  const result: Exclude<ModuleAccess, { available: true }>[] = []
+  for (const access of accesses) {
+    if (access.available) continue
+    const reason = unavailableReason(access)
+    const text = t(reason.key, reason.params)
+    if (seen.has(text)) continue
+    seen.add(text)
+    result.push(access)
+  }
+  return result
+}
+
 /**
  * Sin auto-refresco: los datos se piden al entrar con una clave nueva y al pulsar
  * "Actualizar", nunca solos (cada petición gasta cuota de la API).

@@ -9,8 +9,7 @@ import {
   useModuleAccess,
   useModuleRefresh,
   useServiceMetrics,
-  type ModuleAccess,
-  unavailableReason
+  uniqueUnavailable
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
@@ -91,22 +90,4 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
       )}
     </EntityPageFrame>
   )
-}
-
-/** Los motivos de no disponible, sin repetir el mismo texto (por ejemplo, sin entorno). */
-function uniqueUnavailable(
-  accesses: ModuleAccess[],
-  t: (key: string, params?: Record<string, string>) => string
-): Exclude<ModuleAccess, { available: true }>[] {
-  const seen = new Set<string>()
-  const result: Exclude<ModuleAccess, { available: true }>[] = []
-  for (const access of accesses) {
-    if (access.available) continue
-    const reason = unavailableReason(access)
-    const text = t(reason.key, reason.params)
-    if (seen.has(text)) continue
-    seen.add(text)
-    result.push(access)
-  }
-  return result
 }

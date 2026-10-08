@@ -12,7 +12,7 @@ import { BUTTON_SECONDARY } from '../../components/styles'
 import { useEntityNames, type ModuleAccess } from '../../data/modules'
 import { cn } from '../../lib/cn'
 import { dateLang } from '../../lib/date-lang'
-import { MarkerError } from './ServiceMarkers'
+import { MarkerError } from './EntityMarkers'
 import {
   buildServiceInfo,
   type RelatedEntity,
