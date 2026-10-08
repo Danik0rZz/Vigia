@@ -6,10 +6,13 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020, hecho) → lote **monitores** (0022 a 0026, hecho)
-  ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
-  browser y HTTP monitor) → lote **proceso**
-  ([0027](tasks/0027-proceso-exploracion-datos.md), hecha–[0028](tasks/0028-proceso-marcadores-graficos.md), hecha–[0029](tasks/0029-proceso-informacion.md), hecha).
+- Cola aprobada por Dani el 2026-10-09, en este orden: lote **mejoras-entidades**
+  ([0036](tasks/0036-entidades-informacion-al-final.md), [0037](tasks/0037-entidades-etiquetas-pildoras.md)),
+  **grupo-procesos** ([0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
+  **aplicacion** ([0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
+  **markdown** ([0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
+  [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** ([0039](tasks/0039-host-memoria-total-recuperable.md),
+  [0040](tasks/0040-pagina-disco.md), [0041](tasks/0041-host-logs.md), [0042](tasks/0042-host-eventos.md)).
 
 ## Próximo
 
