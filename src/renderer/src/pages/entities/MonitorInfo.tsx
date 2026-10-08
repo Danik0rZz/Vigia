@@ -9,16 +9,12 @@ import { dateLang } from '../../lib/date-lang'
 import {
   AllProperties,
   Chips,
-  CollapsedChips,
   ColumnTitle,
   EntityInfoCard,
   InfoRows,
   RelationsColumn
 } from './EntityInfoCard'
 import { buildMonitorInfo, type MonitorRow } from './monitor-info'
-
-/** Etiquetas que se ven antes de «+N», como en el servicio (ficha 0015). */
-const VISIBLE_TAGS = 6
 
 /**
  * Tarjeta «Información» de la página de un browser monitor o de un HTTP monitor (ficha 0026),
@@ -93,17 +89,6 @@ function RowValue({ row }: { row: MonitorRow }): ReactNode {
     case 'date':
       return formatDateTime(row.time, dateLang(i18n.language))
     case 'chips':
-      if (row.key === 'tags') {
-        return (
-          <CollapsedChips
-            prefix="monitor-info"
-            values={row.chips}
-            visible={VISIBLE_TAGS}
-            moreTestId="monitor-info-tags-more"
-            moreLabel={(count) => t('entities.service.info.tagsMore', { count })}
-          />
-        )
-      }
       return <Chips prefix="monitor-info" values={row.chips} />
   }
 }

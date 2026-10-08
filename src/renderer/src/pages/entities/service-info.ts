@@ -25,21 +25,22 @@ export const SERVICE_ROW_KEYS = [
   'publicCloudRegion',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  'managementZones'
 ] as const
 export type ServiceRowKey = (typeof SERVICE_ROW_KEYS)[number]
 
 /**
  * Una fila de «Servicio». El texto es el del tenant, tal cual (también el puerto y las
  * versiones: son identificadores, no cantidades, y no llevan separador de miles). `flag` es una
- * fila sin valor propio (`isExternalService` a "true": la fila dice «Externo»).
+ * fila sin valor propio (`isExternalService` a "true": la fila dice «Externo»). La clave es una
+ * de `ServiceRowKey`, como `string` para poder buscarla por cualquier texto (`Map` del test de CA8,
+ * que comprueba que `tags` ya no es fila desde la ficha 0037).
  */
 export type ServiceRow =
-  | { key: ServiceRowKey; kind: 'text'; text: string }
-  | { key: ServiceRowKey; kind: 'chips'; chips: string[] }
-  | { key: ServiceRowKey; kind: 'date'; time: number }
-  | { key: ServiceRowKey; kind: 'flag' }
+  | { key: string; kind: 'text'; text: string }
+  | { key: string; kind: 'chips'; chips: string[] }
+  | { key: string; kind: 'date'; time: number }
+  | { key: string; kind: 'flag' }
 
 export const RELATION_GROUP_KEYS = ['runsOn', 'calls', 'calledBy', 'other'] as const
 export type RelationGroupKey = (typeof RELATION_GROUP_KEYS)[number]
@@ -149,8 +150,6 @@ function buildRow(
       return data.lastSeen === null ? null : { key, kind: 'date', time: data.lastSeen }
     case 'managementZones':
       return chipsRow(key, data.managementZones)
-    case 'tags':
-      return chipsRow(key, data.tags)
     default:
       return null
   }

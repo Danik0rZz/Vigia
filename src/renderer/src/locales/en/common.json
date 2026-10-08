@@ -780,7 +780,6 @@
           "lastSeen": "Last seen",
           "hostGroupName": "Host group",
           "managementZones": "Management zones",
-          "tags": "Tags",
           "cloudType": "Cloud",
           "hypervisorType": "Hypervisor"
         },
@@ -881,8 +880,7 @@
           "lastExecution": "Last execution",
           "firstSeen": "First seen",
           "lastSeen": "Last seen",
-          "managementZones": "Management zones",
-          "tags": "Tags"
+          "managementZones": "Management zones"
         },
         "groups": {
           "monitors": "Monitors",
@@ -937,8 +935,7 @@
           "executable": "Executable",
           "firstSeen": "First seen",
           "lastSeen": "Last seen",
-          "managementZones": "Management zones",
-          "tags": "Tags"
+          "managementZones": "Management zones"
         },
         "groups": {
           "runsOn": "Runs on",
@@ -1035,8 +1032,6 @@
         "yes": "Yes",
         "loading": "Loading the information…",
         "noRelations": "No relationships.",
-        "tagsMore_one": "Show the remaining tag",
-        "tagsMore_other": "Show the remaining {{count}} tags",
         "groups": {
           "runsOn": "Runs on",
           "calls": "Calls",
@@ -1061,10 +1056,14 @@
           "publicCloudRegion": "Region",
           "firstSeen": "First seen",
           "lastSeen": "Last seen",
-          "managementZones": "Management zones",
-          "tags": "Tags"
+          "managementZones": "Management zones"
         }
       }
+    },
+    "tags": {
+      "label": "Tags",
+      "more_one": "Show the remaining tag",
+      "more_other": "Show the remaining {{count}} tags"
     }
   }
 }

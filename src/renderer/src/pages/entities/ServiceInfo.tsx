@@ -8,16 +8,12 @@ import { dateLang } from '../../lib/date-lang'
 import {
   AllProperties,
   Chips,
-  CollapsedChips,
   ColumnTitle,
   EntityInfoCard,
   InfoRows,
   RelationsColumn
 } from './EntityInfoCard'
 import { buildServiceInfo, type ServiceRow } from './service-info'
-
-/** Etiquetas que se ven antes de «+N» (ficha 0015). */
-const VISIBLE_TAGS = 6
 
 /**
  * Tarjeta «Información» de la página de un SERVICE (ficha 0015), entre la cabecera y los
@@ -93,16 +89,6 @@ function RowValue({ row }: { row: ServiceRow }): ReactNode {
     case 'date':
       return formatDateTime(row.time, dateLang(i18n.language))
     case 'chips':
-      return row.key === 'tags' ? (
-        <CollapsedChips
-          prefix="service-info"
-          values={row.chips}
-          visible={VISIBLE_TAGS}
-          moreTestId="service-info-tags-more"
-          moreLabel={(count) => t('entities.service.info.tagsMore', { count })}
-        />
-      ) : (
-        <Chips prefix="service-info" values={row.chips} />
-      )
+      return <Chips prefix="service-info" values={row.chips} />
   }
 }

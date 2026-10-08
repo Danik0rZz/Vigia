@@ -25,8 +25,7 @@ const ROW_KEYS = [
   'lastExecution',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  'managementZones'
 ] as const
 export type MonitorRowKey = (typeof ROW_KEYS)[number]
 
@@ -131,8 +130,6 @@ function buildRow(
       return data.lastSeen === null ? null : { key, kind: 'date', time: data.lastSeen }
     case 'managementZones':
       return chipsRow(key, data.managementZones)
-    case 'tags':
-      return chipsRow(key, data.tags)
   }
 }
 

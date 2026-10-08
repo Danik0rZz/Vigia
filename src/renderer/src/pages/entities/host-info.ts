@@ -23,7 +23,7 @@ const SECTION_ROWS = {
   capacity: ['cpuCores', 'logicalCpuCores', 'memory'],
   network: ['ipAddress', 'networkZone'],
   monitoring: ['monitoringMode', 'state', 'installerVersion', 'firstSeen', 'lastSeen'],
-  grouping: ['hostGroupName', 'managementZones', 'tags'],
+  grouping: ['hostGroupName', 'managementZones'],
   cloud: ['cloudType', 'hypervisorType']
 } as const satisfies Record<HostSectionKey, readonly string[]>
 
@@ -124,8 +124,6 @@ function buildRow(
       return data.lastSeen === null ? null : { key, kind: 'date', time: data.lastSeen }
     case 'managementZones':
       return chipsRow(key, data.managementZones)
-    case 'tags':
-      return chipsRow(key, data.tags)
     default:
       return null
   }

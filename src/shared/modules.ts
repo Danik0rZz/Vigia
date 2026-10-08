@@ -56,6 +56,20 @@ export const entityRelationshipSchema = z.object({
 export type EntityRelationship = z.output<typeof entityRelationshipSchema>
 
 /**
+ * Etiqueta de una entidad, separada en sus partes (ficha 0037), de `EnrichedTagDto` de la API v2:
+ * `context` es `CONTEXTLESS` en las propias; `value` es null en las de solo clave.
+ */
+export const entityTagSchema = z.object({
+  context: z.string(),
+  key: z.string().min(1),
+  value: z.string().nullable()
+})
+export type EntityTag = z.output<typeof entityTagSchema>
+
+/** Contexto de las etiquetas propias (sin origen externo), según la OpenAPI v2. */
+export const CONTEXTLESS_TAG = 'CONTEXTLESS'
+
+/**
  * Datos de una entidad (canal `entities:get`, ficha 0014), ya preparados para la
  * vista. Las propiedades son texto del tenant: la vista las pinta como texto,
  * nunca como HTML.
@@ -69,7 +83,8 @@ export const entityDataSchema = z.object({
   /** `icon.primaryIconType`; null si no viene. */
   iconType: z.string().nullable(),
   managementZones: z.array(z.string()),
-  tags: z.array(z.string()),
+  /** En el orden de la respuesta (ordena la vista, ficha 0037). */
+  tags: z.array(entityTagSchema),
   /** Todas, en el orden de la respuesta, con el valor a texto y recortado a 300. */
   properties: z.array(
     z.object({ key: z.string(), text: z.string().max(MAX_ENTITY_PROPERTY_LENGTH) })

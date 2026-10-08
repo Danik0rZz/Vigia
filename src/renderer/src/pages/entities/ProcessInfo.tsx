@@ -8,7 +8,6 @@ import { dateLang } from '../../lib/date-lang'
 import {
   AllProperties,
   Chips,
-  CollapsedChips,
   ColumnTitle,
   EntityInfoCard,
   InfoRows,
@@ -16,9 +15,6 @@ import {
 } from './EntityInfoCard'
 import { buildProcessInfo, type ProcessRow } from './process-info'
 import { splitList } from './service-info'
-
-/** Etiquetas que se ven antes de «+N», como en el servicio (ficha 0015). */
-const VISIBLE_TAGS = 6
 
 /**
  * Tarjeta «Información» de la página de un proceso (ficha 0029), entre la cabecera y los
@@ -78,7 +74,7 @@ function InfoContent({ data, envId }: { data: EntityData; envId: string }): JSX.
 }
 
 function RowValue({ row }: { row: ProcessRow }): ReactNode {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   switch (row.kind) {
     case 'text':
       // Los puertos, sin separador de miles y separados por « · »: con la coma de la lista
@@ -88,17 +84,6 @@ function RowValue({ row }: { row: ProcessRow }): ReactNode {
     case 'date':
       return formatDateTime(row.time, dateLang(i18n.language))
     case 'chips':
-      if (row.key === 'tags') {
-        return (
-          <CollapsedChips
-            prefix="process-info"
-            values={row.chips}
-            visible={VISIBLE_TAGS}
-            moreTestId="process-info-tags-more"
-            moreLabel={(count) => t('entities.service.info.tagsMore', { count })}
-          />
-        )
-      }
       return <Chips prefix="process-info" values={row.chips} />
   }
 }

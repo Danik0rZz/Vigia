@@ -19,8 +19,6 @@ import { buildHostInfo, type HostRow, type HostSection } from './host-info'
 
 /** IPs que se ven antes de «+N» (ficha 0020). */
 const VISIBLE_IPS = 2
-/** Etiquetas que se ven antes de «+N», como en el servicio (ficha 0015). */
-const VISIBLE_TAGS = 6
 
 /**
  * Tarjeta «Información» de la página de un HOST (ficha 0020), entre la cabecera y los
@@ -112,17 +110,6 @@ function RowValue({ row }: { row: HostRow }): ReactNode {
             visible={VISIBLE_IPS}
             moreTestId="host-info-more"
             moreLabel={(count) => t('entities.host.info.ipsMore', { count })}
-          />
-        )
-      }
-      if (row.key === 'tags') {
-        return (
-          <CollapsedChips
-            prefix="host-info"
-            values={row.chips}
-            visible={VISIBLE_TAGS}
-            moreTestId="host-info-tags-more"
-            moreLabel={(count) => t('entities.service.info.tagsMore', { count })}
           />
         )
       }

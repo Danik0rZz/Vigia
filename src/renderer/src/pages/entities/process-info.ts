@@ -17,8 +17,7 @@ const ROW_KEYS = [
   'executable',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  'managementZones'
 ] as const
 export type ProcessRowKey = (typeof ROW_KEYS)[number]
 
@@ -83,8 +82,6 @@ function buildRow(
       return data.lastSeen === null ? null : { key, kind: 'date', time: data.lastSeen }
     case 'managementZones':
       return chipsRow(key, data.managementZones)
-    case 'tags':
-      return chipsRow(key, data.tags)
   }
 }
 

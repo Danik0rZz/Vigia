@@ -1,15 +1,16 @@
 import { z } from 'zod'
 import {
+  CONTEXTLESS_TAG,
   entityIdSchema,
   entityTypeOf,
   MAX_ENTITY_IDS,
   MAX_ENTITY_PROPERTY_LENGTH,
   type EntityData,
   type EntityNames,
-  type EntityRelationship
+  type EntityRelationship,
+  type EntityTag
 } from '@shared/modules'
 import { isHiddenPropertyKey, withoutHiddenValues } from './entity-secrets'
-import { tagText } from './problems'
 
 /**
  * Datos de una entidad y nombres de sus relaciones (ficha 0014, canales
@@ -117,6 +118,26 @@ function toRelationships(raw: unknown, direction: 'from' | 'to'): EntityRelation
   })
 }
 
+/**
+ * Una etiqueta (`EnrichedTagDto`) separada en contexto, clave y valor (ficha 0037). Sin clave no
+ * llega; sin contexto, `CONTEXTLESS`; un valor vacío cuenta como sin valor. No se usa
+ * `stringRepresentation`: la clave o el valor pueden llevar dos puntos.
+ */
+function toEntityTag(entry: unknown): EntityTag[] {
+  const tag = asObject(entry)
+  const key = asString(tag?.['key'])
+  if (key === null || key === '') return []
+  const context = asString(tag?.['context'])
+  const value = asString(tag?.['value'])
+  return [
+    {
+      context: context === null || context === '' ? CONTEXTLESS_TAG : context,
+      key,
+      value: value === null || value === '' ? null : value
+    }
+  ]
+}
+
 /** De `Entity` a lo que ve la interfaz (salida de `entities:get`). */
 export function toEntityData(entity: EntityResponse, requestedId: string): EntityData {
   const zones = Array.isArray(entity.managementZones)
@@ -125,12 +146,7 @@ export function toEntityData(entity: EntityResponse, requestedId: string): Entit
         return name === null || name === '' ? [] : [name]
       })
     : []
-  const tags = Array.isArray(entity.tags)
-    ? entity.tags.flatMap((entry) => {
-        const text = tagText(entry)
-        return text === null ? [] : [text]
-      })
-    : []
+  const tags = Array.isArray(entity.tags) ? entity.tags.flatMap(toEntityTag) : []
   // Sin línea de comandos, argumentos, variables de entorno ni rutas completas (ficha 0029).
   const properties = Object.entries(asObject(entity.properties) ?? {})
     .filter(([key]) => !isHiddenPropertyKey(key))
