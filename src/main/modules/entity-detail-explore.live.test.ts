@@ -591,7 +591,7 @@ describe.skipIf(live === null)('Ficha 0020: datos de un HOST (exploración)', ()
     report['hosts (0020)'] = hostReport
   })
 
-  it('CA1 (0020): el informe de hosts no contiene ningún id, nombre ni valor observado', () => {
+  it('Ficha 0020: el informe de hosts no contiene ningún id, nombre ni valor observado', () => {
     const text = JSON.stringify(hostReport)
     for (const value of hostObserved) {
       if (value.length < 6) continue

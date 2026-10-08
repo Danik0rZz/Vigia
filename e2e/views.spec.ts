@@ -9060,7 +9060,7 @@ test('CA4 (0020): sin entities.read, la tarjeta del host dice qué scope falta y
   }
 })
 
-test('CA5 (0020): la tarjeta del servicio sigue igual (sus filas, sus grupos y sin nada del host); los e2e de la 0015 siguen sin tocar', async () => {
+test('CA5 (0020): la tarjeta del servicio sigue igual (sus filas, sus grupos y sin nada del host); los e2e de la 0015 siguen sin tocar, salvo el recuento de CA5 (0015)', async () => {
   const card = await openServiceInfo(INFO_FULL_ID)
   expect(
     await dataKeys(card.getByTestId('service-info-service').getByTestId('service-info-row'))
