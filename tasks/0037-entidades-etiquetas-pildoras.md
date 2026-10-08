@@ -1,7 +1,7 @@
 ---
 id: '0037'
 titulo: 'Páginas de entidad: etiquetas arriba del todo, como píldoras clave:valor'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: mejoras-entidades
@@ -151,4 +151,8 @@ Decisiones del developer (delegadas por Dani, refinables):
 
 ## Resultado
 
-(pendiente)
+Commits: `59b55ef` (tests), `c75b24b` y `8ce74a0` (datos y vista), `1505ffc` (guarda de secretos) y `68f22c0` (ajuste de CA8 de la 0014).
+
+Ficheros principales: `src/main/modules/entities.ts` (etiquetas estructuradas en `entities:get`), `src/shared/modules.ts`, `src/renderer/src/pages/entities/EntityTags.tsx` y `entity-tags.ts`, `EntityPageFrame.tsx`, las cuatro páginas de entidad y sus tarjetas «Información», y los textos es y en.
+
+Rondas de revisión: 1 (aprobada). Verifier en verde (2506 unitarios, 279 e2e). ADR nuevo: ninguno. Migraciones: ninguna.

@@ -7,7 +7,7 @@ bueno de Dani o de peticiones en su nombre.
 ## En curso
 
 - Cola aprobada por Dani el 2026-10-09, en este orden: lote **mejoras-entidades**
-  (0036 hecha, [0037](tasks/0037-entidades-etiquetas-pildoras.md)),
+  (0036 y 0037 hechas),
   **grupo-procesos** ([0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
   **aplicacion** ([0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
   **markdown** ([0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
@@ -158,6 +158,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - **Prioritaria (seguridad):** filtro de `entity-secrets.ts`: `isHiddenEntry` solo mira elementos de lista; un `{ key: "COMMAND_LINE_ARGS", value }` como valor directo de una propiedad saldría. Cubrirlo en la rama de objetos de `withoutHiddenValues`. No visto en vivo. (surgió en 0029)
 - `entity-secrets.ts` quita `env` y `environment` exactos en todas las entidades; anotar si se ve en vivo un uso inocuo. (surgió en 0029)
 - Otras claves de `metadata` con rutas (`JAVA_JAR_PATH`, `PHP_SCRIPT_PATH`, `PYTHON_SCRIPT_PATH`, `NODE_JS_APP_BASE_DIRECTORY`, `CATALINA_HOME`…) pueden llevar el nombre del usuario y hoy pasan; si Dani lo quiere, basta añadirlas a `src/main/modules/entity-secrets.ts`. (surgió en 0029)
+- Guarda de secretos del contrato IPC (`tenants.test.ts`): comprobar que cada ruta de `allowed` existe en el contrato, para detectar una excepción huérfana tras un renombrado. (surgió en 0037)
+- Páginas de entidad «en construcción» (aplicación web, cloud application, process group, entorno, genérica): no piden `entities:get` y no enseñan etiquetas; cuando tengan contenido, pasar `EntityTags` a `EntitySections`. (surgió en 0037)
+- Etiquetas: nombres bonitos para los contextos conocidos (`KUBERNETES` → «Kubernetes»); hoy sale el código tal cual, `[KUBERNETES]`. (surgió en 0037)
 
 ## Aparcado
 
@@ -220,3 +223,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0028](tasks/0028-proceso-marcadores-graficos.md) (lote proceso): página del proceso con hasta cinco marcadores (CPU con umbrales 80/90 %, disponibilidad con 95/99 %) y cuatro gráficos (CPU con la franja de problemas, memoria, red y salud de red o recursos), con «Abrir en Métricas» y exportación.
 - [0029](tasks/0029-proceso-informacion.md) (lote proceso): tarjeta «Información» en la página del proceso, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; main filtra la línea de comandos, los argumentos, el entorno y las rutas de ejecutable de las propiedades de cualquier entidad. Con ella queda completo el lote «proceso» (0027 a 0029).
 - [0036](tasks/0036-entidades-informacion-al-final.md) (lote mejoras-entidades): la tarjeta «Información» pasa al final de las páginas de servicio, host, browser monitor, HTTP monitor y proceso, con el orden fijado en `EntitySections`.
+- [0037](tasks/0037-entidades-etiquetas-pildoras.md) (lote mejoras-entidades): las etiquetas de las páginas de servicio, host, browser monitor, HTTP monitor y proceso salen como píldoras `clave: valor` bajo la cabecera, y `entities:get` las devuelve estructuradas. Con ella queda completo el lote «mejoras-entidades» (0036 y 0037).
