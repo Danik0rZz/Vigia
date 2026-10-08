@@ -1,7 +1,7 @@
 ---
 id: '0030'
 titulo: El e2e de la exportación del detalle de un problema lee el fichero cuando ya tiene contenido
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -37,6 +37,20 @@ main lo escribe con `writeFile` directo, así que a veces se lee vacío.
   lee (o se quita) y se anota.
 - Las comprobaciones del test no cambian. La app no cambia.
 
+**Decisiones del developer (2026-10-08, delegadas por Dani; refinables):**
+
+- **Todos los usos que leen el fichero, a `exportSaved`:** los once `readFileSync` de
+  `exportTo(...)` de `e2e/views.spec.ts` y también las dos capturas PNG que lee `pngInfo`
+  (lee el fichero con `nativeImage`; CA2 no las vigila). `exportTo` queda solo dentro de
+  `exportSaved`, con un comentario que lo dice.
+- **`exportSaved` acepta el aviso en es o en en:** el test del detalle exporta también con la
+  interfaz en inglés, y con el texto español fijo fallaba siempre. La espera pasa a un
+  `expect.poll` sobre los dos textos.
+- **CA2** (`scripts/e2e-export-read.test.ts`): con el AST de TypeScript marca un `readFileSync` cuyo
+  argumento es `await exportTo(...)` o una variable declarada con él (la declaración más cercana por
+  bloques, para no confundir el `file` de un test con el de otro).
+- El nombre del test de CA1 no cambia (no lleva «CA1 (0030)»): la ficha pide no tocarlo.
+
 ## Criterios de aceptación
 
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
@@ -57,7 +71,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Dos tests del mini gráfico de evidencias («v0.9.2: exportar las series del mini
+  gráfico…» y el de Info con el rango visible) copian a mano la espera de `exportTo` sobre el menú
+  dentro de su contenedor y leen el fichero sin esperar al aviso: misma carrera, fuera de lo que
+  pide esta ficha. Podrían usar un `exportSaved` que acepte el locator del menú.
 
 ## Notas del revisor
 
