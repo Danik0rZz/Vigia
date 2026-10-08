@@ -681,6 +681,46 @@
       "CLOUD_APPLICATION": "Cloud application",
       "ENVIRONMENT": "Entorno"
     },
+    "host": {
+      "invalidId": "Este ID no tiene el formato de un host de Dynatrace (HOST- y 16 caracteres hexadecimales): no se piden sus datos.",
+      "markers": {
+        "label": "Marcadores del host",
+        "cpu": "CPU",
+        "memory": "Memoria",
+        "network": "Red",
+        "disk": "Disco",
+        "problems": "Problemas",
+        "average": "Media del rango",
+        "max": "Máxima: {{value}}",
+        "usedOfTotal": "{{used}} de {{total}}",
+        "inAverage": "Entrada media",
+        "outAverage": "Salida media: {{value}}",
+        "fullest": "Disco más lleno",
+        "fullestHint": "Máximo del rango",
+        "levels": {
+          "warning": "Aviso: más del 80 %",
+          "error": "Crítico: más del 90 %"
+        }
+      },
+      "charts": {
+        "title": "Métricas del host",
+        "label": "Gráficos de las métricas del host",
+        "cpu": "CPU",
+        "memory": "Memoria",
+        "network": "Red",
+        "disk": "Disco",
+        "series": {
+          "total": "Uso total",
+          "user": "user",
+          "system": "system",
+          "iowait": "iowait",
+          "memory": "Memoria usada",
+          "in": "Entrada",
+          "out": "Salida",
+          "disk": "Disco más lleno"
+        }
+      }
+    },
     "service": {
       "markers": {
         "label": "Marcadores del servicio",
