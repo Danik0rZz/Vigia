@@ -1,7 +1,7 @@
 ---
 id: '0026'
 titulo: 'Monitores: tarjeta «Información» con los datos de la entidad'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -119,4 +119,17 @@ ampliado (25 de 28 con `-g "(0015|0020|0024|0025|0026)"`; los 3 en rojo, los de 
 
 ## Resultado
 
-(pendiente)
+- `pages/entities/monitor-info.ts` (`buildMonitorInfo`), `MonitorInfo.tsx` (sobre
+  `EntityInfoCard.tsx`, prefijo `monitor-info`) y la tarjeta en `MonitorEntityPage.tsx`, entre la
+  cabecera y los marcadores, con `useEntityInfo` y la espera a `connection:status`, como el host.
+- **Filas añadidas por el developer** (informe de la 0022), entre las obligatorias:
+  `deviceProfile` («Dispositivo», solo browser, texto, tras la frecuencia) y `lastExecution`
+  («Última ejecución», fecha de `lastExecutionTimestamp` si es un número positivo, tras pasos o
+  peticiones). El resto (`createdBy`, `lastModifiedBy`, `url`, `customizedName`…), solo en
+  «Todas las propiedades».
+- **Unidad de la frecuencia: minutos** («Cada 15 minutos»). La OpenAPI v2 no documenta la
+  propiedad `syntheticMonitorFrequency` de la entidad; se toma la de la configuración de la API v1
+  de sintéticos (`frequencyMin`). Sin confirmar en vivo: si con monitores reales no cuadra, se
+  cambia el texto.
+- «Si está activo» se enseña como «Activo» o «Inactivo» (fila «Estado»). Textos en
+  `entities.monitor.info` (es y en), con `column` («Monitor») como título de la columna de filas.
