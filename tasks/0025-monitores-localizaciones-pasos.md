@@ -1,7 +1,7 @@
 ---
 id: '0025'
 titulo: 'Monitores: tablas de localizaciones y de pasos o peticiones'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -68,7 +68,51 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `fec2154` (`test(monitores): criterios de la ficha 0025 (#0025)`). Al escribirlos
+fallan los 4 e2e nuevos (no hay `monitor-locations` ni `monitor-steps` en la página) y los 3
+unitarios (no existen `entities.monitor.locations` ni `entities.monitor.steps` en los locales). Los
+e2e de la 0023 y la 0024 pasan con el simulador ampliado (8/8).
+
+| Criterio | Test                                                                                                                                                                                                                                    |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `e2e/views.spec.ts` › `CA1 (0025): con 4 localizaciones, la tabla las enseña de peor a mejor disponibilidad, con su %, su nivel, la duración media y las fallidas`                                                                      |
+| CA2      | `e2e/views.spec.ts` › `CA2 (0025): con 5 pasos, la tabla del browser monitor los enseña en su orden, con su duración y su peso, y marca el más lento; en un HTTP monitor la tarjeta se llama «Peticiones»`                              |
+| CA3      | **Sin test** (ver la nota): no se puede probar tal como está escrito.                                                                                                                                                                   |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0025): ordenar por otra columna (nombre en pasos, duración en localizaciones) reordena las filas` y `CA4 (0025): si falla el canal, las dos tarjetas enseñan el aviso con Reintentar y los gráficos siguen` |
+| CA5      | `src/renderer/src/locales/monitor-tables.test.ts` › `CA5 (0025): textos de las tablas de localizaciones y de pasos o peticiones en es y en`                                                                                             |
+
+**Nota sobre CA3 (`steps: null`), a decidir por el Orquestador:** con la decisión de la 0023, el
+canal devuelve `steps` siempre como lista (los dos tipos tienen métrica de pasos) y el esquema solo
+admite `null` para un tipo que hoy no existe. Desde el simulador (que responde HTTP a main) no hay
+forma de que la interfaz reciba `steps: null`, así que el e2e de CA3 no se puede escribir sin
+reinterpretarlo. Alternativas: (a) e2e con la lista de pasos vacía (¿tarjeta oculta o «Sin
+pasos»?, que la ficha no dice); (b) un unitario del renderer sobre la función que decide si sale la
+tarjeta con `steps: null`; (c) dejar CA3 sin test, como la rama `null` de la 0023, hasta que haya un
+tipo sin métrica de pasos.
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- **Nombres que fijan los tests:** tarjetas `monitor-locations` y `monitor-steps`, debajo de
+  `monitor-charts`, con su título en un encabezado; grids `monitor-locations-grid` y
+  `monitor-steps-grid`; filas `monitor-location-row` (`data-location-id`) y `monitor-step-row`
+  (`data-step-id`). Columnas: localizaciones `name`, `availability`, `duration` y `failed`; pasos
+  `name`, `duration` y `share` (`col-<id>`, `sort-<id>` y `aria-sort`, como en la 0019). Barra de
+  disponibilidad `monitor-location-availability` con `data-level` (umbrales de la 0024) y, si no es
+  `normal`, texto en `monitor-location-level` (distinto para aviso y error). Barra del peso
+  `monitor-step-share`. El más lento: `data-slowest="true"` en su fila y texto en
+  `monitor-step-slowest` (solo ahí; sigue tras reordenar).
+- **Orden:** localizaciones por disponibilidad ascendente por defecto (`aria-sort` ascending);
+  pasos «en su orden» = el que da el canal (por duración, de mayor a menor: la dimensión no trae
+  secuencia, 0023); su `aria-sort` por defecto no se fija.
+- **Formatos (es):** % con o sin un decimal («90 %» o «90,0 %», «97,5 %»), duración en ms o en s
+  con un decimal («1,5 s», «310 ms»), fallidas como número (0 si no hay serie de FAILURE).
+- **Textos:** `entities.monitor.locations.{title,columns.*}` y
+  `entities.monitor.steps.{titleBrowser,titleHttp,slowest,columns.*}`; títulos «Localizaciones»,
+  «Pasos» y «Peticiones».
+- **Simulador:** `sim.monitorTables` hace que las páginas de los monitores de la 0024 respondan al
+  desglose con `MONITOR_TABLE_DATA`: el HTTP con 4 localizaciones (90, 97,5, 99,5 y 100 %; una sin
+  serie de FAILURE) y 2 peticiones (25 y 75 %); el browser con las 3 localizaciones de la 0023 y 5
+  pasos (2500, 1200, 800, 300 y 200 ms; pesos 50, 24, 16, 6 y 4 %). Sin la bandera, nada cambia.
 
 ## Resultado
 
