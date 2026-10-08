@@ -1,7 +1,7 @@
 ---
 id: '0020'
 titulo: 'HOST: tarjeta «Información» con los datos de la entidad y sus relaciones'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -75,7 +75,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Filas de región y tamaño de instancia de la nube: solo llegan con claves propias de
+  cada proveedor (`gce*`…). Si Dani las quiere, decidir de qué claves salen por proveedor.
 
 ## Notas del revisor
 
@@ -156,6 +157,29 @@ filtraba datos: ahora solo dice «objeto»).
 - **Simulador:** `HOST_INFO_FULL_ID` (`HOST-00000000000E2E60`, todas las claves y las relaciones
   de cada grupo, con `INFO_FEW_ID` como servicio que se abre) y `HOST_METRICS_ID` (el de la
   0018/0019) con pocas claves (osType, memoryTotal y vacías). Nombres nuevos en `ENTITY_NAMES`.
+
+**Decisiones del developer y del Orquestador (delegadas por Dani, refinables):**
+
+- Región y tamaño de instancia de la nube no se pintan (decisión del Orquestador): solo llegan
+  con claves propias de un proveedor, fuera de alcance; quedan en «Ideas surgidas». `cloudType`
+  e `hypervisorType` sí, si vienen.
+- Memoria en GB con `formatGigabytes` (`lib/host-format.ts`, la de la 0018, sobre
+  `formatNumber`); versiones, IPs, núcleos y bits, tal cual (como en la 0015).
+- La tarjeta se generaliza en `EntityInfoCard.tsx` (marco, chips, relaciones con «Ver nombres»
+  y «Todas las propiedades», con `prefix` para los `data-testid`); `ServiceInfo.tsx` y
+  `HostInfo.tsx` solo ponen sus filas. Los textos comunes siguen en `entities.service.info`.
+- Las etiquetas del host, como las del servicio, con «+N» a partir de 6 (`host-info-tags-more`).
+- `HostRow.key` es `string` (no `HostRowKey`): el test de CA1 busca filas en un `Map` con
+  claves de texto y con el tipo estrecho no compila.
+- En inglés, «Information about the host» y «Group of hosts»: el test del glosario exige que
+  «Host» (con mayúscula) salga igual en es y en.
+
+**Bloqueo para el Orquestador (developer):** `CA5 (0015)` (`e2e/views.spec.ts`, «pulsar una
+entidad relacionada abre su página…») falla: cuenta todas las peticiones de `entities:get` y
+espera las mismas al volver, pero ahora la página del host al que navega pide su propio
+`entities:get` (lo que pide esta ficha). El servicio no se vuelve a pedir. Propuesta: contar
+solo las peticiones del id del servicio, como hace `CA3 (0020)` con `hostQueries`. No lo he
+tocado (es un test de otra ficha).
 
 ## Resultado
 
