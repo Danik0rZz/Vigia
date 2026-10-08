@@ -8925,11 +8925,11 @@ test('CA1 (0015): con un servicio con todas las propiedades, la columna «Servic
   const column = card.getByTestId('service-info-service')
   await expect(column).toContainText('Servicio')
 
-  // Entre la cabecera y los marcadores.
+  // Debajo de los marcadores: desde la ficha 0036, «Información» va al final de la página.
   const cardBox = await settledBox(card)
   const markersBox = await settledBox(page.getByTestId('service-markers'))
-  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
-    markersBox.y + 1
+  expect(cardBox.y, 'la tarjeta va debajo de los marcadores').toBeGreaterThanOrEqual(
+    markersBox.y + markersBox.height - 1
   )
 
   // Las filas, en el orden de la ficha (no en el de la respuesta).
@@ -9896,11 +9896,11 @@ test('CA2 (0020): la página de un HOST enseña la tarjeta «Información» con 
   const card = await openHostInfo(HOST_INFO_FULL_ID)
   await expect(card).toContainText('Información')
 
-  // Entre la cabecera y los marcadores.
+  // Debajo de los marcadores: desde la ficha 0036, «Información» va al final de la página.
   const cardBox = await settledBox(card)
   const markersBox = await settledBox(page.getByTestId('host-markers'))
-  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
-    markersBox.y + 1
+  expect(cardBox.y, 'la tarjeta va debajo de los marcadores').toBeGreaterThanOrEqual(
+    markersBox.y + markersBox.height - 1
   )
 
   // Los grupos de filas, en su orden y con su nombre; las filas de cada uno, en el suyo.
@@ -10979,11 +10979,11 @@ test('CA2 (0026): la página de un browser monitor enseña la tarjeta «Informac
   const card = await openMonitorInfo('browser')
   await expect(card).toContainText('Información')
 
-  // Entre la cabecera y los marcadores.
+  // Debajo de los marcadores: desde la ficha 0036, «Información» va al final de la página.
   const cardBox = await settledBox(card)
   const markersBox = await settledBox(page.getByTestId('monitor-markers'))
-  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
-    markersBox.y + 1
+  expect(cardBox.y, 'la tarjeta va debajo de los marcadores').toBeGreaterThanOrEqual(
+    markersBox.y + markersBox.height - 1
   )
 
   // Las filas y sus valores.
@@ -11733,11 +11733,11 @@ test('CA3 (0029): la página de un proceso enseña su tarjeta «Información» (
   const card = await openProcessInfo()
   await expect(card).toContainText('Información')
 
-  // Entre la cabecera y los marcadores.
+  // Debajo de los marcadores: desde la ficha 0036, «Información» va al final de la página.
   const cardBox = await settledBox(card)
   const markersBox = await settledBox(page.getByTestId('process-markers'))
-  expect(cardBox.y + cardBox.height, 'la tarjeta va encima de los marcadores').toBeLessThanOrEqual(
-    markersBox.y + 1
+  expect(cardBox.y, 'la tarjeta va debajo de los marcadores').toBeGreaterThanOrEqual(
+    markersBox.y + markersBox.height - 1
   )
 
   // Las filas, en su orden y con sus valores.
@@ -11921,5 +11921,167 @@ test('CA4 (0029): sin entities.read, la tarjeta del proceso dice qué scope falt
     await invoke('environments:setActive', { environmentId: env['Producción'] })
     await invoke('environments:delete', { id: noEntities })
     await reloadUi()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0036: en las páginas de entidad, marcadores primero e «Información» al final.
+// ---------------------------------------------------------------------------
+
+interface OrderedEntityPage {
+  /** Nombre de la página en los mensajes. */
+  name: string
+  /** Abre la página y espera la tarjeta «Información» con sus filas. */
+  open: () => Promise<Locator>
+  pageTestId: string
+  markers: string
+  info: string
+  charts: string
+  /** Las demás tarjetas de la página, que van detrás de los gráficos. */
+  cards: string[]
+}
+
+const ORDERED_ENTITY_PAGES: OrderedEntityPage[] = [
+  {
+    name: 'servicio',
+    open: () => openServiceInfo(INFO_FULL_ID),
+    pageTestId: 'entity-page-service',
+    markers: 'service-markers',
+    info: 'service-info',
+    charts: 'service-charts',
+    cards: []
+  },
+  {
+    name: 'host',
+    open: () => openHostInfo(HOST_INFO_FULL_ID),
+    pageTestId: 'entity-page-host',
+    markers: 'host-markers',
+    info: 'host-info',
+    charts: 'host-charts',
+    cards: ['host-disks', 'host-processes']
+  },
+  {
+    name: 'browser monitor',
+    open: () => openMonitorInfo('browser'),
+    pageTestId: MONITOR_PAGES.browser.testId,
+    markers: 'monitor-markers',
+    info: 'monitor-info',
+    charts: 'monitor-charts',
+    cards: ['monitor-locations', 'monitor-steps']
+  },
+  {
+    name: 'HTTP monitor',
+    open: () => openMonitorInfo('http'),
+    pageTestId: MONITOR_PAGES.http.testId,
+    markers: 'monitor-markers',
+    info: 'monitor-info',
+    charts: 'monitor-charts',
+    cards: ['monitor-locations', 'monitor-steps']
+  },
+  {
+    name: 'proceso',
+    open: () => openProcessInfo(),
+    pageTestId: 'entity-page-process_group_instance',
+    markers: 'process-markers',
+    info: 'process-info',
+    charts: 'process-charts',
+    cards: []
+  }
+]
+
+/**
+ * Ficha 0036: lo que se ve en la página antes (o después) de `testId`, subiendo desde él hasta la
+ * raíz de la página y mirando los hermanos con caja de cada nivel. Cada uno se nombra por su
+ * `data-testid`, por el primero que tenga dentro o por su etiqueta (`header` para la cabecera).
+ * No depende de cómo se envuelvan las secciones.
+ */
+async function visibleNeighbours(
+  pageTestId: string,
+  testId: string,
+  side: 'before' | 'after'
+): Promise<string[]> {
+  return page.getByTestId(pageTestId).evaluate(
+    (root, [id, where]) => {
+      const target = root.querySelector(`[data-testid="${id}"]`)
+      if (target === null) return [`sin ${id}`]
+      const describe = (element: Element): string => {
+        if (element.tagName === 'HEADER') return 'header'
+        const own = element.getAttribute('data-testid')
+        if (own !== null) return own
+        const inner = element.querySelector('[data-testid]')?.getAttribute('data-testid')
+        return inner ?? element.tagName.toLowerCase()
+      }
+      const found: string[] = []
+      for (let node: Element = target; node !== root;) {
+        let sibling = where === 'after' ? node.nextElementSibling : node.previousElementSibling
+        while (sibling !== null) {
+          const rect = sibling.getBoundingClientRect()
+          if (rect.width > 0 && rect.height > 0) found.push(describe(sibling))
+          sibling = where === 'after' ? sibling.nextElementSibling : sibling.previousElementSibling
+        }
+        if (node.parentElement === null) break
+        node = node.parentElement
+      }
+      return found
+    },
+    [testId, side] as const
+  )
+}
+
+/** Ficha 0036: abre la página y espera sus secciones (marcadores, gráficos y tarjetas). */
+async function openOrderedPage(entry: OrderedEntityPage): Promise<void> {
+  await entry.open()
+  for (const id of [entry.markers, entry.charts, ...entry.cards]) {
+    await expect(page.getByTestId(entry.pageTestId).getByTestId(id), id).toBeVisible()
+  }
+}
+
+test('CA1 (0036): en las páginas de servicio, host, browser monitor, HTTP monitor y proceso, la tarjeta «Información» es la última sección, después de los gráficos y de las demás tarjetas', async () => {
+  for (const entry of ORDERED_ENTITY_PAGES) {
+    await openOrderedPage(entry)
+    // Nada visible detrás de la tarjeta, por mucho que se envuelvan las secciones.
+    expect(
+      await visibleNeighbours(entry.pageTestId, entry.info, 'after'),
+      `${entry.name}: nada después de «Información»`
+    ).toEqual([])
+
+    // Y en la pantalla: los gráficos y las demás tarjetas, encima de ella; los gráficos, antes que
+    // las tarjetas.
+    const infoBox = await settledBox(page.getByTestId(entry.info))
+    const chartsBox = await settledBox(page.getByTestId(entry.charts))
+    expect(
+      chartsBox.y + chartsBox.height,
+      `${entry.name}: gráficos encima de «Información»`
+    ).toBeLessThanOrEqual(infoBox.y + 1)
+    for (const id of entry.cards) {
+      const box = await settledBox(page.getByTestId(id))
+      expect(
+        box.y + box.height,
+        `${entry.name}: ${id} encima de «Información»`
+      ).toBeLessThanOrEqual(infoBox.y + 1)
+      expect(box.y, `${entry.name}: ${id} debajo de los gráficos`).toBeGreaterThanOrEqual(
+        chartsBox.y + chartsBox.height - 1
+      )
+    }
+  }
+})
+
+test('CA2 (0036): en esas cinco páginas, los marcadores son la primera sección después de la cabecera', async () => {
+  for (const entry of ORDERED_ENTITY_PAGES) {
+    await openOrderedPage(entry)
+    // Antes de los marcadores, solo la cabecera.
+    expect(
+      await visibleNeighbours(entry.pageTestId, entry.markers, 'before'),
+      `${entry.name}: solo la cabecera antes de los marcadores`
+    ).toEqual(['header'])
+
+    // Y en la pantalla, los marcadores encima de los gráficos, de las tarjetas y de «Información».
+    const markersBox = await settledBox(page.getByTestId(entry.markers))
+    for (const id of [entry.charts, ...entry.cards, entry.info]) {
+      const box = await settledBox(page.getByTestId(id))
+      expect(box.y, `${entry.name}: ${id} debajo de los marcadores`).toBeGreaterThanOrEqual(
+        markersBox.y + markersBox.height - 1
+      )
+    }
   }
 })
