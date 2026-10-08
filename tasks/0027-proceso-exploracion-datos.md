@@ -1,7 +1,7 @@
 ---
 id: '0027'
 titulo: 'PROCESS_GROUP_INSTANCE: análisis de métricas en vivo y canal de series y marcadores'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -220,6 +220,11 @@ muestras y la instancia con red, `now-24h`, 142 peticiones GET, token fuera del 
   vacía). El `null` de CA4 es el de los marcadores sin dato: `totals.network` es
   `{ in, out }` con `null` en cada uno, y `availability`, `resources` y `cpu.max` a `null`
   cuando su marcador no trae valor. CA4 tiene un caso propio, "un proceso sin datos de red".
+
+### Verifier, 2026-10-08, commit `d69ab36`, rango `main..feat/0027-proceso-exploracion-datos`: VERDE
+
+- check: 2457 tests en 134 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/ipc.ts`): 261/261.
 
 ## Resultado
 
