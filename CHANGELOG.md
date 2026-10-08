@@ -9,6 +9,13 @@ Sin migraciones nuevas.
 
 ### Añadido
 
+- Página del host: debajo de los gráficos, dos tablas lado a lado (una columna si la ventana es
+  estrecha). «Discos»: uso con barra y nivel de aviso (más del 80 %) o error (más del 90 %) siempre
+  con texto, usado y total, libre, lectura y escritura. «Procesos»: los 10 con más CPU, con CPU media
+  (con barra) y máxima y memoria, y debajo «10 de N procesos». Ambas se ordenan por columna, cada una
+  carga y falla por su lado (aviso con «Reintentar») y cada proceso enlaza a su página, con «Volver»
+  al host. Si la lista de procesos viene recortada por el tope de la API, un aviso dice que la lista y
+  el total pueden estar incompletos. Sin migraciones nuevas. (ficha 0019)
 - Página del host (desde «Analizar entidad» en una evidencia de un host): ya no está en
   construcción. Arriba, cinco marcadores del rango de la barra superior: CPU (media y máxima),
   memoria (media y usada de total en GB), red (entrada y salida medias, con la unidad adaptada),

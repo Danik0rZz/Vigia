@@ -1,7 +1,7 @@
 ---
 id: '0019'
 titulo: 'HOST: tablas de discos y de los procesos que más consumen'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -182,4 +182,11 @@ siguen en verde con el simulador ampliado.
 
 ## Resultado
 
-(pendiente)
+- **Commits:** `7ac565f` (tests), `d8b8edf` (formatos, barra de uso y textos), `152c2fc` (tablas de
+  discos y procesos), más los de ficha.
+- **Ficheros principales:** `HostTables.tsx`, `host-tables.ts`, `lib/host-format.ts`,
+  `useHostBreakdown` en `data/modules.ts`, locales es y en, simulador y `e2e/views.spec.ts`.
+- **Rondas de revisión:** 1 (aprobada). Verifier en verde (check y e2e 237/237).
+- **ADR nuevo:** ninguno. Sin migraciones.
+- Los tres opcionales del revisor pasaron a «Mejoras anotadas» del BACKLOG. Pendiente de Dani: la
+  prueba a mano con hosts reales.

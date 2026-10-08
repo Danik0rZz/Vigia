@@ -136,6 +136,12 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   debajo el nombre del disco más lleno en vez de «Máximo del rango». (surgió en 0018)
 - `scripts/e2e-export-read.test.ts` (CA2): no ve `let f; f = await exportTo(...)`; y `usesExportDir`
   marcaría una lectura legítima de `exportDir` tras un `exportSaved` (hoy no existe). (surgió en 0030)
+- `DataGrid`: prop para filas no activables; las filas de discos del host llevan `cursor-pointer` sin
+  acción. (surgió en 0019)
+- Unitarios de `processLinkId`, `processesTruncated` y `diskTotal` (`host-tables.ts`), hoy cubiertos
+  solo por los e2e. (surgió en 0019)
+- Host: los `warnings` de la API se repiten en las dos tarjetas (discos y procesos); mostrarlos una
+  sola vez. (surgió en 0019)
 
 ## Aparcado
 
@@ -187,3 +193,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0017](tasks/0017-host-discos-procesos-datos.md): canal `entities:hostBreakdown` con los discos y los 10 procesos con más CPU del host (lote host; sin cambios visibles hasta la 0019).
 - [0018](tasks/0018-host-marcadores-graficos.md): página del host con cinco marcadores (umbrales 80/90 %) y cuatro gráficos (CPU con la franja de problemas, memoria, red y disco), con «Abrir en Métricas» y exportación (lote host).
 - [0030](tasks/0030-e2e-exportacion-detalle.md): los e2e leen las exportaciones tras el aviso «Guardado» y con contenido (`exportSaved`); arregla un intermitente del CI.
+- [0019](tasks/0019-host-discos-procesos-vista.md): tablas de discos y de los 10 procesos con más CPU en la página del host, con orden por columna, enlace al proceso y aviso de lista recortada (lote host).
