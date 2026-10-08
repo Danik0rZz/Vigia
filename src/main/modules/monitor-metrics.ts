@@ -5,9 +5,11 @@ import { truncatedResults, type MetricData } from './metrics'
  * Métricas de un browser monitor (SYNTHETIC_TEST) o de un HTTP monitor
  * (HTTP_CHECK), ficha 0022, canal `entities:monitorMetrics`. Lo observado en vivo
  * (paso 0 de la ficha 0022, tabla en su "Verificación"):
- * - con `entitySelector=entityId("<id>")` y `splitBy("<dimensión del monitor>")`
- *   cada expresión vuelve con una sola serie, en el orden pedido: se casan por
- *   posición, como en el servicio y el host;
+ * - con `entitySelector=entityId("<id>")` cada expresión de abajo (exactamente
+ *   la probada) vuelve con una sola serie, en el orden pedido: se casan por
+ *   posición, como en el servicio y el host. En browser, solo
+ *   `availability.location.total` lleva `splitBy` (va por región); las demás se
+ *   probaron sin él. En HTTP, todas lo llevan;
  * - las de localización (`availability.location.total` y las `*.geo` de HTTP)
  *   traen una serie por localización (o región) si no se juntan con `splitBy`;
  * - la disponibilidad llega en % (0–100) y los tiempos en ms;
@@ -34,7 +36,7 @@ export function monitorEntitySelector(entityId: string): string {
   return `entityId("${entityId}")`
 }
 
-/** Una sola serie por monitor: junta localizaciones, regiones o estados. */
+/** Junta localizaciones, regiones o estados en una sola serie del monitor. */
 const BROWSER_SPLIT = ':splitBy("dt.entity.synthetic_test")'
 const HTTP_SPLIT = ':splitBy("dt.entity.http_check")'
 
@@ -48,13 +50,13 @@ const httpStatus = (value: 'SUCCESS' | 'FAILURE'): string =>
 const SERIES: Record<MonitorKind, string[]> = {
   browser: [
     `${B}availability.location.total${BROWSER_SPLIT}:avg`,
-    `${B}totalDuration${BROWSER_SPLIT}:avg`,
-    `${B}success${BROWSER_SPLIT}`,
-    `${B}failure${BROWSER_SPLIT}`,
-    `${B}largestContentfulPaint.load${BROWSER_SPLIT}:avg`,
-    `${B}visuallyComplete.load${BROWSER_SPLIT}:avg`,
-    `${B}cumulativeLayoutShift.load${BROWSER_SPLIT}:avg`,
-    `${B}speedIndex.load${BROWSER_SPLIT}:avg`
+    `${B}totalDuration:avg`,
+    `${B}success`,
+    `${B}failure`,
+    `${B}largestContentfulPaint.load:avg`,
+    `${B}visuallyComplete.load:avg`,
+    `${B}cumulativeLayoutShift.load:avg`,
+    `${B}speedIndex.load:avg`
   ],
   http: [
     `${H}availability.location.total${HTTP_SPLIT}:avg`,
@@ -75,10 +77,10 @@ const SERIES: Record<MonitorKind, string[]> = {
 const MARKERS: Record<MonitorKind, string[]> = {
   browser: [
     `${B}availability.location.total${BROWSER_SPLIT}:avg`,
-    `${B}totalDuration${BROWSER_SPLIT}:avg`,
-    `${B}success${BROWSER_SPLIT}`,
-    `${B}failure${BROWSER_SPLIT}`,
-    `${B}totalDuration${BROWSER_SPLIT}:median`
+    `${B}totalDuration:avg`,
+    `${B}success`,
+    `${B}failure`,
+    `${B}totalDuration:median`
   ],
   http: [
     `${H}availability.location.total${HTTP_SPLIT}:avg`,
