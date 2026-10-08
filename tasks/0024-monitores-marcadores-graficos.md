@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:monitorMetrics` de la 0022 y los canales de problemas de las fichas 0007 y 0010)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -71,6 +71,9 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 - Con monitores reales de los dos tipos, que marcadores y gráficos cuadran con Dynatrace en el mismo
   rango.
+- «Abrir en Métricas» de cada gráfico, en los dos tipos de monitor, abre una consulta válida que solo
+  trae ese monitor (en HTTP, también las ejecuciones con el `and` de «Result status»). El filtro por el
+  id del monitor de esos enlaces no se probó en vivo (lo aceptó el revisor como prueba a mano).
 
 ## Fuera de alcance
 
@@ -82,7 +85,20 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS (resuelto por el Orquestador, solo en la ficha)
+
+1. [Pruebas a mano] El filtro por el id del monitor de «Abrir en Métricas» (en HTTP, con `and` al de «Result
+   status») no se probó en vivo; se acepta como prueba a mano de Dani, pero tenía que estar en «Pruebas a mano
+   para Dani» para que llegue a `docs/pendiente-dani.md`. **Hecho por el Orquestador:** línea añadida. Sin
+   cambios de código ni de criterios, así que no hace falta ronda 2.
+
+Comprobado y correcto: tests sin tocar tras `4b08411` (salvo `CA7 (0008)`); CA1-CA7 con su test; CA3
+interpretado y aceptado; umbrales estrictos con texto; decisiones del developer (CLS fuera del eje de ms,
+«por debajo del 100 %» sin las de sin dato, sin mediana en HTTP); sin canales nuevos; servicio y host sin
+cambios; ADR-0004; id validado; accesibilidad; sin datos del tenant.
+
+Opcionales: comentarios de `ProblemBand.tsx` y `EntityChartPanel.tsx` que solo nombran servicio y host; el
+pie «Localizaciones con datos» solo es exacto si el desglose excluye las de sin dato.
 
 ## Verificación
 
