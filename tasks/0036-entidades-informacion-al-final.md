@@ -1,7 +1,7 @@
 ---
 id: '0036'
 titulo: 'Páginas de entidad: la tarjeta «Información» va al final'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: mejoras-entidades
@@ -67,7 +67,22 @@ cumplan solas. La tarjeta no cambia por dentro.
 
 ## Verificación
 
-(pendiente)
+Tests (ficha ligera, escritos por el developer): commit 7fb2780, en `e2e/views.spec.ts`.
+
+- CA1 → `CA1 (0036): … la tarjeta «Información» es la última sección …`: en las cinco páginas,
+  nada visible detrás de la tarjeta (subiendo hasta la raíz de la página, sea cual sea el
+  envoltorio) y, en pantalla, gráficos y demás tarjetas encima de ella, y las tarjetas debajo de los
+  gráficos.
+- CA2 → `CA2 (0036): … los marcadores son la primera sección después de la cabecera`: antes de los
+  marcadores solo la cabecera, y en pantalla todo lo demás debajo de ellos.
+- CA3 → los e2e existentes de esas páginas (0008–0010, 0015, 0018–0020, 0024–0026, 0028–0029). Las
+  comprobaciones «la tarjeta va encima de los marcadores» de CA1 (0015), CA2 (0020), CA2 (0026) y
+  CA3 (0029) contradecían esta ficha y pasan, en el mismo commit de tests, a «debajo de los
+  marcadores» (developer).
+
+Decisión (developer): la pieza común es `EntitySections` en `EntityPageFrame.tsx` (avisos de
+módulos sin acceso, marcadores, gráficos, tarjetas, información). Los avisos de módulo sin acceso
+siguen antes de los marcadores: son avisos de la página, no secciones.
 
 ## Resultado
 
