@@ -64,8 +64,8 @@ const ROWS = [
   'publicCloudRegion',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  // Ficha 0037: sin la fila de etiquetas (van en las píldoras de arriba).
+  'managementZones'
 ]
 
 describe('CA9 (0015): textos de la tarjeta «Información» en es y en', () => {

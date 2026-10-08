@@ -92,7 +92,7 @@ const SECTIONS: [string, string[]][] = [
   ['capacity', ['cpuCores', 'logicalCpuCores', 'memory']],
   ['network', ['ipAddress', 'networkZone']],
   ['monitoring', ['monitoringMode', 'state', 'installerVersion', 'firstSeen', 'lastSeen']],
-  ['grouping', ['hostGroupName', 'managementZones', 'tags']],
+  ['grouping', ['hostGroupName', 'managementZones']],
   ['cloud', ['cloudType', 'hypervisorType']]
 ]
 
@@ -130,7 +130,11 @@ const full = (): EntityData =>
     firstSeen: T_FIRST,
     lastSeen: T_LAST,
     managementZones: ['Zona A', 'Zona B'],
-    tags: ['equipo:sistemas', 'entorno:pre'],
+    // Ficha 0037: etiquetas separadas (ya no dan fila).
+    tags: [
+      { context: 'CONTEXTLESS', key: 'equipo', value: 'sistemas' },
+      { context: 'CONTEXTLESS', key: 'entorno', value: 'pre' }
+    ],
     properties: FULL_PROPERTIES,
     relationships: RELATIONSHIPS
   })
@@ -179,11 +183,8 @@ describe('CA1 (0020): grupos de filas y de relaciones de un HOST a partir de ent
       kind: 'chips',
       chips: ['Zona A', 'Zona B']
     })
-    expect(rows.get('tags')).toEqual({
-      key: 'tags',
-      kind: 'chips',
-      chips: ['equipo:sistemas', 'entorno:pre']
-    })
+    // Ficha 0037, CA4: las etiquetas ya no son una fila de la tarjeta.
+    expect(rows.has('tags')).toBe(false)
   })
 
   it('las claves que no nombra la ficha no dan fila (van solo en «Todas las propiedades»)', () => {

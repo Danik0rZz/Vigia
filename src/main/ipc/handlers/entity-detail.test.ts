@@ -247,7 +247,7 @@ type EntityData = {
   lastSeen: unknown
   iconType: string | null
   managementZones: string[]
-  tags: string[]
+  tags: { context: string; key: string; value: string | null }[]
   properties: { key: string; text: string }[]
   relationships: Relationship[]
 }
@@ -286,10 +286,10 @@ describe('CA4 (0014): entities:get pide /entities/<id> con los fields y transfor
     })
   })
 
-  it('zonas por nombre y etiquetas como texto (como en las evidencias)', async () => {
+  // Ficha 0037: las etiquetas ya no llegan como texto (su CA1, más abajo).
+  it('zonas por nombre', async () => {
     const data = await getEntity()
     expect(data.managementZones).toEqual(['Zona pagos', 'Zona común'])
-    expect(data.tags).toEqual(['equipo:pagos', '[ENVIRONMENT]Infra:Linux', 'capa:web', 'critico'])
   })
 
   it('propiedades: todas, en el orden de la respuesta, a texto y recortadas a 300', async () => {
@@ -593,5 +593,75 @@ describe('CA1 (0029): entities:get de un proceso sale sin línea de comandos, ar
       'from isInstanceOf',
       'from isProcessOf'
     ])
+  })
+})
+
+/**
+ * Ficha 0037, CA1: `entities:get` manda las etiquetas separadas, `{ context, key, value }`, con
+ * `context`, `key` y `value` de `EnrichedTagDto` (OpenAPI v2); `value` es null en las de solo
+ * clave. Se conserva el orden de la respuesta (ordenar es cosa de la vista).
+ *
+ * Decisiones del test-writer (delegadas por Dani, refinables): una etiqueta sin `context` llega
+ * con `CONTEXTLESS` (el contexto de las etiquetas propias, según la OpenAPI); una sin `key` (o con
+ * la clave vacía) no llega; un `value` vacío cuenta como sin valor.
+ */
+describe('CA1 (0037): entities:get transforma las etiquetas de la API en { context, key, value }', () => {
+  async function tagsOf(tags: unknown): Promise<EntityData['tags']> {
+    respondEntity = () =>
+      json(200, { entityId: ENTITY_ID, displayName: 'pagos-api', type: 'SERVICE', tags })
+    return (await getEntity()).tags
+  }
+
+  it('con valor y sin contexto propio (CONTEXTLESS), con valor y con contexto, y de solo clave', async () => {
+    const data = await getEntity()
+    expect(data.tags).toEqual([
+      { context: 'CONTEXTLESS', key: 'equipo', value: 'pagos' },
+      { context: 'ENVIRONMENT', key: 'Infra', value: 'Linux' },
+      { context: 'CONTEXTLESS', key: 'capa', value: 'web' },
+      { context: 'CONTEXTLESS', key: 'critico', value: null }
+    ])
+  })
+
+  it('de solo clave con contexto, y sin el campo context', async () => {
+    const tags = await tagsOf([
+      { context: 'AWS', key: 'Name', stringRepresentation: '[AWS]Name' },
+      { key: 'suelta', value: 'valor-suelto', stringRepresentation: 'suelta:valor-suelto' },
+      { key: 'sola', stringRepresentation: 'sola' }
+    ])
+    expect(tags).toEqual([
+      { context: 'AWS', key: 'Name', value: null },
+      { context: 'CONTEXTLESS', key: 'suelta', value: 'valor-suelto' },
+      { context: 'CONTEXTLESS', key: 'sola', value: null }
+    ])
+  })
+
+  it('la clave y el valor, tal cual (con dos puntos o espacios dentro), sin usar stringRepresentation', async () => {
+    const tags = await tagsOf([
+      {
+        context: 'KUBERNETES',
+        key: 'app.kubernetes.io/name',
+        value: 'pagos: api',
+        stringRepresentation: 'texto-que-no-se-usa'
+      }
+    ])
+    expect(tags).toEqual([
+      { context: 'KUBERNETES', key: 'app.kubernetes.io/name', value: 'pagos: api' }
+    ])
+  })
+
+  it('sin clave no llega; un valor vacío es una etiqueta de solo clave', async () => {
+    const tags = await tagsOf([
+      { context: 'CONTEXTLESS', value: 'huerfano' },
+      { context: 'CONTEXTLESS', key: '', value: 'vacia' },
+      'no-es-un-objeto',
+      null,
+      { context: 'CONTEXTLESS', key: 'vacio', value: '' }
+    ])
+    expect(tags).toEqual([{ context: 'CONTEXTLESS', key: 'vacio', value: null }])
+  })
+
+  it('sin etiquetas, o con tags que no es una lista, lista vacía', async () => {
+    expect(await tagsOf([])).toEqual([])
+    expect(await tagsOf({ key: 'no-es-lista' })).toEqual([])
   })
 })

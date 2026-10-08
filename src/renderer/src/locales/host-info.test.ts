@@ -64,8 +64,8 @@ const ROWS = [
   'firstSeen',
   'lastSeen',
   'hostGroupName',
+  // Ficha 0037: sin la fila de etiquetas (van en las píldoras de arriba).
   'managementZones',
-  'tags',
   'cloudType',
   'hypervisorType'
 ]

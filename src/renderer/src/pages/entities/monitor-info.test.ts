@@ -110,8 +110,7 @@ const REQUIRED_BROWSER = [
   'steps',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  'managementZones'
 ]
 const REQUIRED_HTTP = REQUIRED_BROWSER.map((key) => (key === 'steps' ? 'requests' : key))
 
@@ -120,7 +119,11 @@ const browserFull = (): EntityData =>
     firstSeen: T_FIRST,
     lastSeen: T_LAST,
     managementZones: ['Zona A', 'Zona B'],
-    tags: ['equipo:web', 'entorno:pro'],
+    // Ficha 0037: etiquetas separadas (ya no dan fila).
+    tags: [
+      { context: 'CONTEXTLESS', key: 'equipo', value: 'web' },
+      { context: 'CONTEXTLESS', key: 'entorno', value: 'pro' }
+    ],
     properties: BROWSER_PROPERTIES,
     // En otro orden que el de los grupos; 12 localizaciones según la API, 3 listadas.
     relationships: [
@@ -145,7 +148,8 @@ const httpFull = (): EntityData =>
     firstSeen: T_FIRST,
     lastSeen: T_LAST,
     managementZones: ['Zona H'],
-    tags: ['equipo:api'],
+    // Ficha 0037: etiquetas separadas (ya no dan fila).
+    tags: [{ context: 'CONTEXTLESS', key: 'equipo', value: 'api' }],
     properties: HTTP_PROPERTIES,
     relationships: [
       relation('to', 'isApplicationOfSyntheticTest', [{ id: APP_2, type: 'APPLICATION' }]),
@@ -196,11 +200,8 @@ describe('CA1 (0026): filas y grupos de relaciones de un browser monitor y de un
       kind: 'chips',
       chips: ['Zona A', 'Zona B']
     })
-    expect(rows.get('tags')).toEqual({
-      key: 'tags',
-      kind: 'chips',
-      chips: ['equipo:web', 'entorno:pro']
-    })
+    // Ficha 0037, CA4: las etiquetas ya no son una fila de la tarjeta.
+    expect(rows.has('tags')).toBe(false)
   })
 
   it('HTTP con todas las claves: su tipo, inactivo, y «requests» en lugar de «steps»', () => {

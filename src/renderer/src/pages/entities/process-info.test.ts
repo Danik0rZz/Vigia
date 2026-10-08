@@ -88,8 +88,7 @@ const ROW_ORDER = [
   'executable',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  'managementZones'
 ]
 
 const full = (): EntityData =>
@@ -97,7 +96,11 @@ const full = (): EntityData =>
     firstSeen: T_FIRST,
     lastSeen: T_LAST,
     managementZones: ['Zona A', 'Zona B'],
-    tags: ['equipo:pagos', 'entorno:pro'],
+    // Ficha 0037: etiquetas separadas (ya no dan fila).
+    tags: [
+      { context: 'CONTEXTLESS', key: 'equipo', value: 'pagos' },
+      { context: 'CONTEXTLESS', key: 'entorno', value: 'pro' }
+    ],
     properties: PROPERTIES,
     // En otro orden que el de los grupos; 7 servicios según la API, 2 listados.
     relationships: [
@@ -154,11 +157,8 @@ describe('CA2 (0029): filas y grupos de relaciones de un PROCESS_GROUP_INSTANCE 
       kind: 'chips',
       chips: ['Zona A', 'Zona B']
     })
-    expect(rows.get('tags')).toEqual({
-      key: 'tags',
-      kind: 'chips',
-      chips: ['equipo:pagos', 'entorno:pro']
-    })
+    // Ficha 0037, CA4: las etiquetas ya no son una fila de la tarjeta.
+    expect(rows.has('tags')).toBe(false)
   })
 
   it('metadata nunca es una fila: de ella solo sale el nombre del ejecutable', () => {

@@ -47,8 +47,8 @@ const ROWS = [
   'executable',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  // Ficha 0037: sin la fila de etiquetas (van en las píldoras de arriba).
+  'managementZones'
 ]
 
 describe('CA5 (0029): textos de la tarjeta «Información» del proceso en es y en', () => {

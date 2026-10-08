@@ -41,7 +41,8 @@ describe('toEntityData', () => {
       lastSeen: null,
       iconType: null,
       managementZones: [],
-      tags: ['k'],
+      // Ficha 0037: sin contexto, CONTEXTLESS; sin valor, null.
+      tags: [{ context: 'CONTEXTLESS', key: 'k', value: null }],
       properties: [],
       relationships: []
     })

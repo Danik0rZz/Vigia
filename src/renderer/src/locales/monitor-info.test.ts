@@ -50,8 +50,8 @@ const ROWS = [
   'requests',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  // Ficha 0037: sin la fila de etiquetas (van en las píldoras de arriba).
+  'managementZones'
 ]
 
 describe('CA5 (0026): textos de la tarjeta «Información» de los monitores en es y en', () => {

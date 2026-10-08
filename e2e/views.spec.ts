@@ -1474,6 +1474,61 @@ function processInfoBody(): Record<string, unknown> {
   }
 }
 
+/**
+ * Ficha 0037: servicios inventados para las píldoras de etiquetas (solo tipos estándar e ids
+ * inventados; cada etiqueta, con la forma de `EnrichedTagDto` de la OpenAPI v2).
+ *
+ * - TAGS_ID: cinco etiquetas desordenadas: dos sin contexto (CONTEXTLESS), una de ellas de solo
+ *   clave (sin `value`), y tres con contexto (AWS, KUBERNETES y ENVIRONMENT). Por clave, en
+ *   orden alfabético: app, critico, equipo, nombre y zona.
+ * - TAGS_MANY_ID: 40 etiquetas largas, al revés del orden alfabético: no caben en dos líneas.
+ */
+const TAGS_ID = 'SERVICE-00000000000E2F37'
+const TAGS_MANY_ID = 'SERVICE-00000000000E2F38'
+const TAGS_SORTED_KEYS = ['app', 'critico', 'equipo', 'nombre', 'zona']
+const TAGS_MANY_KEYS = Array.from(
+  { length: 40 },
+  (_, i) => `etiqueta-larga-${String(i + 1).padStart(2, '0')}`
+)
+function tagsBody(entityId: string, tags: Record<string, unknown>[]): Record<string, unknown> {
+  return { ...infoFewBody(entityId), displayName: 'etiquetas-e2e', tags }
+}
+function tagsMixedBody(): Record<string, unknown> {
+  return tagsBody(TAGS_ID, [
+    { context: 'CONTEXTLESS', key: 'zona', value: 'norte', stringRepresentation: 'zona:norte' },
+    {
+      context: 'AWS',
+      key: 'nombre',
+      value: 'pagos-aws-e2e',
+      stringRepresentation: '[AWS]nombre:pagos-aws-e2e'
+    },
+    { context: 'CONTEXTLESS', key: 'critico', stringRepresentation: 'critico' },
+    {
+      context: 'KUBERNETES',
+      key: 'app',
+      value: 'pagos-k8s-e2e',
+      stringRepresentation: '[Kubernetes]app:pagos-k8s-e2e'
+    },
+    {
+      context: 'ENVIRONMENT',
+      key: 'equipo',
+      value: 'pagos-entorno-e2e',
+      stringRepresentation: '[Environment]equipo:pagos-entorno-e2e'
+    }
+  ])
+}
+function tagsManyBody(): Record<string, unknown> {
+  return tagsBody(
+    TAGS_MANY_ID,
+    [...TAGS_MANY_KEYS].reverse().map((key) => ({
+      context: 'CONTEXTLESS',
+      key,
+      value: `valor-bastante-largo-de-${key}`,
+      stringRepresentation: `${key}:valor-bastante-largo-de-${key}`
+    }))
+  )
+}
+
 /** Ficha 0015: lo que devuelve el simulador en /entities/{id}, por id (el resto, 404). */
 function entityBodies(): Record<string, Record<string, unknown>> {
   return {
@@ -1488,7 +1543,10 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     [MONITOR_BROWSER_ID]: monitorInfoBrowserBody(),
     [MONITOR_HTTP_ID]: monitorInfoHttpBody(),
     // Ficha 0029.
-    [PROCESS_METRICS_ID]: processInfoBody()
+    [PROCESS_METRICS_ID]: processInfoBody(),
+    // Ficha 0037.
+    [TAGS_ID]: tagsMixedBody(),
+    [TAGS_MANY_ID]: tagsManyBody()
   }
 }
 
@@ -8879,8 +8937,8 @@ const INFO_ROW_ORDER = [
   'publicCloudRegion',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  // Ficha 0037: las etiquetas ya no son fila de la tarjeta (van en las píldoras de arriba).
+  'managementZones'
 ]
 const infoCard = (): Locator => page.getByTestId('service-info')
 const infoRow = (key: string): Locator =>
@@ -8966,13 +9024,8 @@ test('CA1 (0015): con un servicio con todas las propiedades, la columna «Servic
     'Zona info B'
   ])
 
-  // Etiquetas: 6 y «+2», que despliega el resto.
-  const tagChips = infoRow('tags').getByTestId('service-info-chip')
-  await expect(tagChips).toHaveText(INFO_TAGS.slice(0, 6))
-  const more = infoRow('tags').getByTestId('service-info-tags-more')
-  await expect(more).toHaveText('+2')
-  await clickInPlace(more, { scroll: true })
-  await expect(tagChips).toHaveText(INFO_TAGS)
+  // Ficha 0037: las etiquetas ya no salen en la tarjeta (CA4 de la 0037 lo comprueba).
+  await expect(infoRow('tags')).toHaveCount(0)
 
   // Nada interno fuera de «Todas las propiedades», que empieza plegada.
   const internalTexts = [
@@ -9857,7 +9910,8 @@ const HOST_INFO_SECTIONS: [string, string, string[]][] = [
     'Monitorización',
     ['monitoringMode', 'state', 'installerVersion', 'firstSeen', 'lastSeen']
   ],
-  ['grouping', 'Agrupación', ['hostGroupName', 'managementZones', 'tags']],
+  // Ficha 0037: sin la fila de etiquetas (van en las píldoras de arriba).
+  ['grouping', 'Agrupación', ['hostGroupName', 'managementZones']],
   ['cloud', 'Nube o virtualización', ['cloudType', 'hypervisorType']]
 ]
 const hostInfoCard = (): Locator => page.getByTestId('host-info')
@@ -9944,15 +9998,12 @@ test('CA2 (0020): la página de un HOST enseña la tarjeta «Información» con 
   await clickInPlace(more, { scroll: true })
   await expect(ipChips).toHaveText(HOST_INFO_IPS)
 
-  // Zonas y etiquetas, como chips.
+  // Zonas, como chips; las etiquetas ya no salen en la tarjeta (ficha 0037).
   await expect(hostInfoRow('managementZones').getByTestId('host-info-chip')).toHaveText([
     'Zona host A',
     'Zona host B'
   ])
-  await expect(hostInfoRow('tags').getByTestId('host-info-chip')).toHaveText([
-    'equipo:sistemas',
-    'entorno:pre'
-  ])
+  await expect(hostInfoRow('tags')).toHaveCount(0)
 
   // Lo que la ficha no nombra, fuera de las filas; «Todas las propiedades» empieza plegada.
   const otherTexts = [
@@ -10898,8 +10949,8 @@ const MONITOR_INFO_REQUIRED: Record<MonitorPageKind, string[]> = {
     'steps',
     'firstSeen',
     'lastSeen',
-    'managementZones',
-    'tags'
+    // Ficha 0037: sin la fila de etiquetas (van en las píldoras de arriba).
+    'managementZones'
   ],
   // Sin etiquetas: no hay fila.
   http: [
@@ -11000,10 +11051,8 @@ test('CA2 (0026): la página de un browser monitor enseña la tarjeta «Informac
     'Zona monitor A',
     'Zona monitor B'
   ])
-  await expect(monitorInfoRow('tags').getByTestId('monitor-info-chip')).toHaveText([
-    'equipo:web',
-    'entorno:pro'
-  ])
+  // Ficha 0037: las etiquetas ya no salen en la tarjeta.
+  await expect(monitorInfoRow('tags')).toHaveCount(0)
 
   // Capturas y nombre detectado, nunca en una fila; «Todas las propiedades» empieza plegada.
   const rows = card.getByTestId('monitor-info-row')
@@ -11681,8 +11730,8 @@ const PROCESS_INFO_ROWS = [
   'executable',
   'firstSeen',
   'lastSeen',
-  'managementZones',
-  'tags'
+  // Ficha 0037: sin la fila de etiquetas (van en las píldoras de arriba).
+  'managementZones'
 ]
 const processInfoCard = (): Locator => page.getByTestId('process-info')
 const processInfoRow = (key: string): Locator =>
@@ -11756,9 +11805,8 @@ test('CA3 (0029): la página de un proceso enseña su tarjeta «Información» (
   await expect(processInfoRow('managementZones').getByTestId('process-info-chip')).toHaveText([
     'Zona proceso A'
   ])
-  await expect(processInfoRow('tags').getByTestId('process-info-chip')).toHaveText([
-    'equipo:proceso'
-  ])
+  // Ficha 0037: las etiquetas ya no salen en la tarjeta.
+  await expect(processInfoRow('tags')).toHaveCount(0)
   for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
     await expect(card, text).not.toContainText(text)
   }
@@ -12069,9 +12117,11 @@ test('CA1 (0036): en las páginas de servicio, host, browser monitor, HTTP monit
 test('CA2 (0036): en esas cinco páginas, los marcadores son la primera sección después de la cabecera', async () => {
   for (const entry of ORDERED_ENTITY_PAGES) {
     await openOrderedPage(entry)
-    // Antes de los marcadores, solo la cabecera.
+    // Antes de los marcadores, solo la cabecera (y, desde la ficha 0037, la fila de etiquetas).
     expect(
-      await visibleNeighbours(entry.pageTestId, entry.markers, 'before'),
+      (await visibleNeighbours(entry.pageTestId, entry.markers, 'before')).filter(
+        (name) => name !== 'entity-tags'
+      ),
       `${entry.name}: solo la cabecera antes de los marcadores`
     ).toEqual(['header'])
 
@@ -12083,5 +12133,259 @@ test('CA2 (0036): en esas cinco páginas, los marcadores son la primera sección
         markersBox.y + markersBox.height - 1
       )
     }
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0037: etiquetas arriba del todo, como píldoras clave:valor.
+// ---------------------------------------------------------------------------
+
+/**
+ * Nombres que fijan estos tests (la ficha no los daba; decisión del test-writer, delegada por
+ * Dani y refinable): la fila de píldoras es `entity-tags`, común a todas las páginas de entidad;
+ * cada píldora, `entity-tag`, con su clave en `entity-tag-key`, su valor (si lo hay) en
+ * `entity-tag-value` y su contexto (si no es CONTEXTLESS) en `entity-tag-context`; el «+N» que
+ * despliega el resto, `entity-tags-more`. La cabecera de la página es su `header`.
+ */
+const entityTags = (pageTestId: string): Locator =>
+  page.getByTestId(pageTestId).getByTestId('entity-tags')
+
+/** Ficha 0037: la clave de un elemento de píldora, sin espacios ni los dos puntos de «clave:». */
+const cleanTagKey = (text: string | null): string => (text ?? '').replace(/:\s*$/, '').trim()
+
+/** Ficha 0037: la clave de cada píldora de la fila, en el orden del DOM. */
+async function tagKeys(row: Locator): Promise<string[]> {
+  return (await row.getByTestId('entity-tag-key').allTextContents()).map(cleanTagKey)
+}
+
+/**
+ * Ficha 0037: las píldoras que se ven dentro de la fila (caja no vacía, sin `visibility: hidden` y
+ * dentro de la caja de la fila: una píldora recortada por la fila no se ve), con su clave y su
+ * línea (arriba y alto).
+ */
+async function shownTags(row: Locator): Promise<{ key: string; top: number; height: number }[]> {
+  return row.evaluate((element) => {
+    const rowRect = element.getBoundingClientRect()
+    return [...element.querySelectorAll('[data-testid="entity-tag"]')].flatMap((pill) => {
+      const rect = pill.getBoundingClientRect()
+      const inside =
+        rect.top >= rowRect.top - 1 &&
+        rect.bottom <= rowRect.bottom + 1 &&
+        rect.left >= rowRect.left - 1 &&
+        rect.right <= rowRect.right + 1
+      const hidden = getComputedStyle(pill).visibility === 'hidden'
+      if (rect.width === 0 || rect.height === 0 || hidden || !inside) return []
+      const key = (pill.querySelector('[data-testid="entity-tag-key"]')?.textContent ?? '')
+        .replace(/:\s*$/, '')
+        .trim()
+      return [{ key, top: rect.top, height: rect.height }]
+    })
+  })
+}
+
+/** Ficha 0037: ¿va `first` antes que `second` en el DOM, dentro de `root`? */
+async function comesBefore(root: Locator, first: string, second: string): Promise<boolean> {
+  return root.evaluate(
+    (element, [a, b]) => {
+      const nodeA = element.querySelector(`[data-testid="${a}"]`)
+      const nodeB = element.querySelector(`[data-testid="${b}"]`)
+      if (nodeA === null || nodeB === null) return false
+      return (nodeA.compareDocumentPosition(nodeB) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    },
+    [first, second] as const
+  )
+}
+
+/** Ficha 0037: abre la página del servicio, espera su tarjeta (los datos ya han llegado) y la fila. */
+async function openTagsPage(id: string): Promise<Locator> {
+  await openServiceInfo(id)
+  const row = entityTags('entity-page-service')
+  await expect(row).toBeVisible()
+  return row
+}
+
+test('CA2 (0037): en la página de un servicio, las píldoras salen entre la cabecera y los marcadores, en orden alfabético; la de solo clave enseña solo la clave y las de contexto llevan su prefijo', async () => {
+  const row = await openTagsPage(TAGS_ID)
+  const pageTestId = 'entity-page-service'
+  const root = page.getByTestId(pageTestId)
+
+  // Entre la cabecera y los marcadores: antes de los marcadores, solo la cabecera y la fila (que
+  // puede ir dentro de la cabecera, debajo del título); la fila, antes que los marcadores en el
+  // DOM y encima de ellos en la pantalla.
+  const before = await visibleNeighbours(pageTestId, 'service-markers', 'before')
+  expect(before, 'antes de los marcadores, la cabecera').toContain('header')
+  expect(
+    before.filter((name) => name !== 'entity-tags' && name !== 'header'),
+    'nada más antes de los marcadores'
+  ).toEqual([])
+  expect(await comesBefore(root, 'entity-tags', 'service-markers'), 'orden en el DOM').toBe(true)
+  const headerBox = await settledBox(root.locator('header').first())
+  const rowBox = await settledBox(row)
+  const markersBox = await settledBox(page.getByTestId('service-markers'))
+  expect(rowBox.y, 'la fila, por debajo del principio de la cabecera').toBeGreaterThan(headerBox.y)
+  expect(rowBox.y + rowBox.height, 'la fila, encima de los marcadores').toBeLessThanOrEqual(
+    markersBox.y + 1
+  )
+
+  // Cinco píldoras, por clave en orden alfabético (no en el de la respuesta).
+  const pills = row.getByTestId('entity-tag')
+  await expect(pills).toHaveCount(TAGS_SORTED_KEYS.length)
+  expect(await tagKeys(row)).toEqual(TAGS_SORTED_KEYS)
+  // Las píldoras ya están en el orden de TAGS_SORTED_KEYS (comprobado justo arriba).
+  const pill = (key: string): Locator => pills.nth(TAGS_SORTED_KEYS.indexOf(key))
+
+  // Clave y valor, con el valor aparte y en otro tono que la clave.
+  const zona = pill('zona')
+  await expect(zona.getByTestId('entity-tag-value')).toHaveText(/^\s*norte\s*$/)
+  await expect(zona).toHaveText(/zona\s*:\s*norte/)
+  const colors = await zona.evaluate((element) => {
+    const color = (id: string): string => {
+      const target = element.querySelector(`[data-testid="${id}"]`)
+      return target === null ? '' : getComputedStyle(target).color
+    }
+    return { key: color('entity-tag-key'), value: color('entity-tag-value') }
+  })
+  expect(colors.key, 'la clave tiene color').not.toBe('')
+  expect(colors.value, 'la clave y el valor, en tonos distintos').not.toBe(colors.key)
+
+  // Solo clave: ni valor ni dos puntos.
+  const critico = pill('critico')
+  await expect(critico.getByTestId('entity-tag-value')).toHaveCount(0)
+  await expect(critico).not.toContainText(':')
+  await expect(critico).toHaveText(/^\s*critico\s*$/)
+
+  // Sin contexto (CONTEXTLESS), sin prefijo; con contexto, su prefijo antes de la clave.
+  for (const key of ['zona', 'critico']) {
+    await expect(pill(key).getByTestId('entity-tag-context'), key).toHaveCount(0)
+    await expect(pill(key), key).not.toContainText(/contextless/i)
+  }
+  const withContext: [string, RegExp, string][] = [
+    ['app', /kubernetes/i, 'pagos-k8s-e2e'],
+    ['equipo', /environment/i, 'pagos-entorno-e2e'],
+    ['nombre', /aws/i, 'pagos-aws-e2e']
+  ]
+  for (const [key, context, value] of withContext) {
+    const target = pill(key)
+    await expect(target.getByTestId('entity-tag-context'), key).toHaveText(context)
+    await expect(target.getByTestId('entity-tag-value'), key).toHaveText(
+      new RegExp(`^\\s*${value}\\s*$`)
+    )
+    expect(
+      await comesBefore(target, 'entity-tag-context', 'entity-tag-key'),
+      `${key}: el contexto va antes de la clave`
+    ).toBe(true)
+  }
+})
+
+test('CA2 (0037): en las páginas de host, browser monitor y proceso, sus etiquetas también salen como píldoras entre la cabecera y los marcadores, por orden alfabético', async () => {
+  const cases: [string, string[]][] = [
+    ['host', ['entorno', 'equipo']],
+    ['browser monitor', ['entorno', 'equipo']],
+    ['proceso', ['equipo']]
+  ]
+  for (const [name, keys] of cases) {
+    const entry = ORDERED_ENTITY_PAGES.find((candidate) => candidate.name === name)
+    expect(entry, name).toBeDefined()
+    if (entry === undefined) continue
+    await entry.open()
+    const root = page.getByTestId(entry.pageTestId)
+    const row = entityTags(entry.pageTestId)
+    await expect(row, name).toBeVisible()
+    expect(await tagKeys(row), name).toEqual(keys)
+    expect(await comesBefore(root, 'entity-tags', entry.markers), `${name}: orden en el DOM`).toBe(
+      true
+    )
+    const rowBox = await settledBox(row)
+    const markersBox = await settledBox(root.getByTestId(entry.markers))
+    expect(rowBox.y + rowBox.height, `${name}: encima de los marcadores`).toBeLessThanOrEqual(
+      markersBox.y + 1
+    )
+  }
+})
+
+test('CA3 (0037): con muchas etiquetas, se ven las que caben en dos líneas y «+N» despliega el resto, en orden', async () => {
+  const row = await openTagsPage(TAGS_MANY_ID)
+  await expect(row.getByTestId('entity-tag').first()).toBeVisible()
+  const more = row.getByTestId('entity-tags-more')
+  await expect(more).toBeVisible()
+  await expect(more).toHaveText(/^\s*\+\d+\s*$/)
+  const hidden = Number(((await more.textContent()) ?? '').replace(/\D/g, ''))
+
+  // Plegada: las primeras por orden alfabético, en dos líneas como mucho, y «+N» con las demás.
+  await settledBox(row)
+  const shown = await shownTags(row)
+  expect(shown.length, 'alguna se ve').toBeGreaterThan(0)
+  expect(hidden, 'N > 0').toBeGreaterThan(0)
+  expect(shown.length + hidden, 'las que se ven más N son todas').toBe(TAGS_MANY_KEYS.length)
+  expect(shown.map((tag) => tag.key)).toEqual(TAGS_MANY_KEYS.slice(0, shown.length))
+  const lines: number[] = []
+  for (const tag of shown) {
+    if (!lines.some((top) => Math.abs(top - tag.top) < tag.height / 2)) lines.push(tag.top)
+  }
+  expect(lines.length, 'como mucho dos líneas').toBeLessThanOrEqual(2)
+
+  // Desplegada: todas, en orden.
+  await clickInPlace(more, { scroll: true })
+  await expect
+    .poll(async () => (await shownTags(row)).map((tag) => tag.key))
+    .toEqual(TAGS_MANY_KEYS)
+})
+
+test('CA4 (0037): la tarjeta «Información» ya no enseña etiquetas en las páginas de servicio, host, browser monitor y proceso; la fila de píldoras sí', async () => {
+  const cases: [string, string, string[]][] = [
+    ['servicio', 'service-info-row', INFO_TAGS],
+    ['host', 'host-info-row', ['equipo:sistemas', 'entorno:pre', 'sistemas']],
+    ['browser monitor', 'monitor-info-row', ['equipo:web', 'entorno:pro']],
+    ['proceso', 'process-info-row', ['equipo:proceso']]
+  ]
+  for (const [name, rowTestId, texts] of cases) {
+    const entry = ORDERED_ENTITY_PAGES.find((candidate) => candidate.name === name)
+    expect(entry, name).toBeDefined()
+    if (entry === undefined) continue
+    const card = await entry.open()
+    await expect(card.getByTestId(rowTestId).first(), name).toBeVisible()
+    await expect(card.locator(`[data-testid="${rowTestId}"][data-key="tags"]`), name).toHaveCount(0)
+    await expect(card.getByTestId('entity-tags'), name).toHaveCount(0)
+    await expect(card.getByTestId('entity-tag'), name).toHaveCount(0)
+    for (const text of texts) await expect(card, `${name}: ${text}`).not.toContainText(text)
+    // Las etiquetas siguen en la página, en la fila de píldoras.
+    await expect(entityTags(entry.pageTestId).getByTestId('entity-tag').first(), name).toBeVisible()
+  }
+})
+
+test('CA5 (0037): sin etiquetas, o sin el scope entities.read, no hay fila de píldoras y los marcadores siguen justo debajo de la cabecera', async () => {
+  // Servicio y HTTP monitor sin etiquetas (con la tarjeta ya cargada: los datos han llegado).
+  await openServiceInfo(INFO_FEW_ID)
+  await expect(entityTags('entity-page-service')).toHaveCount(0)
+  await expect(page.getByTestId('entity-tag')).toHaveCount(0)
+  expect(await visibleNeighbours('entity-page-service', 'service-markers', 'before')).toEqual([
+    'header'
+  ])
+  const http = ORDERED_ENTITY_PAGES.find((candidate) => candidate.name === 'HTTP monitor')
+  expect(http).toBeDefined()
+  if (http !== undefined) {
+    await http.open()
+    await expect(entityTags(http.pageTestId)).toHaveCount(0)
+    await expect(page.getByTestId('entity-tag')).toHaveCount(0)
+  }
+
+  // Sin entities.read: la tarjeta dice qué scope falta y no hay fila (aunque la entidad tenga).
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEntities = await createEnvironment(clientId, 'Sin entidades', 'other', TOKEN_NO_ENTITIES)
+  try {
+    await invoke('connection:test', { environmentId: noEntities })
+    await invoke('environments:setActive', { environmentId: noEntities })
+    await reloadUi()
+    await goToRoute(`/entities/SERVICE/${TAGS_ID}`)
+    await expect(page.getByTestId('entity-page-service')).toBeVisible()
+    await expect(infoCard().getByTestId('module-unavailable')).toContainText('entities.read')
+    await expect(page.getByTestId('service-markers')).toBeVisible()
+    await expect(entityTags('entity-page-service')).toHaveCount(0)
+    await expect(page.getByTestId('entity-tag')).toHaveCount(0)
+  } finally {
+    await invoke('environments:setActive', { environmentId: env['Producción'] })
+    await invoke('environments:delete', { id: noEntities })
+    await reloadUi()
   }
 })
