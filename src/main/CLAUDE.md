@@ -30,3 +30,5 @@
   de todo el rango, `Inf` (tiempos) o sumar la serie (recuentos). `dataPointCountRatio` y
   `dimensionCountRatio` son «pedido / máximo permitido» y llegan siempre: recortado es un ratio
   **mayor que 1**, no menor (`truncatedResults`, ficha 0006).
+- `GET /metrics/query`: los nombres de disco y proceso solo llegan con `:names` en cada expresión;
+  `:last` con `resolution=Inf` da 400 (ficha 0017, `docs/notas-api-v2.md`).

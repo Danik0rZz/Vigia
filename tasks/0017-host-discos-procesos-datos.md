@@ -1,7 +1,7 @@
 ---
 id: '0017'
 titulo: 'HOST: canal con el detalle por disco y los procesos que más consumen'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -218,4 +218,7 @@ Comportamientos observados:
 
 ## Resultado
 
-(pendiente)
+- Commits: `da5b49d` (tests), `921cab3` (canal), más los de ficha. Una ronda de revisión: APROBADO. Verifier en verde (2261 unitarios, e2e 225/225).
+- Ficheros principales: `src/main/modules/host-breakdown.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/modules.ts`, `src/shared/ipc.ts`, `e2e/views.spec.ts`.
+- ADR nuevo: ninguno. Migración: no. CHANGELOG: sin entrada (nada visible hasta la 0019).
+- Documentado en `docs/notas-api-v2.md` y `src/main/CLAUDE.md`; ideas al BACKLOG.

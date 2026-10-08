@@ -438,6 +438,36 @@ Muestra: 3 hosts, con `now-2h` y `now-7d`. Las 11 candidatas existen. Todas con
   total de CPU** en 2 de 3 hosts (hay más componentes): el desglose no es un reparto.
 - Ratios de recorte entre 0 y 0,01; ninguna respuesta con `warnings`.
 
+### Discos y procesos de un host (ficha 0017, observado en vivo, solo lectura)
+
+Muestra: 3 hosts, con `now-2h` y `now-7d`. Las 7 candidatas existen, todas con
+`resolutionInfSupported: true`, agregaciones auto, avg, max y min, y las transformaciones `fold`,
+`last`, `limit`, `sort`, `filter` y `splitBy`.
+
+| Métrica                                   | Unidad        | Dimensiones                        |
+| ----------------------------------------- | ------------- | ---------------------------------- |
+| `builtin:host.disk.usedPct`               | Percent       | `dt.entity.host`, `dt.entity.disk` |
+| `builtin:host.disk.used`                  | Byte          | `dt.entity.host`, `dt.entity.disk` |
+| `builtin:host.disk.avail`                 | Byte          | `dt.entity.host`, `dt.entity.disk` |
+| `builtin:host.disk.bytesRead`             | BytePerSecond | `dt.entity.host`, `dt.entity.disk` |
+| `builtin:host.disk.bytesWritten`          | BytePerSecond | `dt.entity.host`, `dt.entity.disk` |
+| `builtin:tech.generic.cpu.usage`          | Percent       | `dt.entity.process_group_instance` |
+| `builtin:tech.generic.mem.workingSetSize` | Byte          | `dt.entity.process_group_instance` |
+
+- **Procesos de un host:** solo se limitan con `entitySelector=type("PROCESS_GROUP_INSTANCE"),fromRelationships.isProcessOf(entityId("<id>"))`
+  (mismos procesos que `/entities` con ese selector). La dimensión del host **no existe** en las
+  métricas de proceso: `:filter(eq("dt.entity.host",…))` y `entitySelector=entityId("<host>")` dan
+  200 sin series.
+- **Nombres:** `dimensionMap` solo trae ids; con la transformación `:names` llegan
+  `dt.entity.disk.name` y `dt.entity.process_group_instance.name`, también con `resolution=Inf`.
+- **`:last` con `resolution=Inf` da 400** (como `fold`): el último dato sale del último punto con
+  dato de la serie. `usedPct:max` con `Inf` sí vale.
+- **Tope de 1.000 series por respuesta:** con 3 expresiones por proceso, unos 333 procesos por
+  host; por encima la respuesta sale recortada (`dataPointCountRatio`/`dimensionCountRatio` > 1).
+  En vivo, 10–150 procesos por host y 2–9 discos.
+- Con `now-2h` el último punto de las series de disco puede ser `null`; `used / (used + avail)`
+  coincide con `usedPct`. `bytesRead`/`bytesWritten` pueden traer más discos que `usedPct`.
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2

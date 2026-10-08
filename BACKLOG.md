@@ -124,7 +124,11 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Marcadores del host (`src/main/modules/host-metrics.ts`): pedir `:avg` explícito (equivale al
   `defaultAggregation`). (surgió en 0016)
 - Comentario de `fold` + `Inf` en `host-metrics.ts`: citar la 0006 (da 400). (surgió en 0016)
-- CA5 de la 0016: comprobar también la clave `hostMetricsRejected`. (surgió en 0016)
+- CA5 de la 0016: comprobar también la clave `hostMetricsRejected`. (surgió en 0016)- Comentario de `host-breakdown.ts`: anotar que la API limita a 1.000 series por respuesta y que con
+  3 expresiones por proceso la cuenta es exacta hasta unos 333 procesos por host. Si aparecen hosts
+  más grandes: `:sort(value(avg,descending)):limit(10)` y recuento aparte (cambio de ficha; decide
+  Dani). (surgió en 0017)
+- El `detail` de `hostBreakdownRejected` puede llevar el selector con el id del host. (surgió en 0017)
 
 ## Aparcado
 
@@ -173,3 +177,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   servicio, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades. Con ella
   queda completo el lote «servicio-2» (0011 a 0015).
 - [0016](tasks/0016-host-datos-metricas.md): canal `entities:hostMetrics` con series y marcadores de CPU, memoria, red y disco del host (lote host; sin cambios visibles hasta la 0018).
+- [0017](tasks/0017-host-discos-procesos-datos.md): canal `entities:hostBreakdown` con los discos y los 10 procesos con más CPU del host (lote host; sin cambios visibles hasta la 0019).
