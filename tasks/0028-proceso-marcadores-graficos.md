@@ -79,7 +79,7 @@ el simulador ampliado) siguen en verde.
 Cómo leen los tests la decisión del Orquestador de la 0027: el canal tiene métrica para los seis
 papeles, así que «papel `null`» es el papel sin datos (series vacías y marcador a `null`), lo que
 el simulador da con `sim.processEmpty`; ese papel no se pinta. Con la decisión de abajo, ajustada
-en los tests: con todos los datos, el cuarto marcador es Disponibilidad (Recursos no sale) y los
+en los tests (`d920e69`): con todos los datos, el cuarto marcador es Disponibilidad (Recursos no sale) y los
 gráficos son exactamente CPU, Memoria, Red y Salud de red (CA1, CA4 y CA5); sin uno, sale el otro
 (CA2). Recursos, «0,9 %» (0,9 en el simulador); la red, en bits por segundo como el host: bytesRx y
 bytesTx llegan en BytePerSecond (`docs/notas-api-v2.md`), así que 2560 y 384 B/s salen como
