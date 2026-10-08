@@ -181,6 +181,12 @@ espera las mismas al volver, pero ahora la página del host al que navega pide s
 solo las peticiones del id del servicio, como hace `CA3 (0020)` con `hostQueries`. No lo he
 tocado (es un test de otra ficha).
 
+**Resuelto (test-writer, decisión del Orquestador delegada por Dani), commit `2646be5`:** `CA5 (0015)`
+ahora cuenta solo las `entities:get` con el id del servicio (`serviceInfoQueries`), porque la
+página del host a la que navega pide la suya, como manda la 0020; su intención (no volver a pedir
+los datos del servicio) y el resto de comprobaciones siguen igual. `-g "CA5 \(0015\)|\(0020\)"`
+con `--repeat-each 3 --workers=1`: 18 en verde.
+
 ## Resultado
 
 (pendiente)
