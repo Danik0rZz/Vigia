@@ -73,13 +73,15 @@ fallan los 4 e2e nuevos (no hay `monitor-locations` ni `monitor-steps` en la pá
 unitarios (no existen `entities.monitor.locations` ni `entities.monitor.steps` en los locales). Los
 e2e de la 0023 y la 0024 pasan con el simulador ampliado (8/8).
 
-| Criterio | Test                                                                                                                                                                                                                                    |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CA1      | `e2e/views.spec.ts` › `CA1 (0025): con 4 localizaciones, la tabla las enseña de peor a mejor disponibilidad, con su %, su nivel, la duración media y las fallidas`                                                                      |
-| CA2      | `e2e/views.spec.ts` › `CA2 (0025): con 5 pasos, la tabla del browser monitor los enseña en su orden, con su duración y su peso, y marca el más lento; en un HTTP monitor la tarjeta se llama «Peticiones»`                              |
-| CA3      | **Sin test** (ver la nota): no se puede probar tal como está escrito.                                                                                                                                                                   |
-| CA4      | `e2e/views.spec.ts` › `CA4 (0025): ordenar por otra columna (nombre en pasos, duración en localizaciones) reordena las filas` y `CA4 (0025): si falla el canal, las dos tarjetas enseñan el aviso con Reintentar y los gráficos siguen` |
-| CA5      | `src/renderer/src/locales/monitor-tables.test.ts` › `CA5 (0025): textos de las tablas de localizaciones y de pasos o peticiones en es y en`                                                                                             |
+Tests de CA3 (decisión del Orquestador) en el commit siguiente, `test(monitores): CA3 de la ficha 0025 (#0025)`: e2e con `sim.monitorStepsEmpty` (el desglose sin series de pasos ni de peticiones) en los dos monitores, y unitario de `monitorStepsShown(data)` en `src/renderer/src/pages/entities/monitor-tables.ts` (nombre que fija el test: `false` con `steps: null` o `[]`, `true` con algún paso y con `undefined`, para que la tarjeta enseñe su carga o su error de CA4). Al escribirlos fallan los dos: no hay `monitor-locations` en la página y no existe `./monitor-tables`.
+
+| Criterio | Test                                                                                                                                                                                                                                                                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `e2e/views.spec.ts` › `CA1 (0025): con 4 localizaciones, la tabla las enseña de peor a mejor disponibilidad, con su %, su nivel, la duración media y las fallidas`                                                                                                                                                                        |
+| CA2      | `e2e/views.spec.ts` › `CA2 (0025): con 5 pasos, la tabla del browser monitor los enseña en su orden, con su duración y su peso, y marca el más lento; en un HTTP monitor la tarjeta se llama «Peticiones»`                                                                                                                                |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0025): sin pasos que enseñar (lista vacía del canal), no sale la tarjeta de pasos y la de localizaciones sí` y `src/renderer/src/pages/entities/monitor-tables.test.ts` › `CA3 (0025): la tarjeta de pasos solo sale si hay pasos que enseñar` (`monitorStepsShown`, con `null`, `[]`, un paso y `undefined`) |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0025): ordenar por otra columna (nombre en pasos, duración en localizaciones) reordena las filas` y `CA4 (0025): si falla el canal, las dos tarjetas enseñan el aviso con Reintentar y los gráficos siguen`                                                                                                   |
+| CA5      | `src/renderer/src/locales/monitor-tables.test.ts` › `CA5 (0025): textos de las tablas de localizaciones y de pasos o peticiones en es y en`                                                                                                                                                                                               |
 
 **Nota sobre CA3 (`steps: null`), a decidir por el Orquestador:** con la decisión de la 0023, el
 canal devuelve `steps` siempre como lista (los dos tipos tienen métrica de pasos) y el esquema solo
@@ -89,6 +91,12 @@ reinterpretarlo. Alternativas: (a) e2e con la lista de pasos vacía (¿tarjeta o
 pasos»?, que la ficha no dice); (b) un unitario del renderer sobre la función que decide si sale la
 tarjeta con `steps: null`; (c) dejar CA3 sin test, como la rama `null` de la 0023, hasta que haya un
 tipo sin métrica de pasos.
+
+**Decisión del Orquestador (delegada por Dani, refinable), 2026-10-08:** (a)+(b). Sin pasos que
+enseñar, con `steps: null` o con la lista vacía, la tarjeta de pasos no sale y la de localizaciones
+sí. Un e2e con la lista vacía desde el simulador, y un unitario de la función que decide si sale la
+tarjeta, con `null` y con `[]`. Ocultarla es lo coherente con el resto de páginas: lo que no tiene
+datos no ocupa sitio.
 
 **Decisiones del test-writer (delegadas por Dani, refinables):**
 

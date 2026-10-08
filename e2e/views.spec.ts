@@ -2151,9 +2151,11 @@ function monitorBreakdownResponse(query: URLSearchParams): [number, unknown] {
           : 'dt.entity.synthetic_location'
         // No confirmada o con otro ámbito: como la API, también series de otro monitor.
         const items: BreakdownItem[] = valid
-          ? (((sim.monitorTables ? MONITOR_TABLE_DATA[id] : undefined) ?? BREAKDOWN_DATA[id])?.[
-              entry.role
-            ] ?? [])
+          ? sim.monitorStepsEmpty && entry.role === 'steps'
+            ? []
+            : (((sim.monitorTables ? MONITOR_TABLE_DATA[id] : undefined) ?? BREAKDOWN_DATA[id])?.[
+                entry.role
+              ] ?? [])
           : [
               {
                 id: isStep ? breakdownStep(stepType, 9) : breakdownLocation(9),
@@ -2474,6 +2476,8 @@ const defaultSim = () => ({
    * MONITOR_TABLE_DATA (4 localizaciones y 5 pasos o 2 peticiones) en vez de con BREAKDOWN_DATA.
    */
   monitorTables: false,
+  /** Ficha 0025: el desglose de los monitores llega sin series de pasos ni de peticiones. */
+  monitorStepsEmpty: false,
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
   serviceMetricsFail: false,
   /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
@@ -10410,4 +10414,22 @@ test('CA4 (0025): si falla el canal, las dos tarjetas enseñan el aviso con Rein
   for (const card of [monitorLocations(), monitorSteps()]) {
     await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
   }
+})
+
+test('CA3 (0025): sin pasos que enseñar (lista vacía del canal), no sale la tarjeta de pasos y la de localizaciones sí', async () => {
+  // Decisión del Orquestador (ficha 0025): el canal siempre da `steps` como lista, así que desde
+  // el simulador se prueba con la lista vacía; `steps: null` lo cubre el unitario de
+  // monitor-tables.
+  sim.monitorStepsEmpty = true
+  for (const kind of ['browser', 'http'] as const) {
+    await openMonitorTables(kind)
+    const rows = kind === 'browser' ? 3 : 4
+    await expect(monitorLocations(), kind).toBeVisible()
+    await expect(monitorLocations().getByTestId('monitor-location-row'), kind).toHaveCount(rows)
+    // Con las localizaciones ya cargadas, el desglose ha respondido: la de pasos no está.
+    await expect(monitorSteps(), kind).toHaveCount(0)
+    await expect(page.getByTestId('monitor-step-row'), kind).toHaveCount(0)
+  }
+
+  // Que con pasos sí sale (no falta siempre) lo prueba CA2 con los mismos testids.
 })
