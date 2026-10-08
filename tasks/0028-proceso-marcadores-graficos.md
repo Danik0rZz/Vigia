@@ -1,7 +1,7 @@
 ---
 id: '0028'
 titulo: 'PROCESS_GROUP_INSTANCE: marcadores y gráficos de la página del proceso'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -68,7 +68,33 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `c45fe8d` (`test(proceso): criterios de la ficha 0028`). Fallan porque la página
+no existe (los `process-*` no aparecen: `element(s) not found`; `entities.process` sin textos), no
+por el test: 9 e2e en rojo y los 3 unitarios de CA6 en rojo. Los e2e vecinos que se tocaron
+(`CA7 (0008)`, ya sin PROCESS_GROUP_INSTANCE en construcción; `CA6 (0027)` y `CA3 (0019)`, con
+el simulador ampliado) siguen en verde.
+
+Cómo leen los tests la decisión del Orquestador de la 0027: el canal tiene métrica para los seis
+papeles, así que «papel `null`» es el papel sin datos (series vacías y marcador a `null`), lo que
+el simulador da con `sim.processEmpty`; ese papel no se pinta. «Disponibilidad o Recursos» y
+«Salud de red o Recursos» son «el que haya»: con todos los datos, los tests aceptan cualquiera de
+los dos (uno solo); sin uno, sale el otro. El marcador de recursos (0,9 en el simulador,
+`fileDescriptorsPercentUsed` en [0, 1]) se acepta como 0,9 % o 90 %, y la red en bytes o en bits
+por segundo: la ficha no lo fija. Nombres (testids) en el comentario del bloque de la 0028 de
+`e2e/views.spec.ts`; textos en `entities.process.markers` y `entities.process.charts`.
+
+Cambios en el simulador: `processMetricsFail`, `processEmpty`, los problemas del proceso
+(`processBandProblems`, uno abierto y uno cerrado) y las métricas del proceso también para los
+procesos de la tabla del host (0019).
+
+| Criterio | Test                                                                                                                                                                             |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `e2e/views.spec.ts` › `CA1 (0028): la página de un proceso enseña sus marcadores y sus cuatro gráficos con los valores y las series del simulador, sin «Página en construcción»` |
+| CA2      | `e2e/views.spec.ts` › los cuatro `CA2 (0028): …` (sin red ni salud de red; sin disponibilidad; sin recursos; sin disponibilidad, recursos ni salud de red)                       |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0028): la franja de problemas sale sobre el gráfico de CPU con los problemas del proceso, y pulsar un tramo abre el problema`                        |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0028): cambiar el rango global vuelve a pedir los datos; …` y `CA4 (0028): si falla el canal de métricas, …`                                         |
+| CA5      | `e2e/views.spec.ts` › `CA5 (0028): desde la tabla de procesos del host, pulsar un proceso abre su página con sus marcadores y gráficos`                                          |
+| CA6      | `src/renderer/src/locales/process-page.test.ts` › `CA6 (0028): textos de la página del proceso en es y en`                                                                       |
 
 ## Resultado
 
