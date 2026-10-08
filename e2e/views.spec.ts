@@ -1262,6 +1262,50 @@ function bandProblems(): FakeProblem[] {
   }))
 }
 
+const HOST_BAND_OPEN = {
+  problemId: 'pd-host-band-open',
+  displayId: 'P-E2E51',
+  title: 'CPU saturada en el host'
+}
+const HOST_BAND_CLOSED = {
+  problemId: 'pd-host-band-closed',
+  displayId: 'P-E2E52',
+  title: 'Memoria agotada en el host'
+}
+const HOST_BAND_CLOSED_2 = {
+  problemId: 'pd-host-band-closed-2',
+  displayId: 'P-E2E53',
+  title: 'Disco lleno en el host'
+}
+
+/**
+ * Ficha 0018: los problemas de HOST_METRICS_ID (uno abierto y dos cerrados, sin solaparse y
+ * dentro de las últimas 2 h). Salen en las consultas con affectedEntities (recuentos y franja) y
+ * en el detalle.
+ */
+function hostBandProblems(): FakeProblem[] {
+  const now = sim.bandNow
+  return (
+    [
+      [HOST_BAND_OPEN, 'OPEN', now - 30 * 60_000, -1],
+      [HOST_BAND_CLOSED, 'CLOSED', now - 100 * 60_000, now - 70 * 60_000],
+      [HOST_BAND_CLOSED_2, 'CLOSED', now - 60 * 60_000, now - 45 * 60_000]
+    ] as const
+  ).map(([ids, status, startTime, endTime]) => ({
+    ...ids,
+    status,
+    severityLevel: 'RESOURCE_CONTENTION',
+    impactLevel: 'INFRASTRUCTURE',
+    startTime,
+    endTime,
+    affectedEntities: [{ entityId: { id: HOST_METRICS_ID, type: 'HOST' }, name: 'host-metricas' }],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: [],
+    evidenceDetails: { totalCount: 0, details: [] }
+  }))
+}
+
 const BAND_SHORT = {
   problemId: 'pd-band-short',
   displayId: 'P-E2E43',
@@ -1530,6 +1574,9 @@ function hostMetricResponse(query: URLSearchParams): [number, unknown] {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
   const marker = inf || selector.includes(':fold(')
+  if (sim.hostMetricsFail) {
+    return [400, { error: { code: 400, message: 'Métricas del host no disponibles (simulado)' } }]
+  }
   const expressions = splitSelector(selector)
   const dataOf = (expression: string): (number | null)[][] => {
     if (marker) {
@@ -1752,6 +1799,8 @@ const defaultSim = () => ({
   hostMetricQueries: [] as URLSearchParams[],
   /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
   hostBreakdownQueries: [] as URLSearchParams[],
+  /** Ficha 0018: las consultas de métricas del host inventado fallan con un 400. */
+  hostMetricsFail: false,
   /** Ficha 0008: las consultas de métricas del servicio fallan con un 400. */
   serviceMetricsFail: false,
   /** Ficha 0008: los recuentos de problemas de una entidad (affectedEntities) fallan con un 400. */
@@ -1914,6 +1963,7 @@ async function startServer(): Promise<void> {
               ...markerProblems(),
               ...bandProblems(),
               ...shortProblems(),
+              ...hostBandProblems(),
               ...longIdProblems()
             ],
             selector
@@ -1954,7 +2004,8 @@ async function startServer(): Promise<void> {
             ...problemsFor(token),
             ...manyProblems,
             ...detailOnly,
-            ...bandProblems()
+            ...bandProblems(),
+            ...hostBandProblems()
           ].find((p) => p['problemId'] === decodeURIComponent(single[1] ?? ''))
           return found
             ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
@@ -5804,7 +5855,9 @@ test('CA1 (0003): «Analizar entidad» sale en las evidencias con entidad (EVENT
   }
 })
 
-test('CA2 (0003): «Analizar entidad» en una evidencia HOST lleva a #/entities/HOST/<id> con su página en construcción', async () => {
+// Ficha 0018: la página del HOST ya no está en construcción; el bloque «Página en construcción»
+// con el faro se sigue comprobando en los tipos que lo conservan (CA7 de la 0008).
+test('CA2 (0003): «Analizar entidad» en una evidencia HOST lleva a #/entities/HOST/<id> con su página', async () => {
   await openEntityProblem()
   await analyzeButton(await expandRow(ENT_EV_HOST)).click()
   const hostPage = page.getByTestId('entity-page-host')
@@ -5816,11 +5869,6 @@ test('CA2 (0003): «Analizar entidad» en una evidencia HOST lleva a #/entities/
   await expect(hostPage.getByRole('heading', { level: 1 })).toHaveText(ENT_HOST_NAME)
   await expect(hostPage.getByTestId('entity-page-type')).toHaveText('Host')
   await expect(hostPage.getByTestId('entity-page-id')).toHaveText(ENT_HOST_ID)
-  // Bloque «Página en construcción» con el faro.
-  const construction = hostPage.getByTestId('entity-under-construction')
-  await expect(construction).toBeVisible()
-  await expect(construction).toContainText('Página en construcción')
-  await expect(construction.getByTestId('lighthouse')).toBeVisible()
 })
 
 test('CA4 (0003): un tipo que no está en el registro (inventado o personalizado) va a la página genérica, nunca al 404', async () => {
@@ -5871,15 +5919,21 @@ test('CA7 (0003): con la ruta abierta directamente, el título es el id y «Volv
   expect(await currentRoute()).toBe('/problems')
 })
 
-test('CA8 (0003): mientras está en la página de entidad, el simulador no recibe ninguna petición', async () => {
+// Ficha 0018: la página del HOST ya pide sus métricas y sus problemas; lo que no puede hacer es
+// volver a pedir el detalle del problema del que viene.
+test('CA8 (0003): mientras está en la página de entidad, el simulador no recibe más peticiones que las de sus canales (ninguna en construcción)', async () => {
   await openEntityProblem()
   await expandRow(ENT_EV_HOST)
   const before = await settledRequests()
   await analyzeButton(await detailOf(evidenceRow(ENT_EV_HOST))).click()
   await expect(page.getByTestId('entity-page-host')).toBeVisible()
-  // Un rato en la página (y lo que tarde en pintarse): nada sale hacia Dynatrace.
+  // Un rato en la página (y lo que tarde en pintarse): solo los canales del host.
   await page.waitForTimeout(1500)
-  expect(sim.requests.slice(before), 'peticiones en la página de entidad').toEqual([])
+  for (const request of sim.requests.slice(before)) {
+    expect(request, 'peticiones en la página del host').toMatch(
+      /^GET \/api\/v2\/(metrics\/query|problems)$/
+    )
+  }
 
   // Y por URL, sin venir del problema (genérica y por tipo): tampoco.
   const direct = await settledRequests()
@@ -6507,25 +6561,21 @@ test('CA6 (0008): un servicio sin datos enseña «—» en los marcadores de mé
   await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('0'))
 })
 
+// Ficha 0018: el HOST ya tiene su página (sus marcadores, no los del servicio); sale de la lista
+// de tipos en construcción.
 test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcción, sin marcadores ni peticiones', async () => {
-  // Desde «Analizar entidad» de una evidencia HOST del mismo problema.
+  // Desde «Analizar entidad» de una evidencia HOST del mismo problema: la del host, sin los
+  // marcadores del servicio.
   await goToRoute(`/problems/${MK_PROBLEM_ID}`)
   await expect(evidenceRows()).toHaveCount(4)
   await expandRow(MK_EV_HOST)
-  const fromProblem = await settledRequests()
   await analyzeButton(await detailOf(evidenceRow(MK_EV_HOST))).click()
   const hostPage = page.getByTestId('entity-page-host')
   await expect(hostPage).toBeVisible()
-  await expect(hostPage.getByTestId('entity-under-construction')).toContainText(
-    'Página en construcción'
-  )
   await expect(page.getByTestId('service-markers')).toHaveCount(0)
-  await page.waitForTimeout(1000)
-  expect(sim.requests.slice(fromProblem), 'peticiones en la página del host').toEqual([])
 
   // Por URL, el resto de tipos del registro y uno que no está (genérica).
   const others = [
-    ['HOST', 'host'],
     ['PROCESS_GROUP_INSTANCE', 'process_group_instance'],
     ['PROCESS_GROUP', 'process_group'],
     ['SYNTHETIC_TEST', 'synthetic_test'],
@@ -7876,4 +7926,265 @@ test('CA7 (0015): con la ventana estrecha, «Servicio» y «Relaciones» en una 
   const b = await settledBox(relations)
   expect(b.x, 'relaciones a la derecha').toBeGreaterThanOrEqual(a.x + a.width - 1)
   expect(Math.abs(b.y - a.y), 'misma altura de inicio').toBeLessThanOrEqual(1)
+})
+
+/**
+ * Ficha 0018: marcadores y gráficos de la página de un HOST, con los datos de HOST_METRICS_ID
+ * (canal entities:hostMetrics de la 0016) y sus problemas (hostBandProblems: uno abierto y dos
+ * cerrados).
+ *
+ * Nombres que fijan estos tests: la fila `host-markers`; cada marcador `host-marker-<id>` (cpu,
+ * memory, network, disk y problems); dentro, el valor principal en `host-marker-value` (con
+ * `data-level`: `normal`, `warning` o `error`, umbrales del 80 y el 90 %) y lo de debajo en
+ * `host-marker-secondary` (máxima, usada / total y salida); el texto del nivel, cuando no es
+ * `normal`, en `host-marker-level`; los recuentos, en `host-marker-open` y `host-marker-closed`.
+ * La sección `host-charts`; cada gráfico en un `host-chart-panel` con `data-kind` (cpu, memory,
+ * network y disk, en ese orden) y su título en un encabezado; dentro, el `Chart` con testid
+ * `host-chart-<kind>` (con `data-series`). La franja, `host-problem-band`, dentro del panel de la
+ * CPU; cada tramo, `host-problem-segment` con `data-problem-id`.
+ */
+const HOST_MARKER_IDS = ['cpu', 'memory', 'network', 'disk'] as const
+const HOST_CHART_KINDS = ['cpu', 'memory', 'network', 'disk'] as const
+type HostChartKind = (typeof HOST_CHART_KINDS)[number]
+const HOST_CHART_TITLES: Record<HostChartKind, string> = {
+  cpu: 'CPU',
+  memory: 'Memoria',
+  network: 'Red',
+  disk: 'Disco'
+}
+/** Las series de cada gráfico, en su orden: CPU con el total y su desglose, y red con las dos. */
+const HOST_CHART_SERIES: Record<HostChartKind, RegExp[]> = {
+  cpu: [/total/i, /user/i, /system/i, /iowait/i],
+  memory: [/./],
+  network: [/entrada/i, /salida/i],
+  disk: [/./]
+}
+
+const hostMarker = (id: string): Locator => page.getByTestId(`host-marker-${id}`)
+const hostChartPanel = (kind: HostChartKind): Locator =>
+  page.locator(`[data-testid="host-chart-panel"][data-kind="${kind}"]`)
+const hostChartPlot = (kind: HostChartKind): Locator =>
+  hostChartPanel(kind).getByTestId(`host-chart-${kind}`)
+const hostBand = (): Locator => hostChartPanel('cpu').getByTestId('host-problem-band')
+const hostSegment = (problemId: string): Locator =>
+  hostBand().locator(`[data-testid="host-problem-segment"][data-problem-id="${problemId}"]`)
+
+/** Ficha 0018: abre la página de HOST_METRICS_ID por URL. */
+async function openHostPage(): Promise<Locator> {
+  await goToRoute(`/entities/HOST/${HOST_METRICS_ID}`)
+  const hostPage = page.getByTestId('entity-page-host')
+  await expect(hostPage).toBeVisible()
+  return hostPage
+}
+
+/** Ficha 0018: espera a que el gráfico tenga sus series (se monta vacío mientras carga). */
+async function hostChartSeries(kind: HostChartKind): Promise<string[]> {
+  const plot = hostChartPlot(kind)
+  await expect(plot.locator('canvas').first()).toBeVisible()
+  await expect(plot).toHaveAttribute('data-series', /\[.+\]/)
+  return JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
+}
+
+/** Ficha 0018: los valores de los marcadores de HOST_METRICS_ID, ya formateados (es). */
+async function expectHostMarkerValues(): Promise<void> {
+  // CPU: media 33,5 % y máxima 95 %.
+  const cpu = hostMarker('cpu')
+  await expect(cpu.getByTestId('host-marker-value')).toHaveText(/^33,5\s?%$/)
+  await expect(cpu.getByTestId('host-marker-secondary')).toContainText(/(^|[^\d.,])95(,0)?\s?%/)
+  // Memoria: media 57 % y usada / total del último punto (10 y 16 GB).
+  const memory = hostMarker('memory')
+  await expect(memory.getByTestId('host-marker-value')).toHaveText(/^57(,0)?\s?%$/)
+  await expect(memory.getByTestId('host-marker-secondary')).toContainText(/(^|[^\d.,])10,0\sGB/)
+  await expect(memory.getByTestId('host-marker-secondary')).toContainText(/(^|[^\d.,])16,0\sGB/)
+  // Red: entrada media 3600 bit/s y salida media 650 bit/s, con su unidad adaptada.
+  const network = hostMarker('network')
+  await expect(network.getByTestId('host-marker-value')).toHaveText(/^3,6\skbit\/s$/)
+  await expect(network.getByTestId('host-marker-secondary')).toContainText(/(^|[^\d.,])650\sbit\/s/)
+  // Disco: el más lleno, 92 %.
+  await expect(hostMarker('disk').getByTestId('host-marker-value')).toHaveText(/^92(,0)?\s?%$/)
+  // Problemas: 1 abierto y 2 cerrados.
+  const problems = hostMarker('problems')
+  await expect(problems.getByTestId('host-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('host-marker-closed')).toHaveText(loneNumber('2'))
+}
+
+test('CA1 (0018): la página de un HOST enseña los cinco marcadores con los valores del simulador formateados, sin «Página en construcción»', async () => {
+  const hostPage = await openHostPage()
+  const row = hostPage.getByTestId('host-markers')
+  await expect(row).toBeVisible()
+
+  // Los cinco, con su nombre.
+  const labels = [
+    ['cpu', 'CPU'],
+    ['memory', 'Memoria'],
+    ['network', 'Red'],
+    ['disk', 'Disco'],
+    ['problems', 'Problemas']
+  ] as const
+  for (const [id, label] of labels) {
+    await expect(row.getByTestId(`host-marker-${id}`), id).toBeVisible()
+    await expect(row.getByTestId(`host-marker-${id}`), id).toContainText(label)
+  }
+  await expectHostMarkerValues()
+
+  // Niveles (CA5): CPU (33,5 %) y memoria (57 %), normales y sin texto de nivel; el disco
+  // (92 %), de error y con su texto además del color.
+  for (const id of ['cpu', 'memory'] as const) {
+    await expect(hostMarker(id).getByTestId('host-marker-value'), id).toHaveAttribute(
+      'data-level',
+      'normal'
+    )
+    await expect(hostMarker(id).getByTestId('host-marker-level'), id).toHaveCount(0)
+  }
+  const disk = hostMarker('disk')
+  await expect(disk.getByTestId('host-marker-value')).toHaveAttribute('data-level', 'error')
+  await expect(disk.getByTestId('host-marker-level')).toBeVisible()
+  await expect(disk.getByTestId('host-marker-level')).toHaveText(/\S/)
+
+  // Ni el bloque ni el texto de «Página en construcción», ni los marcadores del servicio.
+  await expect(hostPage.getByTestId('entity-under-construction')).toHaveCount(0)
+  await expect(hostPage).not.toContainText('Página en construcción')
+  await expect(page.getByTestId('service-markers')).toHaveCount(0)
+})
+
+test('CA2 (0018): salen los cuatro gráficos en su orden (CPU, memoria, red y disco), con su título y sus series', async () => {
+  const hostPage = await openHostPage()
+  const section = hostPage.getByTestId('host-charts')
+  await expect(section).toBeVisible()
+
+  const panels = section.getByTestId('host-chart-panel')
+  await expect(panels).toHaveCount(4)
+  for (const [index, kind] of HOST_CHART_KINDS.entries()) {
+    const panel = panels.nth(index)
+    await expect(panel, `posición ${index + 1}`).toHaveAttribute('data-kind', kind)
+    await expect(panel.getByRole('heading').first(), kind).toContainText(HOST_CHART_TITLES[kind])
+    const series = await hostChartSeries(kind)
+    expect(series, kind).toHaveLength(HOST_CHART_SERIES[kind].length)
+    for (const [i, pattern] of HOST_CHART_SERIES[kind].entries()) {
+      expect(series[i], `${kind}[${i}]`).toMatch(pattern)
+    }
+  }
+
+  // Marcadores y gráficos comparten una sola llamada al canal (sus dos consultas).
+  await settledRequests()
+  expect(sim.hostMetricQueries).toHaveLength(2)
+})
+
+test('CA3 (0018): la franja de problemas sale sobre el gráfico de CPU con los problemas del host, y pulsar un tramo abre el problema', async () => {
+  await openHostPage()
+  await hostChartSeries('cpu')
+  const band = hostBand()
+  await expect(band).toBeVisible()
+  await expect(band.getByTestId('host-problem-segment')).toHaveCount(3)
+  for (const { problemId } of [HOST_BAND_OPEN, HOST_BAND_CLOSED, HOST_BAND_CLOSED_2]) {
+    await expect(hostSegment(problemId), problemId).toHaveCount(1)
+  }
+  // Solo en el panel de la CPU.
+  await expect(page.getByTestId('host-problem-band')).toHaveCount(1)
+
+  // La lista se pide con el host y el rango global.
+  await settledRequests()
+  const lists = sim.entityProblemListQueries.filter((query) =>
+    (query.get('problemSelector') ?? '').includes(HOST_METRICS_ID)
+  )
+  expect(lists).toHaveLength(1)
+  expect(lists[0]?.get('problemSelector')).toBe(`affectedEntities("${HOST_METRICS_ID}")`)
+  expect(lists[0]?.get('from')).toBe('now-2h')
+
+  // Encima del gráfico: la franja acaba antes de que empiece el canvas.
+  const bandBox = await settledBox(band)
+  const plotBox = await settledBox(hostChartPlot('cpu'))
+  expect(bandBox.y + bandBox.height).toBeLessThanOrEqual(plotBox.y + 1)
+
+  // Pulsar un tramo (trayéndolo a la vista) abre ese problema.
+  await clickInPlace(hostSegment(HOST_BAND_CLOSED.problemId), { scroll: true })
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(HOST_BAND_CLOSED.displayId)
+  expect(await currentRoute()).toBe(`/problems/${HOST_BAND_CLOSED.problemId}`)
+
+  // «Volver» regresa a la página del host.
+  await page.getByTestId('problem-back').click()
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${HOST_METRICS_ID}`)
+})
+
+test('CA6 (0018): cambiar el rango global vuelve a pedir los datos; «Actualizar» también; volver a la página sin cambios, no', async () => {
+  await openHostPage()
+  await expectHostMarkerValues()
+  await settledRequests()
+  // Al entrar: las dos consultas de métricas y las dos de recuentos, con el rango global.
+  expect(sim.hostMetricQueries).toHaveLength(2)
+  expect(sim.entityProblemQueries).toHaveLength(2)
+  for (const query of [...sim.hostMetricQueries, ...sim.entityProblemQueries]) {
+    expect(query.get('from')).toBe('now-2h')
+  }
+
+  // Rango nuevo: otra vez, con now-24h.
+  await page.getByTestId('time-range-24h').click()
+  await expect.poll(() => sim.hostMetricQueries.length).toBe(4)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(4)
+  for (const query of [...sim.hostMetricQueries.slice(2), ...sim.entityProblemQueries.slice(2)]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectHostMarkerValues()
+  await settledRequests()
+  expect(sim.hostMetricQueries).toHaveLength(4)
+
+  // Fuera y vuelta, sin cambiar nada: ninguna petición nueva.
+  await goTo('metrics')
+  await expect(page.getByTestId('entity-page-host')).toHaveCount(0)
+  const before = await settledRequests()
+  await openHostPage()
+  await expectHostMarkerValues()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver a la página').toEqual([])
+
+  // «Actualizar», en la cabecera de la página: otra vez, con el rango actual.
+  await page.getByTestId('entity-page-host').getByTestId('module-refresh').click()
+  await expect.poll(() => sim.hostMetricQueries.length).toBe(6)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(6)
+  for (const query of [...sim.hostMetricQueries.slice(4), ...sim.entityProblemQueries.slice(4)]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectHostMarkerValues()
+})
+
+test('CA7 (0018): si falla el canal de métricas, marcadores y gráficos enseñan el aviso con Reintentar y el marcador de problemas sigue', async () => {
+  sim.hostMetricsFail = true
+  await openHostPage()
+
+  // El de problemas, con sus recuentos y sin aviso.
+  const problems = hostMarker('problems')
+  await expect(problems.getByTestId('host-marker-open')).toHaveText(loneNumber('1'))
+  await expect(problems.getByTestId('host-marker-closed')).toHaveText(loneNumber('2'))
+  await expect(problems.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  // Cada marcador de métricas, en su sitio, con el aviso y Reintentar y sin valor.
+  for (const id of HOST_MARKER_IDS) {
+    const marker = hostMarker(id)
+    await expect(marker, id).toBeVisible()
+    await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toBeVisible()
+    await expect(marker.getByTestId('host-marker-value'), id).toHaveCount(0)
+  }
+  // Cada gráfico, en su sitio, con su aviso (role=alert) y Reintentar, sin gráfico.
+  for (const kind of HOST_CHART_KINDS) {
+    const panel = hostChartPanel(kind)
+    await expect(panel, kind).toBeVisible()
+    await expect(panel.getByRole('alert').first(), kind).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Reintentar' }), kind).toBeVisible()
+    await expect(panel.getByTestId(`host-chart-${kind}`), kind).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llegan valores y gráficos.
+  sim.hostMetricsFail = false
+  await clickInPlace(hostMarker('cpu').getByRole('button', { name: 'Reintentar' }), {
+    scroll: true
+  })
+  await expectHostMarkerValues()
+  for (const kind of HOST_CHART_KINDS) {
+    expect(await hostChartSeries(kind), kind).toHaveLength(HOST_CHART_SERIES[kind].length)
+  }
+  for (const id of HOST_MARKER_IDS) {
+    await expect(hostMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
 })
