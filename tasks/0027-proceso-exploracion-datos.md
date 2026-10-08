@@ -1,7 +1,7 @@
 ---
 id: '0027'
 titulo: 'PROCESS_GROUP_INSTANCE: análisis de métricas en vivo y canal de series y marcadores'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -94,7 +94,78 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `859ea92` (`test(proceso): criterios de la ficha 0027`). Los unitarios y el e2e
+fallan porque el canal no existe (`canal entities:processMetrics: expected undefined`,
+`implementación de entities:processMetrics: expected undefined`, `UNKNOWN_CHANNEL` en el e2e), no
+por el test: 30 unitarios en rojo (18 de CA2, 10 de CA3 a CA5 y los registros de
+`channel-coverage.test.ts` y `modules.test.ts`) y el e2e de CA6 en rojo.
+
+| Criterio | Test                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/process-metrics-explore.live.test.ts` › `CA1 (0027): el informe no contiene ningún id ni nombre observado` (ya pasa: paso 0 hecho) |
+| CA2      | `src/shared/ipc.test.ts` › `CA2 (0027): entrada de entities:processMetrics`                                                                          |
+| CA3      | `src/main/ipc/handlers/process-metrics.test.ts` › `CA3 (0027): las consultas llevan las métricas elegidas, el id y el rango` (relativo y absoluto)   |
+| CA4      | `src/main/ipc/handlers/process-metrics.test.ts` › `CA4 (0027): la respuesta se transforma por papel, con papeles null`                               |
+| CA5      | `src/main/ipc/handlers/process-metrics.test.ts` › `CA5 (0027): errores de Dynatrace y proceso sin datos`                                             |
+| CA6      | `e2e/views.spec.ts` › `CA6 (0027): entities:processMetrics por IPC con un id inventado: dos consultas, series por papel y marcadores`                |
+
+**Paso 0 (CA1), en vivo y de solo lectura, el 2026-10-08:** 3 procesos (2 de los hosts de los
+problemas de los últimos 7 días y 1 de `type("PROCESS_GROUP_INSTANCE")`), `now-24h`, 142
+peticiones GET, token fuera del log. Informe en `live-reports/process-metrics-explore.json`
+(ignorado), sin ids ni nombres.
+
+- Catálogo: `builtin:tech.generic.*` da 59 métricas y `builtin:pgi.*` 2, en una sola página.
+  `network.packets.retransmissionIn`/`Out` y `network.sessions.connectivity` no admiten
+  `resolution=Inf` (una tanda con ellas da 400). Varias métricas de red (`packets.reRx`,
+  `sessions.new`…) van por `dt.entity.host` y `dt.entity.network_interface`, no por el proceso;
+  sus variantes `…Aggr` sí van por el proceso. `handles.fileDescriptorsPercentUsed.new` y
+  `mem.usage.new` no tienen dimensiones: con `entityId(...)` la primera devuelve más de 1000
+  series de otros procesos (no se usa).
+- Con datos en las 3 muestras: `cpu.usage`, `mem.usage`, `mem.workingSetSize`,
+  `mem.pageFaults`, `handles.fileDescriptorsUsed`, `processCount` y `pgi.availability`; en 2 de
+  3: `handles.fileDescriptorsPercentUsed`, `handles.fileDescriptorsMax`, `io.*` y
+  `pgi.availability.state` (por `availability.state`, con varias series). **Ninguna métrica de red
+  ni de salud de red tiene datos en las muestras.** En el entorno sí las hay en otras instancias
+  (`network.bytesRx`/`Tx`, `traffic.*`, `packets.retransmission`, `roundTrip`, `latency`…):
+  en una instancia con datos de red, `bytesRx`, `bytesTx`, `:avg`, `packets.retransmission` y
+  `roundTrip` dan 200, una serie y `metricId` igual a la expresión (con muchos puntos a null).
+- Elección por papel (regla de la ficha, la primera del catálogo con datos en las muestras):
+
+| Papel          | Métrica                                                   | Unidad  | Series (sin resolution) | Marcador (Inf) |
+| -------------- | --------------------------------------------------------- | ------- | ----------------------- | -------------- |
+| CPU            | `builtin:tech.generic.cpu.usage`                          | Percent | tal cual (avg)          | `:avg`, `:max` |
+| Memoria        | `builtin:tech.generic.mem.workingSetSize`                 | Byte    | tal cual (avg)          | `:avg`, `:max` |
+| Red            | sin métrica (`null`): sin datos en las muestras           |         |                         |                |
+| Salud de red   | sin métrica (`null`): sin datos en las muestras           |         |                         |                |
+| Disponibilidad | `builtin:pgi.availability`                                | Percent | tal cual (avg)          | `:avg`         |
+| Recursos       | `builtin:tech.generic.handles.fileDescriptorsPercentUsed` | Percent | tal cual (avg)          | `:max`         |
+
+- Consultas exactas del canal, comprobadas en las 3 muestras y en la instancia con red, con
+  `entitySelector=entityId("<id>")`: series `cpu.usage,mem.workingSetSize,pgi.availability,handles.fileDescriptorsPercentUsed`
+  sin `resolution` (`10m` con `now-24h`) y marcadores
+  `cpu.usage:avg,cpu.usage:max,mem.workingSetSize:avg,mem.workingSetSize:max,pgi.availability:avg,handles.fileDescriptorsPercentUsed:max`
+  con `resolution=Inf`: todas 200, `metricId` igual a la expresión, una serie como mucho y ratios
+  < 0,01. Un proceso sin descriptores de fichero (el que no trae `handles.*`) llega sin series en
+  esa métrica.
+- `fileDescriptorsPercentUsed` dice Percent pero sus valores observados están en [0, 1]: puede
+  ser fracción o un uso bajo; lo mira la 0028 al pintar.
+- Entidad (`GET /entities/{id}` con `+properties,+fromRelationships,+toRelationships,+firstSeenTms,+lastSeenTms`):
+  - `properties`: `awsNameTag`, `detectedName`, `ebpfHasPublicTraffic`, `hasPublicTraffic` y
+    `metadata` en las 3; no siempre `bitness`, `processType`, `softwareTechnologies`,
+    `logFileStatus`, `logPathLastUpdate` y `logSourceState`.
+  - `metadata` es una lista de `{key, value}`; claves vistas: `COMMAND_LINE_ARGS`, `EXE_NAME`,
+    `EXE_PATH`, `OSAGENT_GROUPID_NAME`, `OSAGENT_INSTANCEID_NAME` y `KUBERNETES_*`. **La línea
+    de comandos llega en `metadata` con la clave `COMMAND_LINE_ARGS`** (en 2 de 3), y la ruta en
+    `EXE_PATH`: no se enseñan (0029).
+  - Relaciones: `fromRelationships.isInstanceOf` (PROCESS_GROUP), `fromRelationships.isProcessOf`
+    (HOST), a veces `toRelationships.isHostGroupOf` (HOST_GROUP) y, en contenedores,
+    `fromRelationships.isPgiOfCgi` e `isMainPgiOfCgi` (CONTAINER_GROUP_INSTANCE).
+    `firstSeenTms` y `lastSeenTms`, números.
+
+**Para el Orquestador (decisión de alcance):** con la regla de la ficha, red y salud de red se
+quedan en `null` y los tests lo fijan así (CA4 pide papeles `null`). Las métricas de red existen y
+tienen datos en otras instancias del entorno; si Dani quiere red en la página del proceso, las
+expresiones ya están probadas en vivo (arriba) y es un cambio pequeño en el canal y en sus tests.
 
 ## Resultado
 
