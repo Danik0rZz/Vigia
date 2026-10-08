@@ -1,7 +1,7 @@
 ---
 id: '0025'
 titulo: 'Monitores: tablas de localizaciones y de pasos o peticiones'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -121,6 +121,20 @@ datos no ocupa sitio.
   desglose con `MONITOR_TABLE_DATA`: el HTTP con 4 localizaciones (90, 97,5, 99,5 y 100 %; una sin
   serie de FAILURE) y 2 peticiones (25 y 75 %); el browser con las 3 localizaciones de la 0023 y 5
   pasos (2500, 1200, 800, 300 y 200 ms; pesos 50, 24, 16, 6 y 4 %). Sin la bandera, nada cambia.
+
+**Decisiones del developer (refinables):**
+
+- Componentes en `MonitorTables.tsx` y reglas puras en `monitor-tables.ts` (`monitorStepsShown`,
+  comparadores y `slowestStepId`), con el patrón de `HostTables.tsx`; desempate por id
+  (`byId` de `host-tables.ts`). Tarjetas lado a lado solo desde `xl`, como las del host.
+- Orden por defecto de los pasos: duración descendente (coincide con el orden del canal). Sin dato
+  de disponibilidad, una localización va arriba en el orden ascendente (la convención de
+  `compareNullable` del host), no al final como la ordena main.
+- El más lento: el de mayor duración media (en empate, el primero del canal), con la píldora
+  «El más lento» en la celda del nombre y la barra del peso en color de aviso.
+- Texto del nivel de la barra de disponibilidad: el del marcador (`entities.monitor.markers.levels`).
+  Fallidas del browser (`failed: null`, sin métrica): «—». Peso con `formatUsagePct` (hasta un
+  decimal).
 
 ## Resultado
 
