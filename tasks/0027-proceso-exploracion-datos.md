@@ -1,7 +1,7 @@
 ---
 id: '0027'
 titulo: 'PROCESS_GROUP_INSTANCE: análisis de métricas en vivo y canal de series y marcadores'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -228,4 +228,22 @@ muestras y la instancia con red, `now-24h`, 142 peticiones GET, token fuera del 
 
 ## Resultado
 
-(pendiente)
+Commits: `859ea92` y `bb10baf` (tests), `aeb63fc` (canal). Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones.
+
+Ficheros principales: `src/main/modules/process-metrics.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/modules.ts`, `src/shared/ipc.ts` y `src/shared/error-reasons.ts` (reason `processMetricsRejected`, es y en).
+
+Decisión del Orquestador (delegada por Dani, refinable): red y salud de red entran en el canal aunque las 3 muestras no tuvieran datos de red, porque existen en otras instancias y la especificación pide el marcador de red; un proceso sin datos llega con series vacías.
+
+Tabla final de métricas por papel (prefijo `builtin:tech.generic.` salvo `pgi`; series sin `resolution`, marcadores con `resolution=Inf`):
+
+| Papel          | Métrica                              | Unidad        | Marcador       |
+| -------------- | ------------------------------------ | ------------- | -------------- |
+| CPU            | `cpu.usage`                          | Percent       | `:avg`, `:max` |
+| Memoria        | `mem.workingSetSize`                 | Byte          | `:avg`, `:max` |
+| Red (entrada)  | `network.bytesRx`                    | BytePerSecond | `:avg`         |
+| Red (salida)   | `network.bytesTx`                    | BytePerSecond | `:avg`         |
+| Salud de red   | `network.packets.retransmission`     | Percent       | sin marcador   |
+| Disponibilidad | `builtin:pgi.availability`           | Percent       | `:avg`         |
+| Recursos       | `handles.fileDescriptorsPercentUsed` | Percent       | `:max`         |
+
+Lecciones (también en `docs/notas-api-v2.md` y `src/main/CLAUDE.md`): `retransmissionIn/Out` y `sessions.connectivity` no admiten `resolution=Inf`; las métricas sin dimensión de proceso traen series de otros procesos; `COMMAND_LINE_ARGS` y `EXE_PATH` van en `metadata` y no se enseñan (0029). Para la 0028: `fileDescriptorsPercentUsed` dice Percent pero va en [0, 1].

@@ -9,7 +9,7 @@ bueno de Dani o de peticiones en su nombre.
 - Cola aprobada por Dani el 2026-10-07 (de noche, sin esperar a Dani): host (0016–0020, hecho) → lote **monitores** (0022 a 0026, hecho)
   ([0022](tasks/0022-monitores-exploracion-datos.md)–[0026](tasks/0026-monitores-informacion.md),
   browser y HTTP monitor) → lote **proceso**
-  ([0027](tasks/0027-proceso-exploracion-datos.md)–[0029](tasks/0029-proceso-informacion.md)).
+  ([0027](tasks/0027-proceso-exploracion-datos.md), hecha–[0029](tasks/0029-proceso-informacion.md)).
 
 ## Próximo
 
@@ -206,3 +206,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0024](tasks/0024-monitores-marcadores-graficos.md) (lote monitores): páginas de browser y HTTP monitor con cinco marcadores (disponibilidad con umbrales 95/99 %) y cuatro gráficos (disponibilidad con la franja de problemas, duración, ejecuciones y rendimiento), con «Abrir en Métricas» y exportación.
 - [0025](tasks/0025-monitores-localizaciones-pasos.md) (lote monitores): tablas de localizaciones (disponibilidad con umbrales 95/99 %) y de pasos o peticiones (con el más lento resaltado) en las páginas de browser y HTTP monitor; sin pasos que enseñar, la tarjeta de pasos no sale.
 - [0026](tasks/0026-monitores-informacion.md) (lote monitores): tarjeta «Información» en las páginas de browser y HTTP monitor, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; la tarjeta se comparte con servicio y host. Con ella queda completo el lote «monitores» (0022 a 0026).
+- [0027](tasks/0027-proceso-exploracion-datos.md) (lote proceso): canal `entities:processMetrics` con series y marcadores de CPU, memoria, red, salud de red, disponibilidad y recursos de un proceso, y análisis de métricas en vivo (sin cambios visibles hasta la 0028).

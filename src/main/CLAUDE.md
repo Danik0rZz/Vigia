@@ -36,3 +36,4 @@
 - `GET /metrics/query`: los nombres de disco y proceso solo llegan con `:names` en cada expresión;
   `:last` con `resolution=Inf` da 400 (ficha 0017, `docs/notas-api-v2.md`).
 - `GET /metrics/query`: con `entitySelector=entityId(...)`, una métrica puede devolver series de otras entidades si esa dimensión no es su principal (`browser.duration`); comprobarlo en vivo y acotar con `:filter(eq(...))` (ficha 0023, `docs/notas-api-v2.md`).
+- `GET /metrics/query` por proceso: `network.packets.retransmissionIn/Out` y `network.sessions.connectivity` dan 400 con `resolution=Inf`, y las métricas sin dimensión de proceso (`handles.fileDescriptorsPercentUsed.new`, `mem.usage.new`) traen series de otros procesos con `entityId(...)`. `COMMAND_LINE_ARGS` y `EXE_PATH` van en `metadata` de la entidad y no se muestran (ficha 0027, `docs/notas-api-v2.md`).

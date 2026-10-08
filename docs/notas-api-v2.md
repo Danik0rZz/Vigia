@@ -531,6 +531,38 @@ localización; duración por paso o petición) se confirmaron en vivo con 200, c
 - Con `:names`, `dimensionMap` trae el nombre de localización y de paso; las series de cada métrica
   no llegan en el mismo orden: se casan por id.
 
+### Métricas de un proceso (ficha 0027, observado en vivo, solo lectura)
+
+Canal `entities:processMetrics`, con `entitySelector=entityId("<PROCESS_GROUP_INSTANCE>")`. Series
+sin `resolution` (`10m` con `now-24h`) y marcadores con `resolution=Inf`. Todas las expresiones se
+confirmaron con 200, `metricId` igual a la expresión y ratios < 0,01.
+
+| Papel          | Métrica (prefijo `builtin:tech.generic.` salvo `pgi`) | Unidad        | Marcador (Inf) |
+| -------------- | ----------------------------------------------------- | ------------- | -------------- |
+| CPU            | `cpu.usage`                                           | Percent       | `:avg`, `:max` |
+| Memoria        | `mem.workingSetSize`                                  | Byte          | `:avg`, `:max` |
+| Red (entrada)  | `network.bytesRx`                                     | BytePerSecond | `:avg`         |
+| Red (salida)   | `network.bytesTx`                                     | BytePerSecond | `:avg`         |
+| Salud de red   | `network.packets.retransmission`                      | Percent       | sin marcador   |
+| Disponibilidad | `builtin:pgi.availability`                            | Percent       | `:avg`         |
+| Recursos       | `handles.fileDescriptorsPercentUsed`                  | Percent       | `:max`         |
+
+- Red y salud de red no tenían datos en las 3 muestras, pero sí en otras instancias del entorno;
+  entraron por decisión del Orquestador. Un proceso sin datos de un papel llega con series vacías,
+  no con `null` (el `null` es de los marcadores sin valor).
+- `network.packets.retransmissionIn`/`Out` y `network.sessions.connectivity` no admiten
+  `resolution=Inf` (400). Varias métricas de red (`packets.reRx`, `sessions.new`…) van por
+  `dt.entity.host` o `dt.entity.network_interface`, no por el proceso; sus variantes `…Aggr` sí.
+- `handles.fileDescriptorsPercentUsed.new` y `mem.usage.new` no tienen dimensiones: con
+  `entityId(...)` devuelven más de 1000 series de otros procesos. No se usan.
+- `fileDescriptorsPercentUsed` dice Percent pero los valores observados están en [0, 1]: se mira al
+  pintar (0028).
+- Entidad: `metadata` de `properties` es una lista de `{key, value}`. **`COMMAND_LINE_ARGS` y
+  `EXE_PATH` llegan ahí** (la línea de comandos puede llevar contraseñas): no se enseñan (0029).
+  Otras claves: `EXE_NAME`, `OSAGENT_*` y `KUBERNETES_*`. Relaciones: `fromRelationships.isInstanceOf`
+  (PROCESS_GROUP), `isProcessOf` (HOST), a veces `toRelationships.isHostGroupOf` y, en contenedores,
+  `isPgiOfCgi` e `isMainPgiOfCgi`.
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2
