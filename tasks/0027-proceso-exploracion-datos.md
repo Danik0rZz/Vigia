@@ -1,7 +1,7 @@
 ---
 id: '0027'
 titulo: 'PROCESS_GROUP_INSTANCE: análisis de métricas en vivo y canal de series y marcadores'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -87,6 +87,12 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 ## Ideas surgidas (fuera de alcance)
 
 (ninguna)
+
+**Decisiones del developer (2026-10-08):** las series de los seis papeles no son nullables en el
+esquema de salida (`processMetricsResultSchema`, en `src/shared/modules.ts`): con la decisión del
+Orquestador todos tienen métrica, y un papel sin datos llega con series vacías. Los resultados se
+casan por posición, como en el host y el monitor (`src/main/modules/process-metrics.ts`). 400 y 404
+llevan el reason nuevo `processMetricsRejected` (es y en).
 
 ## Notas del revisor
 
