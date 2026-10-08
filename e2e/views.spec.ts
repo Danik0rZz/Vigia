@@ -8062,7 +8062,10 @@ test('CA5 (0015): pulsar una entidad relacionada abre su página (la del tipo, c
   await clickInPlace(runsOn.getByTestId('service-info-names'), { scroll: true })
   await expect(link.getByTestId('service-info-entity-name')).toHaveText('host-info-1')
   await settledRequests()
-  const infoBefore = sim.entityInfoQueries.length
+  // Solo las de este servicio: la página del host pide su propia entities:get (ficha 0020).
+  const serviceInfoQueries = (): number =>
+    sim.requests.filter((request) => request.includes(`/entities/${INFO_FULL_ID}`)).length
+  const infoBefore = serviceInfoQueries()
   const namesBefore = sim.entityNamesQueries.length
 
   await clickInPlace(link, { scroll: true })
@@ -8077,7 +8080,7 @@ test('CA5 (0015): pulsar una entidad relacionada abre su página (la del tipo, c
   expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FULL_ID}`)
   await expect(infoRow('serviceType')).toContainText('WEB_REQUEST_SERVICE')
   await settledRequests()
-  expect(sim.entityInfoQueries, 'entities:get al volver').toHaveLength(infoBefore)
+  expect(serviceInfoQueries(), 'entities:get del servicio al volver').toBe(infoBefore)
   expect(sim.entityNamesQueries, 'entities:names al volver').toHaveLength(namesBefore)
 })
 
