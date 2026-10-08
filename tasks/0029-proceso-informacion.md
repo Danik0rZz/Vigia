@@ -1,7 +1,7 @@
 ---
 id: '0029'
 titulo: 'PROCESS_GROUP_INSTANCE: tarjeta «Información» del proceso (sin línea de comandos)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -141,6 +141,11 @@ en verde con el simulador ampliado.
 - **Puertos de escucha** en la vista separados por « · » («8080 · 8443»): `buildProcessInfo` los da
   tal cual («8080, 8443»), pero con la coma pegada CA3 (`loneNumber`) no ve el número suelto, y
   además se leería como un decimal.
+
+### Verifier, 2026-10-08, commit `a3ea5fd`, rango `main..feat/0029-proceso-informacion`: VERDE
+
+- check: 2494 tests en 139 ficheros, cobertura ok.
+- e2e afectados: 215/215 (incluye CA3 y CA4 de la 0029).
 
 ## Resultado
 
