@@ -94,10 +94,12 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-Tests escritos en `859ea92` (`test(proceso): criterios de la ficha 0027`). Los unitarios y el e2e
+Tests escritos en `859ea92` (`test(proceso): criterios de la ficha 0027`) y ajustados a la
+decisión del Orquestador en `bb10baf` (`test(proceso): red y salud de red en los criterios de la
+ficha 0027`). Los unitarios y el e2e
 fallan porque el canal no existe (`canal entities:processMetrics: expected undefined`,
 `implementación de entities:processMetrics: expected undefined`, `UNKNOWN_CHANNEL` en el e2e), no
-por el test: 30 unitarios en rojo (18 de CA2, 10 de CA3 a CA5 y los registros de
+por el test: 31 unitarios en rojo (18 de CA2, 11 de CA3 a CA5 y los registros de
 `channel-coverage.test.ts` y `modules.test.ts`) y el e2e de CA6 en rojo.
 
 | Criterio | Test                                                                                                                                                 |
@@ -105,7 +107,7 @@ por el test: 30 unitarios en rojo (18 de CA2, 10 de CA3 a CA5 y los registros de
 | CA1      | `src/main/modules/process-metrics-explore.live.test.ts` › `CA1 (0027): el informe no contiene ningún id ni nombre observado` (ya pasa: paso 0 hecho) |
 | CA2      | `src/shared/ipc.test.ts` › `CA2 (0027): entrada de entities:processMetrics`                                                                          |
 | CA3      | `src/main/ipc/handlers/process-metrics.test.ts` › `CA3 (0027): las consultas llevan las métricas elegidas, el id y el rango` (relativo y absoluto)   |
-| CA4      | `src/main/ipc/handlers/process-metrics.test.ts` › `CA4 (0027): la respuesta se transforma por papel, con papeles null`                               |
+| CA4      | `src/main/ipc/handlers/process-metrics.test.ts` › `CA4 (0027): la respuesta se transforma por papel, con papeles null` (con el proceso sin red)      |
 | CA5      | `src/main/ipc/handlers/process-metrics.test.ts` › `CA5 (0027): errores de Dynatrace y proceso sin datos`                                             |
 | CA6      | `e2e/views.spec.ts` › `CA6 (0027): entities:processMetrics por IPC con un id inventado: dos consultas, series por papel y marcadores`                |
 
@@ -166,6 +168,45 @@ peticiones GET, token fuera del log. Informe en `live-reports/process-metrics-ex
 quedan en `null` y los tests lo fijan así (CA4 pide papeles `null`). Las métricas de red existen y
 tienen datos en otras instancias del entorno; si Dani quiere red en la página del proceso, las
 expresiones ya están probadas en vivo (arriba) y es un cambio pequeño en el canal y en sus tests.
+
+**Decisión del Orquestador (delegada por Dani, refinable), 2026-10-08:** red y salud de red
+**entran** en el canal. La regla de "la primera con datos en las muestras" buscaba no pintar
+métricas que no existen en el entorno; estas existen y tienen datos en otras instancias, y la
+especificación del canal pide el marcador de red media de entrada y salida. Así:
+
+- `network` con `in` = `builtin:tech.generic.network.bytesRx` y `out` = `…bytesTx`; `networkHealth`
+  con `builtin:tech.generic.network.packets.retransmission` (si en vivo no admite `resolution=Inf`
+  o no da una serie por proceso, `roundTrip`; si ninguna, `networkHealth` se queda en `null`).
+- Antes de cambiar los tests, se confirman en vivo (solo lectura) las **consultas exactas** del
+  canal con estas métricas añadidas, series sin `resolution` y marcadores con `resolution=Inf`
+  (`:avg` de entrada y salida), en las 3 muestras y en la instancia con red, y se anota aquí.
+- Un proceso sin datos de red recibe series vacías en ese papel (como el que no trae `handles.*`),
+  no `null`: `null` queda para el papel sin métrica en el canal. CA4 sigue probando `null` con
+  `networkHealth` si no hay métrica válida, o con un papel sin series en la respuesta simulada,
+  según cómo trate el canal la ausencia; el test-writer lo deja escrito.
+
+**Confirmación en vivo de la decisión (solo lectura, 2026-10-08):** misma pasada del paso 0 (3
+muestras y la instancia con red, `now-24h`, 142 peticiones GET, token fuera del log), con
+`entitySelector=entityId("<id>")`:
+
+- `network.bytesRx` y `bytesTx`: BytePerSecond, agregación por defecto `avg`, admiten Inf, una
+  dimensión (`dt.entity.process_group_instance`). `network.packets.retransmission`: Percent,
+  `avg`, admite Inf y da una serie por proceso (también con Inf): **salud de red =
+  `packets.retransmission`** (no hace falta `roundTrip`).
+- Series, sin `resolution` (`10m` con `now-24h`):
+  `cpu.usage,mem.workingSetSize,network.bytesRx,network.bytesTx,network.packets.retransmission,pgi.availability,handles.fileDescriptorsPercentUsed`
+  (con su prefijo `builtin:tech.generic.` o `builtin:`).
+- Marcadores, con `resolution=Inf`:
+  `cpu.usage:avg,cpu.usage:max,mem.workingSetSize:avg,mem.workingSetSize:max,network.bytesRx:avg,network.bytesTx:avg,pgi.availability:avg,handles.fileDescriptorsPercentUsed:max`.
+  Salud de red no lleva marcador (la especificación no lo pide).
+- Las dos, 200 en los 4 procesos, `metricId` igual a la expresión y ratios < 0,01. En la instancia
+  con red, una serie en cada expresión (también las de red). En las 3 muestras, las de red llegan
+  **sin series** (`data` vacío), igual que `handles.*` en el proceso que no los trae.
+- Cómo lo fijan los tests: los seis papeles tienen métrica, así que en `series` ninguno es `null`;
+  un papel sin datos llega con series vacías (`network: { in, out }` vacías y `networkHealth`
+  vacía). El `null` de CA4 es el de los marcadores sin dato: `totals.network` es
+  `{ in, out }` con `null` en cada uno, y `availability`, `resources` y `cpu.max` a `null`
+  cuando su marcador no trae valor. CA4 tiene un caso propio, "un proceso sin datos de red".
 
 ## Resultado
 
