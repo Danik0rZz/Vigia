@@ -1,7 +1,7 @@
 ---
 id: '0020'
 titulo: 'HOST: tarjeta «Información» con los datos de la entidad y sus relaciones'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -83,7 +83,79 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en el commit `995d469` (`test(host): criterios de la ficha 0020 (#0020)`). Al
+escribirlos fallan los unitarios (no existe `host-info.ts` ni `entities.host.info` en los locales)
+y los e2e de CA2, CA3 y CA4 (no existe la tarjeta `host-info`); CA5 pasa ya (es una salvaguarda).
+Los e2e de la 0015, la 0018 y la 0019 siguen en verde con el simulador ampliado.
+
+| Criterio | Test                                                                                                                                                                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/renderer/src/pages/entities/host-info.test.ts` › `CA1 (0020): grupos de filas y de relaciones de un HOST a partir de entities:get`                                                                                                                                                                             |
+| CA2      | `e2e/views.spec.ts` › `CA2 (0020): la página de un HOST enseña la tarjeta «Información» con sus grupos (Sistema, Capacidad, Red…), memoria en GB, IPs con «+N» y lo demás solo en «Todas las propiedades»` y `CA2 (0020): con un HOST con pocas claves solo salen los grupos y las filas con dato, sin «undefined»` |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0020): las relaciones salen en su orden con su número; «Ver nombres» los trae a demanda; pulsar un servicio abre su página y «Volver» regresa al host`                                                                                                                                  |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0020): sin entities.read, la tarjeta del host dice qué scope falta y los marcadores y gráficos siguen`                                                                                                                                                                                  |
+| CA5      | Los e2e de la 0015 sin tocar (`CA1 (0015)` a `CA7 (0015)`) y `e2e/views.spec.ts` › `CA5 (0020): la tarjeta del servicio sigue igual (sus filas, sus grupos y sin nada del host); los e2e de la 0015 siguen sin tocar`                                                                                               |
+| CA6      | `src/renderer/src/locales/host-info.test.ts` › `CA6 (0020): textos de la tarjeta «Información» del HOST en es y en` (la paridad general, `locales.test.ts` y `CA9 (0018)`)                                                                                                                                          |
+
+**Lectura en vivo (autorizada por Dani, solo lectura).** Ampliada
+`src/main/modules/entity-detail-explore.live.test.ts` con «Ficha 0020: datos de un HOST»: lee
+`GET /entityTypes/HOST` y `GET /entities/{id}` de 3 hosts (1 de los problemas de 7 días; los
+otros 2 de `/entities`, porque no había más). El informe solo guarda nombres de la API (los que
+define el tipo HOST) y la forma de cada valor; un test propio comprueba que no se cuela ningún
+id, nombre ni valor (se vio que la forma de un objeto con sus claves, como `kubernetesLabels`,
+filtraba datos: ahora solo dice «objeto»).
+
+- **Claves de `properties` que existen:** todas las de la ficha llegaron: `osType`,
+  `osVersion`, `osArchitecture`, `bitness`, `monitoringMode`, `state`, `installerVersion`,
+  `networkZone`, `cloudType` e `hypervisorType` (texto); `cpuCores`, `logicalCpuCores`,
+  `physicalMemory` y `memoryTotal` (número; la memoria en bytes por su magnitud, y las dos
+  iguales en los 3); `ipAddress` (lista de texto); `hostGroupName` (en 2 de 3). Además:
+  `detectedName`, `macAddresses`, `additionalSystemInfo`, `customHostMetadata`,
+  `kubernetesLabels`, `softwareTechnologies`, `oneAgentCustomHostName`, `autoInjection`,
+  `standalone`, `installer*`, `ebpf*`, `hasPublicTraffic`, `isMonitoringCandidate` y, en uno,
+  `gce*` (`gceMachineType`…).
+- **Relaciones que existen (dirección vista desde el host):** `to.isProcessOf` (procesos),
+  `to.runsOnHost` (en 1 de 3; tipos `SERVICE` y `SERVICE_INSTANCE`), `from.runsOn`
+  (`EC2_INSTANCE`), `from.isInstanceOf` (`HOST_GROUP`); y otras: `to.runsOn`
+  (`PROCESS_GROUP`), `to.isDiskOf`, `to.isNetworkInterfaceOf`, `from/to.isNetworkClientOfHost`,
+  `to.isSiteOf`, `to.isCgiOfHost`, `to.isNodeOfHost`, `to.isClusterOfHost` y
+  `to.isRuntimeComponentOf`.
+- **No probado ni a pintar como fila:** «los datos de la nube (región, tamaño de instancia)». No
+  llegó ninguna clave genérica de región o tamaño; solo las propias de un proveedor (`gce*`), y
+  esas son «fuera de alcance» (van en «Todas las propiedades»). Si Dani quiere esas filas, hace
+  falta decidir de qué claves salen.
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- **Función (CA1):** `buildHostInfo(data: EntityData): { sections, groups }` en
+  `pages/entities/host-info.ts`. `sections` = `{ key, rows }`, en este orden y solo las que
+  tengan filas: `system` (osType, osVersion, osArchitecture, bitness), `capacity` (cpuCores,
+  logicalCpuCores, memory), `network` (ipAddress, networkZone), `monitoring` (monitoringMode,
+  state, installerVersion, firstSeen, lastSeen), `grouping` (hostGroupName, managementZones,
+  tags) y `cloud` (cloudType, hypervisorType). Primera y última vez van en «Monitorización» y
+  zonas y etiquetas en «Agrupación» (la ficha no les daba grupo). Filas como en la 0015 (`text`,
+  `chips`, `date`) más `{ key: 'memory', kind: 'bytes', bytes }`: physicalMemory y, si no hay
+  número positivo, memoryTotal; sin ninguno, sin fila. `ipAddress` en chips (partida por «, »).
+- **Grupos de relaciones:** `{ key, total, entities }` como en la 0015, con `processes`
+  (`to.isProcessOf`), `services` (`to.runsOnHost`), `runsOn` (`from.runsOn`), `hostGroup`
+  (`from.isInstanceOf`) y `other` (el resto de las dos direcciones, también `to.runsOn`).
+  Direcciones las vistas en vivo; las contrarias no se prueban.
+- **Nombres en el e2e:** tarjeta `host-info` entre la cabecera y `host-markers`;
+  `host-info-section` (`data-section`, con su nombre en un encabezado), `host-info-row`
+  (`data-key`), `host-info-value`, `host-info-chip`, `host-info-more` («+N» de las IPs: se ven
+  las 2 primeras), `host-info-relations`, `host-info-group` (`data-group`),
+  `host-info-group-toggle`, `host-info-group-count`, `host-info-entity` (enlace, `data-entity-id`),
+  `host-info-names`, `host-info-entity-name`, `host-info-properties-toggle` y
+  `host-info-property` (`data-key`). Sin scope, `module-unavailable` dentro de `host-info`. La
+  tarjeta del servicio conserva sus `service-info-*`. Memoria en GB como la 0018 («16,0 GB»).
+- **Textos (CA6):** en `entities.host.info`: `sections.<key>` (Sistema, Capacidad, Red,
+  Monitorización, Agrupación, Nube o virtualización), `rows.<key>` (una por fila) y
+  `groups.<key>` (Procesos, Servicios, Se ejecuta en, Grupo de hosts, Otras relaciones). Título,
+  «Ver nombres» y «Todas las propiedades» pueden seguir en `entities.service.info` si se
+  generaliza la tarjeta.
+- **Simulador:** `HOST_INFO_FULL_ID` (`HOST-00000000000E2E60`, todas las claves y las relaciones
+  de cada grupo, con `INFO_FEW_ID` como servicio que se abre) y `HOST_METRICS_ID` (el de la
+  0018/0019) con pocas claves (osType, memoryTotal y vacías). Nombres nuevos en `ENTITY_NAMES`.
 
 ## Resultado
 
