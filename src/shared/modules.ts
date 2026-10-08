@@ -369,6 +369,66 @@ export const hostBreakdownResultSchema = z.object({
 })
 export type HostBreakdownResult = z.output<typeof hostBreakdownResultSchema>
 
+/**
+ * Id de un browser monitor (SYNTHETIC_TEST) o de un HTTP monitor (HTTP_CHECK) de
+ * Dynatrace (ficha 0022). Como el del servicio: main construye los selectores con
+ * él y el formato estricto impide inyectar nada. El tipo sale del prefijo.
+ */
+export const monitorEntityIdSchema = z.string().regex(/^(SYNTHETIC_TEST|HTTP_CHECK)-[0-9A-F]{16}$/)
+
+/** Tipo de monitor: browser (SYNTHETIC_TEST) o HTTP (HTTP_CHECK). */
+export const monitorKinds = ['browser', 'http'] as const
+export type MonitorKind = (typeof monitorKinds)[number]
+
+/** Una serie del monitor: `values[i]` es el valor en `timestamps[i]` (null sin dato). */
+export type MonitorSeries = ServiceSeries
+
+/**
+ * Métricas de un monitor en el rango (canal `entities:monitorMetrics`, ficha 0022).
+ * Unidades sin convertir: disponibilidad en % (0–100), tiempos en ms, CLS sin
+ * unidad y ejecuciones en recuento. Los papeles sin métrica en el tipo llegan a null.
+ */
+export const monitorMetricsResultSchema = z.object({
+  kind: z.enum(monitorKinds),
+  /** Resolución que devolvió la API para las series (por ejemplo, 10m o 1h). */
+  resolution: z.string(),
+  series: z.object({
+    /** Disponibilidad de todas las localizaciones juntas, en %. */
+    availability: serviceSeriesSchema,
+    /** Duración de la ejecución, en ms. */
+    duration: serviceSeriesSchema,
+    executions: z.object({ ok: serviceSeriesSchema, failed: serviceSeriesSchema }),
+    /** Experiencia del browser monitor (ms; CLS sin unidad); null en HTTP. */
+    performance: z
+      .object({
+        largestContentfulPaint: serviceSeriesSchema,
+        visuallyComplete: serviceSeriesSchema,
+        cumulativeLayoutShift: serviceSeriesSchema,
+        speedIndex: serviceSeriesSchema
+      })
+      .nullable(),
+    /** Tiempos del HTTP monitor, en ms; null en browser. */
+    httpTimings: z
+      .object({
+        dns: serviceSeriesSchema,
+        tcpConnect: serviceSeriesSchema,
+        tlsHandshake: serviceSeriesSchema,
+        timeToFirstByte: serviceSeriesSchema
+      })
+      .nullable()
+  }),
+  /** Marcadores del rango completo; null sin dato (los recuentos, 0). */
+  totals: z.object({
+    availability: z.number().nullable(),
+    /** En ms. El HTTP monitor no tiene mediana: siempre null. */
+    duration: z.object({ avg: z.number().nullable(), median: z.number().nullable() }),
+    executions: z.object({ ok: z.number().min(0), failed: z.number().min(0) })
+  }),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type MonitorMetricsResult = z.output<typeof monitorMetricsResultSchema>
+
 export const metricInfoSchema = z.object({
   metricId: z.string(),
   displayName: z.string().nullable(),

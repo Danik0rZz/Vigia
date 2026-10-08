@@ -42,6 +42,13 @@ import {
   toHostMetrics
 } from '../../modules/host-metrics'
 import {
+  monitorEntitySelector,
+  monitorKind,
+  monitorMarkerSelector,
+  monitorSeriesSelector,
+  toMonitorMetrics
+} from '../../modules/monitor-metrics'
+import {
   DISK_RANGE_SELECTOR,
   DISK_SERIES_SELECTOR,
   PROCESS_RANGE_SELECTOR,
@@ -66,6 +73,7 @@ type ModuleChannels =
   | 'entities:serviceMetrics'
   | 'entities:hostMetrics'
   | 'entities:hostBreakdown'
+  | 'entities:monitorMetrics'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -385,6 +393,41 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'hostMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:monitorMetrics': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const kind = monitorKind(entityId)
+      const range = timeRangeToDt(timeRange)
+      const entitySelector = monitorEntitySelector(entityId)
+      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, entitySelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Series con la resolución que elija la API; marcadores del rango con Inf
+        // (sin fold: mezclarlos da 400). Cada tipo, con su catálogo.
+        const [series, markers] = await Promise.all([
+          query(monitorSeriesSelector(kind)),
+          query(monitorMarkerSelector(kind), 'Inf')
+        ])
+        return toMonitorMetrics(kind, series, markers)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'monitorMetricsRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }

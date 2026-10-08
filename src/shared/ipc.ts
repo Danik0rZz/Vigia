@@ -27,6 +27,8 @@ import {
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
+  monitorEntityIdSchema,
+  monitorMetricsResultSchema,
   problemCommentSchema,
   problemDetailOutputSchema,
   problemSummarySchema,
@@ -361,6 +363,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: hostBreakdownResultSchema
+  },
+  /**
+   * Métricas de un browser monitor o de un HTTP monitor en el rango (ficha 0022):
+   * series y marcadores por papel. La interfaz manda el id; main saca el tipo de él,
+   * elige su catálogo y construye los selectores.
+   */
+  'entities:monitorMetrics': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: monitorEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: monitorMetricsResultSchema
   },
   'metrics:search': {
     input: z.object({ environmentId: z.uuid(), text: z.string().trim().min(1).max(100) }),

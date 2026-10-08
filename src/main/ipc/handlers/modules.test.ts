@@ -759,6 +759,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'HOST-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0022: métricas de un monitor (su comportamiento, en monitor-metrics.test).
+    await call('entities:monitorMetrics' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'HTTP_CHECK-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     await call('slos:list', { environmentId: envId })
     const saved = await call('savedQueries:save', {
       environmentId: envId,
