@@ -57,6 +57,9 @@ Sin migraciones nuevas.
 
 ### Cambiado
 
+- Proyecto: los e2e que leen una exportación esperan siempre al aviso «Guardado» y a que el fichero
+  tenga contenido; un test lo vigila. Arregla un intermitente que ponía el CI en rojo. Sin
+  migraciones nuevas. (ficha 0030)
 - «Probar conexión» comprueba ahora también el permiso `entities.read` del token
   (`environment-api:entities:read` con OAuth), que la próxima sección «Información» de la página del
   servicio necesita; si falta, lo avisa como con los demás. Hay que añadirlo al token del entorno.

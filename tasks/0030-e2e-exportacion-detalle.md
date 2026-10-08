@@ -1,7 +1,7 @@
 ---
 id: '0030'
 titulo: El e2e de la exportación del detalle de un problema lee el fichero cuando ya tiene contenido
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -103,4 +103,7 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Resultado
 
-(pendiente)
+- Commits: `86a418e` (CA2), `a0c2dcd` (lecturas a `exportSaved`), `b9329a7` y `7c57924` (mini gráfico de
+  evidencias), más los de ficha.
+- Ficheros: `e2e/views.spec.ts`, `scripts/e2e-export-read.test.ts`.
+- Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones.

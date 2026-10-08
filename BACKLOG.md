@@ -111,8 +111,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   (surgió en 0021)
 - `entityTypeOf` (`src/main/modules/entities.ts`): con un id sin guion recorta el último carácter;
   usar `requestedId` o devolver el texto entero. (surgió en 0014)
-- e2e intermitente «v0.9.0 … exportación del detalle de un problema»: falló una vez en una tirada
-  completa y pasó al repetir; no salió en la verificación. Causa sin investigar. (surgió en 0014)
 - Marcadores y gráficos del servicio (métricas y problemas) pueden pedir datos antes de conocer el
   scope, porque `useModuleAccess` da el módulo por disponible hasta que responde `connection:status`;
   resolverlo en el propio hook para todos los módulos. (surgió en 0015)
@@ -136,6 +134,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   también sin peticiones). (surgió en 0018)
 - Marcador «Disco» del host: cuando la 0019 traiga los discos (`entities:hostBreakdown`), enseñar
   debajo el nombre del disco más lleno en vez de «Máximo del rango». (surgió en 0018)
+- `scripts/e2e-export-read.test.ts` (CA2): no ve `let f; f = await exportTo(...)`; y `usesExportDir`
+  marcaría una lectura legítima de `exportDir` tras un `exportSaved` (hoy no existe). (surgió en 0030)
 
 ## Aparcado
 
@@ -186,3 +186,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0016](tasks/0016-host-datos-metricas.md): canal `entities:hostMetrics` con series y marcadores de CPU, memoria, red y disco del host (lote host; sin cambios visibles hasta la 0018).
 - [0017](tasks/0017-host-discos-procesos-datos.md): canal `entities:hostBreakdown` con los discos y los 10 procesos con más CPU del host (lote host; sin cambios visibles hasta la 0019).
 - [0018](tasks/0018-host-marcadores-graficos.md): página del host con cinco marcadores (umbrales 80/90 %) y cuatro gráficos (CPU con la franja de problemas, memoria, red y disco), con «Abrir en Métricas» y exportación (lote host).
+- [0030](tasks/0030-e2e-exportacion-detalle.md): los e2e leen las exportaciones tras el aviso «Guardado» y con contenido (`exportSaved`); arregla un intermitente del CI.

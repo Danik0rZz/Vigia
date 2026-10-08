@@ -24,8 +24,10 @@
   ventana, así que sin fijarla ve otra geometría que la VPS.
 - Si la cabecera u otro elemento «intercepta» un clic, mirar antes si con esa ventana el control se
   ve de verdad: en la 0005 era un fallo de la app (la ruta quedaba en 0 px), no del test.
-- Una exportación se lee tras el aviso «Guardado» y con el fichero no vacío (`exportSaved`): main
-  crea el fichero al empezar `writeFile`, así que su nombre aparece antes de tener contenido.
+- Todo fichero exportado se lee con `exportSaved` (aviso «Guardado» en es y en, también con el menú
+  dentro de un contenedor, y fichero no vacío): main crea el fichero al empezar `writeFile`, así que su
+  nombre aparece antes de tener contenido. `scripts/e2e-export-read.test.ts` falla si alguien lo lee
+  sin él.
 - Tras `runMetric`, `data-series` se lee con espera (`toHaveAttribute`): el gráfico se monta con la
   serie vacía mientras la consulta no ha respondido.
 - No hacer clic en una fila mientras la página se recoloca (por ejemplo, al salir la barra de
