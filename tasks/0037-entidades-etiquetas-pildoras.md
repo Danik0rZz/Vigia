@@ -1,7 +1,7 @@
 ---
 id: '0037'
 titulo: 'Páginas de entidad: etiquetas arriba del todo, como píldoras clave:valor'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: mejoras-entidades
@@ -70,7 +70,39 @@ marcadores**, una fila de píldoras:
 
 ## Verificación
 
-(pendiente)
+Tests: commit 59b55ef (`test(entidades): criterios de la ficha 0037`).
+
+- CA1 → `src/main/ipc/handlers/entity-detail.test.ts`, «CA1 (0037): entities:get transforma las
+  etiquetas …» (con y sin `value`, CONTEXTLESS y con contexto, sin el campo `context`, clave y
+  valor tal cual, sin clave descartada, lista vacía); y `toEntityData` en
+  `src/main/modules/entities.test.ts`.
+- CA2 → `e2e/views.spec.ts`, `CA2 (0037): en la página de un servicio …` (TAGS_ID: entre cabecera y
+  marcadores en el DOM y en pantalla, orden alfabético, la de solo clave sin «:», prefijo de
+  contexto antes de la clave, clave y valor en colores distintos) y «CA2 (0037): en las páginas de
+  host, browser monitor y proceso …».
+- CA3 → `CA3 (0037): con muchas etiquetas …` (TAGS_MANY_ID, 40 etiquetas: las que se ven, en dos
+  líneas como mucho y en orden, más N son todas; tras pulsar «+N», todas en orden).
+- CA4 → `CA4 (0037): la tarjeta «Información» ya no enseña etiquetas …` (servicio, host, browser
+  monitor y proceso) y, en unitarios, `rows.has('tags')` a false en `pages/entities/*-info.test.ts`.
+- CA5 → `CA5 (0037): sin etiquetas, o sin el scope entities.read, no hay fila …` y los e2e de las
+  páginas de entidad, adaptados en el mismo commit: sin la fila `tags` en las tarjetas de la 0015,
+  0020, 0026 y 0029, y CA2 (0036) admite la fila `entity-tags` antes de los marcadores. CA5 ya
+  pasa hoy (comprueba una ausencia); queda como guarda.
+- CA6 → `src/renderer/src/locales/entity-tags.test.ts`, `CA6 (0037)`. El «+N» de etiquetas de la
+  tarjeta (`entities.service.info.tagsMore`) sale de `info-plurals.test.ts`, y `tags`, de las
+  listas de filas de los tests de locales.
+
+Decisiones del test-writer (delegadas por Dani, refinables):
+
+- Nombres: fila `entity-tags` (común a todas las páginas), píldora `entity-tag` con
+  `entity-tag-key`, `entity-tag-value` (solo si hay valor) y `entity-tag-context` (solo si no es
+  CONTEXTLESS), y «+N» `entity-tags-more`. Del texto del contexto solo se exige que contenga el
+  contexto sin distinguir mayúsculas (`AWS`, `Kubernetes`…).
+- `entities:get`: sin `context`, `CONTEXTLESS`; sin `key` (o vacía), se descarta; `value` vacío,
+  null; se conserva el orden de la API (ordena la vista).
+- Textos: `entities.tags.label` («Etiquetas» / «Tags») y `entities.tags.more_one`/`_other` (los
+  que tenía el «+N» de la tarjeta).
+- El tooltip con `stringRepresentation` no tiene criterio y no se prueba.
 
 ## Resultado
 
