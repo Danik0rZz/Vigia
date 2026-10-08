@@ -2465,7 +2465,10 @@ function exportMenu(target: string): Locator {
   return page.locator(`[data-testid="export-menu"][data-export-target="${target}"]`)
 }
 
-/** Lanza una opción del menú de exportación y devuelve el fichero nuevo de la carpeta de exportación. */
+/**
+ * Lanza una opción del menú de exportación y devuelve el fichero nuevo de la carpeta de exportación,
+ * quizá aún vacío. Ficha 0030: solo la usa exportSaved; para leer el fichero, exportSaved.
+ */
 async function exportTo(target: string, option: string): Promise<string> {
   const before = new Set(readdirSync(exportDir))
   await exportMenu(target).click()
@@ -2488,11 +2491,17 @@ function exportNotice(target: string): Locator {
 /**
  * Ficha 0005: como exportTo, pero devuelve el fichero cuando ya está escrito. El nombre aparece en
  * la carpeta en cuanto main empieza a escribirlo (writeFile directo); el aviso «Guardado: …» sale
- * cuando writeFile ha terminado. Y además, con contenido.
+ * cuando writeFile ha terminado. Y además, con contenido. Ficha 0030: el aviso vale en es o en en
+ * (hay tests que exportan con la interfaz en inglés).
  */
 async function exportSaved(target: string, option: string): Promise<string> {
   const file = await exportTo(target, option)
-  await expect(exportNotice(target)).toHaveText(es.export.saved.replace('{{file}}', basename(file)))
+  const notices = [es, en].map((locale) => locale.export.saved.replace('{{file}}', basename(file)))
+  await expect
+    .poll(async () => notices.includes((await exportNotice(target).textContent()) ?? ''), {
+      message: `aviso «${notices.join('» o «')}»`
+    })
+    .toBe(true)
   expect(statSync(file).size, `${basename(file)} vacío`).toBeGreaterThan(0)
   return file
 }
@@ -3188,7 +3197,7 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
   const workbook = async (): Promise<ExcelJS.Workbook> => {
     const book = new ExcelJS.Workbook()
     await book.xlsx.load(
-      readFileSync(await exportTo('problem-page', 'export-xlsx')) as unknown as ArrayBuffer
+      readFileSync(await exportSaved('problem-page', 'export-xlsx')) as unknown as ArrayBuffer
     )
     return book
   }
@@ -3286,7 +3295,7 @@ test('v0.9.0: exportación del detalle: XLSX con sus hojas e Info, en es y en; C
   expect(note).toContain('Evidencia 25')
 
   // CSV: ahora también Evidencias (es principal), con lo filtrado; sin Comentarios.
-  const csv = readFileSync(await exportTo('problem-page', 'export-csv'))
+  const csv = readFileSync(await exportSaved('problem-page', 'export-csv'))
   expect([...csv.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
   const text = csv.subarray(3).toString('utf8')
   expect(text).toContain('Resumen')
@@ -3764,7 +3773,7 @@ test('v0.9.1: XLSX de evidencias variadas: números, "Activa", causa raíz y avi
   await openEvidenceProblem()
   const book = new ExcelJS.Workbook()
   await book.xlsx.load(
-    readFileSync(await exportTo('problem-page', 'export-xlsx')) as unknown as ArrayBuffer
+    readFileSync(await exportSaved('problem-page', 'export-xlsx')) as unknown as ArrayBuffer
   )
   expect(book.worksheets.map((s) => s.name)).toEqual([
     'Resumen',
@@ -4468,7 +4477,7 @@ test('grid de Problemas: ARIA, orden por columna, barra de estado y afectados', 
   expect(await order()).toEqual(['pa-1', 'pa-2', 'pa-3'])
 
   // La exportación sale en el mismo orden que el grid.
-  const csv = readFileSync(await exportTo('problems-table', 'export-csv'))
+  const csv = readFileSync(await exportSaved('problems-table', 'export-csv'))
     .subarray(3)
     .toString('utf8')
     .split('\r\n')
@@ -4593,7 +4602,7 @@ test('clúster: filtro local, aviso y exportación filtrada (la columna ya no es
   await expect(notice).toContainText('de 3')
 
   // La exportación sale filtrada.
-  const lines = readFileSync(await exportTo('problems-table', 'export-csv'))
+  const lines = readFileSync(await exportSaved('problems-table', 'export-csv'))
     .subarray(3)
     .toString('utf8')
     .split('\r\n')
@@ -4604,7 +4613,7 @@ test('clúster: filtro local, aviso y exportación filtrada (la columna ya no es
   // El XLSX filtrado lo dice en Info, con su fila propia.
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(
-    readFileSync(await exportTo('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
+    readFileSync(await exportSaved('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
   )
   const info: [string, unknown][] = []
   workbook.getWorksheet('Info')?.eachRow((r) => {
@@ -4806,7 +4815,7 @@ test('una lista truncada lo indica, con el total real de la API', async () => {
 
 test('exporta problemas a CSV: BOM, ";", una fila por problema y fórmulas neutralizadas', async () => {
   await openProblems()
-  const file = await exportTo('problems-table', 'export-csv')
+  const file = await exportSaved('problems-table', 'export-csv')
   // Si en el mismo minuto ya se exportó otro (por ejemplo, el CSV filtrado del test del clúster), lleva -N.
   expect(file).toMatch(/Cliente_A_Producción_problems_\d{8}-\d{4}(-\d+)?\.csv$/)
 
@@ -4875,7 +4884,7 @@ test('con la interfaz en inglés, el XLSX lleva las hojas y la Info en inglés',
 
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(
-    readFileSync(await exportTo('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
+    readFileSync(await exportSaved('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
   )
   expect(workbook.worksheets.map((sheet) => sheet.name).sort()).toEqual(['Data', 'Info'])
   const info: Record<string, unknown> = {}
@@ -4898,7 +4907,7 @@ test('con el separador "," en Ajustes, el CSV usa coma', async () => {
   expect(await invoke('export:getSettings')).toMatchObject({ csvSeparator: ',' })
 
   await openProblems()
-  const lines = readFileSync(await exportTo('problems-table', 'export-csv'))
+  const lines = readFileSync(await exportSaved('problems-table', 'export-csv'))
     .subarray(3)
     .toString('utf8')
     .split('\r\n')
@@ -4933,7 +4942,7 @@ test('AUD-08: elementos ilegibles y avisos de la API se ven en Problemas y en In
   await goTo('problems')
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(
-    readFileSync(await exportTo('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
+    readFileSync(await exportSaved('problems-table', 'export-xlsx')) as unknown as ArrayBuffer
   )
   const info: [string, unknown][] = []
   workbook.getWorksheet('Info')?.eachRow((r) => {
@@ -4991,7 +5000,7 @@ test('captura del gráfico a PNG: x2, fondo sólido y pie según Ajustes', async
   await expect(page.getByTestId('problems-timeline').locator('canvas').first()).toBeVisible()
   const size = await canvasSize('problems-timeline')
 
-  const withFooter = await pngInfo(await exportTo('problems-timeline', 'capture-save'))
+  const withFooter = await pngInfo(await exportSaved('problems-timeline', 'capture-save'))
   expect(withFooter.width).toBeGreaterThanOrEqual(2 * size.width)
   expect(withFooter.height).toBeGreaterThan(2 * size.height)
   expect(withFooter.cornerAlpha).toBe(255)
@@ -5001,7 +5010,7 @@ test('captura del gráfico a PNG: x2, fondo sólido y pie según Ajustes', async
   await page.getByTestId('capture-footer-off').click()
   await goTo('problems')
 
-  const file = await exportTo('problems-timeline', 'capture-save')
+  const file = await exportSaved('problems-timeline', 'capture-save')
   expect(file).toMatch(/Cliente_A_Producción_problems_\d{8}-\d{4}.*\.png$/)
   // AUD-14: el aviso dice el nombre del fichero escrito (con su -N si lo hay), no «Guardado:» vacío.
   await expect(exportMenu('problems-timeline').locator('xpath=..').getByRole('status')).toHaveText(
@@ -5120,7 +5129,7 @@ test('AUD-13 y CA8 (0006): recortes (ratio > 1) y warnings de la API bajo el gr�
     // El XLSX lleva la resolución y los recortes como Aviso.
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(
-      readFileSync(await exportTo('metric-chart', 'export-xlsx')) as unknown as ArrayBuffer
+      readFileSync(await exportSaved('metric-chart', 'export-xlsx')) as unknown as ArrayBuffer
     )
     const info: [string, unknown][] = []
     workbook.getWorksheet('Info')?.eachRow((r) => {
