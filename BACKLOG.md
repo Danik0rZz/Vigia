@@ -7,7 +7,7 @@ bueno de Dani o de peticiones en su nombre.
 ## En curso
 
 - Cola aprobada por Dani el 2026-10-09, en este orden: lote **mejoras-entidades**
-  ([0036](tasks/0036-entidades-informacion-al-final.md), [0037](tasks/0037-entidades-etiquetas-pildoras.md)),
+  (0036 hecha, [0037](tasks/0037-entidades-etiquetas-pildoras.md)),
   **grupo-procesos** ([0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
   **aplicacion** ([0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
   **markdown** ([0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
@@ -152,6 +152,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Recursos del proceso (descriptores de fichero) sin color de nivel: la ficha solo fija umbrales para la CPU; si Dani los quiere, los del host (80 y 90 %) encajan. (surgió en 0028)
 - Eje de Recursos del proceso fijo de 0 a 100 % (`process-charts.ts:166`): si con procesos reales la métrica resulta ser fracción, corregir a la vez marcador y eje. (surgió en 0028)
 - e2e inestable `e2e/shell.spec.ts:402`: el tooltip de «nav-problems» no aparece en 5 s tras `hoverFresh` (visto en el CI del push de la 0027, run 37733715700, intento 1; al relanzar pasó). Posible arreglo: esperar más o reintentar el hover; ver la lección del tooltip de Radix en `e2e/CLAUDE.md`. (surgió en 0027)
+- e2e de «Información» al final (0036): añadir un caso sin acceso a Métricas, para confirmar el orden con avisos y sin gráficos. (surgió en 0036)
 - Host: los `warnings` de la API se repiten en las dos tarjetas (discos y procesos); mostrarlos una
   sola vez. (surgió en 0019)
 - **Prioritaria (seguridad):** filtro de `entity-secrets.ts`: `isHiddenEntry` solo mira elementos de lista; un `{ key: "COMMAND_LINE_ARGS", value }` como valor directo de una propiedad saldría. Cubrirlo en la rama de objetos de `withoutHiddenValues`. No visto en vivo. (surgió en 0029)
@@ -218,3 +219,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0027](tasks/0027-proceso-exploracion-datos.md) (lote proceso): canal `entities:processMetrics` con series y marcadores de CPU, memoria, red, salud de red, disponibilidad y recursos de un proceso, y análisis de métricas en vivo (sin cambios visibles hasta la 0028).
 - [0028](tasks/0028-proceso-marcadores-graficos.md) (lote proceso): página del proceso con hasta cinco marcadores (CPU con umbrales 80/90 %, disponibilidad con 95/99 %) y cuatro gráficos (CPU con la franja de problemas, memoria, red y salud de red o recursos), con «Abrir en Métricas» y exportación.
 - [0029](tasks/0029-proceso-informacion.md) (lote proceso): tarjeta «Información» en la página del proceso, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; main filtra la línea de comandos, los argumentos, el entorno y las rutas de ejecutable de las propiedades de cualquier entidad. Con ella queda completo el lote «proceso» (0027 a 0029).
+- [0036](tasks/0036-entidades-informacion-al-final.md) (lote mejoras-entidades): la tarjeta «Información» pasa al final de las páginas de servicio, host, browser monitor, HTTP monitor y proceso, con el orden fijado en `EntitySections`.

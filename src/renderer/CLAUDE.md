@@ -29,3 +29,4 @@
 - Una consulta que depende de un scope espera a conocer `connection:status` (`useConnectionStatusKnown`, `data/tenants.ts`): `useModuleAccess` da el módulo por disponible hasta entonces y se pediría sin permiso (`ServiceInfo.tsx`).
 - Las páginas de entidad comparten `EntityMarkers.tsx`, `EntityChartPanel.tsx` y `entity-charts.ts`: un tipo nuevo reutiliza esas piezas y `ProblemBand` con `testIdPrefix` (servicio y host ya lo hacen).
 - Las tarjetas «Información» de entidad comparten `EntityInfoCard.tsx`: un tipo nuevo aporta su `buildXInfo` (como `host-info.ts`) con claves confirmadas en vivo.
+- Las páginas de entidad ponen su contenido con `EntitySections` (`EntityPageFrame.tsx`), que fija el orden: avisos de módulos sin acceso, marcadores, gráficos, demás tarjetas e «Información» la última; no lo repitas a mano en cada página.

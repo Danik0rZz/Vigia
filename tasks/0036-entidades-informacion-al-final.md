@@ -1,7 +1,7 @@
 ---
 id: '0036'
 titulo: 'Páginas de entidad: la tarjeta «Información» va al final'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: mejoras-entidades
@@ -100,4 +100,6 @@ siguen antes de los marcadores: son avisos de la página, no secciones.
 
 ## Resultado
 
-(pendiente)
+- Commits: `7fb2780` (tests), `55b60a0` (cambio), más los de ficha. Rama `feat/0036-entidades-informacion-al-final`.
+- Ficheros principales: `src/renderer/src/pages/entities/EntityPageFrame.tsx` (`EntitySections`), las páginas de servicio, host, monitor y proceso, y `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (aprobada). Verifier en verde. ADR nuevo: ninguno. Sin migraciones.

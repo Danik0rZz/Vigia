@@ -71,6 +71,7 @@ Sin migraciones nuevas.
 
 ### Cambiado
 
+- Páginas de servicio, host, browser monitor, HTTP monitor y proceso: la tarjeta «Información» pasa al final de la página. El orden es ahora cabecera, marcadores, gráficos, demás tarjetas (discos y procesos del host, localizaciones y pasos de los monitores…) e «Información», que en un host puede ser muy alta. La tarjeta no cambia por dentro. Las páginas nuevas de entidad seguirán este orden solas. Sin migraciones nuevas. (ficha 0036)
 - Proyecto: los e2e que leen una exportación esperan siempre al aviso «Guardado» y a que el fichero
   tenga contenido; un test lo vigila. Arregla un intermitente que ponía el CI en rojo. Sin
   migraciones nuevas. (ficha 0030)
