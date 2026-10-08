@@ -15,6 +15,7 @@ import {
   RelationsColumn
 } from './EntityInfoCard'
 import { buildProcessInfo, type ProcessRow } from './process-info'
+import { splitList } from './service-info'
 
 /** Etiquetas que se ven antes de «+N», como en el servicio (ficha 0015). */
 const VISIBLE_TAGS = 6
@@ -80,7 +81,9 @@ function RowValue({ row }: { row: ProcessRow }): ReactNode {
   const { t, i18n } = useTranslation()
   switch (row.kind) {
     case 'text':
-      // Tal cual: los puertos son del tenant, sin separador de miles.
+      // Los puertos, sin separador de miles y separados por « · »: con la coma de la lista
+      // («8080, 8443») se leerían como un solo número con decimales.
+      if (row.key === 'listenPorts') return splitList(row.text).join(' · ')
       return row.text
     case 'date':
       return formatDateTime(row.time, dateLang(i18n.language))
