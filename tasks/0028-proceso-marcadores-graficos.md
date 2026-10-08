@@ -1,7 +1,7 @@
 ---
 id: '0028'
 titulo: 'PROCESS_GROUP_INSTANCE: marcadores y gráficos de la página del proceso'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: proceso
@@ -133,6 +133,11 @@ procesos de la tabla del host (0019).
 | CA4      | `e2e/views.spec.ts` › `CA4 (0028): cambiar el rango global vuelve a pedir los datos; …` y `CA4 (0028): si falla el canal de métricas, …`                                         |
 | CA5      | `e2e/views.spec.ts` › `CA5 (0028): desde la tabla de procesos del host, pulsar un proceso abre su página con sus marcadores y gráficos`                                          |
 | CA6      | `src/renderer/src/locales/process-page.test.ts` › `CA6 (0028): textos de la página del proceso en es y en`                                                                       |
+
+### Verifier, 2026-10-08, commit `ee0f7ff`, rango `main..feat/0028-proceso-marcadores-graficos`: VERDE
+
+- check: 2470 tests en 136 ficheros, cobertura ok.
+- e2e afectados: 213/213; los 9 de la 0028 ×3 con `--workers=1`: 27/27.
 
 ## Resultado
 
