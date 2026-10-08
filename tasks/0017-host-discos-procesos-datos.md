@@ -1,7 +1,7 @@
 ---
 id: '0017'
 titulo: 'HOST: canal con el detalle por disco y los procesos que más consumen'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -210,6 +210,11 @@ Comportamientos observados:
   final. Los discos son la unión de las 6 series (el que solo trae lectura y escritura, al final).
 - Salida con `warnings` y `partial` (`truncatedResults`), como la 0016. Motivo nuevo
   `hostBreakdownRejected` (400 y 404), con texto en es y en.
+
+### Verifier, 2026-10-08, commit `0308316`, rango `main..0308316`: VERDE
+
+- check: 2261 tests en 117 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 225/225.
 
 ## Resultado
 
