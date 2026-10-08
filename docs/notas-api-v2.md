@@ -514,6 +514,23 @@ métricas y `builtin:synthetic.http.*` 22, en una sola página; todas admiten `r
   `fromRelationships.monitors` (APPLICATION); en HTTP, a veces `fromRelationships.calls` (SERVICE) y
   `toRelationships.isApplicationOfSyntheticTest` (APPLICATION).
 
+### Desglose por localización y por paso (ficha 0023, observado en vivo, solo lectura)
+
+Las 7 expresiones del canal `entities:monitorBreakdown` (disponibilidad, duración y fallidas por
+localización; duración por paso o petición) se confirmaron en vivo con 200, con y sin
+`resolution=Inf`. Ámbitos:
+
+- `browser.availability`, `http.availability`, `http.duration.geo` y `http.resultStatus`: `entitySelector=entityId(...)`.
+- `browser.duration` y `browser.step.duration` con `entityId(...)` **traen las series de todos los
+  monitores** del entorno: hay que acotarlas con `:filter(eq("dt.entity.synthetic_test","<id>"))`.
+- Las peticiones HTTP (`http.request.duration.geo`) salen vacías con el `entityId` del monitor: se
+  acotan con `type("HTTP_CHECK_STEP"),fromRelationships.isStepOf(entityId(...))`.
+- Con `filter(eq(...))`, el `metricId` vuelve sin las comillas del valor: se casan por posición.
+- Ninguna dimensión trae número de secuencia de paso (está en `sequenceNumber` de las entidades de paso).
+- Browser no tiene métrica de fallidas por localización; en HTTP, una localización sin fallos no trae serie.
+- Con `:names`, `dimensionMap` trae el nombre de localización y de paso; las series de cada métrica
+  no llegan en el mismo orden: se casan por id.
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2

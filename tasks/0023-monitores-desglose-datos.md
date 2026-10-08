@@ -1,7 +1,7 @@
 ---
 id: '0023'
 titulo: 'Monitores: canal con el desglose por localización y por paso o petición'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -179,3 +179,5 @@ ficha: cada canal nuevo se añade ahí, como en la 0022.
 - **Decisión (developer):** `share` es `null` si el paso no tiene duración o la suma es 0; los pasos
   sin duración van al final.
 - Error 400 o 404 con `reason` `monitorBreakdownRejected` (es y en).
+
+**Cierre (doc-writer, 2026-10-08):** rama `feat/0023-monitores-desglose-datos` (`8a225df`..`859cbf3`: tests, canal `fe270c6`, registro en cobertura `d8f0e1b`). Ficheros principales: `src/main/modules/monitor-breakdown.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/modules.ts`, `e2e/views.spec.ts`. 1 ronda de revisión (aprobada), sin ADR nuevo, sin migración. Sin cambios visibles (CHANGELOG: lo pinta la 0025). Notas en vivo en `docs/notas-api-v2.md`.

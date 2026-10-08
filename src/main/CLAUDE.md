@@ -35,3 +35,4 @@
   **mayor que 1**, no menor (`truncatedResults`, ficha 0006).
 - `GET /metrics/query`: los nombres de disco y proceso solo llegan con `:names` en cada expresión;
   `:last` con `resolution=Inf` da 400 (ficha 0017, `docs/notas-api-v2.md`).
+- `GET /metrics/query`: con `entitySelector=entityId(...)`, una métrica puede devolver series de otras entidades si esa dimensión no es su principal (`browser.duration`); comprobarlo en vivo y acotar con `:filter(eq(...))` (ficha 0023, `docs/notas-api-v2.md`).
