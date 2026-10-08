@@ -1,7 +1,7 @@
 ---
 id: '0022'
 titulo: 'Monitores (browser y HTTP): análisis de métricas en vivo y canal de series y marcadores'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -225,6 +225,19 @@ Papeles sin métrica: **mediana de la duración en HTTP** (no hay agregación me
   monitor sin fallos recibe la serie de fallidas vacía y `failed: 0`.
 - Las métricas por localización y por paso o petición quedan en la tabla para la 0023; no van en
   `entities:monitorMetrics`. El código de estado HTTP tampoco (los tiempos cubren el papel).
+
+**Decisiones del developer (delegadas por Dani, a refinar si hace falta):**
+
+- Todas las expresiones van con `entitySelector=entityId("<id>")` y
+  `splitBy("<dimensión del monitor>")` (lo que el paso 0 comprobó en vivo), en
+  `src/main/modules/monitor-metrics.ts`; se casan por posición, como en el servicio y el host.
+- Recuentos del rango (`totals.executions`) del marcador con Inf, no de sumar la serie: el paso 0
+  los vio iguales (o < 1 %) y así sale todo de la misma consulta. Sin dato, 0.
+- HTTP: la consulta de marcadores no pide `:median` (daría lo mismo que `:avg`); `median` va a
+  `null` por tipo.
+- Motivo nuevo `monitorMetricsRejected` (400 y 404), con su texto en es y en.
+- `src/main/ipc/channel-coverage.test.ts` y `src/main/ipc/handlers/modules.test.ts` (registros de
+  canales, no tests de la ficha) llevan el canal nuevo, como en la 0016.
 
 ## Resultado
 
