@@ -861,6 +861,35 @@
           "duration": "Average duration",
           "share": "Share of duration"
         }
+      },
+      "info": {
+        "label": "Monitor information",
+        "column": "Monitor",
+        "enabledYes": "Enabled",
+        "enabledNo": "Disabled",
+        "frequency_one": "Every {{count}} minute",
+        "frequency_other": "Every {{count}} minutes",
+        "rows": {
+          "monitorType": "Type",
+          "enabled": "Status",
+          "frequency": "Frequency",
+          "deviceProfile": "Device",
+          "locations": "Locations",
+          "steps": "Steps",
+          "requests": "Requests",
+          "lastExecution": "Last execution",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen",
+          "managementZones": "Management zones",
+          "tags": "Tags"
+        },
+        "groups": {
+          "monitors": "Monitors",
+          "locations": "Locations",
+          "steps": "Steps",
+          "requests": "Requests",
+          "other": "Other relationships"
+        }
       }
     },
     "service": {

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { monitorEntityIdSchema, type MonitorKind } from '@shared/modules'
 import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
+  useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
   useModuleAccess,
@@ -11,8 +12,10 @@ import {
   useMonitorMetrics,
   uniqueUnavailable
 } from '../../data/modules'
+import { useConnectionStatusKnown } from '../../data/tenants'
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
 import { MonitorCharts } from './MonitorCharts'
+import { MonitorInfo } from './MonitorInfo'
 import { MonitorMarkers } from './MonitorMarkers'
 import { MonitorTables } from './MonitorTables'
 
@@ -30,7 +33,8 @@ const ID_PREFIX: Record<MonitorKind, string> = {
  * salen de una sola llamada a `entities:monitorMetrics` (ficha 0022); las localizaciones, de
  * `entities:monitorBreakdown` (0023). Solo pide datos con «Actualizar» o con un rango nuevo
  * (ADR-0004). Debajo de los gráficos, las tablas de localizaciones y de pasos o peticiones
- * (0025), con el mismo desglose que el marcador. La información (0026) va aparte.
+ * (0025), con el mismo desglose que el marcador. Entre la cabecera y los marcadores, la tarjeta
+ * «Información» (0026, canal `entities:get`), como en el servicio y el host.
  */
 export function MonitorEntityPage({
   monitorKind,
@@ -47,12 +51,20 @@ export function MonitorEntityPage({
   const problemsAccess = useModuleAccess('problems')
   const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
   const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
+  const entitiesAccess = useModuleAccess('entities')
+  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
+  const statusKnown = useConnectionStatusKnown(
+    entitiesAccess.available ? entitiesAccess.envId : null
+  )
+  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
   const metrics = useMonitorMetrics(metricsEnv, monitorId)
   const breakdown = useMonitorBreakdown(metricsEnv, monitorId)
   const problems = useEntityProblemCounts(problemsEnv, monitorId)
   const problemList = useEntityProblems(problemsEnv, monitorId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv, 'entities')
-  const canFetch = monitorId !== null && (metricsEnv !== null || problemsEnv !== null)
+  const info = useEntityInfo(entitiesEnv, monitorId)
+  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  const canFetch =
+    monitorId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -67,7 +79,8 @@ export function MonitorEntityPage({
               metrics.isFetching ||
               breakdown.isFetching ||
               problems.isFetching ||
-              problemList.isFetching
+              problemList.isFetching ||
+              info.isFetching
             }
           />
         ) : undefined
@@ -79,6 +92,8 @@ export function MonitorEntityPage({
         </p>
       ) : (
         <>
+          {/* Ficha 0026: entre la cabecera y los marcadores; si falla, lo demás sigue. */}
+          <MonitorInfo access={entitiesAccess} info={info} />
           {uniqueUnavailable([metricsAccess, problemsAccess], t).map((access, index) => (
             <ModuleUnavailable key={index} access={access} />
           ))}

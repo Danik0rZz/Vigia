@@ -14,13 +14,14 @@ import { MarkerError } from './EntityMarkers'
 import type { RelatedEntity, RelationGroup } from './service-info'
 
 /**
- * Piezas comunes de la tarjeta «Información» de una entidad: la del servicio (ficha 0015) y la
- * del host (ficha 0020). Cada tarjeta pone sus filas; aquí van el marco (aviso del scope, error y
- * esqueleto), los chips, las relaciones con «Ver nombres» a demanda y «Todas las propiedades».
- * `prefix` da los `data-testid` (`service-info`, `host-info`). Todo lo del tenant se pinta como
- * texto, nunca como HTML. Los textos comunes siguen en `entities.service.info`.
+ * Piezas comunes de la tarjeta «Información» de una entidad: la del servicio (ficha 0015), la
+ * del host (ficha 0020) y la de los monitores (ficha 0026). Cada tarjeta pone sus filas; aquí
+ * van el marco (aviso del scope, error y esqueleto), los chips, las relaciones con «Ver nombres»
+ * a demanda y «Todas las propiedades». `prefix` da los `data-testid` (`service-info`,
+ * `host-info`, `monitor-info`). Todo lo del tenant se pinta como texto, nunca como HTML. Los
+ * textos comunes siguen en `entities.service.info`.
  */
-export type InfoPrefix = 'service-info' | 'host-info'
+export type InfoPrefix = 'service-info' | 'host-info' | 'monitor-info'
 
 /**
  * Marco de la tarjeta, entre la cabecera y los marcadores. Sin `entities.read`, el aviso del

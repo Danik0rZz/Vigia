@@ -861,6 +861,35 @@
           "duration": "Duración media",
           "share": "Peso en la duración"
         }
+      },
+      "info": {
+        "label": "Información del monitor",
+        "column": "Monitor",
+        "enabledYes": "Activo",
+        "enabledNo": "Inactivo",
+        "frequency_one": "Cada {{count}} minuto",
+        "frequency_other": "Cada {{count}} minutos",
+        "rows": {
+          "monitorType": "Tipo",
+          "enabled": "Estado",
+          "frequency": "Frecuencia",
+          "deviceProfile": "Dispositivo",
+          "locations": "Localizaciones",
+          "steps": "Pasos",
+          "requests": "Peticiones",
+          "lastExecution": "Última ejecución",
+          "firstSeen": "Visto por primera vez",
+          "lastSeen": "Visto por última vez",
+          "managementZones": "Management zones",
+          "tags": "Etiquetas"
+        },
+        "groups": {
+          "monitors": "Monitoriza",
+          "locations": "Localizaciones",
+          "steps": "Pasos",
+          "requests": "Peticiones",
+          "other": "Otras relaciones"
+        }
       }
     },
     "service": {
