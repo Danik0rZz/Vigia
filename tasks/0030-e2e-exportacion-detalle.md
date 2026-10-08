@@ -1,7 +1,7 @@
 ---
 id: '0030'
 titulo: El e2e de la exportación del detalle de un problema lee el fichero cuando ya tiene contenido
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -94,6 +94,12 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 ## Verificación
 
 (pendiente)
+
+### Verifier, 2026-10-08, commit `fbbec4d`, rango `main..fbbec4d`: VERDE
+
+- check: 2298 tests en 121 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 230/230.
+- CA1 `--repeat-each 10 --workers=1`: 10/10. Los dos tests del mini gráfico que exportan, ×5: 10/10.
 
 ## Resultado
 
