@@ -2461,7 +2461,12 @@ async function runMetric(selector = 'builtin:host.cpu.usage', resolution = '5m')
   await expect(page.getByTestId('metric-chart').locator('canvas').first()).toBeVisible()
 }
 
-function exportMenu(target: string): Locator {
+/**
+ * Menú de exportación de `target`. Ficha 0030: si ya es un locator (un menú dentro de su
+ * contenedor, como el del mini gráfico de evidencias), ese.
+ */
+function exportMenu(target: string | Locator): Locator {
+  if (typeof target !== 'string') return target
   return page.locator(`[data-testid="export-menu"][data-export-target="${target}"]`)
 }
 
@@ -2469,7 +2474,7 @@ function exportMenu(target: string): Locator {
  * Lanza una opción del menú de exportación y devuelve el fichero nuevo de la carpeta de exportación,
  * quizá aún vacío. Ficha 0030: solo la usa exportSaved; para leer el fichero, exportSaved.
  */
-async function exportTo(target: string, option: string): Promise<string> {
+async function exportTo(target: string | Locator, option: string): Promise<string> {
   const before = new Set(readdirSync(exportDir))
   await exportMenu(target).click()
   await page.getByTestId(option).click()
@@ -2484,7 +2489,7 @@ async function exportTo(target: string, option: string): Promise<string> {
 }
 
 /** Aviso de la exportación junto al menú de `target` («Guardado: <fichero>»). */
-function exportNotice(target: string): Locator {
+function exportNotice(target: string | Locator): Locator {
   return exportMenu(target).locator('xpath=..').getByRole('status')
 }
 
@@ -2494,7 +2499,7 @@ function exportNotice(target: string): Locator {
  * cuando writeFile ha terminado. Y además, con contenido. Ficha 0030: el aviso vale en es o en en
  * (hay tests que exportan con la interfaz en inglés).
  */
-async function exportSaved(target: string, option: string): Promise<string> {
+async function exportSaved(target: string | Locator, option: string): Promise<string> {
   const file = await exportTo(target, option)
   const notices = [es, en].map((locale) => locale.export.saved.replace('{{file}}', basename(file)))
   await expect
@@ -4067,19 +4072,8 @@ test('v0.9.2: exportar las series del mini gráfico (CSV con hora, serie y valor
   const menu = chart.locator('[data-testid="export-menu"][data-export-target="evidence-metric"]')
   await expect(menu).toBeVisible()
 
-  const save = async (option: string): Promise<string> => {
-    const before = new Set(readdirSync(exportDir))
-    await menu.click()
-    await page.getByTestId(option).click()
-    let created = ''
-    await expect
-      .poll(() => {
-        created = readdirSync(exportDir).find((name) => !before.has(name)) ?? ''
-        return created
-      })
-      .not.toBe('')
-    return join(exportDir, created)
-  }
+  // Ficha 0030: tras el aviso «Guardado» y con contenido.
+  const save = (option: string): Promise<string> => exportSaved(menu, option)
 
   const csv = readFileSync(await save('export-csv'))
     .subarray(3)
@@ -4225,18 +4219,10 @@ test('v0.10.2: «Abrir en Métricas» y la exportación del mini gráfico usan e
   const menu = container.locator(
     '[data-testid="export-menu"][data-export-target="evidence-metric"]'
   )
-  const before = new Set(readdirSync(exportDir))
-  await menu.click()
-  await page.getByTestId('export-xlsx').click()
-  let created = ''
-  await expect
-    .poll(() => {
-      created = readdirSync(exportDir).find((name) => !before.has(name)) ?? ''
-      return created
-    })
-    .not.toBe('')
   const book = new ExcelJS.Workbook()
-  await book.xlsx.load(readFileSync(join(exportDir, created)) as unknown as ArrayBuffer)
+  await book.xlsx.load(
+    readFileSync(await exportSaved(menu, 'export-xlsx')) as unknown as ArrayBuffer
+  )
   const info: string[] = []
   book.getWorksheet('Info')?.eachRow((row) => {
     info.push(((row.values as unknown[] | undefined) ?? []).map(String).join('|'))
