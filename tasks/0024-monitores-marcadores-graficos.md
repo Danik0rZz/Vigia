@@ -1,7 +1,7 @@
 ---
 id: '0024'
 titulo: 'Monitores: marcadores y cuatro gráficos en las páginas de browser monitor y HTTP monitor'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -154,4 +154,30 @@ fallidas]`; rendimiento en browser, LCP, visually complete y speed index (el CLS
 
 ## Resultado
 
-(pendiente)
+Implementado en `5b6b42b` (consultas, niveles y textos) y `327a7d6` (marcadores y gráficos). Las
+dos páginas usan `MonitorEntityPage.tsx`, `MonitorMarkers.tsx`, `MonitorCharts.tsx` y
+`monitor-charts.ts` sobre las piezas comunes de entidad (`EntityMarkers`, `EntityChartPanel`,
+`entity-charts.ts` y `ProblemBand` con el prefijo `monitor`); niveles en `lib/monitor-format.ts`.
+Servicio y host sin cambios.
+
+**Decisiones del developer (delegadas por Dani, refinables):**
+
+- **CA3:** el Orquestador da por buena la interpretación del test-writer: sin series de rendimiento
+  (con los datos ya cargados), el cuarto gráfico no sale y la rejilla queda en tres. Mientras carga
+  o si falla el canal, el panel sí sale (con su esqueleto o su aviso): aún no se sabe
+  (`monitorChartShown`).
+- **CLS fuera del gráfico de rendimiento:** no es un tiempo (sin unidad, de 0 a 1) y en el eje de ms
+  quedaría pegado al cero. Browser: LCP, visually complete y speed index. HTTP: DNS, TCP, TLS y
+  primer byte.
+- **«Abrir en Métricas»:** la página de Métricas solo recibe el selector (sin `entitySelector`), así
+  que cada expresión del canal lleva el filtro por el monitor justo detrás de la clave
+  (`:filter(eq("dt.entity.synthetic_test","<id>"))` o con `dt.entity.http_check`; en el estado
+  HTTP, junto al de «Result status» en un `and`). Sin probar en vivo con estas métricas (la 0023 sí
+  confirmó ese filtro en `browser.duration`): entra en la prueba a mano de Dani.
+- **Localizaciones:** el número es el de localizaciones que trae el desglose (0023); «por debajo del
+  100 %» no cuenta las que llegan sin dato. Sin acceso a Métricas, «—».
+- **Duración:** media con `formatDurationMs` (ms, o s con un decimal, como el servicio); en HTTP no
+  hay línea de mediana (0022). Ejecuciones: barras apiladas con el recuento de cada intervalo (sin
+  pasarlo a «por minuto»).
+- **Id de otro tipo:** un id que no es del tipo de la página (por ejemplo, un HTTP_CHECK en la ruta
+  de SYNTHETIC_TEST) no se pide y enseña un aviso, como el host.
