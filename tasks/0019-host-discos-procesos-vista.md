@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:hostBreakdown` de la 0017)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -99,7 +99,16 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1-CA7 y el aviso de recorte con su test; fallarían sin el código; tests sin tocar tras `7ac565f`.
+- `DataGrid` con orden y teclado; `usageBar` con umbrales estrictos y texto; «10 de N» con plurales; aviso de
+  recorte solo con `partial` de `builtin:tech.generic.`; enlace solo con id válido de
+  `PROCESS_GROUP_INSTANCE`; «Volver» sin pedir otra vez; formatos con `formatNumber`; estados de carga,
+  error y vacío. Sin canal nuevo; ADR-0004; sin datos del tenant.
+- Opcionales: filas de discos con `cursor-pointer` sin acción (prop en `DataGrid` para filas no
+  activables); unitarios de `processLinkId`, `processesTruncated` y `diskTotal`; los `warnings` se ven en
+  las dos tarjetas.
 
 ## Verificación
 
