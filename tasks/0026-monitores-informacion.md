@@ -1,7 +1,7 @@
 ---
 id: '0026'
 titulo: 'Monitores: tarjeta «Información» con los datos de la entidad'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -71,7 +71,51 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+Tests escritos en el commit `6be05b8` (`test(monitores): criterios de la ficha 0026 (#0026)`). Al
+escribirlos fallan los unitarios (no existe `monitor-info.ts` ni `entities.monitor.info` en los
+locales) y los e2e de CA2 y CA3 (no existe la tarjeta `monitor-info`); CA4 pasa ya (es una
+salvaguarda). Los e2e de la 0015, la 0020, la 0024 y la 0025 siguen en verde con el simulador
+ampliado (25 de 28 con `-g "(0015|0020|0024|0025|0026)"`; los 3 en rojo, los de esta ficha).
+
+| Criterio | Test                                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/renderer/src/pages/entities/monitor-info.test.ts` › `CA1 (0026): filas y grupos de relaciones de un browser monitor y de un HTTP monitor a partir de entities:get`               |
+| CA2      | `e2e/views.spec.ts` › `CA2 (0026): la página de un browser monitor enseña la tarjeta «Información»…` y `CA2 (0026): la página de un HTTP monitor enseña su tarjeta con «Peticiones»…` |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0026): sin entities.read, la tarjeta del monitor dice qué scope falta y los marcadores y gráficos siguen`                                                 |
+| CA4      | Los e2e de la 0015 y la 0020 sin tocar y `e2e/views.spec.ts` › `CA4 (0026): las tarjetas del servicio y del host siguen igual…`                                                       |
+| CA5      | `src/renderer/src/locales/monitor-info.test.ts` › `CA5 (0026): textos de la tarjeta «Información» de los monitores en es y en` (la paridad general, `locales.test.ts`)                |
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- **Función (CA1):** `buildMonitorInfo(data: EntityData): { rows, groups }` en
+  `pages/entities/monitor-info.ts`; el tipo sale de `data.type` (`HTTP_CHECK` es HTTP). Filas
+  planas, como el servicio (son pocas).
+- **Filas obligatorias**, en este orden relativo y solo con dato; el developer puede añadir otras
+  entre ellas con el informe de la 0022 (la ficha se las deja) y anotarlas en "Resultado":
+  `monitorType` (`browserMonitorSubtype` / `httpMonitorSubtype`, texto), `enabled` (`isEnabled`,
+  `{ kind: 'boolean', value }`, solo con true o false), `frequency`
+  (`syntheticMonitorFrequency`, `{ kind: 'number', value }`, solo positivo; la unidad la pone la
+  vista), `locations` y `steps` (browser) o `requests` (HTTP) (`{ kind: 'count', count }`),
+  `firstSeen`, `lastSeen`, `managementZones` y `tags`. Nunca son fila las capturas
+  (`syntheticScreenshot*Uri`) ni `detectedName`.
+- **Recuentos de localizaciones y pasos, del `total` de las relaciones** (`runsOn` de from e
+  `isStepOf` de to), no de `assignedLocations` ni `steps`: main recorta el texto de una propiedad
+  a 300 caracteres y una lista larga daría una cuenta menor.
+- **Grupos:** `monitors` («Monitoriza»: `monitors` y `calls` de from e
+  `isApplicationOfSyntheticTest` de to), `locations`, `steps` o `requests` (según el tipo) y
+  `other` (el resto, también esas relaciones en la dirección contraria). Direcciones, las de la 0022.
+- **Nombres en el e2e:** prefijo `monitor-info` (como `host-info`): tarjeta entre la cabecera y
+  `monitor-markers`, `monitor-info-row` (`data-key`), `-value`, `-chip`, `-relations`, `-group`
+  (`data-group`), `-group-toggle`, `-group-count`, `-entity` (`data-entity-id`), `-names`,
+  `-entity-name`, `-properties-toggle` y `-property` (`data-key`). En el e2e, «si está activo»
+  no enseña `true`/`false` y el del HTTP (inactivo) es distinto del del browser.
+- **Textos (CA5):** `entities.monitor.info.rows.<key>` y `groups.<key>` (Monitoriza,
+  Localizaciones, Pasos, Peticiones, Otras relaciones).
+- **Simulador:** `/entities/{id}` de `MONITOR_BROWSER_ID` y `MONITOR_HTTP_ID` con las claves y
+  relaciones de la 0022 y valores inventados; localizaciones, pasos y peticiones con ids propios
+  (`…E2EB*`, `…E2EC*`, `…E2ED*`) y nombres en `ENTITY_NAMES`; el HTTP «Monitoriza» a
+  `INFO_FEW_ID` (para abrir la página del servicio) y una relación `belongsTo` (ENVIRONMENT) para
+  «Otras relaciones».
 
 ## Resultado
 
