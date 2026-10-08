@@ -9,6 +9,15 @@ Sin migraciones nuevas.
 
 ### Añadido
 
+- Página del host (desde «Analizar entidad» en una evidencia de un host): ya no está en
+  construcción. Arriba, cinco marcadores del rango de la barra superior: CPU (media y máxima),
+  memoria (media y usada de total en GB), red (entrada y salida medias, con la unidad adaptada),
+  disco (el más lleno) y problemas (abiertos y cerrados). CPU, memoria y disco se ponen en aviso por
+  encima del 80 % y en error por encima del 90 %, siempre con texto además del color. Debajo,
+  cuatro gráficos en rejilla de 2×2 (una columna si la ventana es estrecha): CPU (total y, aparte,
+  `user`, `system` e `iowait`, sin apilar porque no suman el total) con la franja de problemas del
+  host encima, memoria, red (entrada y salida) y disco, con «Abrir en Métricas» y exportación. El
+  servicio no cambia de aspecto. Sin migraciones nuevas. (ficha 0018)
 - Página del servicio (desde «Analizar entidad» en el detalle de un problema), completa con el lote
   «servicio» (fichas 0006 a 0010). Arriba, cinco marcadores del rango de la barra superior:
   peticiones OK y KO, tasa de error, tiempo de respuesta (mediana grande, con p90 y p99 debajo) y

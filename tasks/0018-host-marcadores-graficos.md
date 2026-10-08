@@ -1,7 +1,7 @@
 ---
 id: '0018'
 titulo: 'HOST: marcadores y cuatro gráficos (CPU, memoria, red y disco) con la franja de problemas'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -195,4 +195,7 @@ escribirlos, fallan los cinco e2e nuevos (no hay `host-markers` ni `host-charts`
 
 ## Resultado
 
-(pendiente)
+- Commits: `3231ec1` (refactor de piezas comunes), `64796bd` (formato y textos), `769fea2` (marcadores y gráficos), más los de tests y fichas.
+- Ficheros principales: `pages/entities/HostMarkers.tsx`, `HostCharts.tsx`, `host-charts.ts`, `HostEntityPage.tsx`; comunes `EntityMarkers.tsx`, `EntityChartPanel.tsx`, `entity-charts.ts` y `ProblemBand.tsx` (con `testIdPrefix`); `lib/host-format.ts`; locales es y en; `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (APROBADO). Verifier en verde (2286 unitarios, 230/230 e2e).
+- ADR nuevo: ninguno. Sin migraciones.
