@@ -1,7 +1,7 @@
 ---
 id: '0023'
 titulo: 'Monitores: canal con el desglose por localización y por paso o petición'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -157,6 +157,11 @@ tabla de la 0022 eligió `http.availability` para «por localización»).
 probar: la 0022 encontró métrica de pasos para los dos tipos, así que con el catálogo actual
 `steps` nunca es `null`. El test de CA3 comprueba que es una lista (vacía si no hay series) en los
 dos tipos; la rama `null` queda sin test hasta que haya un tipo sin métrica de pasos.
+
+### Verifier, 2026-10-08, commit `dda2c91`, rango `main..dda2c91`: VERDE
+
+- check: 2389 tests en 126 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 244/244.
 
 ## Resultado
 
