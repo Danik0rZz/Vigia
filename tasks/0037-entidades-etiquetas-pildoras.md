@@ -12,7 +12,7 @@ adrs: [2]
 adr_nuevo:
 api: v2, `tags` de `GET /entities/{entityId}` (esquema `EnrichedTagDto`: `context`, `key`, `value` opcional y `stringRepresentation`; `..\API\Dynatrace Environment APIv2\APIv2.json`). Sin endpoints nuevos.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -70,7 +70,21 @@ marcadores**, una fila de píldoras:
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test (commit `59b55ef`) y en rojo sin el código. Después solo cambian el test
+propio del developer y dos ajustes ajenos a la ficha, ambos legítimos:
+
+- Guarda de secretos (`tenants.test.ts`, `1505ffc`): excepción de una sola ruta exacta,
+  `entities:get.tags[].value`, con su motivo; la regla no cambia y cualquier otro campo sigue
+  fallando. Es el `value` de `EnrichedTagDto`, que ya llegaba antes dentro de `clave:valor`.
+- e2e «CA8 (0014)» (`68f22c0`): una línea, al formato nuevo que obliga el CA1.
+
+Zod en el canal; `context`, `key` y `value` en `EnrichedTagDto` (OpenAPI v2); textos en es y en;
+sin dependencias, esquema ni CSP; nada del tenant.
+
+Opcional: en la guarda, comprobar que cada ruta de `allowed` existe en el contrato, para que una
+excepción huérfana tras un renombrado se detecte.
 
 ## Verificación
 
