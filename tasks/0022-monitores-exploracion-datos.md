@@ -1,7 +1,7 @@
 ---
 id: '0022'
 titulo: 'Monitores (browser y HTTP): análisis de métricas en vivo y canal de series y marcadores'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics` (`metricSelector` con comodín `builtin:synthetic.browser.*` y `builtin:synthetic.http.*`, `fields`), `GET /metrics/{metricId}` y `GET /metrics/query`; `GET /entities/{entityId}` (de la 0014) para SYNTHETIC_TEST y HTTP_CHECK; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read` (ya en uso) y `entities.read` (0014).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -115,7 +115,20 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [API] `monitor-metrics.ts:50-58` y `:77-83`: el canal añade `:splitBy("dt.entity.synthetic_test")` a métricas de
+   browser que el paso 0 probó sin `splitBy` (`totalDuration`, `success`, `failure` y las de rendimiento);
+   solo `availability.location.total` se probó con `splitBy`. La frase de la ficha («todas 200, una serie tras
+   `splitBy`») no es cierta en browser. Los tests no lo detectan porque el simulador acepta los dos caminos.
+   **Decisión del Orquestador: opción (a)**, quitar `BROWSER_SPLIT` de esas métricas y dejarlo solo en
+   `availability.location.total`, para que cada expresión sea la verificada; corregir la frase de la ficha.
+
+Comprobado y correcto: CA1-CA6 con su test; métricas de la tabla; HTTP sin `:median`; papeles sin métrica
+en `null`; id validado antes del selector; `monitorMetricsRejected` (ADR-0005); sin datos del tenant.
+
+Opcional: los recuentos con `Inf` contradicen la lección de `src/main/CLAUDE.md` (recuentos sumando la
+serie); el live midió diferencias de menos del 1 %: matizar la lección y anotarlo en las notas de la API.
 
 ## Verificación
 
