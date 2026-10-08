@@ -1,7 +1,7 @@
 ---
 id: '0037'
 titulo: 'Páginas de entidad: etiquetas arriba del todo, como píldoras clave:valor'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: mejoras-entidades
@@ -143,6 +143,11 @@ Decisiones del developer (delegadas por Dani, refinables):
 - El e2e «CA8 (0014)» (`entities:get` por IPC) esperaba `tags: ['equipo:pagos']`; el
   test-writer no lo adaptó y CA1 obliga al formato nuevo. Se adapta solo esa línea, en un commit
   propio, a `{ context: 'CONTEXTLESS', key: 'equipo', value: 'pagos' }`.
+
+### Verifier, 2026-10-09, commit `127ae2d`, rango `main..feat/0037-entidades-etiquetas-pildoras`: VERDE
+
+- check: 2506 tests en 141 ficheros, cobertura ok.
+- e2e completo (toca `src/shared`): 279/279 (incluye CA2 a CA5 de la 0037).
 
 ## Resultado
 
