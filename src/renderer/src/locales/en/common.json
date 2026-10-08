@@ -792,6 +792,53 @@
         }
       }
     },
+    "monitor": {
+      "invalidId": {
+        "browser": "This ID is not a Dynatrace browser monitor ID (SYNTHETIC_TEST- and 16 hexadecimal characters): its data is not requested.",
+        "http": "This ID is not a Dynatrace HTTP monitor ID (HTTP_CHECK- and 16 hexadecimal characters): its data is not requested."
+      },
+      "markers": {
+        "label": "Monitor markers",
+        "availability": "Availability",
+        "duration": "Duration",
+        "executions": "Executions",
+        "locations": "Locations",
+        "problems": "Problems",
+        "rangeAverage": "Range average",
+        "average": "Average duration",
+        "median": "Median: {{value}}",
+        "ok": "Successful",
+        "failed": "Failed: {{value}}",
+        "locationsCaption": "Locations with data",
+        "belowFull": "Below 100%: {{value}}",
+        "levels": {
+          "warning": "Warning: below 99%",
+          "error": "Critical: below 95%"
+        }
+      },
+      "charts": {
+        "title": "Monitor metrics",
+        "label": "Monitor metric charts",
+        "availability": "Availability",
+        "duration": "Duration",
+        "executions": "Executions",
+        "performance": "Performance",
+        "executionsUnit": "executions",
+        "series": {
+          "availability": "Availability",
+          "duration": "Average duration",
+          "ok": "Successful",
+          "failed": "Failed",
+          "lcp": "Largest Contentful Paint (LCP)",
+          "visuallyComplete": "Visually complete",
+          "speedIndex": "Speed index",
+          "dns": "DNS",
+          "tcp": "TCP connect",
+          "tls": "TLS handshake",
+          "ttfb": "Time to first byte"
+        }
+      }
+    },
     "service": {
       "markers": {
         "label": "Service indicators",

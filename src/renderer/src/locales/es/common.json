@@ -792,6 +792,53 @@
         }
       }
     },
+    "monitor": {
+      "invalidId": {
+        "browser": "Este ID no tiene el formato de un browser monitor de Dynatrace (SYNTHETIC_TEST- y 16 caracteres hexadecimales): no se piden sus datos.",
+        "http": "Este ID no tiene el formato de un HTTP monitor de Dynatrace (HTTP_CHECK- y 16 caracteres hexadecimales): no se piden sus datos."
+      },
+      "markers": {
+        "label": "Marcadores del monitor",
+        "availability": "Disponibilidad",
+        "duration": "Duración",
+        "executions": "Ejecuciones",
+        "locations": "Localizaciones",
+        "problems": "Problemas",
+        "rangeAverage": "Media del rango",
+        "average": "Duración media",
+        "median": "Mediana: {{value}}",
+        "ok": "Correctas",
+        "failed": "Fallidas: {{value}}",
+        "locationsCaption": "Localizaciones con datos",
+        "belowFull": "Por debajo del 100 %: {{value}}",
+        "levels": {
+          "warning": "Aviso: por debajo del 99 %",
+          "error": "Crítico: por debajo del 95 %"
+        }
+      },
+      "charts": {
+        "title": "Métricas del monitor",
+        "label": "Gráficos de las métricas del monitor",
+        "availability": "Disponibilidad",
+        "duration": "Duración",
+        "executions": "Ejecuciones",
+        "performance": "Rendimiento",
+        "executionsUnit": "ejecuciones",
+        "series": {
+          "availability": "Disponibilidad",
+          "duration": "Duración media",
+          "ok": "Correctas",
+          "failed": "Fallidas",
+          "lcp": "Largest Contentful Paint (LCP)",
+          "visuallyComplete": "Visually complete",
+          "speedIndex": "Speed index",
+          "dns": "DNS",
+          "tcp": "Conexión TCP",
+          "tls": "Handshake TLS",
+          "ttfb": "Primer byte"
+        }
+      }
+    },
     "service": {
       "markers": {
         "label": "Marcadores del servicio",

@@ -276,6 +276,51 @@ export function useHostBreakdown(
   })
 }
 
+/**
+ * Métricas de un browser monitor o de un HTTP monitor en el rango global (canal de la ficha 0022;
+ * marcadores y gráficos de la 0024, una sola llamada). Con `entityId` null (id que no es de un
+ * monitor) no se pide nada.
+ */
+export function useMonitorMetrics(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:monitorMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { monitorMetrics: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:monitorMetrics', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
+ * Desglose de un monitor por localización y por paso o petición en el rango global (canal de la
+ * ficha 0023; el marcador «Localizaciones» de la 0024).
+ */
+export function useMonitorBreakdown(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:monitorBreakdown'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { monitorBreakdown: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:monitorBreakdown', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
 /** Problemas abiertos y cerrados de una entidad en el rango global (fichas 0007 y 0008). */
 export function useEntityProblemCounts(
   envId: string | null,
