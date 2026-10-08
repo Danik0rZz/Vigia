@@ -37,6 +37,11 @@ de tablas de la app (`DataGrid`):
 - Estados de carga y error por tarjeta (aviso con Reintentar); sin datos, «Sin discos» o «Sin
   procesos». Mismo rango global y «Actualizar» que el resto. Textos en es y en.
 
+**Nota del Orquestador (2026-10-08, desde la revisión de la 0017):** la consulta de procesos de
+`entities:hostBreakdown` puede venir recortada en hosts de más de unos 333 procesos (tope de 1.000 series
+de la API). Cuando `partial` traiga la métrica de procesos, la tabla dice que la lista y el total pueden
+estar incompletos.
+
 ## Criterios de aceptación
 
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.

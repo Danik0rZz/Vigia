@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics/{metricId}`, `GET /metrics` (`text`) y `GET /metrics/query` (`metricSelector`, `entitySelector` con criterios de relación, `resolution`, `from`, `to`); `..\API\Dynatrace Environment APIv2\APIv2.json` y "Entity selector" / "Metrics selector transformations" de la documentación oficial. Scope `metrics.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -85,7 +85,23 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1-CA6 con su test; prueban de verdad (400 con `:last`/`fold`+`Inf`; órdenes distintos según el criterio).
+  Tests sin tocar tras `da5b49d`.
+- Métricas exactamente las confirmadas; `isProcessOf` confirmado en vivo; ninguna consulta mezcla `:last` ni
+  `fold` con `Inf`; todas con `:names`. Id validado antes de los selectores (sin inyección).
+  `hostBreakdownRejected` (ADR-0005).
+- Opcional 1: la API limita a 1.000 series por respuesta; con 3 expresiones por proceso la cuenta es exacta
+  hasta unos 333 procesos por host (en vivo, 51-150). Por encima, top 10 y `total` saldrían incompletos, pero
+  `partial` lo diría.
+- Opcional 2: el `detail` de `hostBreakdownRejected` puede llevar el selector con el id del host.
+
+**Decisión del Orquestador (2026-10-08, delegada por Dani):** se queda pidiendo todos los procesos. La
+0019 avisa de que la lista y el total pueden estar incompletos cuando `partial` traiga la métrica de
+procesos. Si aparecen hosts más grandes, `:sort(value(avg,descending)):limit(10)` y un recuento aparte
+(cambio de ficha, para Dani). Pendiente: anotar el límite en el comentario de `host-breakdown.ts`
+(BACKLOG).
 
 ## Verificación
 
