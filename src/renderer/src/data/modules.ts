@@ -254,6 +254,28 @@ export function useHostMetrics(
   })
 }
 
+/**
+ * Discos y los 10 procesos con más CPU de un host en el rango global (canal de la ficha 0017,
+ * tablas de la 0019). Una sola llamada para las dos tablas.
+ */
+export function useHostBreakdown(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:hostBreakdown'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { hostBreakdown: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:hostBreakdown', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
 /** Problemas abiertos y cerrados de una entidad en el rango global (fichas 0007 y 0008). */
 export function useEntityProblemCounts(
   envId: string | null,

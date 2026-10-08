@@ -5,6 +5,7 @@ import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
   useEntityProblemCounts,
   useEntityProblems,
+  useHostBreakdown,
   useHostMetrics,
   useModuleAccess,
   useModuleRefresh,
@@ -13,11 +14,13 @@ import {
 import { EntityPageFrame, type EntityPageProps } from './EntityPageFrame'
 import { HostCharts } from './HostCharts'
 import { HostMarkers } from './HostMarkers'
+import { HostTables } from './HostTables'
 
 /**
  * Página de análisis de una entidad HOST (ficha 0018), con el modelo del servicio: marcadores
  * del rango global (CPU, memoria, red, disco y problemas) y, debajo, los cuatro gráficos, con la
- * franja de los problemas del host sobre el de la CPU. Marcadores y gráficos salen de una sola
+ * franja de los problemas del host sobre el de la CPU; debajo, las tablas de discos y procesos
+ * (ficha 0019, canal `entities:hostBreakdown`). Marcadores y gráficos salen de una sola
  * llamada a `entities:hostMetrics` (ficha 0016). Solo pide datos con «Actualizar» o con un rango
  * nuevo (ADR-0004).
  */
@@ -30,6 +33,7 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
   const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
   const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
   const metrics = useHostMetrics(metricsEnv, hostId)
+  const breakdown = useHostBreakdown(metricsEnv, hostId)
   const problems = useEntityProblemCounts(problemsEnv, hostId)
   const problemList = useEntityProblems(problemsEnv, hostId)
   const refresh = useModuleRefresh(metricsEnv ?? problemsEnv, 'entities')
@@ -44,7 +48,12 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
         canFetch ? (
           <RefreshButton
             onRefresh={refresh}
-            busy={metrics.isFetching || problems.isFetching || problemList.isFetching}
+            busy={
+              metrics.isFetching ||
+              breakdown.isFetching ||
+              problems.isFetching ||
+              problemList.isFetching
+            }
           />
         ) : undefined
       }
@@ -66,11 +75,14 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
           />
           {/* Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—». */}
           {metricsEnv !== null && (
-            <HostCharts
-              hostId={hostId}
-              metrics={metrics}
-              problemList={problemsEnv !== null ? problemList : null}
-            />
+            <>
+              <HostCharts
+                hostId={hostId}
+                metrics={metrics}
+                problemList={problemsEnv !== null ? problemList : null}
+              />
+              <HostTables breakdown={breakdown} />
+            </>
           )}
         </>
       )}
