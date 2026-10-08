@@ -95,7 +95,7 @@ Los e2e de la 0015, la 0018 y la 0019 siguen en verde con el simulador ampliado.
 | CA2      | `e2e/views.spec.ts` › `CA2 (0020): la página de un HOST enseña la tarjeta «Información» con sus grupos (Sistema, Capacidad, Red…), memoria en GB, IPs con «+N» y lo demás solo en «Todas las propiedades»` y `CA2 (0020): con un HOST con pocas claves solo salen los grupos y las filas con dato, sin «undefined»` |
 | CA3      | `e2e/views.spec.ts` › `CA3 (0020): las relaciones salen en su orden con su número; «Ver nombres» los trae a demanda; pulsar un servicio abre su página y «Volver» regresa al host`                                                                                                                                  |
 | CA4      | `e2e/views.spec.ts` › `CA4 (0020): sin entities.read, la tarjeta del host dice qué scope falta y los marcadores y gráficos siguen`                                                                                                                                                                                  |
-| CA5      | Los e2e de la 0015 sin tocar (`CA1 (0015)` a `CA7 (0015)`) y `e2e/views.spec.ts` › `CA5 (0020): la tarjeta del servicio sigue igual (sus filas, sus grupos y sin nada del host); los e2e de la 0015 siguen sin tocar`                                                                                               |
+| CA5      | Los e2e de la 0015 sin tocar (`CA1 (0015)` a `CA7 (0015)`) y `e2e/views.spec.ts` › `CA5 (0020): la tarjeta del servicio sigue igual (sus filas, sus grupos y sin nada del host); los e2e de la 0015 siguen sin tocar, salvo el recuento de CA5 (0015)`                                                              |
 | CA6      | `src/renderer/src/locales/host-info.test.ts` › `CA6 (0020): textos de la tarjeta «Información» del HOST en es y en` (la paridad general, `locales.test.ts` y `CA9 (0018)`)                                                                                                                                          |
 
 **Lectura en vivo (autorizada por Dani, solo lectura).** Ampliada
@@ -186,6 +186,12 @@ ahora cuenta solo las `entities:get` con el id del servicio (`serviceInfoQueries
 página del host a la que navega pide la suya, como manda la 0020; su intención (no volver a pedir
 los datos del servicio) y el resto de comprobaciones siguen igual. `-g "CA5 \(0015\)|\(0020\)"`
 con `--repeat-each 3 --workers=1`: 18 en verde.
+
+**Retoques tras la ronda 1 (aprobada; opcionales del revisor, pedidos por el Orquestador):**
+plural `_one`/`_other` en `entities.host.info.ipsMore` y `entities.service.info.tagsMore`
+(test `src/renderer/src/locales/info-plurals.test.ts`, con 1 y con 3); el test en vivo «CA1
+(0020): el informe de hosts…» pasa a llamarse «Ficha 0020: …» y `CA5 (0020)` dice «salvo el
+recuento de CA5 (0015)».
 
 ## Resultado
 
