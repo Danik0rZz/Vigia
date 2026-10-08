@@ -765,6 +765,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'HTTP_CHECK-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0023: desglose de un monitor (su comportamiento, en monitor-breakdown.test).
+    await call('entities:monitorBreakdown' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'HTTP_CHECK-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     await call('slos:list', { environmentId: envId })
     const saved = await call('savedQueries:save', {
       environmentId: envId,
