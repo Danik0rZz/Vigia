@@ -19,8 +19,11 @@ import { createTestDb, fakeCrypto } from '../../../test/fixtures'
  * - CPU `builtin:tech.generic.cpu.usage` (Percent), memoria `…mem.workingSetSize` (Byte),
  *   disponibilidad `builtin:pgi.availability` (Percent) y recursos
  *   `…handles.fileDescriptorsPercentUsed` (Percent);
- * - red y salud de red se quedan sin métrica: ningún proceso de muestra trae datos de red
- *   (papeles `null`);
+ * - red `…network.bytesRx` (entrada) y `…network.bytesTx` (salida), en BytePerSecond, y salud
+ *   de red `…network.packets.retransmission` (Percent), por la decisión del Orquestador
+ *   (2026-10-08, en la ficha); salud de red solo tiene serie (la especificación no le pide
+ *   marcador). Un proceso sin datos de red llega sin series en esas métricas: series vacías
+ *   (no `null`) y marcadores a `null`;
  * - con `entitySelector=entityId(...)`, cada expresión vuelve en el orden pedido, con el
  *   `metricId` igual a la expresión enviada y una sola serie; un proceso sin descriptores de
  *   fichero (Windows) llega sin series en esa métrica;
@@ -43,15 +46,28 @@ const CPU = `${G}cpu.usage`
 const MEMORY = `${G}mem.workingSetSize`
 const AVAILABILITY = 'builtin:pgi.availability'
 const RESOURCES = `${G}handles.fileDescriptorsPercentUsed`
+const NETWORK_IN = `${G}network.bytesRx`
+const NETWORK_OUT = `${G}network.bytesTx`
+const NETWORK_HEALTH = `${G}network.packets.retransmission`
 
 /** Series: las expresiones exactas probadas en vivo (paso 0), sin resolution. */
-const SERIES_EXPRESSIONS = [CPU, MEMORY, AVAILABILITY, RESOURCES]
+const SERIES_EXPRESSIONS = [
+  CPU,
+  MEMORY,
+  NETWORK_IN,
+  NETWORK_OUT,
+  NETWORK_HEALTH,
+  AVAILABILITY,
+  RESOURCES
+]
 /** Marcadores: las expresiones exactas probadas en vivo, con resolution=Inf. */
 const MARKER_EXPRESSIONS = [
   `${CPU}:avg`,
   `${CPU}:max`,
   `${MEMORY}:avg`,
   `${MEMORY}:max`,
+  `${NETWORK_IN}:avg`,
+  `${NETWORK_OUT}:avg`,
   `${AVAILABILITY}:avg`,
   `${RESOURCES}:max`
 ]
@@ -169,6 +185,9 @@ beforeEach(() => {
   seriesData = {
     [CPU]: [12.5, null, 30, null],
     [MEMORY]: [250_000_000, null, 262_144_000, null],
+    [NETWORK_IN]: [1_500, null, 2_048.5, null],
+    [NETWORK_OUT]: [300, 450, null, null],
+    [NETWORK_HEALTH]: [0, null, 1.25, null],
     [AVAILABILITY]: [100, 100, null, 50],
     [RESOURCES]: [0.4, null, 0.6, null]
   }
@@ -178,6 +197,8 @@ beforeEach(() => {
     [`${CPU}:max`]: 96.5,
     [`${MEMORY}:avg`]: 255_000_000,
     [`${MEMORY}:max`]: 270_000_000,
+    [`${NETWORK_IN}:avg`]: 1_800,
+    [`${NETWORK_OUT}:avg`]: 375,
     [`${AVAILABILITY}:avg`]: 87.5,
     [`${RESOURCES}:max`]: 0.75
   }
@@ -288,10 +309,12 @@ describe('CA3 (0027): las consultas llevan las métricas elegidas, el id y el ra
     expect(markersUrl?.searchParams.get('metricSelector') ?? '').not.toContain(':fold(')
     expect([...expressionsOf(markersUrl)].sort()).toEqual([...MARKER_EXPRESSIONS].sort())
 
-    // Acotadas al proceso pedido con entityId (como en el paso 0); sin métricas de red; y el rango.
+    // Salud de red, solo en series: la especificación no le pide marcador.
+    expect(expressionsOf(markersUrl).some((e) => e.startsWith(NETWORK_HEALTH))).toBe(false)
+
+    // Acotadas al proceso pedido con entityId (como en el paso 0) y con el rango.
     for (const url of [seriesUrl, markersUrl]) {
       expect(url?.searchParams.get('entitySelector')).toBe(`entityId("${PROCESS_ID}")`)
-      expect(url?.searchParams.get('metricSelector') ?? '').not.toContain('.network.')
       expect(url?.searchParams.get('from')).toBe(expected.from)
       expect(url?.searchParams.get('to')).toBe(expected.to)
     }
@@ -311,8 +334,14 @@ describe('CA3 (0027): las consultas llevan las métricas elegidas, el id y el ra
   })
 })
 
+/**
+ * CA4 y los papeles `null`: con la decisión del Orquestador, los seis papeles tienen métrica en
+ * el canal, así que en `series` ninguno es `null` (un papel sin datos llega con series vacías).
+ * El `null` que se prueba es el de los marcadores de un papel sin dato en el rango
+ * (`availability`, `resources`, `network.in`/`out`, `cpu.max`…).
+ */
 describe('CA4 (0027): la respuesta se transforma por papel, con papeles null', () => {
-  it('series por papel con los null conservados; red y salud de red sin métrica (null)', async () => {
+  it('series por papel con los null conservados, red con entrada y salida y salud de red', async () => {
     const result = await call({ environmentId: envId, ...base })
     expect(result.ok, JSON.stringify(result.error)).toBe(true)
     expect(result.data).toMatchObject({
@@ -324,22 +353,25 @@ describe('CA4 (0027): la respuesta se transforma por papel, con papeles null', (
         memory: series([250_000_000, null, 262_144_000, null]),
         availability: series([100, 100, null, 50]),
         resources: series([0.4, null, 0.6, null]),
-        // Papeles sin métrica (paso 0).
-        network: null,
-        networkHealth: null
+        // Bytes por segundo y % tal cual.
+        network: {
+          in: series([1_500, null, 2_048.5, null]),
+          out: series([300, 450, null, null])
+        },
+        networkHealth: series([0, null, 1.25, null])
       },
       warnings: [],
       partial: []
     })
   })
 
-  it('marcadores: CPU y memoria media y máxima, disponibilidad media, recursos máximo y red null', async () => {
+  it('marcadores: CPU y memoria media y máxima, red media de entrada y salida, disponibilidad media y recursos máximo', async () => {
     const result = await call({ environmentId: envId, ...base })
     expect(result.ok, JSON.stringify(result.error)).toBe(true)
     expect((result.data as { totals: unknown }).totals).toEqual({
       cpu: { avg: 18.75, max: 96.5 },
       memory: { avg: 255_000_000, max: 270_000_000 },
-      network: null,
+      network: { in: 1_800, out: 375 },
       availability: 87.5,
       resources: 0.75
     })
@@ -353,6 +385,35 @@ describe('CA4 (0027): la respuesta se transforma por papel, con papeles null', (
     expect(result.data).toMatchObject({
       series: { cpu: series([12.5, null, 30, null]), resources: none },
       totals: { cpu: { avg: 18.75, max: null }, resources: null }
+    })
+  })
+
+  it('un proceso sin datos de red: red y salud de red con series vacías (no null) y sus marcadores a null', async () => {
+    noSeries = new Set([
+      NETWORK_IN,
+      NETWORK_OUT,
+      NETWORK_HEALTH,
+      `${NETWORK_IN}:avg`,
+      `${NETWORK_OUT}:avg`,
+      `${AVAILABILITY}:avg`
+    ])
+    const result = await call({ environmentId: envId, ...base })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    expect(result.data).toMatchObject({
+      series: {
+        cpu: series([12.5, null, 30, null]),
+        network: { in: none, out: none },
+        networkHealth: none
+      },
+      warnings: [],
+      partial: []
+    })
+    expect((result.data as { totals: unknown }).totals).toEqual({
+      cpu: { avg: 18.75, max: 96.5 },
+      memory: { avg: 255_000_000, max: 270_000_000 },
+      network: { in: null, out: null },
+      availability: null,
+      resources: 0.75
     })
   })
 })
@@ -379,14 +440,14 @@ describe('CA5 (0027): errores de Dynatrace y proceso sin datos', () => {
         memory: none,
         availability: none,
         resources: none,
-        network: null,
-        networkHealth: null
+        network: { in: none, out: none },
+        networkHealth: none
       }
     })
     expect((result.data as { totals: unknown }).totals).toEqual({
       cpu: { avg: null, max: null },
       memory: { avg: null, max: null },
-      network: null,
+      network: { in: null, out: null },
       availability: null,
       resources: null
     })

@@ -213,13 +213,18 @@ const withData = new Map<string, { data: boolean; series: number; detail: Raw }[
 
 /**
  * Series y marcadores que usará el canal, cada uno en una consulta. Con la regla de la ficha
- * (la primera del catálogo con datos en los procesos de muestra), red y salud de red se quedan
- * sin métrica: ninguna muestra trae datos de red. Sus candidatas se prueban aparte, en una
- * instancia del entorno con datos de red, y se anotan.
+ * (la primera del catálogo con datos en los procesos de muestra), red y salud de red se quedaban
+ * sin métrica: ninguna muestra trae datos de red. Por la decisión del Orquestador (2026-10-08,
+ * en la ficha) entran: red con `network.bytesRx`/`bytesTx` y salud de red con
+ * `network.packets.retransmission` (solo serie; el canal no tiene marcador de salud de red).
+ * Se prueban en las muestras y en una instancia del entorno con datos de red.
  */
 const CHANNEL_SERIES = [
   `${G}cpu.usage`,
   `${G}mem.workingSetSize`,
+  `${G}network.bytesRx`,
+  `${G}network.bytesTx`,
+  `${G}network.packets.retransmission`,
   'builtin:pgi.availability',
   `${G}handles.fileDescriptorsPercentUsed`
 ]
@@ -228,6 +233,8 @@ const CHANNEL_MARKERS = [
   `${G}cpu.usage:max`,
   `${G}mem.workingSetSize:avg`,
   `${G}mem.workingSetSize:max`,
+  `${G}network.bytesRx:avg`,
+  `${G}network.bytesTx:avg`,
   'builtin:pgi.availability:avg',
   `${G}handles.fileDescriptorsPercentUsed:max`
 ]

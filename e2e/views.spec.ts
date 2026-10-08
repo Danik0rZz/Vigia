@@ -2052,8 +2052,9 @@ function monitorMetricResponse(query: URLSearchParams): [number, unknown] {
  * Ficha 0027: métricas de un proceso (canal entities:processMetrics), con un id inventado. Imita
  * lo observado en vivo (paso 0): con entitySelector=entityId(...), un resultado por expresión, en
  * el orden pedido, con el metricId igual a la expresión y una sola serie; CPU y disponibilidad en
- * % (0–100), memoria en bytes y descriptores de fichero en %. Red y salud de red no tienen
- * métrica (ningún proceso de muestra las traía). fold con resolution=Inf da 400.
+ * % (0–100), memoria en bytes, descriptores de fichero en %, red (bytesRx/bytesTx) en bytes por
+ * segundo y salud de red (packets.retransmission) en %, esta solo en series (decisión del
+ * Orquestador de 2026-10-08, en la ficha). fold con resolution=Inf da 400.
  */
 const PROCESS_METRICS_ID = 'PROCESS_GROUP_INSTANCE-00000000000E2E50'
 const PROCESS_T0 = Date.parse('2026-10-03T08:00:00.000Z')
@@ -2062,6 +2063,9 @@ const PROCESS_TIMESTAMPS = [0, 1, 2].map((i) => PROCESS_T0 + i * 600_000)
 const PROCESS_SERIES: Record<string, (number | null)[]> = {
   'builtin:tech.generic.cpu.usage': [8, null, 22.5],
   'builtin:tech.generic.mem.workingSetSize': [300_000_000, null, 320_000_000],
+  'builtin:tech.generic.network.bytesRx': [4_096, null, 1_024.5],
+  'builtin:tech.generic.network.bytesTx': [512, 256, null],
+  'builtin:tech.generic.network.packets.retransmission': [0.5, null, 2],
   'builtin:pgi.availability': [100, null, 50],
   'builtin:tech.generic.handles.fileDescriptorsPercentUsed': [0.5, null, 0.8]
 }
@@ -2071,6 +2075,8 @@ const PROCESS_MARKERS: Record<string, number> = {
   'builtin:tech.generic.cpu.usage:max': 91,
   'builtin:tech.generic.mem.workingSetSize:avg': 310_000_000,
   'builtin:tech.generic.mem.workingSetSize:max': 330_000_000,
+  'builtin:tech.generic.network.bytesRx:avg': 2_560,
+  'builtin:tech.generic.network.bytesTx:avg': 384,
   'builtin:pgi.availability:avg': 83.5,
   'builtin:tech.generic.handles.fileDescriptorsPercentUsed:max': 0.9
 }
@@ -7094,6 +7100,15 @@ test('CA6 (0027): entities:processMetrics por IPC con un id inventado: dos consu
     'API',
     'Inf'
   ])
+  // Red en las dos consultas; salud de red, solo en la de series.
+  const selectorOf = (resolution: string | null): string =>
+    sim.processMetricQueries
+      .find((q) => q.get('resolution') === resolution)
+      ?.get('metricSelector') ?? ''
+  expect(selectorOf(null)).toContain('builtin:tech.generic.network.bytesRx')
+  expect(selectorOf(null)).toContain('builtin:tech.generic.network.packets.retransmission')
+  expect(selectorOf('Inf')).toContain('builtin:tech.generic.network.bytesTx:avg')
+  expect(selectorOf('Inf')).not.toContain('retransmission')
 
   const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
     timestamps: PROCESS_TIMESTAMPS,
@@ -7106,14 +7121,13 @@ test('CA6 (0027): entities:processMetrics por IPC con un id inventado: dos consu
       memory: series([300_000_000, null, 320_000_000]),
       availability: series([100, null, 50]),
       resources: series([0.5, null, 0.8]),
-      // Papeles sin métrica (paso 0 de la ficha).
-      network: null,
-      networkHealth: null
+      network: { in: series([4_096, null, 1_024.5]), out: series([512, 256, null]) },
+      networkHealth: series([0.5, null, 2])
     },
     totals: {
       cpu: { avg: 15.25, max: 91 },
       memory: { avg: 310_000_000, max: 330_000_000 },
-      network: null,
+      network: { in: 2_560, out: 384 },
       availability: 83.5,
       resources: 0.9
     },
