@@ -429,6 +429,46 @@ export const monitorMetricsResultSchema = z.object({
 })
 export type MonitorMetricsResult = z.output<typeof monitorMetricsResultSchema>
 
+/** Una localización del monitor en el rango (ficha 0023). */
+export const monitorLocationSchema = z.object({
+  id: z.string(),
+  /** De dimensionMap; si no llega, el id. */
+  name: z.string(),
+  /** Disponibilidad del rango, en % (0–100); null sin dato. */
+  availability: z.number().nullable(),
+  /** Duración media del rango, en ms; null sin dato. */
+  duration: z.number().nullable(),
+  /** Ejecuciones fallidas del rango; null si el tipo no tiene métrica (browser). */
+  failed: z.number().min(0).nullable()
+})
+export type MonitorLocation = z.output<typeof monitorLocationSchema>
+
+/** Un paso (browser) o una petición (HTTP) del monitor en el rango (ficha 0023). */
+export const monitorStepSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** Duración media del rango, en ms; null sin dato. */
+  duration: z.number().nullable(),
+  /** Peso en % (0–100) sobre la suma de las duraciones de los pasos; null sin dato. */
+  share: z.number().nullable()
+})
+export type MonitorStep = z.output<typeof monitorStepSchema>
+
+/**
+ * Desglose de un monitor por localización y por paso o petición en el rango (canal
+ * `entities:monitorBreakdown`, ficha 0023). Localizaciones de peor a mejor
+ * disponibilidad (sin dato, al final); pasos de mayor a menor duración (la dimensión
+ * no trae número de secuencia). `steps` es null solo para un tipo sin métrica de
+ * pasos (hoy ninguno).
+ */
+export const monitorBreakdownResultSchema = z.object({
+  locations: z.array(monitorLocationSchema),
+  steps: z.array(monitorStepSchema).nullable(),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type MonitorBreakdownResult = z.output<typeof monitorBreakdownResultSchema>
+
 export const metricInfoSchema = z.object({
   metricId: z.string(),
   displayName: z.string().nullable(),

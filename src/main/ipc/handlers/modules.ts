@@ -48,6 +48,7 @@ import {
   monitorSeriesSelector,
   toMonitorMetrics
 } from '../../modules/monitor-metrics'
+import { monitorBreakdownQueries, toMonitorBreakdown } from '../../modules/monitor-breakdown'
 import {
   DISK_RANGE_SELECTOR,
   DISK_SERIES_SELECTOR,
@@ -74,6 +75,7 @@ type ModuleChannels =
   | 'entities:hostMetrics'
   | 'entities:hostBreakdown'
   | 'entities:monitorMetrics'
+  | 'entities:monitorBreakdown'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -428,6 +430,41 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'monitorMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:monitorBreakdown': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const kind = monitorKind(entityId)
+      const range = timeRangeToDt(timeRange)
+      // Cada consulta, con las expresiones y el ámbito confirmados en vivo (ficha 0023):
+      // en browser una sola con entityId; en HTTP, las de localización con entityId y
+      // las peticiones por la relación isStepOf. Todas con Inf (valor del rango).
+      const queries = monitorBreakdownQueries(kind, entityId)
+      try {
+        const responses = await Promise.all(
+          queries.map(({ metricSelector, entitySelector }) =>
+            client.dtRequest({
+              envId: environmentId,
+              api: 'classic',
+              path: '/metrics/query',
+              query: { metricSelector, entitySelector, resolution: 'Inf', ...range },
+              schema: metricDataSchema
+            })
+          )
+        )
+        return toMonitorBreakdown(kind, queries, responses)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'monitorBreakdownRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }
