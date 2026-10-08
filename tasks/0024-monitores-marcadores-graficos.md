@@ -1,7 +1,7 @@
 ---
 id: '0024'
 titulo: 'Monitores: marcadores y cuatro gráficos en las páginas de browser monitor y HTTP monitor'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: monitores
@@ -167,6 +167,12 @@ fallidas]`; rendimiento en browser, LCP, visually complete y speed index (el CLS
   deja sin series las cuatro de rendimiento del browser.
 - **Test anterior ajustado:** `CA7 (0008)` saca SYNTHETIC_TEST y HTTP_CHECK de la lista de tipos en
   construcción.
+
+### Verifier, 2026-10-08, commit `f598f33`, rango `main..f598f33`: VERDE
+
+- check: 2404 tests en 129 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 251/251.
+- `-g "(0024)|(0010)" --repeat-each 3 --workers=1`: 36/36.
 
 ## Resultado
 
