@@ -1,7 +1,7 @@
 ---
 id: '0019'
 titulo: 'HOST: tablas de discos y de los procesos que más consumen'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host
@@ -173,6 +173,12 @@ siguen en verde con el simulador ampliado.
   juntan con `splitBy()`). Interruptores: `sim.hostBreakdownFail` (400), `sim.hostBreakdownEmpty`
   (sin series) y `sim.hostBreakdownTruncated` (`'processes'` o `'disks'`: `dimensionCountRatio`
   1,5). El host de la 0017 (`BREAKDOWN_HOST_ID`) no cambia.
+
+### Verifier, 2026-10-08, commit `197b4d6`, rango `main..197b4d6`: VERDE
+
+- check: 2298 tests en 120 ficheros, cobertura ok.
+- e2e completo (ventana del CI): 237/237.
+- `-g "(0019)" --repeat-each 3 --workers=1`: 21/21.
 
 ## Resultado
 
