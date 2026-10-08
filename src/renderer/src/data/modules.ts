@@ -277,6 +277,29 @@ export function useHostBreakdown(
 }
 
 /**
+ * Métricas de un PROCESS_GROUP_INSTANCE en el rango global (canal de la ficha 0027; marcadores y
+ * gráficos de la 0028, una sola llamada). Con `entityId` null (id que no es de un proceso) no se
+ * pide nada.
+ */
+export function useProcessMetrics(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:processMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { processMetrics: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:processMetrics', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
  * Métricas de un browser monitor o de un HTTP monitor en el rango global (canal de la ficha 0022;
  * marcadores y gráficos de la 0024, una sola llamada). Con `entityId` null (id que no es de un
  * monitor) no se pide nada.

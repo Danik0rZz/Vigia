@@ -893,6 +893,41 @@
         }
       }
     },
+    "process": {
+      "invalidId": "Este ID no tiene el formato de un proceso de Dynatrace (PROCESS_GROUP_INSTANCE- y 16 caracteres hexadecimales): no se piden sus datos.",
+      "markers": {
+        "label": "Marcadores del proceso",
+        "cpu": "CPU",
+        "memory": "Memoria",
+        "network": "Red",
+        "availability": "Disponibilidad",
+        "resources": "Recursos",
+        "problems": "Problemas",
+        "average": "Media del rango",
+        "max": "Máxima: {{value}}",
+        "inAverage": "Entrada media",
+        "outAverage": "Salida media: {{value}}",
+        "resourcesCaption": "Descriptores de fichero usados",
+        "rangeMax": "Máximo del rango"
+      },
+      "charts": {
+        "title": "Métricas del proceso",
+        "label": "Gráficos de las métricas del proceso",
+        "cpu": "CPU",
+        "memory": "Memoria",
+        "network": "Red",
+        "networkHealth": "Salud de red",
+        "resources": "Recursos",
+        "series": {
+          "cpu": "Uso de CPU",
+          "memory": "Working set",
+          "in": "Entrada",
+          "out": "Salida",
+          "networkHealth": "Retransmisiones",
+          "resources": "Descriptores de fichero usados"
+        }
+      }
+    },
     "service": {
       "markers": {
         "label": "Marcadores del servicio",
