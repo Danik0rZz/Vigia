@@ -8,6 +8,7 @@ import {
   type EntityNames,
   type EntityRelationship
 } from '@shared/modules'
+import { isHiddenPropertyKey, withoutHiddenValues } from './entity-secrets'
 import { tagText } from './problems'
 
 /**
@@ -130,10 +131,13 @@ export function toEntityData(entity: EntityResponse, requestedId: string): Entit
         return text === null ? [] : [text]
       })
     : []
-  const properties = Object.entries(asObject(entity.properties) ?? {}).map(([key, value]) => ({
-    key,
-    text: propertyText(value).slice(0, MAX_ENTITY_PROPERTY_LENGTH)
-  }))
+  // Sin línea de comandos, argumentos, variables de entorno ni rutas completas (ficha 0029).
+  const properties = Object.entries(asObject(entity.properties) ?? {})
+    .filter(([key]) => !isHiddenPropertyKey(key))
+    .map(([key, value]) => ({
+      key,
+      text: propertyText(withoutHiddenValues(value)).slice(0, MAX_ENTITY_PROPERTY_LENGTH)
+    }))
   return {
     displayName: entity.displayName ?? entity.entityId ?? requestedId,
     type: entity.type ?? entityTypeOf(entity.entityId ?? requestedId),
