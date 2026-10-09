@@ -12,7 +12,7 @@ adrs: [8]
 adr_nuevo: HTML de formato en el contenido del tenant con lista blanca (actualiza el ADR-0008)
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -77,7 +77,29 @@ escribe un ADR nuevo que la actualiza (el 0008 no se edita, ver `docs/adr/README
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA7 con sus tests sobre el HTML real de `renderToStaticMarkup(MarkdownText)`. Tras los
+commits de tests solo cambian `5080731` (dato de prueba de la precondición de `readableColor`; la
+aserción ≥ 3:1 sigue) y `ea15481` (e2e de CA6: exigen interpretar `<b>` y siguen exigiendo cero
+`img`, `script` e `iframe` y `__xss` sin definir). Ninguno debilita la seguridad.
+
+- `data-vigia-slot`: 128 bits aleatorios de la sesión, admitido solo con `^NONCE-(\d+)$` anclada,
+  quitado de todos los nodos antes del DOM; una marca escrita en el HTML se descarta. Un clon de
+  parse5 solo recibe propiedades del Markdown (nunca `on*`), y el `href` sigue pasando por
+  `urlTransform` y el componente `a`. No se ve forma de falsificarla.
+- Orden: proteger → `rehype-raw` → `rehype-sanitize` → restaurar → `rehypeSafeColors` → avisos,
+  marcas y resaltado; nada reintroduce HTML. `a` solo http/https (saneado, `urlTransform` e
+  `isWebUrl`); `svg`, `math`, `template` y `noscript` fuera con su contenido. Resistente a mXSS: una
+  sola pasada de parse5 y React crea el DOM sin `dangerouslySetInnerHTML`.
+- `style` reconstruido desde `formatColor` (`#rrggbb` o `rgba` numérico): no pasa ningún carácter
+  del original. CSP y `harden.ts` sin cambios; dependencias con versión exacta; nada del tenant.
+
+Sugerencias, no bloquean:
+
+- Un test explícito de marca falsificada (`<span data-vigia-slot="0">` o con el formato real y
+  otro nonce) que compruebe que no recibe propiedades del Markdown.
+- Doc-writer: `src/renderer/CLAUDE.md` aún dice «nunca `rehype-raw`»; cambiarlo con el ADR nuevo.
 
 ## Verificación
 
