@@ -1,7 +1,7 @@
 ---
 id: '0034'
 titulo: 'APPLICATION: página con marcadores, gráficos, acciones de usuario e información'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion
@@ -171,6 +171,8 @@ en main, IPC ni dependencias.
 - «Información»: además de las cuatro claves de `properties`, visto por primera y última vez y
   las management zones, como en las demás tarjetas; `applicationLikeDeleted` y las de reglas,
   solo en «Todas las propiedades». «Otras relaciones» enseña el nombre de cada relación.
+
+**Rondas de revisión:** 1 (aprobada). ADR nuevo: ninguno. Commits: `d2005f7`, `e1b7357`, `fd73d63`.
 
 **Pruebas:** `npm run check` en verde (2636 tests en 153 ficheros, cobertura 92 %);
 `npm run test:e2e:affected -- main..HEAD` corre el e2e completo (toca `src/renderer/src/lib/`,

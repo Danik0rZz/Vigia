@@ -616,6 +616,10 @@ navegador, tipo de usuario o geolocalización).
   `detectedName` y, a veces, `applicationMatchTarget`, `ruleAppliedMatchType` y `ruleAppliedPattern`.
   Relaciones: `calls` (SERVICE), `isApplicationOfSyntheticTest` (HTTP_CHECK), `isApplicationMethodOf`,
   `isGroupOf` (APPLICATION_METHOD_GROUP) y `monitors` (SYNTHETIC_TEST, HTTP_CHECK).
+- «Abrir en Métricas» de la página de la aplicación (ficha 0034) filtra con
+  `:filter(eq("dt.entity.application","<id>")):splitBy()`. La dimensión es la del catálogo de la 0033 y
+  la forma `:filter(eq(...))` equivale a `entityId(...)` en vivo (0006, 0023), pero este filtro es
+  deducido: no se ha probado en vivo.
 
 ## d) SLOs
 
