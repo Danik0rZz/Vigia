@@ -1,7 +1,7 @@
 ---
 id: '0043'
 titulo: 'Visor de Markdown: interpretar el HTML de formato de las descripciones, con lista blanca'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -81,7 +81,52 @@ escribe un ADR nuevo que la actualiza (el 0008 no se edita, ver `docs/adr/README
 
 ## Verificación
 
-(pendiente)
+**Tests escritos (test-writer, 2026-10-09):** commit `c97a788`. Los nuevos fallan porque el
+código aún no existe (HTML sin interpretar, `markdown-color.ts` sin crear, dependencias sin
+instalar). Los de lo peligroso de CA3 (elementos y `on*`) y los enlaces no clicables de CA4 ya
+pasan hoy, como regresión: el HTML aún se escapa.
+
+| Criterio | Test                                                                                                                                                                                                                                                                                                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/renderer/src/components/MarkdownText.html.test.ts`, `CA1 (0043)` (span con color, mark, kbd, details/summary, font color; cada etiqueta de la lista, br, hr y tabla con sus partes; title se queda; class, id, srcset y data-* se quitan; una clase `md-alert` escrita no crea un aviso; etiqueta desconocida fuera con su texto)                                          |
+| CA2      | `MarkdownText.html.test.ts`, `CA2 (0043)` (color + position + background:url deja solo color; otras propiedades fuera; 12 valores no válidos de color; background-color no válido; válida e inválida juntas; #rgb, #rrggbb, rgb(), rgba() y nombre válidos; font color no válido; font sin face ni size)                                                                        |
+| CA3      | `MarkdownText.html.test.ts`, `CA3 (0043)` (35 vectores: script, style, iframe/srcdoc, img/srcset/picture, svg, math y mXSS con mglyph y noscript, form y campos, object, embed, video, audio, link, meta, base, template, dialog, marquee, map/area, frameset; en bloque, título, lista y cita; 10 casos de `on*`; todo junto; ningún `dangerouslySetInnerHTML` en el renderer) |
+| CA4      | `MarkdownText.html.test.ts`, `CA4 (0043)` (https y http clicables con `_blank` y `noopener noreferrer`; el HTML no cambia target/rel ni añade ping/download; 14 hrefs no clicables: javascript: con mayúsculas, espacios, entidades, tabulador y salto, data:, vbscript:, file:, relativo, `//`, ancla, app:, mailto:)                                                          |
+| CA5      | `src/renderer/src/components/markdown-color.test.ts`, `CA5 (0043)` (`readableColor` y el visor, ≥ 3:1 en claro y en oscuro) y `src/main/env-colors.test.ts`, `CA5 (0043): los fondos del ajuste…` (`THEME_BACKGROUNDS` = `--background` de `main.css`)                                                                                                                          |
+| CA6      | `MarkdownText.test.ts`, `CA10 (0001), actualizado por CA6 (0043)` (lo peligroso no crea elementos; `b` se interpreta; `<` y `>` sueltos y el código en línea siguen siendo texto) y `MarkdownText.visual.test.ts`, `CA5 (0038), actualizado por CA6 (0043)` (en aviso y marca: b sí, img y `on*` no, la capa visual sigue; en un bloque de código, texto)                       |
+| CA7      | `MarkdownText.html.test.ts`, `CA7 (0043)` (`rehype-raw` y `rehype-sanitize` con versión exacta)                                                                                                                                                                                                                                                                                 |
+
+**Contrato elegido al escribir los tests (la ficha no lo fija; decisión delegada por Dani, opción
+conservadora y refinable):**
+
+- **Legibilidad con un solo color para los dos temas:** el visor pinta el texto con un único color
+  en línea que contrasta ≥ 3:1 con el `--background` claro **y** el oscuro a la vez (los dos fondos
+  lo permiten: luminancia entre 0,118 y 0,259), así sigue legible si se cambia de tema sin volver a
+  pintar. Pieza: `readableColor(color, backgrounds)` y `THEME_BACKGROUNDS` (`[claro, oscuro]`) en
+  `src/renderer/src/components/markdown-color.ts`: `#rrggbb` de entrada, `#rrggbb` en minúsculas
+  de salida, igual si ya contrasta; si no, se aclara u oscurece sin cambiar el tono (±5°), cerca del
+  límite (≤ 3,5:1 frente al fondo que fallaba). Como Vitest no carga los .css como texto en el
+  renderer, `env-colors.test.ts` comprueba que `THEME_BACKGROUNDS` son los de `main.css`.
+- **Color casi transparente:** `rgba` con poca opacidad cuenta como bajo contraste (mezclado sobre
+  el fondo); tiene que salir legible.
+- **Enlaces escritos en HTML:** solo `http:`/`https:` absolutos, como la 0001; también quedan sin
+  enlace `#ancla`, `//host` (relativo al protocolo), `app:` y `mailto:`. El HTML no puede cambiar
+  `target` ni `rel` ni añadir `ping` o `download`.
+- **Atributos:** fuera todo lo que no esté en la lista (también `data-*`, `tabindex`, y `face` y
+  `size` de `font`; sobre `open` de `details` no se exige nada); una clase del propio visor (`md-alert`) escrita en el HTML
+  no puede imitar un aviso.
+- **Valores de color no válidos** (además de `expression()` y `url()`): `javascript:`, `var()`,
+  `calc()` dentro de `rgb()`, nombres que no son colores, hexadecimales mal formados, comentarios
+  y escapes CSS, y dos valores.
+- **`font color`** puede salir como `font` con `color` o convertido a un elemento con `style`;
+  cuenta el color con que se pinta.
+- **`background-color`:** se conserva si es válido; la ficha no dice si se ajusta su contraste ni
+  el del texto sobre él (abierto, ver abajo).
+- Ayudas compartidas de los tests en `src/test/html-tree.ts` (árbol del HTML estático y colores).
+
+**Abierto para Dani (no cubierto por ningún test):** un `background-color` claro con el texto por
+defecto del tema oscuro (claro) puede quedar ilegible; la ficha solo habla del color del texto frente
+al fondo del tema.
 
 ## Resultado
 
