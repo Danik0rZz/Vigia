@@ -1,7 +1,7 @@
 ---
 id: '0040'
 titulo: 'DISK: página del disco, a la que se llega pulsando un disco del host'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -196,6 +196,11 @@ del host (0014 a 0019 y 0039) siguen en verde con el simulador ampliado.
   `fromProblem` y el nombre en el estado (como los procesos): «Volver» hace `back()`. Un id que no
   sea de DISK se queda sin enlace (`diskLinkId`).
 - Tests propios: `disk-charts.test.ts` y `disk-info.test.ts` (renderer).
+
+### Verifier, 2026-10-09, commit `8946c79`, rango `main..feat/0040-pagina-disco`: VERDE
+
+- check: 2974 tests en 162 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/ipc.ts`): 309/309, sin intermitentes.
 
 ## Resultado
 
