@@ -564,6 +564,26 @@ confirmaron con 200, `metricId` igual a la expresión y ratios < 0,01.
   (PROCESS_GROUP), `isProcessOf` (HOST), a veces `toRelationships.isHostGroupOf` y, en contenedores,
   `isPgiOfCgi` e `isMainPgiOfCgi`.
 
+### Métricas de un process group (ficha 0031, observado en vivo, solo lectura)
+
+3 grupos con 2 a 4 instancias, `now-24h`.
+
+- `builtin:tech.generic.cpu.usage`, `mem.workingSetSize` y `network.bytesRx`/`bytesTx` solo tienen
+  la dimensión `dt.entity.process_group_instance`: con `entityId("<grupo>")` no llega ninguna serie.
+- Selector que funciona:
+  `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isInstanceOf(entityId("<id>"))`. En `/entities`
+  da las mismas instancias que `toRelationships.isInstanceOf` desde el grupo.
+- Total del grupo: `:splitBy():sum` (punto a punto, la suma de las instancias). `:splitBy()` y
+  `:splitBy():avg` dan la media de las instancias, no el total. Con `resolution=Inf`, la media del
+  total queda a menos del 1 % de la media de la suma; ninguna expresión con `Inf` da el máximo de la
+  suma, así que el máximo se saca de la serie.
+- Por instancia: `:parents:splitBy("dt.entity.process_group_instance","dt.entity.host"):avg:names`
+  trae en `dimensionMap` el nombre de la instancia, `dt.entity.host` y `dt.entity.host.name`. Sin
+  `:parents` solo llega el nombre de la instancia. No hace falta `/entities`.
+- Límite: la consulta de marcadores da 4 + 2·N series y `/metrics/query` corta en 1000, así que desde
+  unas 498 instancias la respuesta llega recortada (el canal lo avisa en `partial`).
+- Dos de los tres grupos no traían red: sin series en esas métricas.
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2

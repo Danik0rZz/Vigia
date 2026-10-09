@@ -1,7 +1,7 @@
 ---
 id: '0031'
 titulo: 'PROCESS_GROUP: análisis de métricas en vivo y canal de series, marcadores e instancias'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -164,6 +164,14 @@ los problemas de los últimos 7 días (10 candidatos, todos con 2 a 4 instancias
 - e2e completo (toca `src/shared/ipc.ts`): 280/280.
 
 ## Resultado
+
+Commits: `05c1854` (tests), `14b4efe` (canal), más los de ficha. Ficheros principales:
+`src/shared/ipc.ts`, `src/shared/modules.ts`, `src/shared/error-reasons.ts`,
+`src/main/modules/process-group-metrics.ts`, `src/main/ipc/handlers/modules.ts`, tests unitarios,
+`process-group-metrics-explore.live.test.ts` y `e2e/views.spec.ts`. Una ronda de revisión
+(APROBADO), verifier en verde. Sin ADR nuevo ni migraciones. Lo observado en vivo, en
+`docs/notas-api-v2.md`. Sugerencias del revisor e idea de las instancias de más CPU, en
+«Mejoras anotadas» del BACKLOG.
 
 **Developer (`14b4efe`):** canal `entities:processGroupMetrics` en `src/shared/ipc.ts` (esquemas
 `processGroupEntityIdSchema` y `processGroupMetricsResultSchema` en `src/shared/modules.ts`),
