@@ -44,7 +44,7 @@ beforeEach(() => {
     id: 'dt0c01.PUBLICAPRUEBA0000000000A',
     name: 'prueba',
     enabled: true,
-    scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
+    scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read', 'events.read']
   }
   failures = {}
   grantedScopes = ['platform-management:environments:read', 'environment-api:problems:read']
@@ -180,6 +180,7 @@ describe('testConnection', () => {
           granted: ['platform-management:environments:read'],
           missing: [
             'environment-api:entities:read',
+            'environment-api:events:read',
             'environment-api:metrics:read',
             'environment-api:problems:read',
             'environment-api:slo:read'
@@ -220,6 +221,7 @@ describe('testConnection', () => {
         granted: [],
         missing: [
           'environment-api:entities:read',
+          'environment-api:events:read',
           'environment-api:metrics:read',
           'environment-api:problems:read',
           'environment-api:slo:read'
@@ -318,7 +320,7 @@ describe('testConnection: información del token', () => {
       expiresAt: '2099-01-01T00:00:00.000Z',
       scopes: {
         granted: ['entities.read', 'logs.read', 'metrics.read', 'problems.read'],
-        missing: ['slo.read'],
+        missing: ['events.read', 'slo.read'],
         // Ficha 0014: entities.read ya lo usa el módulo entities (no es extra).
         extra: ['logs.read']
       }
@@ -366,6 +368,7 @@ describe('testConnection: información del token', () => {
         ],
         missing: [
           'environment-api:entities:read',
+          'environment-api:events:read',
           'environment-api:metrics:read',
           'environment-api:slo:read'
         ],
@@ -490,7 +493,10 @@ describe('AUD-05: credencial ilegible', () => {
 describe('CA3 (0014): «Probar conexión» avisa si falta entities.read', () => {
   it('token clásico sin entities.read: es un scope que falta (missingScopes y tokenInfo)', async () => {
     secrets = { classicToken: CLASSIC_TOKEN }
-    lookupResponse = { ...lookupResponse, scopes: ['problems.read', 'metrics.read', 'slo.read'] }
+    lookupResponse = {
+      ...lookupResponse,
+      scopes: ['problems.read', 'metrics.read', 'slo.read', 'events.read']
+    }
 
     const [classic] = (await run()).mechanisms
     expect(classic).toMatchObject({ id: 'classic', state: 'connected' })
@@ -503,7 +509,7 @@ describe('CA3 (0014): «Probar conexión» avisa si falta entities.read', () => 
     secrets = { classicToken: CLASSIC_TOKEN }
     lookupResponse = {
       ...lookupResponse,
-      scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
+      scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read', 'events.read']
     }
 
     const [classic] = (await run()).mechanisms
@@ -517,10 +523,51 @@ describe('CA3 (0014): «Probar conexión» avisa si falta entities.read', () => 
       'platform-management:environments:read',
       'environment-api:problems:read',
       'environment-api:metrics:read',
-      'environment-api:slo:read'
+      'environment-api:slo:read',
+      'environment-api:events:read'
     ]
 
     const oauthResult = (await run()).mechanisms.find((m) => m.id === 'oauth')
     expect(oauthResult?.tokenInfo?.scopes.missing).toEqual(['environment-api:entities:read'])
+  })
+})
+
+describe('CA3 (0042): «Probar conexión» avisa si falta events.read', () => {
+  const OTHERS = ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
+
+  it('token clásico sin events.read: es el scope que falta (missingScopes y tokenInfo)', async () => {
+    secrets = { classicToken: CLASSIC_TOKEN }
+    lookupResponse = { ...lookupResponse, scopes: OTHERS }
+
+    const [classic] = (await run()).mechanisms
+    expect(classic).toMatchObject({ id: 'classic', state: 'connected' })
+    expect(classic?.missingScopes).toEqual(['events.read'])
+    expect(classic?.tokenInfo?.scopes.missing).toEqual(['events.read'])
+    expect(classic?.tokenInfo?.scopes.extra).toEqual([])
+    expect(REQUIRED_CLASSIC_SCOPES).toContain('events.read')
+  })
+
+  it('token clásico con events.read: no falta ninguno y no cuenta como extra', async () => {
+    secrets = { classicToken: CLASSIC_TOKEN }
+    lookupResponse = { ...lookupResponse, scopes: [...OTHERS, 'events.read'] }
+
+    const [classic] = (await run()).mechanisms
+    expect(classic?.missingScopes).toEqual([])
+    expect(classic?.tokenInfo?.scopes).toMatchObject({ missing: [], extra: [] })
+    expect(classic?.tokenInfo?.scopes.granted).toContain('events.read')
+  })
+
+  it('OAuth sin environment-api:events:read: falta en la información del token', async () => {
+    secrets = { oauthClientSecret: CLIENT_SECRET }
+    grantedScopes = [
+      'platform-management:environments:read',
+      'environment-api:problems:read',
+      'environment-api:metrics:read',
+      'environment-api:slo:read',
+      'environment-api:entities:read'
+    ]
+
+    const oauthResult = (await run()).mechanisms.find((m) => m.id === 'oauth')
+    expect(oauthResult?.tokenInfo?.scopes.missing).toEqual(['environment-api:events:read'])
   })
 })

@@ -416,6 +416,83 @@ describe('CA2 (0041): entrada de entities:hostLogs', () => {
   })
 })
 
+describe('CA4 (0042): entrada y salida de entities:hostEvents', () => {
+  /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
+  type Schema = { safeParse: (value: unknown) => { success: boolean } }
+  const entry = (): { input: Schema; output: Schema } => {
+    const contract = ipcContract as unknown as Record<
+      string,
+      { input: Schema; output: Schema } | undefined
+    >
+    const found = contract['entities:hostEvents']
+    expect(found, 'canal entities:hostEvents').toBeDefined()
+    return found!
+  }
+  const base = { environmentId: '00000000-0000-4000-8000-000000000001', timeRange: '2h' }
+  const HOST_ID = 'HOST-0123456789ABCDEF'
+
+  it('acepta un HOST con 16 hexadecimales en mayúsculas, con rango relativo o absoluto', () => {
+    expect(entry().input.safeParse({ ...base, entityId: HOST_ID }).success).toBe(true)
+    expect(
+      entry().input.safeParse({
+        ...base,
+        entityId: HOST_ID,
+        timeRange: { from: '2026-10-01T08:00:00.000Z', to: '2026-10-01T10:00:00.000Z' }
+      }).success
+    ).toBe(true)
+  })
+
+  it.each([
+    ['un proceso', 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF'],
+    ['un servicio', 'SERVICE-0123456789ABCDEF'],
+    ['minúsculas en el id', 'HOST-0123456789abcdef'],
+    ['15 hexadecimales', 'HOST-0123456789ABCDE'],
+    ['comillas', 'HOST-0123456789ABCDE"'],
+    ['inyección tras un id válido', 'HOST-0123456789ABCDEF")),type("SERVICE'],
+    ['vacío', ''],
+    ['sin id', undefined]
+  ])('rechaza %s', (_case, entityId) => {
+    expect(entry().input.safeParse({ ...base, entityId }).success).toBe(false)
+  })
+
+  it('rechaza un entorno que no es uuid y un rango que no es el de la app', () => {
+    expect(
+      entry().input.safeParse({ ...base, entityId: HOST_ID, environmentId: 'x' }).success
+    ).toBe(false)
+    expect(entry().input.safeParse({ ...base, entityId: HOST_ID, timeRange: '3h' }).success).toBe(
+      false
+    )
+  })
+
+  it('la salida: eventos con tipo, título, estado, inicio, fin (o null) y entidad, y totalCount', () => {
+    const one = {
+      eventType: 'HIGH_CPU',
+      title: 'Uso alto de CPU',
+      status: 'OPEN',
+      startTime: 1_790_000_000_000,
+      endTime: null,
+      entity: { id: HOST_ID, name: null, type: 'HOST' }
+    }
+    expect(entry().output.safeParse({ events: [one], totalCount: 31 }).success).toBe(true)
+    expect(
+      entry().output.safeParse({
+        events: [
+          {
+            ...one,
+            status: 'CLOSED',
+            endTime: 1_790_000_300_000,
+            entity: { ...one.entity, name: 'h' }
+          }
+        ],
+        totalCount: 1
+      }).success
+    ).toBe(true)
+    expect(entry().output.safeParse({ events: [one] }).success, 'sin totalCount').toBe(false)
+    const noEntity = Object.fromEntries(Object.entries(one).filter(([key]) => key !== 'entity'))
+    expect(entry().output.safeParse({ events: [noEntity], totalCount: 1 }).success).toBe(false)
+  })
+})
+
 describe('CA2 (0031): entrada de entities:processGroupMetrics', () => {
   /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
   const input = (): { safeParse: (value: unknown) => { success: boolean } } => {

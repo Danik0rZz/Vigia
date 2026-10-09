@@ -789,6 +789,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'HOST-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0042: eventos del host y de lo que corre en él (su comportamiento, en host-events.test).
+    await call('entities:hostEvents' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'HOST-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     // Ficha 0040: métricas de un disco (su comportamiento, en disk-metrics.test).
     await call('entities:diskMetrics' as IpcChannel, {
       environmentId: envId,

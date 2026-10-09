@@ -58,6 +58,8 @@ const TOKEN_NO_METRICS = tok('SECRETOVISTASNOMETRICS')
 const TOKEN_FORBIDDEN = tok('SECRETOVISTASFORBIDDEN')
 /** Ficha 0015: token con los scopes de siempre menos entities.read. */
 const TOKEN_NO_ENTITIES = tok('SECRETOVISTASNOENTITIES')
+/** Ficha 0042: token con los scopes de siempre menos events.read. */
+const TOKEN_NO_EVENTS = tok('SECRETOVISTASNOEVENTS')
 const SECRET_MARKS = ['SECRETOVISTAS']
 
 const HOUR = 3600_000
@@ -3491,6 +3493,98 @@ function hostLogsResponse(query: URLSearchParams): { status: number; body: unkno
   }
 }
 
+/**
+ * Ficha 0042: eventos de la página del host HOST_INFO_FULL_ID (la de la 0020, con relaciones),
+ * canal entities:hostEvents. Como en vivo (paso 0 de la ficha): main lee las relaciones del host
+ * (GET /entities/{id}) y pide `GET /events` con `eventSelector=entityId("<host>","<id-2>",…)`:
+ * el host, sus procesos (isProcessOf), su disco (isDiskOf) y la instancia EC2 en la que corre
+ * (runsOn de from). Sus servicios (runsOnHost), el process group (runsOn de to), el grupo de
+ * hosts y el host vecino no entran. Cada evento, con la forma vista en vivo (`endTime` -1 en los
+ * activos y `entityId: { entityId: { id, type }, name }`). 22 eventos de lo que entra (en la
+ * tarjeta, «20 de 22») y uno, el más reciente, de un servicio (que no se pide ni se ve). El 2
+ * lleva HTML en el título: es texto del tenant y se ve como texto.
+ */
+const HOST_EVENTS_HOST = HOST_INFO_FULL_ID
+const HOST_EVENTS_DISK_NAME = 'disco-e2e-0042'
+const HOST_EVENTS_IDS = [HOST_INFO_FULL_ID, ...HOST_INFO_PGIS, HOST_INFO_DISK, HOST_INFO_EC2]
+const HOST_EVENTS_EXCLUDED = [
+  INFO_FEW_ID,
+  HOST_INFO_SERVICE_2,
+  HOST_INFO_PG,
+  HOST_INFO_GROUP,
+  HOST_INFO_PEER
+]
+const HOST_EVENTS_HTML_TITLE = '<b>Disco</b> casi lleno <img src="x">'
+const HOST_EVENTS_T0 = Date.parse('2026-10-03T10:00:00.000Z')
+const hostEventTitle = (n: number): string => (n === 2 ? HOST_EVENTS_HTML_TITLE : `Evento e2e ${n}`)
+const hostEventEntityType = (id: string): string => id.slice(0, id.lastIndexOf('-'))
+function hostEvent(n: number, entityId: string): Record<string, unknown> {
+  const open = n % 5 === 0
+  const start = HOST_EVENTS_T0 - n * 15 * 60_000
+  return {
+    eventId: `${4200 + n}_${start}`,
+    eventType: ['HIGH_CPU', 'PROCESS_RESTART', 'LOW_DISK_SPACE'][n % 3],
+    title: hostEventTitle(n),
+    status: open ? 'OPEN' : 'CLOSED',
+    startTime: start,
+    endTime: open ? -1 : start + 5 * 60_000,
+    entityId: {
+      entityId: { id: entityId, type: hostEventEntityType(entityId) },
+      name:
+        entityId === HOST_INFO_DISK ? HOST_EVENTS_DISK_NAME : (ENTITY_NAMES[entityId] ?? entityId)
+    },
+    entityTags: [],
+    managementZones: [],
+    properties: [],
+    correlationId: `e2e-${n}`,
+    frequentEvent: false,
+    suppressAlert: false,
+    suppressProblem: false,
+    underMaintenance: false
+  }
+}
+/** Dueño del evento n (1 a 22): host, proceso 1, proceso 2, disco y EC2, por turnos. */
+const hostEventOwner = (n: number): string => HOST_EVENTS_IDS[(n - 1) % HOST_EVENTS_IDS.length]!
+const HOST_EVENTS: Record<string, unknown>[] = [
+  hostEvent(0, HOST_INFO_SERVICE_2),
+  ...Array.from({ length: 22 }, (_, i) => hostEvent(i + 1, hostEventOwner(i + 1)))
+]
+
+/** Ids de un `eventSelector=entityId("a","b")` (vacío si tiene otra forma). */
+function hostEventsSelectorIds(query: URLSearchParams): string[] | null {
+  const inner = /^entityId\((.*)\)$/.exec(query.get('eventSelector') ?? '')?.[1]
+  if (inner === undefined) return null
+  return inner.split(',').map((part) => part.trim().replace(/^"|"$/g, ''))
+}
+
+/** Respuesta del simulador a GET /events: los eventos de los ids del eventSelector. */
+function hostEventsResponse(query: URLSearchParams): { status: number; body: unknown } {
+  sim.hostEventsQueries.push(query)
+  if (sim.hostEventsFail) {
+    return { status: 400, body: { error: { code: 400, message: 'Consulta de eventos rechazada' } } }
+  }
+  const ids = hostEventsSelectorIds(query)
+  if (ids === null) {
+    return { status: 400, body: { error: { code: 400, message: 'eventSelector no válido' } } }
+  }
+  const wanted = new Set(ids)
+  const matched = HOST_EVENTS.filter((event) => {
+    const stub = event['entityId'] as { entityId: { id: string } }
+    return wanted.has(stub.entityId.id)
+  }).sort((a, b) => Number(b['startTime']) - Number(a['startTime']))
+  const pageSize = Number(query.get('pageSize') ?? '100')
+  return {
+    status: 200,
+    body: {
+      totalCount: matched.length,
+      pageSize,
+      nextPageKey: matched.length > pageSize ? 'PAGINA-E2E' : null,
+      warnings: [],
+      events: matched.slice(0, pageSize)
+    }
+  }
+}
+
 const breakdownCompact = (text: string): string => text.replace(/["\s]/g, '')
 const breakdownRelation = (hostId: string): string =>
   `fromRelationships.isProcessOf(entityId(${hostId}))`
@@ -3838,7 +3932,11 @@ const defaultSim = () => ({
   /** Ficha 0041: las consultas de logs de un host fallan con un 400. */
   hostLogsFail: false,
   /** Ficha 0041: los procesos del host llegan sin ninguna propiedad de logs. */
-  hostLogsEmpty: false
+  hostLogsEmpty: false,
+  /** Ficha 0042: query de las peticiones a /events (entities:hostEvents). */
+  hostEventsQueries: [] as URLSearchParams[],
+  /** Ficha 0042: las peticiones a /events fallan con un 400. */
+  hostEventsFail: false
 })
 const sim = defaultSim()
 
@@ -3916,7 +4014,14 @@ async function startServer(): Promise<void> {
     req.on('end', () => {
       sim.requests.push(`${req.method ?? ''} ${url.pathname}`)
       if (
-        ![TOKEN_A, TOKEN_B, TOKEN_NO_METRICS, TOKEN_FORBIDDEN, TOKEN_NO_ENTITIES].includes(token)
+        ![
+          TOKEN_A,
+          TOKEN_B,
+          TOKEN_NO_METRICS,
+          TOKEN_FORBIDDEN,
+          TOKEN_NO_ENTITIES,
+          TOKEN_NO_EVENTS
+        ].includes(token)
       ) {
         return send(401, { error: { code: 401, message: 'Missing or invalid token' } })
       }
@@ -3925,12 +4030,15 @@ async function startServer(): Promise<void> {
           id: 'dt0c01.PUBLICAPRUEBA0000000000A',
           name: 'e2e',
           enabled: true,
+          // Ficha 0042: events.read en todos menos en TOKEN_NO_EVENTS.
           scopes:
             token === TOKEN_NO_METRICS
-              ? ['problems.read', 'slo.read', 'entities.read']
+              ? ['problems.read', 'slo.read', 'entities.read', 'events.read']
               : token === TOKEN_NO_ENTITIES
-                ? ['problems.read', 'metrics.read', 'slo.read']
-                : ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
+                ? ['problems.read', 'metrics.read', 'slo.read', 'events.read']
+                : token === TOKEN_NO_EVENTS
+                  ? ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
+                  : ['problems.read', 'metrics.read', 'slo.read', 'entities.read', 'events.read']
         })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/problems') {
@@ -4223,6 +4331,11 @@ async function startServer(): Promise<void> {
             }
           ]
         })
+      }
+      // Ficha 0042: eventos (entities:hostEvents).
+      if (req.method === 'GET' && url.pathname === '/api/v2/events') {
+        const events = hostEventsResponse(url.searchParams)
+        return send(events.status, events.body)
       }
       // Ficha 0014: una entidad (entities:get) y los nombres de una lista de ids (entities:names).
       const entityPath = /^\/api\/v2\/entities\/([^/]+)$/.exec(url.pathname)
@@ -15184,6 +15297,140 @@ test('Aviso del scope (0041): sin entities.read, la tarjeta «Logs» dice qué s
   } finally {
     await invoke('environments:setActive', { environmentId: env['Producción'] })
     await invoke('environments:delete', { id: noEntities })
+    await reloadUi()
+  }
+})
+
+/**
+ * Ficha 0042: tarjeta «Eventos» en la página del host HOST_INFO_FULL_ID, canal
+ * entities:hostEvents, con HOST_EVENTS (22 del host y de lo que corre en él; uno más de un
+ * servicio, que no se pide).
+ *
+ * Nombres que fijan estos tests (decisión del test-writer, refinable; en la ficha): la tarjeta
+ * `host-events`, antes de «Información» (`host-info`); dentro, «20 de N» en
+ * `host-events-summary` y una fila `host-event-row` por evento (del más reciente al más antiguo)
+ * con el tipo en una píldora (`host-event-type`), el título (`host-event-title`), la entidad
+ * (`host-event-entity`: enlace a su página si su tipo tiene página, texto si no), el inicio
+ * (`host-event-start`), el fin o «Activo» (`host-event-end`) y el estado (`host-event-status`,
+ * con `data-status`, el de Dynatrace). Sin el scope, `module-unavailable` dentro de la tarjeta.
+ */
+const hostEventsCard = (): Locator => page.getByTestId('host-events')
+const hostEventRows = (): Locator => hostEventsCard().getByTestId('host-event-row')
+const hostEventEntity = (n: number): Locator =>
+  hostEventRows()
+    .nth(n - 1)
+    .getByTestId('host-event-entity')
+
+test('CA5 (0042): la tarjeta «Eventos» del host enseña los 20 más recientes del host y de lo que corre en él, con enlaces; «20 de 22»', async () => {
+  await openHostInfo(HOST_EVENTS_HOST)
+  const card = hostEventsCard()
+  await expect(card).toBeVisible()
+  await expect(hostEventRows()).toHaveCount(20)
+  await expect(card.getByTestId('host-events-summary')).toContainText('20 de 22')
+
+  // La consulta: eventSelector con el host y sus relacionados, sin los que no entran.
+  expect(sim.hostEventsQueries.length).toBeGreaterThan(0)
+  const asked = sim.hostEventsQueries.flatMap((query) => hostEventsSelectorIds(query) ?? [])
+  expect([...new Set(asked)].sort()).toEqual([...HOST_EVENTS_IDS].sort())
+  for (const id of HOST_EVENTS_EXCLUDED) expect(asked, id).not.toContain(id)
+  for (const query of sim.hostEventsQueries) {
+    expect(query.has('optionalEntitySelector')).toBe(false)
+    expect(query.has('entitySelector')).toBe(false)
+    expect(query.get('from')).toBe('now-2h')
+  }
+
+  // Del más reciente al más antiguo: los eventos 1 a 20; el del servicio no sale.
+  const titles = await hostEventRows().getByTestId('host-event-title').allTextContents()
+  expect(titles.map((title) => title.trim())).toEqual(
+    Array.from({ length: 20 }, (_, i) => hostEventTitle(i + 1))
+  )
+  await expect(card).not.toContainText('Evento e2e 0')
+  await expect(card).not.toContainText('servicio-host-e2e')
+
+  // El título con HTML se ve como texto: ni negrita ni imagen dentro de la tarjeta.
+  await expect(hostEventRows().nth(1).getByTestId('host-event-title')).toHaveText(
+    HOST_EVENTS_HTML_TITLE
+  )
+  await expect(card.locator('b, img')).toHaveCount(0)
+
+  // Cada fila: tipo en su píldora, inicio, fin o «Activo», y estado.
+  for (const n of [1, 5]) {
+    const row = hostEventRows().nth(n - 1)
+    await expect(row.getByTestId('host-event-type'), `tipo del ${n}`).toHaveText(/\S/)
+    await expect(row.getByTestId('host-event-start'), `inicio del ${n}`).toHaveText(/\d/)
+    await expect(row.getByTestId('host-event-status'), `estado del ${n}`).toHaveAttribute(
+      'data-status',
+      n === 5 ? 'OPEN' : 'CLOSED'
+    )
+  }
+  await expect(hostEventRows().nth(4).getByTestId('host-event-end')).toHaveText('Activo')
+  await expect(hostEventRows().nth(0).getByTestId('host-event-end')).toHaveText(/\d/)
+  await expect(hostEventRows().nth(0).getByTestId('host-event-end')).not.toHaveText('Activo')
+
+  // La entidad: enlace a su página si su tipo la tiene (host, proceso, disco); la EC2, texto.
+  await expect(hostEventEntity(2).getByRole('link', { name: 'proceso-host-1' })).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${HOST_INFO_PGIS[0]}$`)
+  )
+  await expect(
+    hostEventEntity(4).getByRole('link', { name: HOST_EVENTS_DISK_NAME })
+  ).toHaveAttribute('href', new RegExp(`#/entities/DISK/${HOST_INFO_DISK}$`))
+  await expect(hostEventEntity(5)).toContainText('instancia-e2e')
+  await expect(hostEventEntity(5).getByRole('link')).toHaveCount(0)
+
+  // Antes de «Información».
+  const eventsBox = await settledBox(card)
+  const infoBox = await settledBox(hostInfoCard())
+  expect(eventsBox.y + eventsBox.height, '«Eventos» encima de «Información»').toBeLessThanOrEqual(
+    infoBox.y + 1
+  )
+
+  // Pulsar la entidad de un evento abre su página.
+  await clickInPlace(hostEventEntity(3).getByRole('link', { name: 'proceso-host-2' }), {
+    scroll: true
+  })
+  await expect.poll(currentRoute).toBe(`/entities/PROCESS_GROUP_INSTANCE/${HOST_INFO_PGIS[1]}`)
+})
+
+test('CA5 (0042): con el canal caído, la tarjeta «Eventos» enseña el aviso con Reintentar y lo demás sigue; Reintentar la carga', async () => {
+  sim.hostEventsFail = true
+  await openHostInfo(HOST_EVENTS_HOST)
+  const card = hostEventsCard()
+  await expect(card).toBeVisible()
+  await expect(card.getByRole('alert').first()).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  await expect(hostEventRows()).toHaveCount(0)
+  // La «Información» del host sigue con sus datos.
+  await expect(hostInfoValue('osType')).toContainText('LINUX')
+
+  sim.hostEventsFail = false
+  await clickInPlace(card.getByRole('button', { name: 'Reintentar' }), { scroll: true })
+  await expect(hostEventRows()).toHaveCount(20)
+  await expect(card.getByTestId('host-events-summary')).toContainText('20 de 22')
+  await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('CA5 (0042): sin events.read, la tarjeta «Eventos» dice qué scope falta y no se pide nada', async () => {
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEvents = await createEnvironment(clientId, 'Sin eventos', 'other', TOKEN_NO_EVENTS)
+  try {
+    await invoke('connection:test', { environmentId: noEvents })
+    await invoke('environments:setActive', { environmentId: noEvents })
+    await reloadUi()
+    await goToRoute(`/entities/HOST/${HOST_EVENTS_HOST}`)
+    await expect(page.getByTestId('entity-page-host')).toBeVisible()
+    const unavailable = hostEventsCard().getByTestId('module-unavailable')
+    await expect(unavailable).toBeVisible()
+    await expect(unavailable).toContainText('events.read')
+    await expect(hostEventRows()).toHaveCount(0)
+    // La «Información» del host no depende de events.read.
+    await expect(hostInfoValue('osType')).toContainText('LINUX')
+    await settledRequests()
+    expect(sim.hostEventsQueries, 'entities:hostEvents sin el scope').toHaveLength(0)
+  } finally {
+    await invoke('environments:setActive', { environmentId: env['Producción'] })
+    await invoke('environments:delete', { id: noEvents })
     await reloadUi()
   }
 })

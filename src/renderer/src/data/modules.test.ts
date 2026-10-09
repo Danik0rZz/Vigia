@@ -78,3 +78,58 @@ describe("useModuleAccess('entities') (0015, pedido en la revisión de la 0014)"
     expect(moduleAccess('entities')).toEqual({ available: false, reason: 'classicToken' })
   })
 })
+
+describe("CA5 (0042): useModuleAccess('events'), el aviso de la tarjeta «Eventos»", () => {
+  it('sin events.read en la última prueba: missingScope con ese scope, y su texto lo nombra', () => {
+    state.report = reportMissing(['events.read'])
+    const access = moduleAccess('events' as Parameters<typeof moduleAccess>[0])
+    expect(access).toEqual({ available: false, reason: 'missingScope', scopes: ['events.read'] })
+    if (access.available) throw new Error('debería no estar disponible')
+    expect(unavailableReason(access)).toEqual({
+      key: 'module.missingScope',
+      params: { scopes: 'events.read' }
+    })
+  })
+
+  it('con events.read (o sin probar la conexión), disponible con el entorno', () => {
+    state.report = reportMissing(['metrics.read'])
+    expect(moduleAccess('events' as Parameters<typeof moduleAccess>[0])).toEqual({
+      available: true,
+      envId: ENV_ID
+    })
+    state.report = null
+    expect(moduleAccess('events' as Parameters<typeof moduleAccess>[0])).toEqual({
+      available: true,
+      envId: ENV_ID
+    })
+  })
+
+  it('sin events.read, los demás módulos (entities incluido) siguen disponibles', () => {
+    state.report = reportMissing(['events.read'])
+    for (const module of ['home', 'problems', 'metrics', 'entities'] as const) {
+      expect(moduleAccess(module), module).toEqual({ available: true, envId: ENV_ID })
+    }
+  })
+})
+
+describe('CA5 (0042): la tarjeta «Eventos» también lee las relaciones del host (entities.read)', () => {
+  /**
+   * Decisión del test-writer (refinable, en la ficha): el canal pide `GET /entities/{id}` para
+   * sacar los ids relacionados, así que sin `entities.read` la tarjeta tampoco puede cargar y
+   * enseña el aviso con ese scope (en vez de pedir y fallar con un 403).
+   */
+  it('sin entities.read: missingScope con entities.read; sin los dos, con los dos', () => {
+    const events = 'events' as Parameters<typeof moduleAccess>[0]
+    state.report = reportMissing(['entities.read'])
+    expect(moduleAccess(events)).toEqual({
+      available: false,
+      reason: 'missingScope',
+      scopes: ['entities.read']
+    })
+    state.report = reportMissing(['entities.read', 'events.read'])
+    const access = moduleAccess(events)
+    expect(access.available).toBe(false)
+    if (access.available || access.reason !== 'missingScope') throw new Error('missingScope')
+    expect([...access.scopes].sort()).toEqual(['entities.read', 'events.read'])
+  })
+})

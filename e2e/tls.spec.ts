@@ -99,7 +99,8 @@ async function startServer(): Promise<string> {
             id: 'dt0c01.PUBLICAPRUEBA0000000000A',
             name: 'e2e',
             enabled: true,
-            scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read']
+            // Ficha 0042: con events.read, el scope del módulo de eventos.
+            scopes: ['problems.read', 'metrics.read', 'slo.read', 'entities.read', 'events.read']
           })
         }
         // P3-7: la comprobación de plataforma de OAuth, solo con el token del SSO de prueba.
@@ -387,7 +388,7 @@ test('con la huella fijada conecta, sin scopes que falten', async () => {
   await expect(info).toContainText('e2e')
   await expect(info).toContainText('Sin caducidad')
   const granted = info.getByTestId('token-scopes-granted')
-  for (const scope of ['problems.read', 'metrics.read', 'slo.read', 'entities.read'])
+  for (const scope of ['problems.read', 'metrics.read', 'slo.read', 'entities.read', 'events.read'])
     await expect(granted).toContainText(scope)
   await expect(info.getByTestId('token-scopes-missing')).not.toContainText('.read')
   await expect(info.getByTestId('token-scopes-extra')).not.toContainText('.read')
@@ -407,7 +408,7 @@ test('con la huella fijada conecta, sin scopes que falten', async () => {
         enabled: true,
         expiresAt: null,
         scopes: {
-          granted: ['entities.read', 'metrics.read', 'problems.read', 'slo.read'],
+          granted: ['entities.read', 'events.read', 'metrics.read', 'problems.read', 'slo.read'],
           missing: [],
           extra: []
         }
