@@ -1546,6 +1546,8 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     [PROCESS_METRICS_ID]: processInfoBody(),
     // Ficha 0032.
     [PROCESS_GROUP_PAGE_ID]: processGroupInfoBody(),
+    // Ficha 0034.
+    [APPLICATION_METRICS_ID]: applicationInfoBody(),
     // Ficha 0037.
     [TAGS_ID]: tagsMixedBody(),
     [TAGS_MANY_ID]: tagsManyBody()
@@ -2768,10 +2770,33 @@ function isApplicationMetricsQuery(query: URLSearchParams): boolean {
   return (query.get('entitySelector') ?? '').includes(APPLICATION_METRICS_ID)
 }
 
-/** Respuesta del simulador a una consulta de métricas de la aplicación inventada. */
+/**
+ * Ficha 0034: prefijo de la métrica de cada papel de la aplicación (para `sim.applicationEmpty`).
+ */
+const APPLICATION_ROLE_PREFIX: Record<string, string> = {
+  apdex: 'builtin:apps.web.apdex.',
+  actions: 'builtin:apps.web.actionCount.',
+  duration: 'builtin:apps.web.visuallyComplete.',
+  errors: 'builtin:apps.web.countOfErrors',
+  sessions: 'builtin:apps.web.startedSessions'
+}
+
+/**
+ * Respuesta del simulador a una consulta de métricas de la aplicación inventada.
+ *
+ * Ficha 0034: `sim.applicationMetricsFail` da 400 (errores por panel); los papeles de
+ * `sim.applicationEmpty` llegan sin series, y con `sim.applicationActionsEmpty` las de acción
+ * tampoco traen nada (como en vivo, donde la lista de acciones clave suele venir vacía).
+ */
 function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
   const selector = query.get('metricSelector') ?? ''
   const inf = query.get('resolution') === 'Inf'
+  if (sim.applicationMetricsFail) {
+    return [
+      400,
+      { error: { code: 400, message: 'Métricas de la aplicación no disponibles (simulado)' } }
+    ]
+  }
   if (inf && selector.includes(':fold(')) {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
@@ -2798,7 +2823,12 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
               : rest === `${APPLICATION_TOP}:avg:names`
                 ? 'avg'
                 : null
-          if (entitySelector === APPLICATION_METHODS_SELECTOR && inf && aggregation !== null) {
+          if (
+            entitySelector === APPLICATION_METHODS_SELECTOR &&
+            inf &&
+            aggregation !== null &&
+            !sim.applicationActionsEmpty
+          ) {
             data = (APPLICATION_ACTIONS[type!] ?? []).map((item) => ({
               dimensionMap: {
                 'dt.entity.application_method': item.id,
@@ -2809,7 +2839,12 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
               values: [aggregation === 'count' ? item.count : item.avg]
             }))
           }
-        } else if (entitySelector === APPLICATION_SELECTOR) {
+        } else if (
+          entitySelector === APPLICATION_SELECTOR &&
+          !sim.applicationEmpty.some((role) =>
+            expression.startsWith(APPLICATION_ROLE_PREFIX[role] ?? role)
+          )
+        ) {
           const values = inf
             ? APPLICATION_TOTALS[expression] === undefined
               ? undefined
@@ -2835,6 +2870,102 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
       })
     }
   ]
+}
+
+const APPLICATION_BAND_OPEN = {
+  problemId: 'pd-application-band-open',
+  displayId: 'P-E2E85',
+  title: 'Aplicación con Apdex bajo'
+}
+const APPLICATION_BAND_CLOSED = {
+  problemId: 'pd-application-band-closed',
+  displayId: 'P-E2E86',
+  title: 'Aplicación con errores de JavaScript'
+}
+
+/**
+ * Ficha 0034: los problemas de la aplicación de la página (APPLICATION_METRICS_ID), uno abierto
+ * y uno cerrado, dentro de las últimas 2 h y sin solaparse. Salen en las consultas con
+ * affectedEntities (recuentos y franja) y en el detalle.
+ */
+function applicationBandProblems(): FakeProblem[] {
+  const now = sim.bandNow
+  return (
+    [
+      [APPLICATION_BAND_OPEN, 'OPEN', now - 40 * 60_000, -1],
+      [APPLICATION_BAND_CLOSED, 'CLOSED', now - 105 * 60_000, now - 75 * 60_000]
+    ] as const
+  ).map(([ids, status, startTime, endTime]) => ({
+    ...ids,
+    status,
+    severityLevel: 'PERFORMANCE',
+    impactLevel: 'APPLICATION',
+    startTime,
+    endTime,
+    affectedEntities: [
+      { entityId: { id: APPLICATION_METRICS_ID, type: 'APPLICATION' }, name: 'tienda-web-e2e' }
+    ],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: [],
+    evidenceDetails: { totalCount: 0, details: [] }
+  }))
+}
+
+/**
+ * Ficha 0034: la aplicación de la página en /entities/{id}, para la tarjeta «Información».
+ * Claves de `properties`, las vistas en vivo en APPLICATION (ficha 0033):
+ * `applicationInjectionType`, `applicationLikeDeleted`, `applicationType`, `customizedName` y
+ * `detectedName`; relaciones con los nombres vistos en vivo: from `calls` (SERVICE) e
+ * `isApplicationOfSyntheticTest` (HTTP_CHECK); to `isApplicationMethodOf` (APPLICATION_METHOD),
+ * `isGroupOf` (APPLICATION_METHOD_GROUP) y `monitors` (SYNTHETIC_TEST y HTTP_CHECK). Valores e
+ * ids inventados; los valores de tipo, de las enumeraciones de la Configuration API.
+ *
+ * - «Llama a»: INFO_FEW_ID (para abrir su página) y PROCESS_INFO_SERVICE_2.
+ * - «Monitores sintéticos»: los de `monitors` (MONITOR_BROWSER_ID y MONITOR_HTTP_ID) y el de
+ *   `isApplicationOfSyntheticTest` (APPLICATION_INFO_HTTP).
+ * - «Otras»: las tres acciones (`isApplicationMethodOf`) y el grupo de acciones (`isGroupOf`).
+ */
+const APPLICATION_INFO_HTTP = 'HTTP_CHECK-00000000000E2E37'
+const APPLICATION_INFO_METHOD_GROUP = 'APPLICATION_METHOD_GROUP-00000000000E2E38'
+Object.assign(ENTITY_NAMES, {
+  [APPLICATION_METRICS_ID]: 'tienda-web-e2e',
+  [APPLICATION_INFO_HTTP]: 'comprobacion-tienda-e2e'
+})
+function applicationInfoBody(): Record<string, unknown> {
+  return {
+    entityId: APPLICATION_METRICS_ID,
+    displayName: 'tienda-web-e2e',
+    type: 'APPLICATION',
+    firstSeenTms: PROCESS_INFO_FIRST_SEEN,
+    lastSeenTms: PROCESS_INFO_LAST_SEEN,
+    managementZones: [{ id: '3401', name: 'Zona aplicación A' }],
+    tags: [],
+    properties: {
+      applicationType: 'MANUALLY_INJECTED',
+      applicationInjectionType: 'AUTO_INJECTED',
+      applicationLikeDeleted: false,
+      customizedName: 'tienda-personalizada-e2e',
+      detectedName: 'tienda-detectada-e2e'
+    },
+    fromRelationships: {
+      calls: [
+        { id: INFO_FEW_ID, type: 'SERVICE' },
+        { id: PROCESS_INFO_SERVICE_2, type: 'SERVICE' }
+      ],
+      isApplicationOfSyntheticTest: [{ id: APPLICATION_INFO_HTTP, type: 'HTTP_CHECK' }]
+    },
+    toRelationships: {
+      isApplicationMethodOf: Object.values(APPLICATION_ACTIONS)
+        .flat()
+        .map((action) => ({ id: action.id, type: 'APPLICATION_METHOD' })),
+      isGroupOf: [{ id: APPLICATION_INFO_METHOD_GROUP, type: 'APPLICATION_METHOD_GROUP' }],
+      monitors: [
+        { id: MONITOR_BROWSER_ID, type: 'SYNTHETIC_TEST' },
+        { id: MONITOR_HTTP_ID, type: 'HTTP_CHECK' }
+      ]
+    }
+  }
 }
 
 /**
@@ -3377,6 +3508,15 @@ const defaultSim = () => ({
   processGroupMetricQueries: [] as URLSearchParams[],
   /** Ficha 0033: consultas de métricas de la aplicación inventada (sus query). */
   applicationMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0034: las consultas de métricas de la aplicación inventada fallan con un 400. */
+  applicationMetricsFail: false,
+  /**
+   * Ficha 0034: papeles de la aplicación que llegan sin datos (series vacías y total null en el
+   * canal): apdex, actions, duration, errors o sessions.
+   */
+  applicationEmpty: [] as string[],
+  /** Ficha 0034: las consultas de las acciones de usuario llegan sin series (lista vacía). */
+  applicationActionsEmpty: false,
   /** Ficha 0032: las consultas de métricas de los process groups inventados fallan con un 400. */
   processGroupMetricsFail: false,
   /** Ficha 0032: las expresiones por instancia del process group llegan recortadas (ratio > 1). */
@@ -3576,6 +3716,7 @@ async function startServer(): Promise<void> {
               ...monitorBandProblems(),
               ...processBandProblems(),
               ...processGroupBandProblems(),
+              ...applicationBandProblems(),
               ...longIdProblems()
             ],
             selector
@@ -3620,7 +3761,8 @@ async function startServer(): Promise<void> {
             ...hostBandProblems(),
             ...monitorBandProblems(),
             ...processBandProblems(),
-            ...processGroupBandProblems()
+            ...processGroupBandProblems(),
+            ...applicationBandProblems()
           ].find((p) => p['problemId'] === decodeURIComponent(single[1] ?? ''))
           return found
             ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
@@ -8560,7 +8702,8 @@ test('CA6 (0008): un servicio sin datos enseña «—» en los marcadores de mé
 // Ficha 0018: el HOST ya tiene su página (sus marcadores, no los del servicio); sale de la lista
 // de tipos en construcción. Ficha 0024: también salen SYNTHETIC_TEST y HTTP_CHECK (los prueban
 // los e2e de la 0024). Ficha 0028: también sale PROCESS_GROUP_INSTANCE (lo prueban los e2e de
-// la 0028). Ficha 0032: también sale PROCESS_GROUP (lo prueban los e2e de la 0032).
+// la 0028). Ficha 0032: también sale PROCESS_GROUP (lo prueban los e2e de la 0032). Ficha 0034:
+// también sale APPLICATION (lo prueban los e2e de la 0034).
 test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcción, sin marcadores ni peticiones', async () => {
   // Desde «Analizar entidad» de una evidencia HOST del mismo problema: la del host, sin los
   // marcadores del servicio.
@@ -8574,7 +8717,6 @@ test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcc
 
   // Por URL, el resto de tipos del registro y uno que no está (genérica).
   const others = [
-    ['APPLICATION', 'application'],
     ['CLOUD_APPLICATION', 'cloud_application'],
     ['ENVIRONMENT', 'environment'],
     ['TIPO_ESTANDAR_INVENTADO', 'generic']
@@ -13556,4 +13698,430 @@ test('CA6 (0032): si falla el canal de métricas, sus marcadores, cada gráfico 
   for (const id of PG_METRIC_MARKERS) {
     await expect(pgMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
   }
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0034: página de una APPLICATION (marcadores, gráficos, acciones de usuario e
+// «Información»).
+// ---------------------------------------------------------------------------
+
+/**
+ * Página de la aplicación inventada de la ficha 0033 (APPLICATION_METRICS_ID), con el canal
+ * entities:applicationMetrics (series APPLICATION_SERIES, totales APPLICATION_TOTALS y las tres
+ * acciones de APPLICATION_ACTIONS), sus problemas (applicationBandProblems: uno abierto y uno
+ * cerrado) y entities:get (applicationInfoBody).
+ *
+ * Nombres que fijan estos tests (la ficha no los da; decisión del test-writer, delegada por Dani y
+ * refinable), los del process group (0032) con el prefijo `application`:
+ * - Marcadores: la fila `application-markers`; cada marcador `application-marker-<id>` (apdex,
+ *   actions, duration, errors y problems); el valor principal en `application-marker-value`, con
+ *   `data-level` en el Apdex (`apdexLevel` de `lib/application-format.ts`: success, warning o
+ *   error) y en los errores (error si > 0); el texto de la categoría del Apdex, dentro del
+ *   marcador; los recuentos de problemas en `application-marker-open` y
+ *   `application-marker-closed`.
+ * - Gráficos: la sección `application-charts`; cada uno en un `application-chart-panel` con
+ *   `data-kind` (apdex, actions, duration y errors, en ese orden) y su título en un encabezado;
+ *   dentro, el `Chart` con testid `application-chart-<kind>` (con `data-series`). La franja,
+ *   `application-problem-band`, en el panel del Apdex; cada tramo,
+ *   `application-problem-segment` con `data-problem-id`.
+ * - Tabla: la tarjeta `application-actions`, con el `DataGrid` `application-actions-grid`
+ *   (columnas name, count y duration, en ese orden; de más a menos acciones al entrar; botones
+ *   `sort-<columna>`) y filas `application-action-row` con `data-action-id`; la barra de la
+ *   duración, `application-action-duration-bar`. Sin acciones, el aviso
+ *   `application-actions-empty` (en vivo la lista de acciones clave suele venir vacía).
+ * - «Información»: `application-info`, con `application-info-row` (`data-key`: al menos
+ *   applicationType, applicationInjectionType, customizedName y detectedName),
+ *   `application-info-value`, `application-info-relations`, `application-info-group`
+ *   (`data-group`: calls, synthetic y other), `-group-toggle`, `-group-count`, `-entity`
+ *   (`data-entity-id`), `-names` y `-entity-name`.
+ *
+ * Formato, como el servicio: Apdex con dos decimales; recuentos con separador de miles;
+ * duraciones con `formatDurationMs` (ms o s con un decimal).
+ */
+const APP_PAGE_TEST_ID = 'entity-page-application'
+type AppChartKind = 'apdex' | 'actions' | 'duration' | 'errors'
+const APP_METRIC_MARKERS = ['apdex', 'actions', 'duration', 'errors'] as const
+const APP_MARKER_LABELS: Record<string, string> = {
+  apdex: 'Apdex',
+  actions: 'Acciones',
+  duration: 'Duración',
+  errors: 'Errores',
+  problems: 'Problemas'
+}
+const APP_CHART_KINDS: AppChartKind[] = ['apdex', 'actions', 'duration', 'errors']
+const APP_CHART_TITLES: Record<AppChartKind, string> = {
+  apdex: 'Apdex',
+  actions: 'Acciones',
+  duration: 'Duración',
+  errors: 'Errores'
+}
+const APP_ACTION_COLUMNS = ['name', 'count', 'duration'] as const
+/** Las acciones del simulador, de más a menos recuento (como las da el canal). */
+const APP_ACTIONS_BY_COUNT = Object.values(APPLICATION_ACTIONS)
+  .flat()
+  .sort((a, b) => b.count - a.count)
+/** La duración media de cada acción en la tabla (es). */
+const APP_ACTION_DURATION: Record<string, RegExp> = {
+  'APPLICATION_METHOD-00000000000E2E35': /(^|[^\d,.])321\sms/,
+  'APPLICATION_METHOD-00000000000E2E34': /(^|[^\d,.])1,5\ss/,
+  'APPLICATION_METHOD-00000000000E2E36': /(^|[^\d,.])410\sms/
+}
+
+const appPage = (): Locator => page.getByTestId(APP_PAGE_TEST_ID)
+const appMarker = (id: string): Locator => appPage().getByTestId(`application-marker-${id}`)
+const appChartPanel = (kind: AppChartKind): Locator =>
+  appPage().locator(`[data-testid="application-chart-panel"][data-kind="${kind}"]`)
+const appChartPlot = (kind: AppChartKind): Locator =>
+  appChartPanel(kind).getByTestId(`application-chart-${kind}`)
+const appBand = (): Locator => appChartPanel('apdex').getByTestId('application-problem-band')
+const appSegment = (problemId: string): Locator =>
+  appBand().locator(`[data-testid="application-problem-segment"][data-problem-id="${problemId}"]`)
+const appActions = (): Locator => appPage().getByTestId('application-actions')
+const appActionRow = (id: string): Locator =>
+  appActions().locator(`[data-testid="application-action-row"][data-action-id="${id}"]`)
+const appInfoCard = (): Locator => appPage().getByTestId('application-info')
+const appInfoRow = (key: string): Locator =>
+  appInfoCard().locator(`[data-testid="application-info-row"][data-key="${key}"]`)
+const appInfoValue = (key: string): Locator => appInfoRow(key).getByTestId('application-info-value')
+const appInfoGroup = (key: string): Locator =>
+  appInfoCard().locator(`[data-testid="application-info-group"][data-group="${key}"]`)
+const appInfoEntity = (group: string, id: string): Locator =>
+  appInfoGroup(group).locator(`[data-testid="application-info-entity"][data-entity-id="${id}"]`)
+
+/** Ficha 0034: abre por URL la página de la aplicación de la ficha. */
+async function openApplicationPage(): Promise<Locator> {
+  await goToRoute(`/entities/APPLICATION/${APPLICATION_METRICS_ID}`)
+  const entityPage = appPage()
+  await expect(entityPage).toBeVisible()
+  return entityPage
+}
+
+/** Ficha 0034: espera a que el gráfico tenga sus series y las devuelve. */
+async function appChartSeries(kind: AppChartKind): Promise<string[]> {
+  const plot = appChartPlot(kind)
+  await expect(plot.locator('canvas').first()).toBeVisible()
+  await expect(plot).toHaveAttribute('data-series', /\[.+\]/)
+  return JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
+}
+
+/** Ficha 0034: los `data-kind` de los paneles de gráficos, en el orden en que se pintan. */
+async function appChartKinds(): Promise<string[]> {
+  return appPage()
+    .getByTestId('application-charts')
+    .getByTestId('application-chart-panel')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-kind') ?? ''))
+}
+
+/** Ficha 0034: los ids de las filas de la tabla de acciones, en el orden en que se pintan. */
+const appActionOrder = (): Promise<string[]> =>
+  tableOrder(appActions(), 'application-action-row', 'data-action-id')
+
+/** Ficha 0034: despliega un grupo de relaciones de la aplicación (si no lo está). */
+async function expandAppInfoGroup(key: string): Promise<Locator> {
+  const group = appInfoGroup(key)
+  const toggle = group.getByTestId('application-info-group-toggle')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await clickInPlace(toggle, { scroll: true })
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return group
+}
+
+/** Ficha 0034: los marcadores de métricas con los valores del simulador, ya formateados (es). */
+async function expectAppMetricMarkers(): Promise<void> {
+  // Apdex: 0,88 del rango, categoría «Buena» (≥ 0,85 y < 0,94), con su color.
+  const apdex = appMarker('apdex')
+  await expect(apdex.getByTestId('application-marker-value')).toHaveText(/^\s*0,88\s*$/)
+  await expect(apdex).toContainText('Buena')
+  await expect(apdex.getByTestId('application-marker-value')).toHaveAttribute(
+    'data-level',
+    'success'
+  )
+  // Acciones: 135 en el rango.
+  await expect(appMarker('actions').getByTestId('application-marker-value')).toHaveText(
+    loneNumber('135')
+  )
+  // Duración: 1420,75 ms → 1,4 s.
+  await expect(appMarker('duration').getByTestId('application-marker-value')).toHaveText(
+    /^\s*1,4\ss\s*$/
+  )
+  // Errores: 7, con el color de error (> 0).
+  const errors = appMarker('errors').getByTestId('application-marker-value')
+  await expect(errors).toHaveText(loneNumber('7'))
+  await expect(errors).toHaveAttribute('data-level', 'error')
+}
+
+/** Ficha 0034: el marcador de problemas, uno abierto y uno cerrado. */
+async function expectAppProblemsMarker(): Promise<void> {
+  await expect(appMarker('problems').getByTestId('application-marker-open')).toHaveText(
+    loneNumber('1')
+  )
+  await expect(appMarker('problems').getByTestId('application-marker-closed')).toHaveText(
+    loneNumber('1')
+  )
+}
+
+test('CA1 (0034): la página de una aplicación enseña sus marcadores, sus cuatro gráficos y la tabla de acciones de usuario con los valores del simulador, sin «Página en construcción»', async () => {
+  const entityPage = await openApplicationPage()
+
+  // Cinco marcadores: Apdex, acciones, duración, errores y problemas, con su nombre y valores.
+  const row = entityPage.getByTestId('application-markers')
+  await expect(row).toBeVisible()
+  for (const id of [...APP_METRIC_MARKERS, 'problems']) {
+    await expect(row.getByTestId(`application-marker-${id}`), id).toBeVisible()
+    await expect(row.getByTestId(`application-marker-${id}`), id).toContainText(
+      APP_MARKER_LABELS[id] ?? id
+    )
+  }
+  await expectAppMetricMarkers()
+  await expectAppProblemsMarker()
+
+  // Cuatro gráficos en su orden: Apdex, acciones, duración y errores; una serie cada uno.
+  const section = entityPage.getByTestId('application-charts')
+  await expect(section).toBeVisible()
+  const panels = section.getByTestId('application-chart-panel')
+  await expect(panels).toHaveCount(4)
+  expect(await appChartKinds()).toEqual(APP_CHART_KINDS)
+  for (const [index, kind] of APP_CHART_KINDS.entries()) {
+    await expect(panels.nth(index).getByRole('heading').first(), kind).toContainText(
+      APP_CHART_TITLES[kind]
+    )
+    expect(await appChartSeries(kind), kind).toHaveLength(1)
+  }
+
+  // Tabla «Acciones de usuario»: las tres, de más a menos acciones, con nombre, recuento y
+  // duración media (con barra).
+  const card = appActions()
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Acciones de usuario')
+  const grid = card.getByTestId('application-actions-grid')
+  await expect(grid).toHaveAttribute('role', 'grid')
+  expect(await gridColumns(grid)).toEqual(APP_ACTION_COLUMNS.map((c) => `col-${c}`))
+  await expect(grid.getByTestId('col-count')).toHaveAttribute('aria-sort', 'descending')
+  await expect(card.getByTestId('application-action-row')).toHaveCount(3)
+  expect(await appActionOrder()).toEqual(APP_ACTIONS_BY_COUNT.map((a) => a.id))
+  for (const action of APP_ACTIONS_BY_COUNT) {
+    const cells = appActionRow(action.id).getByRole('gridcell')
+    await expect(cells, action.name).toHaveCount(APP_ACTION_COLUMNS.length)
+    await expect(cells.nth(0), action.name).toHaveText(action.name)
+    await expect(cells.nth(1), action.name).toHaveText(loneNumber(String(action.count)))
+    await expect(cells.nth(2), action.name).toContainText(APP_ACTION_DURATION[action.id] ?? /^$/)
+    await expect(
+      cells.nth(2).getByTestId('application-action-duration-bar'),
+      action.name
+    ).toHaveCount(1)
+  }
+  await expect(card.getByTestId('application-actions-empty')).toHaveCount(0)
+
+  // Orden por columna: por duración media, y al revés pulsando otra vez.
+  const byDuration = APP_ACTIONS_BY_COUNT.slice()
+    .sort((a, b) => a.avg - b.avg)
+    .map((a) => a.id)
+  expect(byDuration).not.toEqual(APP_ACTIONS_BY_COUNT.map((a) => a.id))
+  expect(byDuration.slice().reverse()).not.toEqual(APP_ACTIONS_BY_COUNT.map((a) => a.id))
+  await clickInPlace(grid.getByTestId('sort-duration'), { scroll: true })
+  const durationCol = grid.getByTestId('col-duration')
+  await expect(durationCol).toHaveAttribute('aria-sort', /^(ascending|descending)$/)
+  await expect(grid.getByTestId('col-count')).toHaveAttribute('aria-sort', 'none')
+  const durationAsc = (await durationCol.getAttribute('aria-sort')) === 'ascending'
+  expect(await appActionOrder()).toEqual(durationAsc ? byDuration : byDuration.slice().reverse())
+  await clickInPlace(grid.getByTestId('sort-duration'), { scroll: true })
+  await expect(durationCol).toHaveAttribute('aria-sort', durationAsc ? 'descending' : 'ascending')
+  expect(await appActionOrder()).toEqual(durationAsc ? byDuration.slice().reverse() : byDuration)
+
+  // Ni el bloque ni el texto de «Página en construcción», ni marcadores de otro tipo.
+  await expect(entityPage.getByTestId('entity-under-construction')).toHaveCount(0)
+  await expect(entityPage).not.toContainText('Página en construcción')
+  for (const other of [
+    'service-markers',
+    'host-markers',
+    'monitor-markers',
+    'process-markers',
+    'process-group-markers'
+  ]) {
+    await expect(page.getByTestId(other), other).toHaveCount(0)
+  }
+
+  // Las consultas del canal, con el rango global.
+  await settledRequests()
+  expect(sim.applicationMetricQueries.length).toBeGreaterThanOrEqual(2)
+  for (const query of sim.applicationMetricQueries) {
+    expect(query.get('from')).toBe('now-2h')
+  }
+})
+
+test('CA1 (0034), nota del Orquestador: sin acciones de usuario en el rango (lo habitual en vivo), la tabla lo dice y el resto de la página sale igual', async () => {
+  sim.applicationActionsEmpty = true
+  await openApplicationPage()
+
+  const card = appActions()
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Acciones de usuario')
+  const empty = card.getByTestId('application-actions-empty')
+  await expect(empty).toBeVisible()
+  await expect(empty).not.toHaveText(/^\s*$/)
+  await expect(card.getByTestId('application-action-row')).toHaveCount(0)
+  // Sin aviso de error ni Reintentar: no es un fallo.
+  await expect(card.getByRole('alert')).toHaveCount(0)
+  await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(card, text).not.toContainText(text)
+  }
+
+  // Marcadores y gráficos, como siempre.
+  await expectAppMetricMarkers()
+  await expect(appPage().getByTestId('application-chart-panel')).toHaveCount(4)
+})
+
+test('CA3 (0034): con papeles sin datos (Apdex y errores), sus marcadores y gráficos no salen y el resto sí', async () => {
+  sim.applicationEmpty = ['apdex', 'errors']
+  const entityPage = await openApplicationPage()
+
+  // Los de acciones y duración, con sus valores; el de problemas, también.
+  await expect(appMarker('actions').getByTestId('application-marker-value')).toHaveText(
+    loneNumber('135')
+  )
+  await expect(appMarker('duration').getByTestId('application-marker-value')).toHaveText(
+    /^\s*1,4\ss\s*$/
+  )
+  await expectAppProblemsMarker()
+  // Gráficos: solo acciones y duración, en ese orden y con su serie.
+  await expect(entityPage.getByTestId('application-chart-panel')).toHaveCount(2)
+  expect(await appChartKinds()).toEqual(['actions', 'duration'])
+  expect(await appChartSeries('actions')).toHaveLength(1)
+  expect(await appChartSeries('duration')).toHaveLength(1)
+
+  // Los del Apdex y los errores no salen (ni marcador ni gráfico), ni un «—» en su lugar.
+  for (const role of ['apdex', 'errors'] as const) {
+    await expect(appMarker(role), role).toHaveCount(0)
+    await expect(appChartPanel(role), role).toHaveCount(0)
+    await expect(entityPage.getByTestId(`application-chart-${role}`), role).toHaveCount(0)
+  }
+  // La tabla de acciones sigue.
+  await expect(appActions().getByTestId('application-action-row')).toHaveCount(3)
+  // Ningún aviso de error en la página: faltar datos no es un fallo.
+  await expect(entityPage.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('CA4 (0034): la franja de problemas sale sobre el gráfico del Apdex con los problemas de la aplicación, y pulsar un tramo abre el problema', async () => {
+  await openApplicationPage()
+  await appChartSeries('apdex')
+  const band = appBand()
+  await expect(band).toBeVisible()
+  await expect(band.getByTestId('application-problem-segment')).toHaveCount(2)
+  for (const { problemId } of [APPLICATION_BAND_OPEN, APPLICATION_BAND_CLOSED]) {
+    await expect(appSegment(problemId), problemId).toHaveCount(1)
+  }
+  // Solo en el panel del Apdex.
+  await expect(page.getByTestId('application-problem-band')).toHaveCount(1)
+
+  // La lista se pide con la aplicación y el rango global.
+  await settledRequests()
+  const lists = sim.entityProblemListQueries.filter((query) =>
+    (query.get('problemSelector') ?? '').includes(APPLICATION_METRICS_ID)
+  )
+  expect(lists).toHaveLength(1)
+  expect(lists[0]?.get('problemSelector')).toBe(`affectedEntities("${APPLICATION_METRICS_ID}")`)
+  expect(lists[0]?.get('from')).toBe('now-2h')
+
+  // Encima del gráfico: la franja acaba antes de que empiece el canvas.
+  const bandBox = await settledBox(band)
+  const plotBox = await settledBox(appChartPlot('apdex'))
+  expect(bandBox.y + bandBox.height).toBeLessThanOrEqual(plotBox.y + 1)
+
+  // Pulsar un tramo abre ese problema; «Volver» regresa a la aplicación.
+  await clickInPlace(appSegment(APPLICATION_BAND_CLOSED.problemId), { scroll: true })
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(
+    APPLICATION_BAND_CLOSED.displayId
+  )
+  expect(await currentRoute()).toBe(`/problems/${APPLICATION_BAND_CLOSED.problemId}`)
+  await page.getByTestId('problem-back').click()
+  await expect(appPage()).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/APPLICATION/${APPLICATION_METRICS_ID}`)
+})
+
+test('CA5 (0034): la tarjeta «Información» de la aplicación sale la última, con sus filas, sus relaciones («Llama a», «Monitores sintéticos» y «Otras»), «Ver nombres» y enlaces', async () => {
+  const entityPage = await openApplicationPage()
+  const card = appInfoCard()
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Información')
+  await expect(card.getByTestId('application-info-row').first()).toBeVisible()
+  const sections = ['application-markers', 'application-charts', 'application-actions']
+  for (const id of sections) await expect(entityPage.getByTestId(id), id).toBeVisible()
+
+  // La última sección: nada visible detrás; marcadores, gráficos y acciones, encima.
+  expect(await visibleNeighbours(APP_PAGE_TEST_ID, 'application-info', 'after')).toEqual([])
+  const infoBox = await settledBox(card)
+  for (const id of sections) {
+    const box = await settledBox(entityPage.getByTestId(id))
+    expect(box.y + box.height, `${id} encima de «Información»`).toBeLessThanOrEqual(infoBox.y + 1)
+  }
+
+  // Filas con las claves vistas en vivo.
+  await expect(appInfoValue('applicationType')).toContainText('MANUALLY_INJECTED')
+  await expect(appInfoValue('applicationInjectionType')).toContainText('AUTO_INJECTED')
+  await expect(appInfoValue('customizedName')).toContainText('tienda-personalizada-e2e')
+  await expect(appInfoValue('detectedName')).toContainText('tienda-detectada-e2e')
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(card, text).not.toContainText(text)
+  }
+
+  // Relaciones: «Llama a» (servicios), «Monitores sintéticos» y «Otras».
+  const relations = card.getByTestId('application-info-relations')
+  const groups = relations.getByTestId('application-info-group')
+  await expect(groups).toHaveCount(3)
+  expect(await dataKeys(groups, 'data-group')).toEqual(['calls', 'synthetic', 'other'])
+  for (const [key, title, count] of [
+    ['calls', 'Llama a', '2'],
+    ['synthetic', 'Monitores sintéticos', '3'],
+    ['other', 'Otras', '4']
+  ] as const) {
+    await expect(appInfoGroup(key), key).toContainText(title)
+    await expect(appInfoGroup(key).getByTestId('application-info-group-count'), key).toHaveText(
+      new RegExp(`^\\s*${count}\\s*$`)
+    )
+  }
+
+  // «Ver nombres» de los servicios: una llamada con sus dos ids y los nombres en su sitio.
+  const calls = await expandAppInfoGroup('calls')
+  await settledRequests()
+  const namesBefore = sim.entityNamesQueries.length
+  await clickInPlace(calls.getByTestId('application-info-names'), { scroll: true })
+  await expect.poll(() => sim.entityNamesQueries.length).toBe(namesBefore + 1)
+  const selector = sim.entityNamesQueries[namesBefore]?.get('entitySelector') ?? ''
+  for (const [id, name] of [
+    [INFO_FEW_ID, 'info-pocas-e2e'],
+    [PROCESS_INFO_SERVICE_2, 'servicio-proceso-e2e']
+  ] as const) {
+    expect(selector).toContain(id)
+    await expect(appInfoEntity('calls', id).getByTestId('application-info-entity-name')).toHaveText(
+      name
+    )
+  }
+
+  // Enlaces: un servicio a su página y los monitores a la suya (browser y HTTP).
+  await expect(appInfoEntity('calls', INFO_FEW_ID)).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/SERVICE/${INFO_FEW_ID}$`)
+  )
+  await expandAppInfoGroup('synthetic')
+  for (const [id, type] of [
+    [MONITOR_BROWSER_ID, 'SYNTHETIC_TEST'],
+    [MONITOR_HTTP_ID, 'HTTP_CHECK'],
+    [APPLICATION_INFO_HTTP, 'HTTP_CHECK']
+  ] as const) {
+    await expect(appInfoEntity('synthetic', id), id).toHaveAttribute(
+      'href',
+      new RegExp(`#/entities/${type}/${id}$`)
+    )
+  }
+  const other = await expandAppInfoGroup('other')
+  await expect(other).toContainText('isApplicationMethodOf')
+  await expect(other).toContainText('isGroupOf')
+
+  // Pulsar el servicio abre su página.
+  await clickInPlace(appInfoEntity('calls', INFO_FEW_ID), { scroll: true })
+  await expect(page.getByTestId('entity-page-service')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FEW_ID}`)
 })
