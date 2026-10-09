@@ -44,4 +44,4 @@
 - El tooltip de Radix se cierra si se desplaza su contenedor, y `focus()` desplaza: primero traer el
   elemento a la vista y después abrir el tooltip.
 - Un test no debe suponer el ancho de la ventana para decidir qué se ve: medir el sitio real del elemento (como `expectIdRule` en la 0013). Una precondición que dependa de la fuente del sistema puede fallar en el runner (Windows Server).
-- Tras una transición (menú que se pliega), leer la caja del elemento con `stableBox` ({ is a shell keyword), no con `boundingBox` a pelo; y, al cruzar otro disparador de tooltip, Radix queda «en tránsito» e ignora el ratón hasta cerrar el tooltip cruzado: mover 1 px más al llegar (como hace `hoverFresh`). Ficha 0044.
+- Tras una transición (menú que se pliega), leer la caja del elemento con `stableBox`, no con `boundingBox` a pelo; y, al cruzar otro disparador de tooltip, Radix queda «en tránsito» e ignora el ratón hasta cerrar el tooltip cruzado: mover 1 px más al llegar (como hace `hoverFresh`). Ficha 0044.

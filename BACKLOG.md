@@ -228,5 +228,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0036](tasks/0036-entidades-informacion-al-final.md) (lote mejoras-entidades): la tarjeta «Información» pasa al final de las páginas de servicio, host, browser monitor, HTTP monitor y proceso, con el orden fijado en `EntitySections`.
 - [0031](tasks/0031-grupo-procesos-datos.md) (lote grupo-procesos): canal `entities:processGroupMetrics` con series, totales e instancias del process group (la vista es la 0032).
 - [0037](tasks/0037-entidades-etiquetas-pildoras.md) (lote mejoras-entidades): las etiquetas de las páginas de servicio, host, browser monitor, HTTP monitor y proceso salen como píldoras `clave: valor` bajo la cabecera, y `entities:get` las devuelve estructuradas. Con ella queda completo el lote «mejoras-entidades» (0036 y 0037).
-
 - [0044](tasks/0044-e2e-tooltip-menu-estable.md): e2e estable del tooltip del menú plegado; `hoverFresh` espera a que acabe la animación y a que se cierre el tooltip de otro botón (resuelve la mejora anotada en 0027).
