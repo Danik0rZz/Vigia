@@ -6,7 +6,10 @@ import type { TimeRangeValue } from '@shared/time-range'
 import { useTimeRangeValue } from '../app/time-range'
 import { invoke } from '../lib/ipc'
 import { createRequestQueue } from '../lib/request-queue'
+import { combineQueries, type QueryListState } from './query-list'
 import { useActiveEnvironment, useConnectionStatus } from './tenants'
+
+export type { QueryListState } from './query-list'
 
 /** Módulos con datos de Dynatrace; cada uno necesita los scopes de MODULE_SCOPES. */
 export type DataModule = 'home' | 'problems' | 'metrics' | 'entities'
@@ -286,10 +289,66 @@ export function useProcessMetrics(
   entityId: string | null
 ): UseQueryResult<IpcOutput<'entities:processMetrics'>> {
   const timeRange = useTimeRangeValue()
-  return useQuery({
+  return useQuery(processMetricsQuery(envId, entityId, timeRange))
+}
+
+/**
+ * Consulta de `entities:processMetrics` de un proceso: la misma clave en la página del proceso y
+ * en «CPU por instancia» del process group (ficha 0032), así que una no vuelve a pedir lo que ya
+ * trajo la otra con el mismo rango.
+ */
+function processMetricsQuery(
+  envId: string | null,
+  entityId: string | null,
+  timeRange: TimeRangeValue
+): {
+  queryKey: ReturnType<typeof moduleKey>
+  queryFn: () => Promise<IpcOutput<'entities:processMetrics'>>
+  enabled: boolean
+} & typeof MANUAL {
+  return {
     queryKey: moduleKey(envId ?? '', 'entities', { processMetrics: entityId }, timeRange),
     queryFn: () =>
       invoke('entities:processMetrics', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  }
+}
+
+/**
+ * Métricas de varios procesos en el rango global, una llamada a `entities:processMetrics` por
+ * cada uno (ficha 0032: las cinco instancias de más CPU de un process group), juntas en un solo
+ * estado. Sin entorno no se pide nada; con la lista vacía, tampoco (datos: lista vacía).
+ */
+export function useProcessMetricsList(
+  envId: string | null,
+  entityIds: readonly string[]
+): QueryListState<IpcOutput<'entities:processMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQueries({
+    queries: entityIds.map((entityId) => processMetricsQuery(envId, entityId, timeRange)),
+    combine: combineQueries
+  })
+}
+
+/**
+ * Métricas de un process group en el rango global (canal de la ficha 0031; marcadores, gráficos
+ * y tabla de instancias de la 0032, una sola llamada). Con `entityId` null (id que no es de un
+ * process group) no se pide nada.
+ */
+export function useProcessGroupMetrics(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:processGroupMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { processGroupMetrics: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:processGroupMetrics', {
         environmentId: envId ?? '',
         entityId: entityId ?? '',
         timeRange

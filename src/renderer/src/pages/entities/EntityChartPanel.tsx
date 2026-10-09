@@ -19,6 +19,19 @@ interface ChartData {
   warnings: string[]
 }
 
+/**
+ * Lo que el panel usa de la consulta: lo cumple un `UseQueryResult` y también la unión de varias
+ * («CPU por instancia» del process group, ficha 0032, junta una llamada por instancia).
+ */
+export interface PanelQuery<T> {
+  data: T | undefined
+  dataUpdatedAt: number
+  isError: boolean
+  error: unknown
+  isFetching: boolean
+  refetch: () => unknown
+}
+
 /** Una serie del gráfico tal como va al DOM (`data-series`) y a la exportación. */
 export interface PanelSeries {
   name: string
@@ -48,7 +61,7 @@ export function EntityChartPanel<T extends ChartData>({
   title: string
   /** Consulta de Métricas de «Abrir en Métricas» y de la exportación. */
   selector: string
-  query: UseQueryResult<T>
+  query: PanelQuery<T>
   /** Opción de ECharts con los datos ya cargados, los colores del tema y el rango visible. */
   buildOption: (data: T, colors: ChartColors, range: VisibleRange) => EChartsCoreOption
   /** Las series con sus puntos (sin datos todavía, lista vacía). */
