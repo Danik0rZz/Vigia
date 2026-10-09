@@ -1199,5 +1199,16 @@
       "more_one": "Ver la etiqueta restante",
       "more_other": "Ver las {{count}} etiquetas restantes"
     }
+  },
+  "markdown": {
+    "copyCode": "Copiar",
+    "copyCodeLabel": "Copiar el bloque de código",
+    "alerts": {
+      "note": "Información",
+      "tip": "Consejo",
+      "important": "Importante",
+      "warning": "Aviso",
+      "caution": "Peligro"
+    }
   }
 }

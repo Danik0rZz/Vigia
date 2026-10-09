@@ -1,6 +1,20 @@
-import type { JSX } from 'react'
-import Markdown, { type Components, type UrlTransform } from 'react-markdown'
+import { useState, type JSX, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import Markdown, { type Components, type Options, type UrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { Info, Lightbulb, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
+import { invoke } from '../lib/ipc'
+import {
+  ALERT_TYPES,
+  codeLanguage,
+  hastText,
+  preCode,
+  rehypeAlerts,
+  rehypeCodeHighlight,
+  rehypeMarks,
+  type AlertType,
+  type HastNode
+} from './markdown-plugins'
 
 /**
  * Markdown del tenant (contenido no fiable), ficha 0001:
@@ -12,6 +26,12 @@ import remarkGfm from 'remark-gfm'
  *   sistema (`target="_blank"`, que recoge `setWindowOpenHandler` de main).
  *   Cualquier otro esquema o una ruta relativa se queda en texto.
  * - Las imágenes no se cargan nunca: su texto alternativo o, sin él, la URL.
+ *
+ * Capa visual (ficha 0038, `markdown-plugins.ts` y las clases `md-*` de
+ * `main.css`): bloques de código con números de línea, colores por lenguaje y
+ * «Copiar»; código en línea como píldora; avisos de GitHub; marcas ✓ ✗ ⚠ al
+ * principio de un elemento, y tipografía con jerarquía. Los plugins solo
+ * cambian el árbol: siguen sin pasar por HTML.
  */
 
 /** Si es una URL absoluta http o https. */
@@ -34,6 +54,113 @@ const urlTransform: UrlTransform = (url, key) => {
   return isWebUrl(url) ? url : null
 }
 
+// Orden: primero los avisos y las marcas (miran el texto tal cual) y después los colores.
+const rehypePlugins = [rehypeAlerts, rehypeMarks, rehypeCodeHighlight] as Options['rehypePlugins']
+
+/** Texto del bloque sin el salto de línea final que añade Markdown. */
+const blockCode = (code: HastNode | null): string =>
+  code === null ? '' : hastText(code).replace(/\r?\n$/, '')
+
+/**
+ * Bloque de código: cabecera con el lenguaje y «Copiar» (copia el código por
+ * `app:copyText`, sin los números), columna de números apagada y el `pre`.
+ */
+function CodeBlock({
+  node,
+  children
+}: {
+  node: HastNode | undefined
+  children: ReactNode
+}): JSX.Element {
+  const { t } = useTranslation()
+  const [copy, setCopy] = useState<'idle' | 'done' | 'failed'>('idle')
+  const code = node === undefined ? null : preCode(node)
+  const text = blockCode(code)
+  const language = code === null ? null : codeLanguage(code)
+  const lines = text.split('\n')
+  const copyCode = (): void => {
+    invoke('app:copyText', { text })
+      .then(() => setCopy('done'))
+      .catch(() => setCopy('failed'))
+  }
+  return (
+    <div data-testid="md-code-block" className="md-code-block">
+      <div className="md-code-header">
+        <span className="md-code-language">{language}</span>
+        {copy !== 'idle' && (
+          <span data-testid="md-code-copy-status" role="status" className="md-code-status">
+            {t(copy === 'done' ? 'errorScreen.copied' : 'errorScreen.copyFailed')}
+          </span>
+        )}
+        <button
+          type="button"
+          data-testid="md-code-copy"
+          aria-label={t('markdown.copyCodeLabel')}
+          onClick={copyCode}
+          className="md-code-copy"
+        >
+          {t('markdown.copyCode')}
+        </button>
+      </div>
+      <div className="md-code-body">
+        {/* Los números no son parte del código: ni se seleccionan ni se leen. */}
+        <div aria-hidden="true" className="md-code-gutter">
+          {lines.map((_, index) => (
+            <span key={index} data-line-number={index + 1}>
+              {index + 1}
+            </span>
+          ))}
+        </div>
+        <pre className="md-code-pre">{children}</pre>
+      </div>
+    </div>
+  )
+}
+
+const ALERT_ICONS = {
+  note: Info,
+  tip: Lightbulb,
+  important: MessageSquareWarning,
+  warning: TriangleAlert,
+  caution: OctagonAlert
+} as const
+
+const ALERT_TITLES = {
+  note: 'markdown.alerts.note',
+  tip: 'markdown.alerts.tip',
+  important: 'markdown.alerts.important',
+  warning: 'markdown.alerts.warning',
+  caution: 'markdown.alerts.caution'
+} as const
+
+function alertType(node: HastNode | undefined): AlertType | null {
+  const value = node?.properties?.['dataAlert']
+  return ALERT_TYPES.find((type) => type === value) ?? null
+}
+
+/** Cita normal, o aviso de GitHub si `rehypeAlerts` la marcó. */
+function Blockquote({
+  node,
+  children
+}: {
+  node: HastNode | undefined
+  children: ReactNode
+}): JSX.Element {
+  const { t } = useTranslation()
+  const type = alertType(node)
+  if (type === null) return <blockquote className="md-quote">{children}</blockquote>
+  const Icon = ALERT_ICONS[type]
+  return (
+    <div role="note" className={`md-alert md-alert-${type}`}>
+      <p className="md-alert-title">
+        <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+        {t(ALERT_TITLES[type])}
+      </p>
+      {children}
+    </div>
+  )
+}
+
 const components: Components = {
   a: ({ href, children }) =>
     typeof href === 'string' && isWebUrl(href) ? (
@@ -53,55 +180,35 @@ const components: Components = {
       {alt !== undefined && alt !== '' ? alt : typeof src === 'string' ? src : ''}
     </span>
   ),
-  h1: ({ children }) => <h1 className="text-sm font-semibold">{children}</h1>,
-  h2: ({ children }) => <h2 className="text-sm font-semibold">{children}</h2>,
-  h3: ({ children }) => <h3 className="text-xs font-semibold">{children}</h3>,
-  h4: ({ children }) => <h4 className="text-xs font-semibold">{children}</h4>,
-  h5: ({ children }) => <h5 className="text-xs font-semibold">{children}</h5>,
-  h6: ({ children }) => <h6 className="text-xs font-semibold">{children}</h6>,
-  p: ({ children }) => <p className="break-words">{children}</p>,
-  ul: ({ children }) => <ul className="list-disc pl-5">{children}</ul>,
-  ol: ({ children, start }) => (
-    <ol start={start} className="list-decimal pl-5">
-      {children}
-    </ol>
+  p: ({ children, className }) => <p className={className}>{children}</p>,
+  li: ({ children, className }) => <li className={className}>{children}</li>,
+  ol: ({ children, start }) => <ol start={start}>{children}</ol>,
+  blockquote: ({ node, children }) => (
+    <Blockquote node={node as HastNode | undefined}>{children}</Blockquote>
   ),
-  blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-border pl-3 text-muted-foreground">
-      {children}
-    </blockquote>
+  pre: ({ node, children }) => (
+    <CodeBlock node={node as HastNode | undefined}>{children}</CodeBlock>
   ),
-  // Bloques de código y tablas con scroll propio: no ensanchan la fila.
-  pre: ({ children }) => (
-    <pre className="overflow-x-auto rounded-md bg-hover p-2 font-mono [&>code]:bg-transparent [&>code]:p-0">
-      {children}
-    </pre>
-  ),
-  code: ({ children }) => (
-    <code className="rounded-sm bg-hover px-1 font-mono break-words">{children}</code>
-  ),
+  code: ({ children, className }) => <code className={className}>{children}</code>,
+  // Tablas con scroll propio: no ensanchan la fila.
   table: ({ children }) => (
     <div className="overflow-x-auto">
-      <table className="border-collapse">{children}</table>
+      <table>{children}</table>
     </div>
   ),
-  th: ({ children, style }) => (
-    <th style={style} className="border border-border px-2 py-0.5 text-left font-medium">
-      {children}
-    </th>
-  ),
-  td: ({ children, style }) => (
-    <td style={style} className="border border-border px-2 py-0.5">
-      {children}
-    </td>
-  ),
-  hr: () => <hr className="border-border" />
+  th: ({ children, style }) => <th style={style}>{children}</th>,
+  td: ({ children, style }) => <td style={style}>{children}</td>
 }
 
 export function MarkdownText({ text }: { text: string }): JSX.Element {
   return (
-    <div className="grid gap-1.5 text-xs">
-      <Markdown remarkPlugins={[remarkGfm]} urlTransform={urlTransform} components={components}>
+    <div className="md-text">
+      <Markdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={rehypePlugins}
+        urlTransform={urlTransform}
+        components={components}
+      >
         {text}
       </Markdown>
     </div>

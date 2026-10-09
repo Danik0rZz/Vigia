@@ -1199,5 +1199,16 @@
       "more_one": "Show the remaining tag",
       "more_other": "Show the remaining {{count}} tags"
     }
+  },
+  "markdown": {
+    "copyCode": "Copy",
+    "copyCodeLabel": "Copy the code block",
+    "alerts": {
+      "note": "Note",
+      "tip": "Tip",
+      "important": "Important",
+      "warning": "Warning",
+      "caution": "Caution"
+    }
   }
 }
