@@ -7804,6 +7804,35 @@ for (const name of [ALL_TRANSACTIONAL, ALL_EVENT]) {
 }
 
 /**
+ * Ficha 0038: «Copiar» de cada bloque de código. Usa el bloque YAML de la descripción larga de
+ * P-835 (fixture de la 0035). Contrato elegido al escribir los tests (anotado en la ficha): el
+ * bloque es `data-testid="md-code-block"`, su botón `md-code-copy` (texto «Copiar») y
+ * el aviso `md-code-copy-status` con `errorScreen.copied`, como el «Copiar» de la descripción.
+ */
+const YAML_BLOCK_CODE = 'servicio:\n  nombre: pagos\n  replicas: 3'
+
+test('CA2 (0038): «Copiar» de un bloque copia su código exacto, sin los números de línea, y avisa', async () => {
+  // Va en views porque es el spec que usa el portapapeles del sistema.
+  await openAllDescriptionsProblem()
+  const { section } = descriptionParts(await expandRow(ALL_EVENT))
+  const block = section.getByTestId('md-code-block')
+  await expect(block).toHaveCount(1)
+  await block.scrollIntoViewIfNeeded()
+  const copy = block.getByTestId('md-code-copy')
+  const status = block.getByTestId('md-code-copy-status')
+  await expect(copy).toHaveText('Copiar')
+  await expect(status).toHaveCount(0)
+  // Los números de línea se ven en el bloque (uno por línea)...
+  await expect(block.locator('[data-line-number]')).toHaveText(['1', '2', '3'])
+
+  await clearClipboard()
+  await copy.click()
+  await expect(status).toHaveText(es.errorScreen.copied)
+  // ...pero no van al portapapeles: solo el código del bloque, ni la descripción entera.
+  expect(await clipboardText()).toBe(YAML_BLOCK_CODE)
+})
+
+/**
  * Ficha 0003: página de análisis de la entidad. Problema ABIERTO (P-786) con cuatro evidencias:
  * un EVENT sobre un HOST (sin selector de métrica: desplegarlo no pide nada), un METRIC sobre un
  * SERVICE, un EVENT sin entidad y uno con entidad sin tipo. Solo tipos estándar.

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -166,5 +166,99 @@ describe.each(THEMES)('tema %s', (_name, selector) => {
   it('cada tipo tiene un color distinto', () => {
     const colors = TYPES.map((type) => cssToken(selector, `--env-${type}`)?.toLowerCase())
     expect(new Set(colors).size).toBe(TYPES.length)
+  })
+})
+
+/**
+ * Ficha 0038 (CA7): colores nuevos del visor de Markdown, en los dos temas. Contrato elegido al
+ * escribir los tests (anotado en la ficha): tokens `--md-*` en `main.css`, cada uno #rrggbb y
+ * definido en `:root` y en el bloque oscuro; texto ≥ 4.5 frente al fondo sobre el que se pinta.
+ *
+ * - Bloque de código: fondo `--md-code-bg`; números `--md-line-number` y colores de sintaxis
+ *   `--md-hl-<nombre>` (al menos cuatro) sobre ese fondo.
+ * - Código en línea: `--md-inline-code` sobre `--md-inline-code-bg`.
+ * - Marcas (`--md-mark-success|error|warning`) y título de los avisos
+ *   (`--md-alert-note|tip|important|warning|caution`) sobre `--background`.
+ */
+const MD_ALERTS = ['note', 'tip', 'important', 'warning', 'caution'] as const
+const MD_MARKS = ['success', 'error', 'warning'] as const
+
+/** Nombres de los tokens `--md-hl-*` definidos en el bloque que empieza por `selector {`. */
+function highlightTokens(selector: string): string[] {
+  const start = css.indexOf(`${selector} {`)
+  if (start === -1) return []
+  const block = css.slice(start, css.indexOf('}', start))
+  return [...block.matchAll(/(--md-hl-[a-z0-9-]+):/g)].map((match) => match[1] ?? '').sort()
+}
+
+describe.each(THEMES)('CA7 (0038): contraste del visor de Markdown, tema %s', (_name, selector) => {
+  const background = cssToken(selector, '--background') ?? '#000000'
+  const hex = (token: string): string => {
+    const value = cssToken(selector, token)
+    expect(value ?? '(sin definir)', `${token} en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+    return value ?? '#000000'
+  }
+
+  it('números de línea sobre el fondo del bloque de código ≥ 4.5', () => {
+    expect(contrast(hex('--md-line-number'), hex('--md-code-bg'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('al menos cuatro colores de sintaxis, cada uno ≥ 4.5 sobre el fondo del bloque', () => {
+    const tokens = highlightTokens(selector)
+    expect(tokens.length, `--md-hl-* en ${selector}`).toBeGreaterThanOrEqual(4)
+    for (const token of tokens) {
+      expect(contrast(hex(token), hex('--md-code-bg')), token).toBeGreaterThanOrEqual(4.5)
+    }
+    // Se distinguen entre sí.
+    expect(new Set(tokens.map((token) => hex(token).toLowerCase())).size).toBe(tokens.length)
+  })
+
+  it('código en línea: texto ≥ 4.5 sobre su píldora', () => {
+    expect(contrast(hex('--md-inline-code'), hex('--md-inline-code-bg'))).toBeGreaterThanOrEqual(
+      4.5
+    )
+  })
+
+  it.each(MD_MARKS)('marca %s ≥ 4.5 sobre --background', (mark) => {
+    expect(contrast(hex(`--md-mark-${mark}`), background)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('las tres marcas tienen colores distintos', () => {
+    const colors = MD_MARKS.map((mark) => hex(`--md-mark-${mark}`).toLowerCase())
+    expect(new Set(colors).size).toBe(MD_MARKS.length)
+  })
+
+  it.each(MD_ALERTS)('aviso %s ≥ 4.5 sobre --background', (alert) => {
+    expect(contrast(hex(`--md-alert-${alert}`), background)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('los cinco avisos tienen colores distintos', () => {
+    const colors = MD_ALERTS.map((alert) => hex(`--md-alert-${alert}`).toLowerCase())
+    expect(new Set(colors).size).toBe(MD_ALERTS.length)
+  })
+})
+
+describe('CA7 (0038): los colores de sintaxis salen del tema, no de un tema de highlight.js', () => {
+  it('claro y oscuro definen los mismos --md-hl-*', () => {
+    expect(highlightTokens(":root[data-theme='dark']")).toEqual(highlightTokens(':root'))
+  })
+
+  it('las reglas .hljs-* de main.css usan var(--md-hl-*) y ningún color fijo', () => {
+    const rules = [...css.matchAll(/([^{}]*\.hljs[^{}]*)\{([^}]*)\}/g)]
+    expect(rules.length, 'reglas .hljs en main.css').toBeGreaterThan(0)
+    for (const [, selectorText = '', body = ''] of rules) {
+      expect(body, selectorText.trim()).not.toMatch(/#[0-9a-f]{3,8}\b|rgb\(|hsl\(/i)
+      if (/color\s*:/.test(body)) expect(body, selectorText.trim()).toMatch(/var\(--md-hl-/)
+    }
+  })
+
+  it('el renderer no importa ninguna hoja de estilos de highlight.js', () => {
+    const sources = readdirSync(resolve('src/renderer/src'), { recursive: true })
+      .map(String)
+      .filter((file) => /\.(tsx?|css)$/.test(file) && !/\.test\.tsx?$/.test(file))
+    for (const file of sources) {
+      const text = readFileSync(resolve('src/renderer/src', file), 'utf8')
+      expect(text, file).not.toMatch(/highlight\.js\/styles/)
+    }
   })
 })
