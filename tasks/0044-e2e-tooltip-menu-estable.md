@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -95,7 +95,19 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+Solo cambian `e2e/hover.ts` y la ficha: nada de `src/` ni de `playwright.config.*` (`retries: 0`,
+`timeout: 60_000`); los 3 s de `STABLE_TIMEOUT_MS` son de la espera auxiliar. Un fallo real del
+tooltip sigue haciendo fallar el test: `stableBox` solo retrasa la lectura de la caja (y lanza si no
+hay caja o no se queda quieta), `settleOnTarget` solo mueve 1 px dentro del elemento, y los
+`expect(tooltip).toBeVisible()` de `shell.spec.ts` siguen tal cual. La causa (transición CSS de
+`Sidebar.tsx:92` y el estado «en tránsito» de Radix) está reproducida de forma determinista y es del
+test. CA1 y CA2 son criterios de ejecución sobre tests existentes, sin tests reescritos.
+
+Para el verifier (no bloquea): la tanda de 30 con `--workers=1` sobre `HEAD`, y confirmar en verde
+los e2e de `views.spec.ts` que usan `hoverFresh` (`stableBox` espera a todas las animaciones finitas
+del documento).
 
 ## Verificación
 
