@@ -1,7 +1,7 @@
 ---
 id: '0040'
 titulo: 'DISK: página del disco, a la que se llega pulsando un disco del host'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -75,7 +75,10 @@ errores con `reason`; simulador.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) En «Disco de», el nombre del host (hoy, tipo e id): con `entities:names` a demanda o
+  pasándolo en el estado al llegar desde el host.
+- (developer) Los inodos libres ya llegan en el canal (`series.inodes`) y la página no los pinta:
+  podrían ir como serie o marcador si Dani lo quiere.
 
 ## Notas del revisor
 
@@ -161,6 +164,26 @@ Ejecución sin el código: 36 unitarios en rojo (`canal entities:diskMetrics: ex
 undefined`, textos de `entities.disk` sin definir, y los dos registros de canales) y los 3 e2e de
 la 0040 en rojo (no existe el enlace del disco en la tabla ni `entity-page-disk`). Los e2e vecinos
 del host (0014 a 0019 y 0039) siguen en verde con el simulador ampliado.
+
+**Decisiones del developer (delegadas por Dani, refinables):**
+
+- Canal (`src/main/modules/disk-metrics.ts`): dos consultas en paralelo, series (9 expresiones,
+  sin `resolution`) y marcadores (6, con `Inf`), sin `entitySelector`; el disco va en el filtro.
+  Un papel opcional (latencia, cola, inodos) es `null` si no llega ninguna serie de sus métricas
+  ni en series ni en marcadores. Error nuevo `diskMetricsRejected` (400/404), como el del proceso.
+- Página (`DiskEntityPage.tsx`, `DiskMarkers.tsx`, `DiskCharts.tsx`, `disk-charts.ts`): sin
+  latencia ni cola no sale el quinto marcador ni el cuarto gráfico. Libre en GB
+  (`formatGigabytes`), latencia con `formatDurationMs` (de 1 s en adelante, en s), cola con dos
+  decimales como mucho. La franja de problemas va sobre el gráfico de uso (`ProblemBand` con
+  prefijo `disk`). «Abrir en Métricas» usa las mismas expresiones con el filtro del disco.
+- «Información» (`disk-info.ts`, `DiskInfo.tsx`): filas Nombre detectado, Sistema de ficheros,
+  «Disco de» (enlace directo al host con su tipo y su id, sin pedir el nombre: la ficha no lo pide
+  y gastaría una petición), fechas y management zones; otras relaciones, si las hubiera, en «Otras
+  relaciones». Sin otras, una sola columna.
+- Tabla de discos del host: el nombre es un enlace y la fila también abre el disco, con
+  `fromProblem` y el nombre en el estado (como los procesos): «Volver» hace `back()`. Un id que no
+  sea de DISK se queda sin enlace (`diskLinkId`).
+- Tests propios: `disk-charts.test.ts` y `disk-info.test.ts` (renderer).
 
 ## Resultado
 
