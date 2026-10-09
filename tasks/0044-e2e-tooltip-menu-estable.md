@@ -1,7 +1,7 @@
 ---
 id: '0044'
 titulo: e2e estable del tooltip del menú plegado
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -121,4 +121,6 @@ del documento).
 
 ## Resultado
 
-(pendiente)
+- Commits: 55153d6 y 8e46da0 (código), más los de la ficha. Fichero principal: `e2e/hover.ts` (`stableBox`, espera a animaciones finitas y movimiento extra mientras siga abierto el tooltip de otro disparador). Sin cambios en `src/`.
+- Rondas de revisión: 1 (aprobada). Verifier en verde: 280/280 e2e y CA1 30/30 en ambos modos.
+- ADR nuevo: ninguno. Sin migraciones.

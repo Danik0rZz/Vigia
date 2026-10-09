@@ -151,7 +151,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `MonitorInfo.tsx:89`: el caso `'number'` da por hecho que el único número es la frecuencia; comprobar `row.key` como con `tags` si entra otra fila numérica. (surgió en 0026)
 - Recursos del proceso (descriptores de fichero) sin color de nivel: la ficha solo fija umbrales para la CPU; si Dani los quiere, los del host (80 y 90 %) encajan. (surgió en 0028)
 - Eje de Recursos del proceso fijo de 0 a 100 % (`process-charts.ts:166`): si con procesos reales la métrica resulta ser fracción, corregir a la vez marcador y eje. (surgió en 0028)
-- e2e inestable `e2e/shell.spec.ts:402`: el tooltip de «nav-problems» no aparece en 5 s tras `hoverFresh` (visto en el CI del push de la 0027, run 37733715700, intento 1; al relanzar pasó). Posible arreglo: esperar más o reintentar el hover; ver la lección del tooltip de Radix en `e2e/CLAUDE.md`. (surgió en 0027)
 - e2e de «Información» al final (0036): añadir un caso sin acceso a Métricas, para confirmar el orden con avisos y sin gráficos. (surgió en 0036)
 - Host: los `warnings` de la API se repiten en las dos tarjetas (discos y procesos); mostrarlos una
   sola vez. (surgió en 0019)
@@ -164,6 +163,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `process-group-metrics.ts`: escribir en la cabecera el límite efectivo (unas 498 instancias, por el tope de 1000 series: 4 + 2·N). (surgió en 0031)
 - Test de `entities:processGroupMetrics` con `dimensionCountRatio` > 1 en las expresiones por instancia que compruebe `partial`. (surgió en 0031)
 - Instancias del process group: con más de unas 498, quedarse con las de más CPU (`:sort`/`:limit`) en vez de un subconjunto cualquiera; cambia el comportamiento del canal, lo decide Dani. `instances.total` cuenta solo las recibidas; la vista (0032) debe avisar del recorte con `partial`. (surgió en 0031)
+- e2e intermitente de `e2e/smoke.spec.ts` («VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco»): falló una vez en local con `visible: false` (la ventana aún no se veía al leerla, con 4 workers); relanzado, en verde. Si vuelve a salir, merece su ficha. (surgió en 0044)
 
 ## Aparcado
 
@@ -228,3 +228,5 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0036](tasks/0036-entidades-informacion-al-final.md) (lote mejoras-entidades): la tarjeta «Información» pasa al final de las páginas de servicio, host, browser monitor, HTTP monitor y proceso, con el orden fijado en `EntitySections`.
 - [0031](tasks/0031-grupo-procesos-datos.md) (lote grupo-procesos): canal `entities:processGroupMetrics` con series, totales e instancias del process group (la vista es la 0032).
 - [0037](tasks/0037-entidades-etiquetas-pildoras.md) (lote mejoras-entidades): las etiquetas de las páginas de servicio, host, browser monitor, HTTP monitor y proceso salen como píldoras `clave: valor` bajo la cabecera, y `entities:get` las devuelve estructuradas. Con ella queda completo el lote «mejoras-entidades» (0036 y 0037).
+
+- [0044](tasks/0044-e2e-tooltip-menu-estable.md): e2e estable del tooltip del menú plegado; `hoverFresh` espera a que acabe la animación y a que se cierre el tooltip de otro botón (resuelve la mejora anotada en 0027).

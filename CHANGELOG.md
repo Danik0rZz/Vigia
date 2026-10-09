@@ -118,6 +118,7 @@ Sin migraciones nuevas.
 
 ### Corregido
 
+- Pruebas automáticas: el test del menú lateral plegado y los demás que usan el ratón sobre tooltips dejan de fallar de forma intermitente en el CI (el ratón llegaba antes de que acabara la animación del menú, o con el tooltip de otro botón aún abierto). Cambia solo el código de pruebas; la app no cambia. Sin migraciones nuevas. (ficha 0044)
 - Página del servicio: la franja de problemas sobre «Tasa de error» se veía cortada (los tramos
   cortos dejaban el icono a medias). Ahora cada tramo se ve entero, con su icono, con cualquier
   escalado de pantalla; si no cabe el id, se ve solo el icono, centrado (también con ids largos), y el
