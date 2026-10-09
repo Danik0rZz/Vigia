@@ -1,7 +1,7 @@
 ---
 id: '0033'
 titulo: 'APPLICATION: análisis de métricas en vivo y canal de series y marcadores'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion
@@ -183,6 +183,11 @@ Informe en `live-reports/application-metrics-explore.json` (ignorado), sin ids n
   `/metrics/query`: los nombres llegan en `dimensionMap` y no hace falta `/entities`.
 - Un ratio > 1 en la consulta de las acciones llega en `partial` (sugerencia del revisor de la
   0031).
+
+### Verifier, 2026-10-09, commit `810e3ce`, rango `main..feat/0033-aplicacion-datos`: VERDE
+
+- check: 2613 tests en 148 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/ipc.ts`): 288/288.
 
 ## Resultado
 
