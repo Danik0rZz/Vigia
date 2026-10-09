@@ -16,6 +16,10 @@
  * - Cualquier clave que contenga `commandline`, `cmdline`, `commandpath`, `exepath`,
  *   `environmentvariable` o `envvar` (`commandLine`, `environmentVariables`…), y las claves
  *   exactas `args`, `arguments`, `argv`, `env` y `environment`.
+ * - Las claves exactas `logFileStatus`, `logPathLastUpdate` y `logSourceState` (ficha 0041, regla
+ *   de Dani: no se enseñan rutas de ficheros de log): son listas de `{ key, value }` cuya `key` es
+ *   la ruta del fichero de log o el nombre de la fuente. Se quita la propiedad entera (sin la
+ *   clave, sus valores no dicen de qué fichero son); su estado se ve en la tarjeta «Logs» del host.
  */
 
 const HIDDEN_PARTS = [
@@ -27,7 +31,18 @@ const HIDDEN_PARTS = [
   'envvar'
 ] as const
 
-const HIDDEN_EXACT = new Set(['args', 'arguments', 'argv', 'env', 'environment', 'dotnetcommand'])
+const HIDDEN_EXACT = new Set([
+  'args',
+  'arguments',
+  'argv',
+  'env',
+  'environment',
+  'dotnetcommand',
+  // Ficha 0041: propiedades de logs de un proceso, con las rutas en sus claves.
+  'logfilestatus',
+  'logpathlastupdate',
+  'logsourcestate'
+])
 
 /** Profundidad máxima que se recorre (la de `propertyText`: más abajo no se pasa a texto). */
 const MAX_DEPTH = 4

@@ -53,3 +53,15 @@ describe('entity-secrets (0029)', () => {
     expect(withoutHiddenValues(7)).toBe(7)
   })
 })
+
+/** Ficha 0041: las propiedades de logs de un proceso llevan las rutas en sus claves. */
+describe('entity-secrets (0041)', () => {
+  it('quita las tres propiedades de logs y no otras con «log» en el nombre', () => {
+    for (const key of ['logFileStatus', 'logPathLastUpdate', 'logSourceState']) {
+      expect(isHiddenPropertyKey(key), key).toBe(true)
+    }
+    for (const key of ['logLevel', 'logAnalyticsEnabled', 'catalogName']) {
+      expect(isHiddenPropertyKey(key), key).toBe(false)
+    }
+  })
+})
