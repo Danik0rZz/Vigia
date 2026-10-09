@@ -317,6 +317,12 @@ export const hostMetricsResultSchema = z.object({
     }),
     /** Memoria usada, en %. */
     memory: serviceSeriesSchema,
+    /** Memoria usada, recuperable y total, en bytes (ficha 0039). */
+    memoryBytes: z.object({
+      used: serviceSeriesSchema,
+      reclaimable: serviceSeriesSchema,
+      total: serviceSeriesSchema
+    }),
     /** Tráfico de todas las interfaces sumadas, en bits/s. */
     network: z.object({ in: serviceSeriesSchema, out: serviceSeriesSchema }),
     /** El % de uso del disco más lleno en cada punto. */
@@ -325,11 +331,12 @@ export const hostMetricsResultSchema = z.object({
   /** Marcadores del rango completo; null sin dato. */
   totals: z.object({
     cpu: z.object({ avg: z.number().nullable(), max: z.number().nullable() }),
-    /** avg en %; used y total en bytes, del último punto con dato. */
+    /** avg en %; used, total y reclaimable en bytes, del último punto con dato. */
     memory: z.object({
       avg: z.number().nullable(),
       used: z.number().nullable(),
-      total: z.number().nullable()
+      total: z.number().nullable(),
+      reclaimable: z.number().nullable()
     }),
     /** Medias del rango, en bits/s. */
     network: z.object({ in: z.number().nullable(), out: z.number().nullable() }),

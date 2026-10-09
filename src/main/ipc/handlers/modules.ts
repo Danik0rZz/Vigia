@@ -37,7 +37,7 @@ import {
 import { markerSelector, seriesSelector, toServiceMetrics } from '../../modules/service-metrics'
 import {
   HOST_MARKER_SELECTOR,
-  HOST_SERIES_SELECTOR,
+  HOST_SERIES_SELECTORS,
   hostEntitySelector,
   toHostMetrics
 } from '../../modules/host-metrics'
@@ -403,13 +403,15 @@ export function createModuleHandlers(
           schema: metricDataSchema
         })
       try {
-        // Series con la resolución que elija la API; marcadores del rango con Inf
-        // (sin fold: mezclarlos da 400).
-        const [series, markers] = await Promise.all([
-          query(HOST_SERIES_SELECTOR),
+        // Series con la resolución que elija la API, en dos consultas (como mucho 10
+        // expresiones cada una, ficha 0039); marcadores del rango con Inf (sin fold:
+        // mezclarlos da 400). Todas en paralelo.
+        const [main, memory, markers] = await Promise.all([
+          query(HOST_SERIES_SELECTORS[0]),
+          query(HOST_SERIES_SELECTORS[1]),
           query(HOST_MARKER_SELECTOR, 'Inf')
         ])
-        return toHostMetrics(series, markers)
+        return toHostMetrics([main, memory], markers)
       } catch (error) {
         if (
           error instanceof DtError &&

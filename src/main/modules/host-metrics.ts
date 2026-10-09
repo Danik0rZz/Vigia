@@ -4,9 +4,11 @@ import { truncatedResults, type MetricData } from './metrics'
 /**
  * Métricas de una entidad HOST (ficha 0016, canal `entities:hostMetrics`).
  * Lo observado en vivo (paso 0 de la ficha 0016):
- * - las 10 expresiones de series caben en una consulta con
- *   `entitySelector=entityId("<id>")` y vuelven en el orden pedido: se casan por
- *   posición, como en el servicio;
+ * - con `entitySelector=entityId("<id>")`, las expresiones vuelven en el orden
+ *   pedido: se casan por posición, como en el servicio;
+ * - la OpenAPI admite «up to 10 metrics» por consulta (en vivo hoy pasan 11, pero no
+ *   se cuenta con ello: ficha 0039). Con la recuperable, las series son 11 y van en
+ *   dos consultas en paralelo: CPU, red y disco, y memoria;
  * - red y disco llegan con una serie por interfaz o por disco: `:splitBy():sum`
  *   (red) y `:splitBy():max` (disco) dan una sola serie, igual a la suma o al
  *   máximo por punto, también con `resolution=Inf`;
@@ -26,6 +28,8 @@ const MEM = 'builtin:host.mem.usage'
 const MEM_USED = 'builtin:host.mem.used'
 /** Solo admite la agregación `value`: va sin agregación. */
 const MEM_TOTAL = 'builtin:host.mem.total'
+/** Memoria que el sistema puede liberar (ficha 0039; Byte, una serie por host). */
+const MEM_RECL = 'builtin:host.mem.recl'
 /** Todas las interfaces sumadas. */
 const NET_IN = 'builtin:host.net.nic.trafficIn:splitBy():sum'
 const NET_OUT = 'builtin:host.net.nic.trafficOut:splitBy():sum'
@@ -41,19 +45,19 @@ export function hostEntitySelector(entityId: string): string {
   return `entityId("${entityId}")`
 }
 
-/** Consulta 1 (series), en este orden: CPU (total y desglose), memoria, red y disco. */
-export const HOST_SERIES_SELECTOR = [
-  CPU,
-  CPU_USER,
-  CPU_SYSTEM,
-  CPU_IOWAIT,
-  MEM,
-  MEM_USED,
-  MEM_TOTAL,
-  NET_IN,
-  NET_OUT,
-  DISK
-].join(',')
+/** Consulta 1a (series), en este orden: CPU (total y desglose), red y disco. */
+const CPU_NET_DISK_SERIES = [CPU, CPU_USER, CPU_SYSTEM, CPU_IOWAIT, NET_IN, NET_OUT, DISK]
+/** Consulta 1b (series), en este orden: memoria en %, usada, total y recuperable. */
+const MEMORY_SERIES = [MEM, MEM_USED, MEM_TOTAL, MEM_RECL]
+
+/**
+ * Selectores de las consultas de series, en el orden que espera `toHostMetrics`.
+ * Ninguno pasa de 10 expresiones (límite de la OpenAPI de `/metrics/query`).
+ */
+export const HOST_SERIES_SELECTORS = [
+  CPU_NET_DISK_SERIES.join(','),
+  MEMORY_SERIES.join(',')
+] as const
 
 /** Consulta 2 (marcadores, con `resolution=Inf`), en este orden. */
 export const HOST_MARKER_SELECTOR = [CPU, `${CPU}:max`, MEM, NET_IN, NET_OUT, DISK, LOAD].join(',')
@@ -81,33 +85,45 @@ function single(data: MetricData, index: number): number | null {
   return value === undefined ? null : value
 }
 
-/** Junta las dos respuestas en series y totales para la interfaz. */
-export function toHostMetrics(series: MetricData, markers: MetricData): HostMetricsResult {
+/**
+ * Junta las respuestas en series y totales para la interfaz: las de series son las de
+ * `HOST_SERIES_SELECTORS`, en su orden (CPU, red y disco; memoria).
+ */
+export function toHostMetrics(
+  [main, memory]: [MetricData, MetricData],
+  markers: MetricData
+): HostMetricsResult {
+  const used = seriesAt(memory, 1)
+  const total = seriesAt(memory, 2)
+  const reclaimable = seriesAt(memory, 3)
   return {
-    resolution: series.resolution,
+    // Las dos consultas de series piden el mismo rango sin resolución: la API elige la misma.
+    resolution: main.resolution,
     series: {
-      cpu: seriesAt(series, 0),
+      cpu: seriesAt(main, 0),
       cpuBreakdown: {
-        user: seriesAt(series, 1),
-        system: seriesAt(series, 2),
-        iowait: seriesAt(series, 3)
+        user: seriesAt(main, 1),
+        system: seriesAt(main, 2),
+        iowait: seriesAt(main, 3)
       },
-      memory: seriesAt(series, 4),
-      network: { in: seriesAt(series, 7), out: seriesAt(series, 8) },
-      disk: seriesAt(series, 9)
+      memory: seriesAt(memory, 0),
+      memoryBytes: { used, reclaimable, total },
+      network: { in: seriesAt(main, 4), out: seriesAt(main, 5) },
+      disk: seriesAt(main, 6)
     },
     totals: {
       cpu: { avg: single(markers, 0), max: single(markers, 1) },
       memory: {
         avg: single(markers, 2),
-        used: lastValue(seriesAt(series, 5)),
-        total: lastValue(seriesAt(series, 6))
+        used: lastValue(used),
+        total: lastValue(total),
+        reclaimable: lastValue(reclaimable)
       },
       network: { in: single(markers, 3), out: single(markers, 4) },
       disk: { max: single(markers, 5) },
       load: { avg: single(markers, 6) }
     },
-    warnings: [...new Set([...(series.warnings ?? []), ...(markers.warnings ?? [])])],
-    partial: [...truncatedResults(series), ...truncatedResults(markers)]
+    warnings: [...new Set([main, memory, markers].flatMap((data) => data.warnings ?? []))],
+    partial: [main, memory, markers].flatMap(truncatedResults)
   }
 }
