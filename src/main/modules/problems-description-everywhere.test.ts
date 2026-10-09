@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evidenceWireSchema } from '@shared/problem-evidence'
+import { MAX_DESCRIPTION_LENGTH, evidenceWireSchema } from '@shared/problem-evidence'
 import { problemDetailSchema, toProblemDetail } from './problems'
 
 /**
@@ -137,5 +137,79 @@ describe('CA3 (0035): una evidencia que no es EVENT con dt.event.description la 
     expect(wire['unit']).toBe('MicroSecond')
     expect(wire['valueBefore']).toBe(100_000)
     expect(wire['valueAfter']).toBe(300_000)
+  })
+})
+
+/** Cadena del wire entera, para buscar un texto sin atarse al campo donde main lo deje. */
+const wireText = (wire: Record<string, unknown>): string => JSON.stringify(wire)
+
+describe('Decisión del Orquestador (0035): otras claves con «description» se tratan como descripción', () => {
+  const OTHER_MD = '### Pasos\n\n- **reiniciar** el pool\n- avisar al `equipo`'
+
+  it.each([
+    ['METRIC', 'custom.description'],
+    ['EVENT', 'Runbook.Description'],
+    ['TRANSACTIONAL', 'descriptionExtra']
+  ])('%s con %s: sale de las propiedades genéricas y su Markdown llega entero', (type, key) => {
+    const evidence =
+      type === 'EVENT'
+        ? {
+            evidenceType: 'EVENT',
+            displayName: 'Evento',
+            eventType: 'CUSTOM_INFO',
+            startTime: 1791050000000,
+            endTime: -1,
+            data: {
+              eventId: 'ev-0035',
+              properties: [
+                { key, value: OTHER_MD },
+                { key: 'custom.owner', value: 'equipo-pagos' }
+              ]
+            }
+          }
+        : evidenceOf(type, [
+            { key, value: OTHER_MD },
+            { key: 'custom.owner', value: 'equipo-pagos' }
+          ])
+    const wire = normalize(evidence)
+    expect(propertyKeys(wire)).not.toContain(key)
+    // La clave sin «description» sigue como texto en la lista.
+    expect(wire['properties']).toContainEqual({ key: 'custom.owner', text: 'equipo-pagos' })
+    // El texto llega entero (no recortado a 300 como las propiedades genéricas), con su clave.
+    expect(wireText(wire)).toContain(JSON.stringify(OTHER_MD).slice(1, -1))
+    expect(wireText(wire)).toContain(key)
+    // dt.event.description no se confunde con estas: no hay descripción principal.
+    expect(wire['description']).toBeNull()
+    expect(evidenceWireSchema.safeParse(wire).success).toBe(true)
+  })
+
+  it('una de más de 300 caracteres llega entera, no con el recorte de las propiedades', () => {
+    const long = `# Larga\n\n${'texto '.repeat(200)}fin-larga`
+    const wire = normalize(evidenceOf('METRIC', [{ key: 'custom.description', value: long }]))
+    expect(propertyKeys(wire)).not.toContain('custom.description')
+    expect(wireText(wire)).toContain('fin-larga')
+    expect(evidenceWireSchema.safeParse(wire).success).toBe(true)
+  })
+
+  it('con el mismo límite que la «Descripción»: una de más de MAX_DESCRIPTION_LENGTH llega recortada', () => {
+    const marker = 'MARCA-FINAL-0035'
+    const long = `${'m'.repeat(MAX_DESCRIPTION_LENGTH)}${marker}`
+    const wire = normalize(evidenceOf('METRIC', [{ key: 'custom.description', value: long }]))
+    expect(propertyKeys(wire)).not.toContain('custom.description')
+    expect(wireText(wire)).toContain('m'.repeat(MAX_DESCRIPTION_LENGTH))
+    expect(wireText(wire)).not.toContain(marker)
+    expect(evidenceWireSchema.safeParse(wire).success).toBe(true)
+  })
+
+  it('con dt.event.description y otra clave, cada una va a su sitio', () => {
+    const wire = normalize(
+      evidenceOf('METRIC', [
+        { key: DESCRIPTION_KEY, value: MARKDOWN },
+        { key: 'custom.description', value: OTHER_MD }
+      ])
+    )
+    expect(wire['description']).toEqual({ text: MARKDOWN, truncated: false })
+    expect(propertyKeys(wire)).not.toContain('custom.description')
+    expect(wireText(wire)).toContain(JSON.stringify(OTHER_MD).slice(1, -1))
   })
 })

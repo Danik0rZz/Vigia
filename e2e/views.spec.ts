@@ -7524,9 +7524,10 @@ test('CA1 (0002): sin conmutador de modo; la descripción sale siempre renderiza
 
 /**
  * Ficha 0035: la descripción (dt.event.description) en todas las evidencias, no solo en EVENT.
- * Problema ABIERTO (P-835) con cinco evidencias: un METRIC y un AVAILABILITY_EVIDENCE con
+ * Problema ABIERTO (P-835) con seis evidencias: un METRIC y un AVAILABILITY_EVIDENCE con
  * descripción en Markdown, un TRANSACTIONAL y un EVENT con una descripción de 12 000 caracteres
- * con un bloque de código YAML, y un METRIC sin descripción. La OpenAPI solo documenta `data`
+ * con un bloque de código YAML, un METRIC sin descripción y un EVENT con solo otra clave con
+ * «description» (decisión del Orquestador: claves inventadas, nada del tenant). La OpenAPI solo documenta `data`
  * en EventEvidence; en las demás, la descripción va en el mismo sitio que en vivo
  * (`data.properties[]`), como anota la ficha.
  */
@@ -7567,6 +7568,11 @@ const ALL_AVAILABILITY = 'Disponibilidad con descripción'
 const ALL_TRANSACTIONAL = 'Transacción con descripción larga'
 const ALL_EVENT = 'Evento con descripción larga'
 const ALL_PLAIN = 'Métrica sin descripción'
+const ALL_OTHER_EVENT = 'Evento con otra descripción'
+/** Otras claves con «description» (inventadas) y su Markdown. */
+const OTHER_KEY = 'custom.description'
+const OTHER_KEY_EVENT = 'Runbook.Description'
+const OTHER_MD = '### Pasos\n\n- **reiniciar** el pool\n- avisar al `equipo`'
 detailOnly.push({
   problemId: ALL_ID,
   displayId: 'P-835',
@@ -7581,7 +7587,7 @@ detailOnly.push({
   managementZones: [],
   problemFilters: [],
   evidenceDetails: {
-    totalCount: 5,
+    totalCount: 6,
     details: [
       {
         evidenceType: 'METRIC',
@@ -7597,7 +7603,9 @@ detailOnly.push({
         data: {
           properties: [
             { key: 'paso.0', value: 'valor-0' },
-            { key: 'dt.event.description', value: ALL_METRIC_MD }
+            { key: 'dt.event.description', value: ALL_METRIC_MD },
+            { key: OTHER_KEY, value: OTHER_MD },
+            { key: 'custom.owner', value: 'equipo-pagos' }
           ]
         }
       },
@@ -7636,16 +7644,20 @@ detailOnly.push({
         unit: 'Percent',
         valueBeforeChangePoint: 1,
         valueAfterChangePoint: 4
-      }
+      },
+      descEvent(ALL_OTHER_EVENT, 36, [
+        { key: OTHER_KEY_EVENT, value: OTHER_MD },
+        { key: 'custom.owner', value: 'equipo-pagos' }
+      ])
     ]
   }
 })
 
-/** Ficha 0035: abre P-835 por URL y espera sus 5 evidencias. */
+/** Ficha 0035: abre P-835 por URL y espera sus 6 evidencias. */
 async function openAllDescriptionsProblem(): Promise<void> {
   await goToRoute(`/problems/${ALL_ID}`)
   await expect(page.getByTestId('problem-page-title')).toContainText('P-835')
-  await expect(evidenceRows()).toHaveCount(5)
+  await expect(evidenceRows()).toHaveCount(6)
 }
 
 /** Ficha 0035: el texto de la sección no lleva los símbolos de Markdown. */
@@ -7691,6 +7703,78 @@ test('CA4 (0035): una evidencia que no es EVENT y no trae descripción no tiene 
   const detail = await expandRow(ALL_PLAIN)
   await expect(detail.getByTestId('evidence-description')).toHaveCount(0)
   await expect(detail.getByTestId('evidence-description-truncated')).toHaveCount(0)
+})
+
+/**
+ * Decisión del Orquestador (0035): la sección de otra clave con «description», localizada por su
+ * título (la clave) sin atarse a un data-testid: el contenedor más cercano que tiene el título y
+ * el Markdown renderizado.
+ */
+function otherDescription(detail: Locator, key: string): Locator {
+  return detail
+    .locator('section, div')
+    .filter({ has: page.getByText(key, { exact: true }) })
+    .filter({ has: page.locator('strong', { hasText: 'reiniciar' }) })
+    .last()
+}
+
+test('Decisión del Orquestador (0035): otra clave con «description» en un METRIC se pinta como Markdown en su sección, debajo de «Descripción»', async () => {
+  await openAllDescriptionsProblem()
+  const detail = await expandRow(ALL_METRIC)
+  const main = descriptionParts(detail).section
+  await expect(main).toBeVisible()
+
+  // Su título es la clave, visible y fuera de la lista de propiedades.
+  const title = detail.getByText(OTHER_KEY, { exact: true })
+  await expect(title).toBeVisible()
+  const section = otherDescription(detail, OTHER_KEY)
+  await expect(section).toBeVisible()
+  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Pasos'])
+  await expect(section.locator('li')).toHaveText(['reiniciar el pool', 'avisar al equipo'])
+  await expect(section.locator('strong')).toHaveText(['reiniciar'])
+  await expect(section.locator('code')).toHaveText(['equipo'])
+  const text = await section.innerText()
+  expect(text).not.toContain('**')
+  expect(text).not.toContain('`')
+  expect(text).not.toContain('###')
+  // Con su «Copiar», como la «Descripción».
+  await expect(section.getByRole('button', { name: 'Copiar' })).toHaveCount(1)
+  // No está dentro de «Descripción» y va después de ella.
+  await expect(main.getByText(OTHER_KEY, { exact: true })).toHaveCount(0)
+  await expect(main.locator('strong', { hasText: 'reiniciar' })).toHaveCount(0)
+  const after = await main.evaluate(
+    (first, second) =>
+      second !== null &&
+      (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+    await title.elementHandle()
+  )
+  expect(after).toBe(true)
+
+  // Deja de salir como texto en la lista; la clave sin «description» sigue en ella como texto.
+  const properties = detail.getByTestId('evidence-properties')
+  const keys = await properties.locator('dt').allInnerTexts()
+  expect(keys).not.toContain(OTHER_KEY)
+  expect(keys).toContain('custom.owner')
+  await expect(properties).toContainText('equipo-pagos')
+  await expect(properties).not.toContainText('reiniciar')
+})
+
+test('Decisión del Orquestador (0035): en un EVENT sin dt.event.description, otra clave con «Description» (mayúsculas) también se pinta', async () => {
+  await openAllDescriptionsProblem()
+  const detail = await expandRow(ALL_OTHER_EVENT)
+  // Sin dt.event.description no hay «Descripción» principal.
+  await expect(detail.getByTestId('evidence-description')).toHaveCount(0)
+  await expect(detail.getByText(OTHER_KEY_EVENT, { exact: true })).toBeVisible()
+  const section = otherDescription(detail, OTHER_KEY_EVENT)
+  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Pasos'])
+  await expect(section.locator('li')).toHaveText(['reiniciar el pool', 'avisar al equipo'])
+  expect(await section.innerText()).not.toContain('**')
+
+  const properties = detail.getByTestId('evidence-properties')
+  const keys = await properties.locator('dt').allInnerTexts()
+  expect(keys).not.toContain(OTHER_KEY_EVENT)
+  expect(keys).toContain('custom.owner')
+  await expect(properties).toContainText('equipo-pagos')
 })
 
 for (const name of [ALL_TRANSACTIONAL, ALL_EVENT]) {
