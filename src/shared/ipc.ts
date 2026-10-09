@@ -33,6 +33,8 @@ import {
   problemCommentSchema,
   processEntityIdSchema,
   processMetricsResultSchema,
+  processGroupEntityIdSchema,
+  processGroupMetricsResultSchema,
   problemDetailOutputSchema,
   problemSummarySchema,
   resolutionSchema,
@@ -392,6 +394,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: processMetricsResultSchema
+  },
+  /**
+   * Métricas de una entidad PROCESS_GROUP en el rango (ficha 0031): series y totales
+   * del conjunto de sus instancias y medias por instancia. La interfaz manda el id y
+   * main construye los selectores.
+   */
+  'entities:processGroupMetrics': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: processGroupEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: processGroupMetricsResultSchema
   },
   /**
    * Desglose de un browser monitor o de un HTTP monitor por localización y por paso o

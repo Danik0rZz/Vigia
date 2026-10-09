@@ -493,6 +493,54 @@ export const processMetricsResultSchema = z.object({
 })
 export type ProcessMetricsResult = z.output<typeof processMetricsResultSchema>
 
+/**
+ * Id de una entidad PROCESS_GROUP de Dynatrace (ficha 0031). Como el del proceso:
+ * main construye el entitySelector con él y el formato estricto impide inyectar nada.
+ */
+export const processGroupEntityIdSchema = z.string().regex(/^PROCESS_GROUP-[0-9A-F]{16}$/)
+
+/** Una instancia del grupo (ficha 0031): medias del rango, CPU en % y memoria en bytes. */
+export const processGroupInstanceSchema = z.object({
+  id: z.string(),
+  /** De dimensionMap; si no llega, el id. */
+  name: z.string(),
+  /** Host de la instancia, de dimensionMap; null si no llega. */
+  hostId: z.string().nullable(),
+  hostName: z.string().nullable(),
+  cpu: z.number().nullable(),
+  memory: z.number().nullable()
+})
+export type ProcessGroupInstance = z.output<typeof processGroupInstanceSchema>
+
+/**
+ * Métricas de un process group en el rango (canal `entities:processGroupMetrics`,
+ * ficha 0031): el total de sus instancias (CPU en %, que puede pasar de 100;
+ * memoria en bytes; red en bytes/s) y sus instancias, de más a menos CPU media. Los
+ * cuatro papeles tienen métrica: sin datos, series vacías y totales a null.
+ */
+export const processGroupMetricsResultSchema = z.object({
+  /** Resolución que devolvió la API para las series (por ejemplo, 10m o 1h). */
+  resolution: z.string(),
+  series: z.object({
+    cpu: serviceSeriesSchema,
+    memory: serviceSeriesSchema,
+    network: z.object({ in: serviceSeriesSchema, out: serviceSeriesSchema })
+  }),
+  /** Medias del total en el rango; la CPU máxima, de la serie. Null sin dato. */
+  totals: z.object({
+    cpu: z.object({ avg: z.number().nullable(), max: z.number().nullable() }),
+    memory: z.object({ avg: z.number().nullable() }),
+    network: z.object({ in: z.number().nullable(), out: z.number().nullable() })
+  }),
+  instances: z.object({
+    items: z.array(processGroupInstanceSchema),
+    total: z.number().int().nonnegative()
+  }),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type ProcessGroupMetricsResult = z.output<typeof processGroupMetricsResultSchema>
+
 /** Una localización del monitor en el rango (ficha 0023). */
 export const monitorLocationSchema = z.object({
   id: z.string(),

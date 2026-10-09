@@ -54,6 +54,12 @@ import {
   processEntitySelector,
   toProcessMetrics
 } from '../../modules/process-metrics'
+import {
+  PROCESS_GROUP_MARKER_SELECTOR,
+  PROCESS_GROUP_SERIES_SELECTOR,
+  processGroupEntitySelector,
+  toProcessGroupMetrics
+} from '../../modules/process-group-metrics'
 import { monitorBreakdownQueries, toMonitorBreakdown } from '../../modules/monitor-breakdown'
 import {
   DISK_RANGE_SELECTOR,
@@ -83,6 +89,7 @@ type ModuleChannels =
   | 'entities:monitorMetrics'
   | 'entities:monitorBreakdown'
   | 'entities:processMetrics'
+  | 'entities:processGroupMetrics'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -436,6 +443,40 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'processMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:processGroupMetrics': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const entitySelector = processGroupEntitySelector(entityId)
+      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, entitySelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Series del total con la resolución que elija la API; medias del total y por
+        // instancia con Inf (sin fold: mezclarlos da 400).
+        const [series, markers] = await Promise.all([
+          query(PROCESS_GROUP_SERIES_SELECTOR),
+          query(PROCESS_GROUP_MARKER_SELECTOR, 'Inf')
+        ])
+        return toProcessGroupMetrics(series, markers)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'processGroupMetricsRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }
