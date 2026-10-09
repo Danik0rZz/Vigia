@@ -359,6 +359,29 @@ export function useProcessGroupMetrics(
 }
 
 /**
+ * Métricas de una aplicación web (APPLICATION) en el rango global (canal de la ficha 0033;
+ * marcadores, gráficos y tabla de acciones de la 0034, una sola llamada). Con `entityId` null
+ * (id que no es de una aplicación) no se pide nada.
+ */
+export function useApplicationMetrics(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:applicationMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { applicationMetrics: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:applicationMetrics', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
  * Métricas de un browser monitor o de un HTTP monitor en el rango global (canal de la ficha 0022;
  * marcadores y gráficos de la 0024, una sola llamada). Con `entityId` null (id que no es de un
  * monitor) no se pide nada.
