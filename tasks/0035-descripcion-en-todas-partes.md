@@ -1,7 +1,7 @@
 ---
 id: '0035'
 titulo: 'Problemas: la descripción del evento con formato en todas las evidencias, y medir las descripciones largas'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -187,6 +187,11 @@ resulta no ser Markdown en la prueba a mano, se afina la regla.
   `EVENT`, debajo de su resumen van las descripciones y, ahora también, sus propiedades genéricas
   (antes solo las enseñaba el `EVENT`); `EvidenceView` gana `properties`, `description` y
   `extraDescriptions` de primer nivel.
+
+### Verifier, 2026-10-09, commit `5b04295`, rango `main..feat/0035-descripcion-en-todas-partes`: VERDE
+
+- check: 2657 tests en 154 ficheros, cobertura ok.
+- e2e completo (toca `src/shared`): 303/303.
 
 ## Resultado
 
