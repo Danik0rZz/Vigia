@@ -106,6 +106,8 @@
         "src/renderer/src/components/EvidenceDescription.tsx",
         "src/renderer/src/components/MarkdownText.tsx",
         "src/renderer/src/components/markdown-plugins.ts",
+        "src/renderer/src/components/markdown-html.ts",
+        "src/renderer/src/components/markdown-color.ts",
         "src/renderer/src/components/PanelBoundary.tsx",
         "src/renderer/src/app/evidence-table.ts",
         "src/renderer/src/app/entity-route.ts",

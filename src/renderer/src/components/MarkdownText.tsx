@@ -15,13 +15,16 @@ import {
   type AlertType,
   type HastNode
 } from './markdown-plugins'
+import { htmlPlugins } from './markdown-html'
 
 /**
  * Markdown del tenant (contenido no fiable), ficha 0001:
  *
- * - CommonMark + GFM como elementos de React, sin pasar por HTML. El HTML en
- *   crudo se queda en texto (react-markdown convierte los nodos `raw` en texto;
- *   nunca `rehype-raw` ni `dangerouslySetInnerHTML`).
+ * - CommonMark + GFM como elementos de React, sin `dangerouslySetInnerHTML`.
+ * - El HTML de formato escrito en el texto (colores, `mark`, `kbd`, `details`…)
+ *   se interpreta con una lista blanca (ficha 0043, `markdown-html.ts`): lo que
+ *   no está en la lista no crea elementos ni atributos, y los colores se validan
+ *   y se ajustan para leerse en los dos temas (`markdown-color.ts`).
  * - Solo los enlaces http/https son enlaces, y se abren en el navegador del
  *   sistema (`target="_blank"`, que recoge `setWindowOpenHandler` de main).
  *   Cualquier otro esquema o una ruta relativa se queda en texto.
@@ -54,12 +57,18 @@ const urlTransform: UrlTransform = (url, key) => {
   return isWebUrl(url) ? url : null
 }
 
-// Orden: primero los avisos y las marcas (miran el texto tal cual) y después los colores.
-const rehypePlugins = [rehypeAlerts, rehypeMarks, rehypeCodeHighlight] as Options['rehypePlugins']
+// Orden: primero el HTML de formato (interpretar, sanear y colores), después los avisos y las
+// marcas (miran el texto tal cual) y al final los colores de los bloques de código. La capa visual
+// va después del saneado, para que sus clases no se quiten.
+const rehypePlugins = [
+  ...htmlPlugins,
+  rehypeAlerts,
+  rehypeMarks,
+  rehypeCodeHighlight
+] as unknown as Options['rehypePlugins']
 
 /** Texto del bloque sin el salto de línea final que añade Markdown. */
-const blockCode = (code: HastNode | null): string =>
-  code === null ? '' : hastText(code).replace(/\r?\n$/, '')
+const blockCode = (code: HastNode): string => hastText(code).replace(/\r?\n$/, '')
 
 /**
  * Bloque de código: cabecera con el lenguaje y «Copiar» (copia el código por
@@ -75,7 +84,8 @@ function CodeBlock({
   const { t } = useTranslation()
   const [copy, setCopy] = useState<'idle' | 'done' | 'failed'>('idle')
   const code = node === undefined ? null : preCode(node)
-  const text = blockCode(code)
+  // Un `pre` escrito en HTML puede no llevar `code`: se copia su texto.
+  const text = node === undefined ? '' : blockCode(code ?? node)
   const language = code === null ? null : codeLanguage(code)
   const lines = text.split('\n')
   const copyCode = (): void => {
@@ -180,24 +190,49 @@ const components: Components = {
       {alt !== undefined && alt !== '' ? alt : typeof src === 'string' ? src : ''}
     </span>
   ),
-  p: ({ children, className }) => <p className={className}>{children}</p>,
-  li: ({ children, className }) => <li className={className}>{children}</li>,
-  ol: ({ children, start }) => <ol start={start}>{children}</ol>,
+  // `style` y `title` los trae el HTML de formato ya saneado (ficha 0043).
+  p: ({ children, className, style, title }) => (
+    <p className={className} style={style} title={title}>
+      {children}
+    </p>
+  ),
+  li: ({ children, className, style, title }) => (
+    <li className={className} style={style} title={title}>
+      {children}
+    </li>
+  ),
+  ol: ({ children, start, style, title }) => (
+    <ol start={start} style={style} title={title}>
+      {children}
+    </ol>
+  ),
   blockquote: ({ node, children }) => (
     <Blockquote node={node as HastNode | undefined}>{children}</Blockquote>
   ),
   pre: ({ node, children }) => (
     <CodeBlock node={node as HastNode | undefined}>{children}</CodeBlock>
   ),
-  code: ({ children, className }) => <code className={className}>{children}</code>,
+  code: ({ children, className, style, title }) => (
+    <code className={className} style={style} title={title}>
+      {children}
+    </code>
+  ),
   // Tablas con scroll propio: no ensanchan la fila.
   table: ({ children }) => (
     <div className="overflow-x-auto">
       <table>{children}</table>
     </div>
   ),
-  th: ({ children, style }) => <th style={style}>{children}</th>,
-  td: ({ children, style }) => <td style={style}>{children}</td>
+  th: ({ children, style, title }) => (
+    <th style={style} title={title}>
+      {children}
+    </th>
+  ),
+  td: ({ children, style, title }) => (
+    <td style={style} title={title}>
+      {children}
+    </td>
+  )
 }
 
 export function MarkdownText({ text }: { text: string }): JSX.Element {
