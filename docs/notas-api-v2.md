@@ -439,6 +439,7 @@ Muestra: 3 hosts, con `now-2h` y `now-7d`. Las 11 candidatas existen. Todas con
 | `builtin:host.mem.usage`          | Percent      | avg         | auto, avg, max, min |                               |
 | `builtin:host.mem.used`           | Byte         | avg         | auto, avg, max, min |                               |
 | `builtin:host.mem.total`          | Byte         | **value**   | auto, value         |                               |
+| `builtin:host.mem.recl`           | Byte         | avg         | auto, avg, max, min |                               |
 | `builtin:host.net.nic.trafficIn`  | BitPerSecond | avg         | auto, avg, max, min | `dt.entity.network_interface` |
 | `builtin:host.net.nic.trafficOut` | BitPerSecond | avg         | auto, avg, max, min | `dt.entity.network_interface` |
 | `builtin:host.disk.usedPct`       | Percent      | avg         | auto, avg, max, min | `dt.entity.disk`              |
@@ -455,6 +456,8 @@ Muestra: 3 hosts, con `now-2h` y `now-7d`. Las 11 candidatas existen. Todas con
 - **`mem.used / mem.total × 100` coincide con `mem.usage`.** `user + system + iowait` **no suma el
   total de CPU** en 2 de 3 hosts (hay más componentes): el desglose no es un reparto.
 - Ratios de recorte entre 0 y 0,01; ninguna respuesta con `warnings`.
+- **`builtin:host.mem.recl` (ficha 0039, en vivo):** memoria recuperable, `Byte`, con datos en los hosts de muestra. La usada **no** la incluye (usada + recuperable < total), así que se apilan. Es la memoria disponible sin swap menos la libre.
+- **Límite de expresiones:** el entorno acepta 11 expresiones en `metricSelector` aunque la OpenAPI dice «up to 10 metrics»; el canal respeta 10 (series en dos consultas).
 
 ### Discos y procesos de un host (ficha 0017, observado en vivo, solo lectura)
 

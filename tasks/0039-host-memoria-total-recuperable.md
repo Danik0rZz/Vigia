@@ -1,7 +1,7 @@
 ---
 id: '0039'
 titulo: 'HOST: memoria total y memoria recuperable en el marcador y el gráfico de memoria'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -170,4 +170,7 @@ y CA6 (0018) pasan con el código actual.
 
 ## Resultado
 
-(pendiente)
+- Commits: `ee987a9`, `6840f0c` (tests); `500598a`, `5a2e0cf` (código); fichas `666a67d`, `298c1fd`.
+- Ficheros principales: `src/main/modules/host-metrics.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/modules.ts`, `src/renderer/src/pages/entities/HostMarkers.tsx`, `host-charts.ts`, `locales/{es,en}/common.json`, `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Migraciones: no.
+- Pendiente de Dani: comprobar con un host real que total, usada y recuperable cuadran con Dynatrace.

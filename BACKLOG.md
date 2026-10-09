@@ -11,7 +11,7 @@ bueno de Dani o de peticiones en su nombre.
   **grupo-procesos** (0031 y 0032 hechas; [0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
   **aplicacion** (0033 y 0034 hechas; [0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
   **markdown** (0035, 0038 y 0043 hechas; [0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
-  [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** ([0039](tasks/0039-host-memoria-total-recuperable.md),
+  [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** (0039 hecha; [0039](tasks/0039-host-memoria-total-recuperable.md),
   [0040](tasks/0040-pagina-disco.md), [0041](tasks/0041-host-logs.md), [0042](tasks/0042-host-eventos.md)).
 
 ## Próximo
@@ -175,6 +175,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - La descripción mide como máximo 4 096 caracteres, también en el problema de prueba: puede ser un recorte de Dynatrace en `evidenceDetails`. Comprobar en vivo si otro endpoint (el evento por su `eventId`) la trae entera; si no, avisar de que puede venir cortada de origen. (surgió en 0035)
 - `.md-alert` (`main.css`): el título del aviso va sobre `bg-hover` encima de la fila de detalle y la tarjeta; en claro, `--md-alert-caution` y `--md-alert-important` rondan 4,3–4,6:1. Quitar el fondo de `.md-alert` u oscurecer esos dos tokens. (surgió en 0038)
 - Visor de Markdown: un `li` con marca pierde también el número en un `ol`; limitar `list-style: none` a `ul > li`. (surgió en 0038)
+- Host: tests de `hostChartUnit('memory') === 'B'` y del % usado en el tooltip (`formatter` de `hostChartOption('memory', …)`). (surgió en 0039)
+- Host: «Abrir en Métricas» del gráfico de memoria sigue con `mem.usage` (%), aunque el gráfico va en bytes; podría abrir usada, recuperable y total. (surgió en 0039)
+- e2e intermitente `CA2 (0005)` (`views.spec.ts:4601`, ventana mínima): timeout de 5 s del `expect.poll` de `withContentSize` con los workers en paralelo; pasa aislado y con `--workers=1`. (surgió en 0039)
 
 ## Aparcado
 
@@ -247,3 +250,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0035](tasks/0035-descripcion-en-todas-partes.md) (lote markdown): la «Descripción» con Markdown sale en todos los tipos de evidencia, también las otras propiedades con «description», y el límite sube a 9 000.
 - [0038](tasks/0038-visor-markdown-nivel-2.md) (lote markdown): el visor de Markdown con código con colores, números de línea y «Copiar», avisos de GitHub y marcas ✓ ✗ ⚠; dependencias lowlight y highlight.js.
 - [0043](tasks/0043-markdown-html-seguro.md) (lote markdown): las descripciones interpretan el HTML de formato (colores, negrita, marcas, tablas, `details`) con lista blanca (`rehype-raw` + `rehype-sanitize`, `style` solo con color, contraste ≥ 3:1 en claro y en oscuro); ADR-0011 sustituye la regla del HTML en crudo del 0008.
+- [0039](tasks/0039-host-memoria-total-recuperable.md) (lote host-2): la memoria del host enseña usada y recuperable apiladas y la total discontinua, en bytes; el marcador añade usada / total y la recuperable con ayuda. Series en dos consultas (límite de 10 expresiones). Sin migraciones.
