@@ -62,3 +62,22 @@ describe('CA5 (0001): evidenceWireSchema y el campo description', () => {
     expect(evidenceWireSchema.safeParse(wireWith('texto suelto')).success).toBe(false)
   })
 })
+
+describe('CA2 (0035): MAX_DESCRIPTION_LENGTH está entre 5 000 y 20 000', () => {
+  it('es un entero entre el mínimo de la 0001 y el techo de app:copyText', () => {
+    expect(Number.isInteger(MAX_DESCRIPTION_LENGTH)).toBe(true)
+    expect(MAX_DESCRIPTION_LENGTH).toBeGreaterThanOrEqual(5000)
+    expect(MAX_DESCRIPTION_LENGTH).toBeLessThanOrEqual(20_000)
+    // Redondeado al millar (regla de la 0001).
+    expect(MAX_DESCRIPTION_LENGTH % 1000).toBe(0)
+  })
+
+  it('el contrato acepta una descripción de esa longitud en una evidencia que no es EVENT', () => {
+    const wire = {
+      ...wireWith({ text: 'a'.repeat(MAX_DESCRIPTION_LENGTH), truncated: false }),
+      evidenceType: 'METRIC',
+      eventType: null
+    }
+    expect(evidenceWireSchema.safeParse(wire).success).toBe(true)
+  })
+})

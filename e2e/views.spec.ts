@@ -27,6 +27,7 @@ import ExcelJS from 'exceljs'
 import { generate } from 'selfsigned'
 import en from '../src/renderer/src/locales/en/common.json'
 import es from '../src/renderer/src/locales/es/common.json'
+import { MAX_DESCRIPTION_LENGTH } from '../src/shared/problem-evidence'
 
 /**
  * Fase 6, primeras vistas core sobre la app compilada (`out/`): Problemas,
@@ -7520,6 +7521,203 @@ test('CA1 (0002): sin conmutador de modo; la descripción sale siempre renderiza
   expect(text).not.toMatch(/^\s*- /m)
   expect(text).not.toContain('| --- |')
 })
+
+/**
+ * Ficha 0035: la descripción (dt.event.description) en todas las evidencias, no solo en EVENT.
+ * Problema ABIERTO (P-835) con cinco evidencias: un METRIC y un AVAILABILITY_EVIDENCE con
+ * descripción en Markdown, un TRANSACTIONAL y un EVENT con una descripción de 12 000 caracteres
+ * con un bloque de código YAML, y un METRIC sin descripción. La OpenAPI solo documenta `data`
+ * en EventEvidence; en las demás, la descripción va en el mismo sitio que en vivo
+ * (`data.properties[]`), como anota la ficha.
+ */
+const ALL_ID = 'pd-desc-all'
+const ALL_SERVICE = { entityId: { id: 'SERVICE-DA1', type: 'SERVICE' }, name: 'svc-todas' }
+const ALL_METRIC_MD = [
+  '## Cambio en la métrica',
+  '',
+  '- **subida** brusca',
+  '- revisar `pool`',
+  '',
+  '> Avisado por el equipo'
+].join('\n')
+const ALL_AVAILABILITY_MD = '### Host caído\n\n1. reiniciar\n2. comprobar'
+/** Fin de la descripción larga: si se ve, ha llegado entera. */
+const LONG_END = 'FIN-DE-LA-DESCRIPCION-0035'
+const LONG_HEAD = [
+  '# Configuración del despliegue',
+  '',
+  'Antes del bloque.',
+  '',
+  '```yaml',
+  'servicio:',
+  '  nombre: pagos',
+  '  replicas: 3',
+  '```',
+  '',
+  ''
+].join('\n')
+const LONG_TAIL = `\n\n${LONG_END}`
+/** 12 000 caracteres exactos, con el bloque de código al principio y la marca al final. */
+const DESC_12K =
+  LONG_HEAD +
+  'relleno '.repeat(2000).slice(0, 12_000 - LONG_HEAD.length - LONG_TAIL.length) +
+  LONG_TAIL
+const ALL_METRIC = 'Métrica con descripción'
+const ALL_AVAILABILITY = 'Disponibilidad con descripción'
+const ALL_TRANSACTIONAL = 'Transacción con descripción larga'
+const ALL_EVENT = 'Evento con descripción larga'
+const ALL_PLAIN = 'Métrica sin descripción'
+detailOnly.push({
+  problemId: ALL_ID,
+  displayId: 'P-835',
+  title: 'Problema con descripciones en todas las evidencias',
+  status: 'OPEN',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [ALL_SERVICE],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 5,
+    details: [
+      {
+        evidenceType: 'METRIC',
+        displayName: ALL_METRIC,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: true,
+        startTime: NOW - 90 * MIN,
+        endTime: -1,
+        metricId: 'builtin:service.response.time',
+        unit: 'MicroSecond',
+        valueBeforeChangePoint: 100_000,
+        valueAfterChangePoint: 300_000,
+        data: {
+          properties: [
+            { key: 'paso.0', value: 'valor-0' },
+            { key: 'dt.event.description', value: ALL_METRIC_MD }
+          ]
+        }
+      },
+      {
+        evidenceType: 'AVAILABILITY_EVIDENCE',
+        displayName: ALL_AVAILABILITY,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: false,
+        startTime: NOW - 85 * MIN,
+        endTime: NOW - 80 * MIN,
+        data: { properties: [{ key: 'dt.event.description', value: ALL_AVAILABILITY_MD }] }
+      },
+      {
+        evidenceType: 'TRANSACTIONAL',
+        displayName: ALL_TRANSACTIONAL,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: false,
+        startTime: NOW - 75 * MIN,
+        endTime: NOW - 70 * MIN,
+        unit: 'Percent',
+        valueBeforeChangePoint: 0,
+        valueAfterChangePoint: 12.5,
+        data: { properties: [{ key: 'dt.event.description', value: DESC_12K }] }
+      },
+      descEvent(ALL_EVENT, 35, [{ key: 'dt.event.description', value: DESC_12K }], {
+        eventId: 'desc-all-35'
+      }),
+      {
+        evidenceType: 'METRIC',
+        displayName: ALL_PLAIN,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: false,
+        startTime: NOW - 65 * MIN,
+        endTime: -1,
+        metricId: 'builtin:service.errors.total.rate',
+        unit: 'Percent',
+        valueBeforeChangePoint: 1,
+        valueAfterChangePoint: 4
+      }
+    ]
+  }
+})
+
+/** Ficha 0035: abre P-835 por URL y espera sus 5 evidencias. */
+async function openAllDescriptionsProblem(): Promise<void> {
+  await goToRoute(`/problems/${ALL_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-835')
+  await expect(evidenceRows()).toHaveCount(5)
+}
+
+/** Ficha 0035: el texto de la sección no lleva los símbolos de Markdown. */
+async function expectRenderedText(section: Locator): Promise<void> {
+  const text = await section.innerText()
+  expect(text).not.toContain('**')
+  expect(text).not.toContain('`')
+  expect(text).not.toMatch(/^\s*#/m)
+  expect(text).not.toMatch(/^\s*- /m)
+}
+
+test('CA4 (0035): una evidencia METRIC con descripción enseña «Descripción» renderizada al desplegarla', async () => {
+  await openAllDescriptionsProblem()
+  const detail = await expandRow(ALL_METRIC)
+  const { section, copy, truncated } = descriptionParts(detail)
+  await expect(section).toBeVisible()
+  await expect(section).toContainText('Descripción')
+  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Cambio en la métrica'])
+  await expect(section.locator('li')).toHaveText(['subida brusca', 'revisar pool'])
+  await expect(section.locator('strong')).toHaveText(['subida'])
+  await expect(section.locator('code')).toHaveText(['pool'])
+  await expect(section.locator('blockquote')).toHaveText('Avisado por el equipo')
+  await expectRenderedText(section)
+  // Con su «Copiar» y sin nota de recorte (es corta).
+  await expect(copy).toBeVisible()
+  await expect(truncated).toHaveCount(0)
+  // La clave no se repite como propiedad genérica.
+  const keys = await detail.locator('[data-testid="evidence-properties"] dt').allInnerTexts()
+  expect(keys).not.toContain('dt.event.description')
+})
+
+test('CA4 (0035): una evidencia AVAILABILITY_EVIDENCE con descripción también la enseña renderizada', async () => {
+  await openAllDescriptionsProblem()
+  const { section } = descriptionParts(await expandRow(ALL_AVAILABILITY))
+  await expect(section).toBeVisible()
+  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Host caído'])
+  await expect(section.locator('ol li')).toHaveText(['reiniciar', 'comprobar'])
+  await expectRenderedText(section)
+})
+
+test('CA4 (0035): una evidencia que no es EVENT y no trae descripción no tiene la sección', async () => {
+  await openAllDescriptionsProblem()
+  const detail = await expandRow(ALL_PLAIN)
+  await expect(detail.getByTestId('evidence-description')).toHaveCount(0)
+  await expect(detail.getByTestId('evidence-description-truncated')).toHaveCount(0)
+})
+
+for (const name of [ALL_TRANSACTIONAL, ALL_EVENT]) {
+  test(`CA5 (0035): una descripción de 12 000 caracteres con un bloque de código llega y se renderiza (${name})`, async () => {
+    expect(DESC_12K).toHaveLength(12_000)
+    await openAllDescriptionsProblem()
+    const { section, truncated } = descriptionParts(await expandRow(name))
+    await expect(section).toBeVisible()
+    await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText([
+      'Configuración del despliegue'
+    ])
+    // El bloque de código YAML, como bloque y sin las vallas.
+    const block = section.locator('pre')
+    await expect(block).toHaveCount(1)
+    await expect(block).toContainText('servicio:')
+    await expect(block).toContainText('replicas: 3')
+    expect(await section.innerText()).not.toContain('```')
+    if (MAX_DESCRIPTION_LENGTH >= DESC_12K.length) {
+      // El límite lo permite: llega entera, con su final y sin nota de recorte.
+      await expect(section).toContainText(LONG_END)
+      await expect(truncated).toHaveCount(0)
+    } else {
+      await expect(section).not.toContainText(LONG_END)
+      await expect(truncated).toBeVisible()
+    }
+  })
+}
 
 /**
  * Ficha 0003: página de análisis de la entidad. Problema ABIERTO (P-786) con cuatro evidencias:
