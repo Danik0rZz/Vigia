@@ -55,6 +55,22 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 - Cambiar el comportamiento del tooltip o del menú en la app.
 
+## Reproducción (developer)
+
+- Con el test tal cual, 30 de 30 en verde en local (`--repeat-each 30 --workers=1`): en local no
+  falla.
+- Medido en el test: `hoverFresh` lee la caja del enlace unos 85 ms después del clic en
+  `sidebar-toggle`, con el `aside` aún a unos 110 px de los 56 finales (la transición de anchura dura
+  200 ms). En local, el centro leído a esa anchura aún cae dentro del enlace plegado; si en el runner
+  la lectura llega antes, cae fuera.
+- Reproducción determinista: leer la caja de `nav-problems` justo tras el clic (222 px de ancho) y
+  llevar el ratón a su centro deja el puntero a unos 128 px, fuera del menú ya plegado: el tooltip no
+  sale (5 de 5 fallan). La causa es del test, no de la app: con el puntero dentro del enlace, el
+  tooltip sale.
+- Arreglo en `e2e/hover.ts`: `hoverFresh` y `moveToNeutral` leen la caja con `stableBox`, que espera
+  a que no cambie entre dos lecturas separadas 50 ms (máximo 3 s). Con él, la misma reproducción
+  (hover justo tras plegar) pasa 10 de 10. No hizo falta `expect.toPass`.
+
 ## Ideas surgidas (fuera de alcance)
 
 (ninguna)
