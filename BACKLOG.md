@@ -6,13 +6,15 @@ bueno de Dani o de peticiones en su nombre.
 
 ## En curso
 
-- Cola aprobada por Dani el 2026-10-09, en este orden: lote **mejoras-entidades**
-  (0036 y 0037 hechas),
-  **grupo-procesos** (0031 y 0032 hechas; [0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
-  **aplicacion** (0033 y 0034 hechas; [0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
-  **markdown** (0035, 0038 y 0043 hechas; [0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
-  [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** (0039 a 0042 hechas; [0039](tasks/0039-host-memoria-total-recuperable.md),
-  [0040](tasks/0040-pagina-disco.md), [0041](tasks/0041-host-logs.md), [0042](tasks/0042-host-eventos.md)).
+- Cola aprobada por Dani el 2026-10-10, en este orden: lote **servicio-tipos**
+  ([0046](tasks/0046-servicio-metricas-por-tipo.md), [0047](tasks/0047-servicio-vista-por-tipo.md),
+  [0048](tasks/0048-servicio-grafico-slo.md)), [0049](tasks/0049-etiquetas-capsula.md) (etiquetas en
+  cápsula), **grupo-procesos-2** ([0050](tasks/0050-grupo-procesos-top-instancias-datos.md),
+  [0051](tasks/0051-grupo-procesos-modal-instancias.md)) y **aplicacion-rum**
+  ([0052](tasks/0052-aplicacion-rum-datos.md), [0053](tasks/0053-aplicacion-rum-actividad-errores.md),
+  [0054](tasks/0054-aplicacion-rum-usuarios-experiencia.md)).
+- Pendiente de Dani: las decisiones de la auditoría de código del 2026-10-09
+  (`docs/revisiones/2026-10-09-revision-codigo.md`) para redactar sus lotes.
 
 ## Próximo
 
