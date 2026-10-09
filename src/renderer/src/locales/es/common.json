@@ -685,7 +685,8 @@
       "HTTP_CHECK": "HTTP monitor",
       "APPLICATION": "Aplicación web",
       "CLOUD_APPLICATION": "Cloud application",
-      "ENVIRONMENT": "Entorno"
+      "ENVIRONMENT": "Entorno",
+      "DISK": "Disco"
     },
     "host": {
       "invalidId": "Este ID no tiene el formato de un host de Dynatrace (HOST- y 16 caracteres hexadecimales): no se piden sus datos.",
@@ -1205,6 +1206,57 @@
       "label": "Etiquetas",
       "more_one": "Ver la etiqueta restante",
       "more_other": "Ver las {{count}} etiquetas restantes"
+    },
+    "disk": {
+      "invalidId": "Este ID no tiene el formato de un disco de Dynatrace (DISK- y 16 caracteres hexadecimales): no se piden sus datos.",
+      "markers": {
+        "label": "Marcadores del disco",
+        "usage": "Uso",
+        "free": "Libre",
+        "read": "Lectura",
+        "write": "Escritura",
+        "latency": "Latencia",
+        "queue": "Cola",
+        "problems": "Problemas",
+        "usageCaption": "Máximo del rango",
+        "freeCaption": "Último dato",
+        "average": "Media del rango",
+        "latencyCaption": "Lectura media",
+        "latencyWrite": "Escritura media: {{value}}",
+        "queueCaption": "Longitud media"
+      },
+      "charts": {
+        "title": "Métricas del disco",
+        "label": "Gráficos de las métricas del disco",
+        "usage": "Uso %",
+        "space": "Espacio",
+        "throughput": "Lectura y escritura",
+        "latency": "Latencia",
+        "queue": "Cola",
+        "series": {
+          "usage": "Uso",
+          "used": "Usado",
+          "free": "Libre",
+          "read": "Lectura",
+          "write": "Escritura",
+          "queue": "Longitud de la cola"
+        }
+      },
+      "info": {
+        "label": "Información del disco",
+        "column": "Disco",
+        "rows": {
+          "detectedName": "Nombre detectado",
+          "filesystemType": "Sistema de ficheros",
+          "diskOf": "Disco de",
+          "firstSeen": "Visto por primera vez",
+          "lastSeen": "Visto por última vez",
+          "managementZones": "Management zones"
+        },
+        "groups": {
+          "other": "Otras relaciones"
+        }
+      }
     }
   },
   "markdown": {

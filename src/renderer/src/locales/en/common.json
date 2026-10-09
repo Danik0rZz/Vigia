@@ -685,7 +685,8 @@
       "HTTP_CHECK": "HTTP monitor",
       "APPLICATION": "Web application",
       "CLOUD_APPLICATION": "Cloud application",
-      "ENVIRONMENT": "Environment"
+      "ENVIRONMENT": "Environment",
+      "DISK": "Disk"
     },
     "host": {
       "invalidId": "This ID doesn't have the format of a Dynatrace host (HOST- and 16 hexadecimal characters): its data isn't requested.",
@@ -1205,6 +1206,57 @@
       "label": "Tags",
       "more_one": "Show the remaining tag",
       "more_other": "Show the remaining {{count}} tags"
+    },
+    "disk": {
+      "invalidId": "This ID does not have the format of a Dynatrace disk (DISK- and 16 hexadecimal characters): its data is not requested.",
+      "markers": {
+        "label": "Disk markers",
+        "usage": "Usage",
+        "free": "Free",
+        "read": "Read",
+        "write": "Write",
+        "latency": "Latency",
+        "queue": "Queue",
+        "problems": "Problems",
+        "usageCaption": "Range maximum",
+        "freeCaption": "Latest value",
+        "average": "Range average",
+        "latencyCaption": "Average read",
+        "latencyWrite": "Average write: {{value}}",
+        "queueCaption": "Average length"
+      },
+      "charts": {
+        "title": "Disk metrics",
+        "label": "Charts of the disk metrics",
+        "usage": "Usage %",
+        "space": "Space",
+        "throughput": "Read and write",
+        "latency": "Latency",
+        "queue": "Queue",
+        "series": {
+          "usage": "Usage",
+          "used": "Used",
+          "free": "Free",
+          "read": "Read",
+          "write": "Write",
+          "queue": "Queue length"
+        }
+      },
+      "info": {
+        "label": "Disk information",
+        "column": "Disk",
+        "rows": {
+          "detectedName": "Detected name",
+          "filesystemType": "File system",
+          "diskOf": "Disk of",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen",
+          "managementZones": "Management zones"
+        },
+        "groups": {
+          "other": "Other relationships"
+        }
+      }
     }
   },
   "markdown": {

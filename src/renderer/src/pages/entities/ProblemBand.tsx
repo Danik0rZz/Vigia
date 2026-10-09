@@ -34,7 +34,7 @@ const MIN_SEGMENT_WIDTH = 'calc(0.75rem + 8px)'
  * process group (0032) y aplicación (0034).
  */
 export type BandTestIdPrefix =
-  'service' | 'host' | 'monitor' | 'process' | 'process-group' | 'application'
+  'service' | 'host' | 'monitor' | 'process' | 'process-group' | 'application' | 'disk'
 
 /**
  * Franja de los problemas de la entidad sobre el gráfico «Tasa de error» del servicio (ficha 0010)

@@ -29,6 +29,7 @@ export type InfoPrefix =
   | 'process-info'
   | 'process-group-info'
   | 'application-info'
+  | 'disk-info'
 
 /**
  * Marco de la tarjeta, entre la cabecera y los marcadores. Sin `entities.read`, el aviso del

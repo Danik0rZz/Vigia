@@ -320,6 +320,28 @@ function processMetricsQuery(
 }
 
 /**
+ * Métricas de un DISK en el rango global (ficha 0040; marcadores y gráficos, una sola llamada).
+ * Con `entityId` null (id que no es de un disco) no se pide nada.
+ */
+export function useDiskMetrics(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:diskMetrics'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { diskMetrics: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:diskMetrics', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
  * Métricas de varios procesos en el rango global, una llamada a `entities:processMetrics` por
  * cada uno (ficha 0032: las cinco instancias de más CPU de un process group), juntas en un solo
  * estado. Sin entorno no se pide nada; con la lista vacía, tampoco (datos: lista vacía).

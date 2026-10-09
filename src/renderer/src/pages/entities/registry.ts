@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { BrowserMonitorEntityPage } from './BrowserMonitorEntityPage'
 import { CloudApplicationEntityPage } from './CloudApplicationEntityPage'
 import type { EntityPageProps } from './EntityPageFrame'
+import { DiskEntityPage } from './DiskEntityPage'
 import { EnvironmentEntityPage } from './EnvironmentEntityPage'
 import { GenericEntityPage } from './GenericEntityPage'
 import { HostEntityPage } from './HostEntityPage'
@@ -38,7 +39,8 @@ export const ENTITY_PAGES: Readonly<Partial<Record<string, EntityPageEntry>>> = 
     Page: CloudApplicationEntityPage,
     labelKey: 'entities.types.CLOUD_APPLICATION'
   },
-  ENVIRONMENT: { Page: EnvironmentEntityPage, labelKey: 'entities.types.ENVIRONMENT' }
+  ENVIRONMENT: { Page: EnvironmentEntityPage, labelKey: 'entities.types.ENVIRONMENT' },
+  DISK: { Page: DiskEntityPage, labelKey: 'entities.types.DISK' }
 }
 
 /**
