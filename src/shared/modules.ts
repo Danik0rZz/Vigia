@@ -392,6 +392,41 @@ export const hostBreakdownResultSchema = z.object({
 export type HostBreakdownResult = z.output<typeof hostBreakdownResultSchema>
 
 /**
+ * Estado de una fuente de log tal como lo da Dynatrace (un enum en mayúsculas). Lo que no tenga
+ * esa forma (una ruta, un texto libre) no sale de main (ficha 0041).
+ */
+export const dtLogEnumSchema = z.string().regex(/^[A-Z][A-Z0-9_]*$/)
+
+/**
+ * Un proceso del host con logs detectados (ficha 0041). Nunca lleva las rutas ni los nombres de
+ * las fuentes de log (pueden llevar el usuario o el cliente): solo cuántas hay.
+ */
+export const hostLogProcessSchema = z.object({
+  id: entityIdSchema,
+  name: z.string(),
+  /** `logFileStatus` (`FILE_STATUS_OK`, `FILE_STATUS_NOT_EXIST`…); null si no llega. */
+  fileStatus: dtLogEnumSchema.nullable(),
+  /** `storageStatus` de `logSourceState`; null si no llega. */
+  sourceState: dtLogEnumSchema.nullable(),
+  /** La más reciente de `logPathLastUpdate`, en epoch ms; null si no llega. */
+  lastUpdate: z.number().nullable(),
+  /** Fuentes de log distintas del proceso (se cuentan, no se enseñan). */
+  logCount: z.number().int().nonnegative()
+})
+export type HostLogProcess = z.output<typeof hostLogProcessSchema>
+
+/** Procesos del host con logs (canal `entities:hostLogs`, ficha 0041). */
+export const hostLogsResultSchema = z.object({
+  /** Solo los procesos con logs. */
+  processes: z.array(hostLogProcessSchema),
+  /** Cuántos procesos tienen logs (`processes.length`). */
+  withLogs: z.number().int().nonnegative(),
+  /** Cuántos procesos tiene el host. */
+  total: z.number().int().nonnegative()
+})
+export type HostLogsResult = z.output<typeof hostLogsResultSchema>
+
+/**
  * Id de un browser monitor (SYNTHETIC_TEST) o de un HTTP monitor (HTTP_CHECK) de
  * Dynatrace (ficha 0022). Como el del servicio: main construye los selectores con
  * él y el formato estricto impide inyectar nada. El tipo sale del prefijo.

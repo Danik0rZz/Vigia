@@ -259,6 +259,7 @@
     "serviceMetricsRejected": "Dynatrace rejected the service metrics query ({{status}}): {{detail}}",
     "hostMetricsRejected": "Dynatrace rejected the host metrics query ({{status}}): {{detail}}",
     "hostBreakdownRejected": "Dynatrace rejected the host disks and processes query ({{status}}): {{detail}}",
+    "hostLogsRejected": "Dynatrace rejected the host logs query ({{status}}): {{detail}}",
     "monitorBreakdownRejected": "Dynatrace rejected the monitor breakdown by location and step query ({{status}}): {{detail}}",
     "processMetricsRejected": "Dynatrace rejected the process metrics query ({{status}}): {{detail}}",
     "processGroupMetricsRejected": "Dynatrace rejected the process group metrics query ({{status}}): {{detail}}",

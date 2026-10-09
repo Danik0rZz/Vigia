@@ -68,6 +68,14 @@ import {
   toApplicationMetrics
 } from '../../modules/application-metrics'
 import { diskMarkerSelector, diskSeriesSelector, toDiskMetrics } from '../../modules/disk-metrics'
+import {
+  HOST_LOGS_FIELDS,
+  HOST_LOGS_MAX_PAGES,
+  HOST_LOGS_PAGE_SIZE,
+  hostLogsEntitySchema,
+  hostLogsSelector,
+  toHostLogs
+} from '../../modules/host-logs'
 import { monitorBreakdownQueries, toMonitorBreakdown } from '../../modules/monitor-breakdown'
 import {
   DISK_RANGE_SELECTOR,
@@ -94,6 +102,7 @@ type ModuleChannels =
   | 'entities:serviceMetrics'
   | 'entities:hostMetrics'
   | 'entities:hostBreakdown'
+  | 'entities:hostLogs'
   | 'entities:monitorMetrics'
   | 'entities:monitorBreakdown'
   | 'entities:processMetrics'
@@ -674,6 +683,41 @@ export function createModuleHandlers(
             key: 'hostBreakdownRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
+        }
+        throw error
+      }
+    },
+
+    'entities:hostLogs': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      try {
+        // Con nextPageKey, la página siguiente lleva solo la clave (OpenAPI; DT_ENDPOINTS).
+        const page = await client.paginate({
+          envId: environmentId,
+          api: 'classic',
+          endpoint: DT_ENDPOINTS.entities,
+          query: {
+            entitySelector: hostLogsSelector(entityId),
+            fields: HOST_LOGS_FIELDS,
+            ...timeRangeToDt(timeRange),
+            pageSize: HOST_LOGS_PAGE_SIZE
+          },
+          schema: hostLogsEntitySchema,
+          maxPages: HOST_LOGS_MAX_PAGES
+        })
+        return toHostLogs(page.items, page.totalCount, page.invalid)
+      } catch (error) {
+        // Un rechazo de Dynatrace llega con su texto y sin motivo: se le da uno.
+        if (error instanceof DtError && error.reason === undefined && error.status !== undefined) {
+          throw new DtError(
+            error.code,
+            `Dynatrace ha rechazado la consulta de logs del host: ${error.message}`,
+            error.status,
+            {
+              key: 'hostLogsRejected',
+              params: { status: error.status, detail: error.message }
+            }
+          )
         }
         throw error
       }

@@ -24,6 +24,7 @@ import {
   hostEntityIdSchema,
   hostMetricsResultSchema,
   hostBreakdownResultSchema,
+  hostLogsResultSchema,
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
@@ -372,6 +373,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: hostBreakdownResultSchema
+  },
+  /**
+   * Procesos de una entidad HOST con logs detectados en el rango (ficha 0041): estado del
+   * fichero y de la fuente y última actualización, nunca las rutas. La interfaz manda el id y
+   * main construye el selector.
+   */
+  'entities:hostLogs': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: hostEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: hostLogsResultSchema
   },
   /**
    * Métricas de un browser monitor o de un HTTP monitor en el rango (ficha 0022):

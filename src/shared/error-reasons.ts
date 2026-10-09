@@ -37,6 +37,7 @@ export const errorReasonKeys = [
   'serviceMetricsRejected',
   'hostMetricsRejected',
   'hostBreakdownRejected',
+  'hostLogsRejected',
   'monitorMetricsRejected',
   'monitorBreakdownRejected',
   'processMetricsRejected',

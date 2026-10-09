@@ -259,6 +259,7 @@
     "serviceMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del servicio ({{status}}): {{detail}}",
     "hostMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del host ({{status}}): {{detail}}",
     "hostBreakdownRejected": "Dynatrace ha rechazado la consulta de discos y procesos del host ({{status}}): {{detail}}",
+    "hostLogsRejected": "Dynatrace ha rechazado la consulta de logs del host ({{status}}): {{detail}}",
     "monitorBreakdownRejected": "Dynatrace ha rechazado la consulta del desglose del monitor por localización y paso ({{status}}): {{detail}}",
     "processMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del proceso ({{status}}): {{detail}}",
     "processGroupMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del process group ({{status}}): {{detail}}",
