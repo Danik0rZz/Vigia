@@ -32,7 +32,8 @@ import {
  * - Legibilidad (CA5): en `markdown-color.test.ts`.
  * - `font color` puede salir como `font` con `color` o convertido a un elemento con `style`; lo que
  *   cuenta es el color con el que se pinta el texto.
- * - `background-color` se conserva si el valor es válido (la ficha no dice si se ajusta).
+ * - `background-color` válido: se conserva solo si el texto encima se lee en los dos temas
+ *   (decisión del Orquestador; sus casos, en `markdown-color.test.ts`).
  *
  * Fixtures inventados; los dominios son `.test` (reservado, no existe).
  */
@@ -355,8 +356,8 @@ describe('CA2 (0043): style solo con color y background-color, y con valores vá
     expect(toRgba(styleOf(span as HtmlNode, 'color') ?? '')).not.toBeNull()
   })
 
-  it('background-color con un color válido se conserva', () => {
-    const tree = render('A <span style="background-color:#fff3cd">x</span> B')
+  it('background-color con un color válido (y legible en los dos temas) se conserva', () => {
+    const tree = render('A <span style="background-color:#808080">x</span> B')
     const span = byTag(tree, 'span').find((n) => textOf(n) === 'x')
     expect(toRgba(styleOf(span as HtmlNode, 'background-color') ?? '')).not.toBeNull()
   })

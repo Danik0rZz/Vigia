@@ -2,13 +2,17 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { MarkdownText } from './MarkdownText'
-import { readableColor, THEME_BACKGROUNDS } from './markdown-color'
+import { readableColor, THEME_BACKGROUNDS, THEME_FOREGROUNDS } from './markdown-color'
 import {
+  all,
   contrastOver,
+  type HtmlNode,
   paintedColor,
   parse,
   type Rgba,
   sameColor,
+  styleOf,
+  textOf,
   toRgba
 } from '../../../test/html-tree'
 
@@ -28,6 +32,11 @@ import {
  * - El visor pinta el texto con un único color en línea que contrasta ≥ 3:1 con los dos fondos a
  *   la vez, así sigue legible si se cambia de tema sin volver a pintar. Un color casi transparente
  *   (`rgba` con poca opacidad) tampoco puede dejar el texto invisible.
+ * - `background-color` (decisión del Orquestador en la ficha): `THEME_FOREGROUNDS` (mismo módulo,
+ *   `[claro, oscuro]`, el `--foreground` de cada tema). Un fondo válido se conserva solo si el
+ *   texto encima se lee a ≥ 3:1 en los dos temas: con su `color` en línea si lo trae (el par tal
+ *   cual; si no llega, se quitan los dos) o con `--foreground` si no. Si no, se quita el fondo. Un
+ *   fondo casi transparente cuenta como el fondo del tema.
  */
 
 const [LIGHT, DARK] = THEME_BACKGROUNDS as unknown as [string, string]
@@ -193,5 +202,121 @@ describe('CA5 (0043): un color de bajo contraste se ajusta en el visor', () => {
       expect(contrastOver(red, background)).toBeGreaterThanOrEqual(3)
     const tree = renderTree('A <span style="color:#dd0000">texto</span> B')
     expect(sameColor(paintedColor(tree, 'texto'), '#dd0000')).toBe(true)
+  })
+})
+
+// --- background-color (decisión del Orquestador, ficha 0043, CA2 y CA5) ---
+
+const [FG_LIGHT, FG_DARK] = THEME_FOREGROUNDS as unknown as [string, string]
+const THEME_PAIRS: [string, Rgba, Rgba][] = [
+  ['claro', toRgba(LIGHT) as Rgba, toRgba(FG_LIGHT) as Rgba],
+  ['oscuro', toRgba(DARK) as Rgba, toRgba(FG_DARK) as Rgba]
+]
+
+/** Un color con su opacidad, mezclado sobre otro opaco. */
+const over = (top: Rgba, bottom: Rgba): Rgba => {
+  const mix = (a: number, b: number): number => top.a * a + (1 - top.a) * b
+  return { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b), a: 1 }
+}
+
+/** Fondo en línea del texto (de su elemento o de uno que lo envuelve), si queda alguno. */
+function paintedBackground(tree: HtmlNode, text: string): string | undefined {
+  let found: string | undefined
+  const visit = (node: HtmlNode, inherited: string | undefined): void => {
+    const own = styleOf(node, 'background-color') ?? inherited
+    if (node.tag !== '#text' && textOf(node) === text) found = own
+    for (const child of node.children) visit(child, own)
+  }
+  visit(tree, undefined)
+  return found
+}
+
+/** El texto se lee a ≥ 3:1 en los dos temas con lo que haya quedado en línea. */
+function expectReadable(tree: HtmlNode, text: string): void {
+  expect(
+    all(tree).some((n) => textOf(n) === text),
+    `un elemento con «${text}»`
+  ).toBe(true)
+  const color = paintedColor(tree, text)
+  const background = paintedBackground(tree, text)
+  for (const [theme, themeBg, themeFg] of THEME_PAIRS) {
+    const bg = background === undefined ? themeBg : over(toRgba(background) as Rgba, themeBg)
+    const fg = color === undefined ? themeFg : (toRgba(color) as Rgba)
+    expect(
+      contrastOver(fg, bg),
+      `${theme}: texto ${String(color)} sobre ${String(background)}`
+    ).toBeGreaterThanOrEqual(3)
+  }
+}
+
+describe('CA2 y CA5 (0043): background-color solo si el texto encima se lee en los dos temas', () => {
+  it('THEME_FOREGROUNDS son dos #rrggbb: oscuro en el tema claro y claro en el oscuro', () => {
+    expect(THEME_FOREGROUNDS).toHaveLength(2)
+    expect(FG_LIGHT).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(FG_DARK).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(luminance(FG_LIGHT)).toBeLessThan(0.1)
+    expect(luminance(FG_DARK)).toBeGreaterThan(0.5)
+  })
+
+  it('un fondo claro sin color en línea (ilegible en oscuro) se quita', () => {
+    // Precondición: con el texto por defecto del tema oscuro no llega a 3:1.
+    expect(contrast(FG_DARK, '#fff3cd')).toBeLessThan(3)
+    const tree = renderTree('A <span style="background-color:#fff3cd">texto</span> B')
+    expect(paintedBackground(tree, 'texto')).toBeUndefined()
+    expectReadable(tree, 'texto')
+  })
+
+  it('un fondo que se lee con el texto por defecto en los dos temas se conserva', () => {
+    for (const fg of [FG_LIGHT, FG_DARK]) {
+      expect(contrast(fg, '#808080'), `precondición ${fg}`).toBeGreaterThanOrEqual(3)
+    }
+    const tree = renderTree('A <span style="background-color:#808080">texto</span> B')
+    expect(sameColor(paintedBackground(tree, 'texto'), '#808080')).toBe(true)
+    expectReadable(tree, 'texto')
+  })
+
+  it('un par color + fondo legible se conserva tal cual', () => {
+    expect(contrast('#ffffff', '#1f6feb')).toBeGreaterThanOrEqual(3)
+    const tree = renderTree(
+      'A <span style="color:#ffffff; background-color:#1f6feb">texto</span> B'
+    )
+    expect(sameColor(paintedColor(tree, 'texto'), '#ffffff')).toBe(true)
+    expect(sameColor(paintedBackground(tree, 'texto'), '#1f6feb')).toBe(true)
+    expectReadable(tree, 'texto')
+  })
+
+  it('un par color + fondo ilegible: se quitan los dos', () => {
+    expect(contrast('#ffff00', '#ffffff')).toBeLessThan(3)
+    const tree = renderTree(
+      'A <span style="color:#ffff00; background-color:#ffffff">texto</span> B'
+    )
+    expect(paintedColor(tree, 'texto'), 'sin color').toBeUndefined()
+    expect(paintedBackground(tree, 'texto'), 'sin fondo').toBeUndefined()
+    expectReadable(tree, 'texto')
+  })
+
+  it.each([
+    ['sin color en línea', '<span style="background-color:rgba(255, 243, 205, 0.05)">texto</span>'],
+    [
+      'con un color ilegible en claro',
+      '<span style="color:#ffff00; background-color:rgba(255, 255, 255, 0.05)">texto</span>'
+    ],
+    [
+      'con un color ilegible en oscuro',
+      '<span style="color:#000000; background-color:rgba(0, 0, 0, 0.05)">texto</span>'
+    ]
+  ])('un fondo casi transparente cuenta como el fondo del tema (%s)', (_label, raw) => {
+    const tree = renderTree(`A ${raw} B`)
+    // El color del texto se mide frente al fondo del tema: se ajusta como si no hubiera fondo.
+    const color = paintedColor(tree, 'texto')
+    if (color !== undefined) {
+      for (const [theme, themeBg] of THEME_PAIRS) {
+        expect(
+          contrastOver(toRgba(color) as Rgba, themeBg),
+          `${theme}: ${color} frente al fondo del tema`
+        ).toBeGreaterThanOrEqual(3)
+      }
+    }
+    expectReadable(tree, 'texto')
   })
 })
