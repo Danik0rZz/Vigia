@@ -584,6 +584,39 @@ confirmaron con 200, `metricId` igual a la expresión y ratios < 0,01.
   unas 498 instancias la respuesta llega recortada (el canal lo avisa en `partial`).
 - Dos de los tres grupos no traían red: sin series en esas métricas.
 
+### Métricas de una aplicación web (ficha 0033, observado en vivo, solo lectura)
+
+3 aplicaciones, `now-24h`. Catálogo `builtin:apps.web.*`: 89 métricas. Las de la aplicación tienen la
+dimensión `dt.entity.application`; las `action.*`, solo `dt.entity.application_method` (más
+navegador, tipo de usuario o geolocalización).
+
+| Papel      | Métrica (prefijo `builtin:apps.web.`)       | Unidad      | Expresión del canal             |
+| ---------- | ------------------------------------------- | ----------- | ------------------------------- |
+| Apdex      | `apdex.userType`                            | Unspecified | `:splitBy():avg`                |
+| Acciones   | `actionCount.summary`                       | Count       | `:splitBy():sum`                |
+| Duración   | `visuallyComplete.load.browser`             | MilliSecond | `:splitBy():avg`                |
+| Errores    | `countOfErrors`                             | Count       | `:splitBy():sum`                |
+| Sesiones   | `startedSessions`                           | Count       | `:splitBy():sum`                |
+| Por acción | `action.duration.{load,xhr,custom}.browser` | MilliSecond | `:count` y `:avg`, con `:names` |
+
+- Series con `entitySelector=entityId("<id>")` y sin `resolution`; totales con `resolution=Inf`. Los
+  totales de recuentos quedan a menos del 1 % de la suma de la serie; en Apdex y duración son la media
+  ponderada.
+- Por acción hace falta el selector
+  `type("APPLICATION_METHOD"),fromRelationships.isApplicationMethodOf(entityId("<id>"))`; con el
+  `entityId` de la aplicación no llega nada. `isApplicationMethodOf` no está en las OpenAPI, pero es
+  una relación (no un parámetro) y se confirmó en vivo.
+- Las `action.*` parecen ser solo de las acciones clave (key user actions): 2 de 3 aplicaciones no
+  traían ninguna en 24 h aunque tienen de 2 a 9 entidades `APPLICATION_METHOD`. La lista vacía es
+  frecuente y la vista (0034) debe contemplarla.
+- `:sort(value(count,descending)):limit(10)` por tipo (`load`, `xhr`, `custom`): las dos expresiones del
+  mismo tipo traen las mismas acciones en el mismo orden y ninguna acción sale en dos tipos. El orden
+  del `:sort` está por confirmar con más de 10 acciones por tipo (no se ha visto con más de una).
+- Entidad: `properties` con `applicationInjectionType`, `applicationType`, `customizedName`,
+  `detectedName` y, a veces, `applicationMatchTarget`, `ruleAppliedMatchType` y `ruleAppliedPattern`.
+  Relaciones: `calls` (SERVICE), `isApplicationOfSyntheticTest` (HTTP_CHECK), `isApplicationMethodOf`,
+  `isGroupOf` (APPLICATION_METHOD_GROUP) y `monitors` (SYNTHETIC_TEST, HTTP_CHECK).
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2

@@ -1,7 +1,7 @@
 ---
 id: '0033'
 titulo: 'APPLICATION: análisis de métricas en vivo y canal de series y marcadores'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion
@@ -208,3 +208,5 @@ métrica. Un 400 o 404 acaba en error con `reason` `applicationMetricsRejected` 
 - `topActions` lleva `max(10)` en el esquema de salida.
 - En el e2e afectado, `smoke.spec.ts` › «no le quita el foco del sistema» falló una vez con la
   carga en paralelo y pasa solo: no es de esta ficha.
+
+**Cierre:** commits `bb79a6a` (tests), `8c1e083` (canal) y los de ficha; ficheros principales `src/main/modules/application-metrics.ts`, `src/shared/modules.ts` y `src/main/ipc/handlers/modules.ts`. Una ronda de revisión (APROBADO), verifier en verde. Sin ADR nuevo ni migraciones. Tabla del paso 0 en `docs/notas-api-v2.md`.
