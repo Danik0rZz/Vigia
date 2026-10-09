@@ -12,7 +12,7 @@ adrs: [2, 8]
 adr_nuevo:
 api: v2, `GET /problems` y `GET /problems/{problemId}?fields=evidenceDetails` (ya en uso); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `problems.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -86,7 +86,22 @@ medición encuentra Markdown en otro campo de `evidenceDetails`, se pinta igual 
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 y la decisión del Orquestador con su test; `MAX_DESCRIPTION_LENGTH` = 9 000 por la regla
+de la 0001 sobre 4 096. Tras `779a22d` solo cambian los dos `toEqual` del wire completo en
+`problems.test.ts`, que suman `extraDescriptions: []` por el campo nuevo: legítimo, nada se relaja.
+Markdown con `MarkdownText`, sin HTML (ADR-0008); topes en Zod; sin textos nuevos, dependencias ni
+migración; misma API. El live no imprime el id de `VIGIA_LIVE_PROBLEM_ID` y comprueba que ni él ni
+los textos observados llegan al informe; solo GET. Las propiedades de las evidencias que no son
+EVENT ya cruzaban el IPC con su tope; ahora solo se pintan.
+
+Sugerencias, no bloquean:
+
+- Defensa barata: pasar las claves de las propiedades de evidencia por `isHiddenPropertyKey`
+  (`entity-secrets.ts`) antes de cortar a 8, con su test (ficha aparte o BACKLOG).
+- Con más de 4 claves «description», la quinta y siguientes desaparecen sin aviso: dejarlas como
+  texto en la lista o anotarlo como límite conocido.
 
 ## Verificación
 
