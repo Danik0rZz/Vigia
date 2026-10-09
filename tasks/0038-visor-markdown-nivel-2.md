@@ -1,7 +1,7 @@
 ---
 id: '0038'
 titulo: 'Visor de Markdown: capa visual cuidada (código con colores y números de línea, avisos y marcas)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -129,6 +129,25 @@ refinable):**
   píldora o `--background`). Las reglas `.hljs*` de `main.css` usan `var(--md-hl-*)`, sin colores
   fijos, y no se importa ninguna hoja de `highlight.js/styles`.
 - La 0035 solo vio `yaml` en vivo (`docs/notas-api-v2.md`), así que la lista es la de la ficha.
+
+**Decisiones del developer (2026-10-09, delegadas por Dani, refinables):**
+
+- **Librería:** `lowlight` 3.3.0 (MIT) y `highlight.js` 11.11.2 (BSD-3-Clause), en
+  devDependencies como `react-markdown` (solo van al bundle del renderer), con versión exacta. No
+  `rehype-highlight`: importa el conjunto `common` de lowlight (37 lenguajes) y lo metería en el
+  bundle aunque solo se registren nueve. En su lugar, un plugin de rehype propio de pocas líneas
+  (`markdown-plugins.ts`) que llama a lowlight con los nueve lenguajes registrados uno a uno (sus
+  alias, como `yml`, `sh`, `js` o `ts`, vienen con cada gramática). Genera nodos del árbol, no
+  HTML ni `eval`: el ADR-0008 y la CSP no cambian.
+- **Avisos y marcas** también son plugins de rehype en `markdown-plugins.ts`. El marcador
+  `[!TIPO]` solo cuenta si va solo en su línea (como GitHub). La marca se separa en un `span`
+  (`md-mark-glyph`) para colorear solo el símbolo; el elemento de lista con marca pierde la viñeta.
+- **Cabecera del bloque:** el lenguaje a la izquierda y «Copiar» a la derecha (en una cabecera, no
+  encima del código, para no tapar la primera línea). El botón lleva `aria-label` «Copiar el bloque
+  de código» (`markdown.copyCodeLabel`), que contiene el texto visible.
+- **Estilos:** clases `md-*` en `@layer components` de `main.css` (el contenido lo genera
+  react-markdown) y tokens `--md-*` en los dos temas; colores de sintaxis inspirados en los de
+  GitHub, ajustados a 4,5:1.
 
 ## Resultado
 
