@@ -1,7 +1,7 @@
 ---
 id: '0044'
 titulo: e2e estable del tooltip del menú plegado
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -88,7 +88,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `e2e/smoke.spec.ts` › «VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el
+  foco…» falló una vez en local en `npm run test:e2e:affected` con `visible: false` (la ventana aún
+  no se veía al leerla, con 4 workers); relanzado, 280 de 280, y el spec solo con `--repeat-each 3`,
+  en verde. No usa `hoverFresh`: si vuelve a salir, merece su propia ficha.
 
 ## Notas del revisor
 
