@@ -1,7 +1,7 @@
 ---
 id: '0035'
 titulo: 'Problemas: la descripción del evento con formato en todas las evidencias, y medir las descripciones largas'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -78,7 +78,11 @@ medición encuentra Markdown en otro campo de `evidenceDetails`, se pinta igual 
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) La máxima medida es exactamente 4 096 caracteres, también en el problema del ejemplo
+  de Dani: si es un tope de Dynatrace en `evidenceDetails`, la descripción puede llegar ya cortada
+  sin que Vigía lo sepa (la nota de recorte no sale). Comprobar en vivo si otro endpoint documentado
+  (por ejemplo, el evento por su `eventId`) la trae entera y, si no, avisar de que puede venir
+  recortada de origen.
 
 ## Notas del revisor
 
@@ -151,6 +155,23 @@ con la clave como título, debajo de «Descripción»; y deja de salir como text
 propiedades. Los tests usan una clave inventada (por ejemplo `custom.description`) y comprueban
 también que una clave sin «description» sigue en la lista como texto. Si alguna de esas claves
 resulta no ser Markdown en la prueba a mano, se afina la regla.
+
+**Decisiones del developer (Dani delegó; refinables), 2026-10-09:**
+
+- `MAX_DESCRIPTION_LENGTH` = **9 000** (4 096 × 2 = 8 192, redondeado hacia arriba al millar, como
+  en la 0001). CA5 va por la rama del recorte.
+- Wire: `description` sale en cualquier tipo; las otras claves van en `extraDescriptions`
+  (`{ key, text, truncated }`, como mucho `MAX_EXTRA_DESCRIPTIONS` = 4 por evidencia, mismo tope).
+  El campo es opcional en el esquema para que el wire de la 0001 (`wireWith`, que usa el CA2) siga
+  siendo válido; main lo manda siempre. Los dos `toEqual` del wire completo de `problems.test.ts`
+  suman `extraDescriptions: []` (contrato nuevo, no se ablanda nada).
+- Una clave con «description» solo se extrae si su valor es texto: con otro tipo sigue en la lista
+  como propiedad; con texto vacío no se enseña.
+- Interfaz: `EvidenceDescription` con `title` pinta las otras claves (data-testid
+  `evidence-extra-description*`, para no confundirlas con la principal). En los tipos que no son
+  `EVENT`, debajo de su resumen van las descripciones y, ahora también, sus propiedades genéricas
+  (antes solo las enseñaba el `EVENT`); `EvidenceView` gana `properties`, `description` y
+  `extraDescriptions` de primer nivel.
 
 ## Resultado
 
