@@ -13,8 +13,13 @@ bueno de Dani o de peticiones en su nombre.
   [0051](tasks/0051-grupo-procesos-modal-instancias.md)) y **aplicacion-rum**
   ([0052](tasks/0052-aplicacion-rum-datos.md), [0053](tasks/0053-aplicacion-rum-actividad-errores.md),
   [0054](tasks/0054-aplicacion-rum-usuarios-experiencia.md)).
-- Pendiente de Dani: las decisiones de la auditoría de código del 2026-10-09
-  (`docs/revisiones/2026-10-09-revision-codigo.md`) para redactar sus lotes.
+- Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
+  **auditoria-publicacion** ([0055](tasks/0055-scan-tenant-falla-cerrado.md), [0056](tasks/0056-ci-endurecido.md)),
+  **auditoria-codigo-comun** ([0057](tasks/0057-main-metricas-codigo-comun.md), [0058](tasks/0058-paginas-entidad-codigo-comun.md),
+  [0059](tasks/0059-react-compiler.md)), **auditoria-robustez** ([0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md),
+  [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md), [0062](tasks/0062-limite-peticiones-simultaneas.md)),
+  [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) y [0064](tasks/0064-reintentar-solo-su-panel.md).
+- Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
 
 ## Próximo
 
