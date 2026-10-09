@@ -13,6 +13,7 @@ import {
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
 import { FIXED_WINDOW, fitsContentSize, useCiWindow } from './window-size'
+import { expectShownWithoutFocus, type WindowState } from './window-state'
 
 /**
  * Prueba de humo sobre la app compilada (`out/`): la ventana
@@ -152,12 +153,15 @@ test('la CSP bloquea los scripts en línea', async () => {
   expect(ran).toBe(false)
 })
 
-test('VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco del sistema a quien usa el PC', async () => {
-  const state = await app.evaluate(({ BrowserWindow }) => {
-    const window = BrowserWindow.getAllWindows()[0]
-    return { visible: window?.isVisible() ?? false, focused: window?.isFocused() ?? true }
-  })
-  expect(state).toEqual({ visible: true, focused: false })
+test('CA1 (0045): VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco del sistema a quien usa el PC', async () => {
+  // main la enseña (showInactive) en ready-to-show, que puede llegar después de que la página
+  // cargue: se espera a verla y, entonces, no debe tener el foco.
+  await expectShownWithoutFocus(() =>
+    app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]
+      return { visible: window?.isVisible() ?? false, focused: window?.isFocused() ?? true }
+    })
+  )
   // Aun así, el teclado de Playwright llega (va por CDP, no por el foco del sistema).
   await page.keyboard.press('Control+K')
   await expect(page.getByTestId('command-palette')).toBeVisible()
@@ -167,6 +171,35 @@ test('VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco del sis
   expect(
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isFocused())
   ).toBe(false)
+})
+
+/** Lecturas sucesivas de la ventana, como las daría main; la última se repite. */
+function readings(...states: WindowState[]): () => Promise<WindowState> {
+  let call = 0
+  return () => Promise.resolve(states[Math.min(call++, states.length - 1)] as WindowState)
+}
+
+test('CA1 (0045): la espera acepta una ventana que se ve un poco después y sin el foco', async () => {
+  const hidden = { visible: false, focused: false }
+  await expectShownWithoutFocus(readings(hidden, hidden, { visible: true, focused: false }))
+})
+
+test('CA2 (0045): si la ventana tiene el foco al verse, falla aunque después lo pierda', async () => {
+  // La espera cubre la visibilidad, no el foco: no puede seguir leyendo hasta que se vaya.
+  const read = readings(
+    { visible: false, focused: false },
+    { visible: true, focused: true },
+    { visible: true, focused: false }
+  )
+  await expect(expectShownWithoutFocus(read)).rejects.toThrow()
+})
+
+test('CA2 (0045): si la ventana nunca se ve, falla en un tiempo acotado', async () => {
+  const started = Date.now()
+  await expect(
+    expectShownWithoutFocus(readings({ visible: false, focused: false }), 500)
+  ).rejects.toThrow()
+  expect(Date.now() - started).toBeLessThan(5_000)
 })
 
 test('v0.10.1: el código de desarrollo (recarga en caliente de Vite) no está en el bundle de producción', async () => {
