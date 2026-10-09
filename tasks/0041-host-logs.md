@@ -1,7 +1,7 @@
 ---
 id: '0041'
 titulo: 'HOST: tarjeta «Logs» con los procesos del host que tienen logs detectados'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -73,7 +73,77 @@ scope.
 
 ## Verificación
 
-(pendiente)
+**Paso 0 (en vivo, solo lectura, 2026-10-09; `src/main/modules/host-logs-explore.live.test.ts`):**
+3 hosts de `type("HOST")` con procesos, `now-2h`, 20 peticiones GET, token fuera del log. Informe
+en `live-reports/host-logs-explore.json` (ignorado), sin ids, nombres ni rutas.
+
+- La consulta da 200 con `fromRelationships` (plural, la de la OpenAPI) y también con
+  `fromRelationship` (la de la captura), con el mismo recuento; el canal usa la plural. Con rango
+  relativo y absoluto (`from`/`to` ISO), mismo total; `pageSize=500` aceptado; en los 3 hosts,
+  de 10 a 150 procesos y una sola página.
+- `GET /entityTypes/PROCESS_GROUP_INSTANCE`: las tres propiedades son de tipo `Map`. Llegan como
+  **lista de `{ key, value }`**; la `key` es la fuente del log: **una ruta de fichero** (Unix, con
+  extensión) o un nombre de fuente con espacios y sin barra (el mismo en todos los procesos de un
+  host). Nunca se enseña.
+- `logFileStatus`: `value` enum; vistos `FILE_STATUS_OK`, `FILE_STATUS_NOT_EXIST` y
+  `FILE_STATUS_NOT_MONITORED_ANY_MORE`; una entrada por proceso.
+- `logPathLastUpdate`: `value` es una fecha en **segundos** desde epoch (no lleva rutas en el
+  valor; sí en la clave); de 1 a 9 entradas por proceso. La tienen casi todos los procesos.
+- `logSourceState`: `value` es un objeto `{ storageStatus }`; visto
+  `LOG_STORAGE_CONFIGURATION_STATUS_SEND_TO_STORAGE`.
+- Un proceso sin logs llega sin esas claves en `properties`. En un host solo había
+  `logPathLastUpdate`.
+- **`GET /entities/{id}` de un proceso (`entities:get`, `+properties`) también trae las tres, con
+  las rutas en las claves**: hoy «Todas las propiedades» del proceso las enseñaría. Por la regla de
+  Dani, la 0041 lo cierra (test abajo).
+- Sin scope nuevo: `entities.read`, el de la ficha. Nada fuera de la OpenAPI (las propiedades se
+  piden con `fields=+properties.X`, documentado).
+
+**Decisiones del test-writer (delegadas por Dani, conservadoras y refinables):**
+
+- Salida de `entities:hostLogs`: `{ processes, withLogs, total }`. `processes` trae **solo los
+  procesos con logs** (al menos una entrada en alguna de las tres propiedades), cada uno con `id`,
+  `name`, `fileStatus` (enum o null), `sourceState` (el `storageStatus`, enum o null),
+  `lastUpdate` (la más reciente de `logPathLastUpdate`, en **milisegundos**, o null) y
+  `logCount` (fuentes de log distintas: se cuentan, nunca se enseñan). `withLogs` =
+  `processes.length`; `total`, procesos del host. Un valor que no sea un enum de Dynatrace no
+  sale. Con varias entradas de estado, cuál se enseña lo decide el developer (en vivo solo hubo una).
+- «Proceso con logs» = alguna entrada en cualquiera de las tres. Como `logPathLastUpdate` lo tienen
+  casi todos los procesos (con la fuente genérica), el resumen puede salir «N de N»: a revisar con
+  Dani en la prueba a mano.
+- Paginación: con `nextPageKey`, la siguiente petición lleva **solo** `nextPageKey` (OpenAPI).
+- `entities:get` no saca ninguna ruta ni fuente de log de esas propiedades (cómo, lo decide el
+  developer: quitar la propiedad o solo sus claves, en `entity-secrets.ts`).
+- Textos en `entities.host.logs`: `title` («Logs»), `summary` (con `withLogs` y `count`, el
+  total: «3 de 12 procesos con logs»), `empty` («Sin logs detectados»), `fileStatus.<enum>` (los
+  tres vistos) y `fileStatus.unknown`, `sourceState.<enum>` y `sourceState.unknown`.
+- Testids: `host-logs` (antes de `host-info`), `host-logs-summary`, `host-log-row` con
+  `data-process-id`, el nombre como enlace, `host-log-status` con `data-status` (texto traducido y
+  color distinto para OK y NOT_EXIST) y `host-log-updated`. Sin scope, `module-unavailable` dentro
+  de la tarjeta.
+
+**Tests (commit `8e46d61`):**
+
+| Criterio | Test                                                                                                                                                                                                                                                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/host-logs-explore.live.test.ts` › `CA1 (0041): el informe dice si la consulta funciona…` (pasa; se salta sin `.env.live.local`)                                                                                                                                                                                      |
+| CA2      | `src/main/ipc/handlers/host-logs.test.ts` › describe `CA2 (0041)` (rangos relativo y absoluto, paginación, sin selector de la interfaz; 4 tests) y `src/shared/ipc.test.ts` › `CA2 (0041): entrada de entities:hostLogs`                                                                                                               |
+| CA3      | `src/main/ipc/handlers/host-logs.test.ts` › describe `CA3 (0041)` (salida por proceso, sin rutas en la salida ni en el log, valor raro, vacíos y errores con `reason`; 7 tests) y `src/main/ipc/handlers/entity-detail.test.ts` › `CA3 (0041): entities:get de un proceso con logs no saca las rutas de log («Todas las propiedades»)` |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0041): la tarjeta «Logs» del host enseña el resumen y los procesos con logs, sin rutas; pulsar uno abre su página…`                                                                                                                                                                                        |
+| CA5      | `e2e/views.spec.ts` › `CA5 (0041): sin procesos con logs…` y `CA5 (0041): con el canal caído…`; además `Aviso del scope (0041)`                                                                                                                                                                                                        |
+| CA6      | `src/renderer/src/locales/host-logs.test.ts` › describe `CA6 (0041)` (4 tests)                                                                                                                                                                                                                                                         |
+
+También: `entities:hostLogs` en `channel-coverage.test.ts` y en «todos los canales de módulos»
+(`modules.test.ts`). Simulador del e2e: `hostLogsResponse` (solo la forma plural; 400 con otra),
+`HOST_LOGS_ENTRIES` (3 de los 15 procesos de `HOST_PAGE_PROCESSES`, con rutas Unix, Windows y una
+fuente sin ruta), `sim.hostLogsQueries`, `sim.hostLogsFail`, `sim.hostLogsEmpty` y la entidad
+`hostLogsProcessBody` (con las mismas rutas en `properties`).
+
+Ejecución sin el código: 30 unitarios en rojo (`canal entities:hostLogs: expected undefined`,
+`implementación de entities:hostLogs: expected undefined`, textos de `entities.host.logs` sin
+definir, los dos registros de canales, y `entities:get` que hoy saca la ruta del log) y los 4 e2e
+de la 0041 en rojo (no existe `host-logs`). Los e2e vecinos del host y de entidades (0014 a 0020,
+0028, 0029, 0032, 0036, 0037, 0039 y 0040) siguen en verde con el simulador ampliado.
 
 ## Resultado
 
