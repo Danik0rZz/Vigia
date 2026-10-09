@@ -8373,7 +8373,7 @@ test('CA6 (0008): un servicio sin datos enseña «—» en los marcadores de mé
 // Ficha 0018: el HOST ya tiene su página (sus marcadores, no los del servicio); sale de la lista
 // de tipos en construcción. Ficha 0024: también salen SYNTHETIC_TEST y HTTP_CHECK (los prueban
 // los e2e de la 0024). Ficha 0028: también sale PROCESS_GROUP_INSTANCE (lo prueban los e2e de
-// la 0028).
+// la 0028). Ficha 0032: también sale PROCESS_GROUP (lo prueban los e2e de la 0032).
 test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcción, sin marcadores ni peticiones', async () => {
   // Desde «Analizar entidad» de una evidencia HOST del mismo problema: la del host, sin los
   // marcadores del servicio.
@@ -8387,7 +8387,6 @@ test('CA7 (0008): las páginas de los otros tipos de entidad siguen en construcc
 
   // Por URL, el resto de tipos del registro y uno que no está (genérica).
   const others = [
-    ['PROCESS_GROUP', 'process_group'],
     ['APPLICATION', 'application'],
     ['CLOUD_APPLICATION', 'cloud_application'],
     ['ENVIRONMENT', 'environment'],
