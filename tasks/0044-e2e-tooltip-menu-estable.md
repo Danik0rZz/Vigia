@@ -1,7 +1,7 @@
 ---
 id: '0044'
 titulo: e2e estable del tooltip del menú plegado
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -112,6 +112,12 @@ del documento).
 ## Verificación
 
 (pendiente)
+
+### Verifier, 2026-10-09, commit `ce2cf49`, rango `main..fix/0044-e2e-tooltip-menu-estable`: VERDE
+
+- check: 2540 tests en 142 ficheros, cobertura ok.
+- e2e completo con la ventana del CI: 280/280 (CA2).
+- CA1: «maquetación del menú» ×30 con `--workers=1`: 30/30; ×30 con los workers por defecto: 30/30.
 
 ## Resultado
 
