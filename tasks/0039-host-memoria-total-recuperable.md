@@ -12,7 +12,7 @@ adrs: [2, 4]
 adr_nuevo:
 api: v2, `GET /metrics/{metricId}` y `GET /metrics/query` con `builtin:host.mem.total` (confirmada en vivo en la 0016) y `builtin:host.mem.recl` (confirmada en vivo en el paso 0 de la 0039); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -61,7 +61,23 @@ en uso, pero creo que es interesante plasmar además la memoria total (`builtin:
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 con su test, sin tocar tests tras `6840f0c`. Los adaptados de la 0016 y la 0018 no se
+debilitan: piden las 11 expresiones una vez entre todas las consultas, sin `resolution` y acotadas
+al host, marcadores con `Inf` y sin `fold`, y cuentan llamadas por su única consulta `Inf`; los
+simuladores dan 400 con más de 10 expresiones. Series en 7 + 4 expresiones, casadas por posición
+con los índices correctos; la resolución de la primera es coherente (mismo rango sin `resolution`,
+120 puntos por defecto) y el gráfico de memoria sale entero de su consulta. Zod en las dos
+direcciones; límite de 10 en la OpenAPI; `builtin:host.mem.recl` confirmada en vivo. Exportación de
+memoria en `B`, correcta porque los puntos van en bytes.
+
+Sugerencias, no bloquean:
+
+- Un test de `hostChartUnit('memory') === 'B'`.
+- Un test del % usado en el tooltip (`formatter` de `hostChartOption('memory', …)`).
+- «Abrir en Métricas» de la memoria sigue con `mem.usage` (%), aunque el gráfico va en bytes (ya en
+  "Ideas surgidas").
 
 ## Verificación
 
