@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics` (`metricSelector=builtin:tech.generic.*`), `GET /metrics/{metricId}`, `GET /metrics/query` (`entitySelector` con `fromRelationships`/`toRelationships`) y `GET /entities`; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scopes `metrics.read` y `entities.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -71,7 +71,26 @@ los procesos de los hosts de los problemas de los últimos 7 días; informe sin 
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test y sin tocar tests tras `05c1854`. Canal Zod de entrada y salida
+(`processGroupEntityIdSchema` impide inyección en el `entitySelector`), red en main, `reason`
+`processGroupMetricsRejected` en es y en (ADR-0005). Expresiones de `/metrics/query` las del paso 0
+en vivo; `isInstanceOf`, `:names` y `:parents` en la OpenAPI. Ids de test inventados; el live no
+escribe el token.
+
+Tope de 1000 series: la consulta de marcadores da 4 + 2·N series, así que desde unas 498 instancias
+en el rango llega recortada. El canal lo avisa en `partial` (como `entities:hostBreakdown`), pero
+`instances.total` cuenta solo las recibidas, el subconjunto no es el de más CPU y ningún test
+comprueba `partial` con ratio > 1. No bloquea: en vivo los grupos tenían de 2 a 4 instancias.
+
+Sugerencias, no bloquean:
+
+- Escribir el límite efectivo (unas 498 instancias) en la cabecera de `process-group-metrics.ts`.
+- Un test con `dimensionCountRatio` > 1 en las expresiones por instancia que compruebe `partial`.
+- Para la 0032: con `partial` no vacío, aviso de recorte y no presentar `instances.total` como el
+  total real (anotado en la 0032 por el Orquestador). Quedarse con las de más CPU (`:sort`/`:limit`)
+  cambiaría el comportamiento: queda como idea para Dani.
 
 ## Verificación
 
