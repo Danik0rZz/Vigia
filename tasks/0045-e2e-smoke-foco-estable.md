@@ -1,7 +1,7 @@
 ---
 id: '0045'
 titulo: e2e estable del smoke «la ventana no le quita el foco»
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -52,6 +52,22 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 - Cambiar cómo la app enseña la ventana.
 
+## Reproducción (developer)
+
+- Con `main` (dcd24e7) y `out/` recién compilado,
+  `npx playwright test e2e/smoke.spec.ts -g "VIGIA_E2E" --repeat-each 30` (workers por defecto)
+  falló **22 de 30** y otra tanda de 10 falló casi entera, siempre con
+  `{ visible: false, focused: false }`: nunca con el foco.
+- Causa (del test, no de la app): `src/main/window.ts` crea la ventana con `show: false` y la enseña
+  con `showInactive()` en `ready-to-show` (primer pintado). El `beforeAll` del smoke solo espera a
+  `domcontentloaded`, que llega antes; el test leía `isVisible()` una sola vez, en ese hueco. Filtrado
+  con `-g`, el test es el primero tras el `beforeAll` y cae casi siempre; en el e2e completo va
+  detrás de otros tests del spec y solo cae cuando la carga de los 4 workers retrasa el pintado.
+- La app sí enseña la ventana: con la espera, todas las repeticiones la ven (ver "Verificación").
+- Arreglo: `expectShownWithoutFocus` (`e2e/window-state.ts`) lee el estado con `expect.poll` (10 s)
+  hasta verla y comprueba el foco en **esa misma lectura**: si al verse tiene el foco, falla aunque
+  después lo pierda (CA2). Sin tocar timeouts globales ni `retries`.
+
 ## Ideas surgidas (fuera de alcance)
 
 (ninguna)
@@ -62,7 +78,12 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Verificación
 
-(pendiente)
+- Tests (ficha ligera, del developer): 3d1dba6. Arreglo: a383321 (`e2e/window-state.ts`).
+- Developer: `-g "0045" --repeat-each 30` con los workers por defecto, 120 de 120; `-g "VIGIA_E2E"
+--repeat-each 30 --workers=1`, 30 de 30; e2e completo, 291 de 291 (dos veces, la segunda con
+  `test:e2e:affected -- main..HEAD`, que lanza el completo). `npm run check` en verde.
+- CA2: si el helper volviera a leer tras la espera (o esperase también al foco), el test «falla
+  aunque después lo pierda» pasaría a fallar: la lectura falsa pierde el foco justo después.
 
 ## Resultado
 
