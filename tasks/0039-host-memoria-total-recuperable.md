@@ -1,7 +1,7 @@
 ---
 id: '0039'
 titulo: 'HOST: memoria total y memoria recuperable en el marcador y el gráfico de memoria'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -57,7 +57,7 @@ en uso, pero creo que es interesante plasmar además la memoria total (`builtin:
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) «Abrir en Métricas» del gráfico de memoria sigue con `mem.usage` (%), aunque el gráfico va ya en bytes: podría abrir usada, recuperable y total.
 
 ## Notas del revisor
 
@@ -128,6 +128,21 @@ las tres series y los textos; el del límite de 10 pasa hoy, con 10 expresiones,
 para cuando se añada la recuperable) y 5 e2e (CA2 y CA7 de la 0018 y CA6 de la 0019: «Memoria
 usada» sola; CA3 y CA4 de la 0039: no existen `host-marker-reclaimable` ni su ayuda). CA7 (0016)
 y CA6 (0018) pasan con el código actual.
+
+**Decisiones del developer (delegadas, refinables):**
+
+- Reparto de las series en dos consultas por tema: CPU (4), red (2) y disco (1), 7 expresiones,
+  en una; memoria (% usado, usada, total y recuperable), 4, en otra. Las tres consultas (las dos de
+  series y la de marcadores) van en paralelo y se casan por posición (`HOST_SERIES_SELECTORS` y
+  `toHostMetrics` en `src/main/modules/host-metrics.ts`). La resolución que se entrega es la de la
+  primera (las dos piden el mismo rango sin resolución).
+- Marcador: la recuperable va en su propia línea bajo «usada de total», con la palabra, el icono de
+  ayuda (`CircleHelp`, un botón enfocable con `aria-label`) y el valor en GB.
+- Gráfico: usada (acento) y recuperable (`series2`) apiladas en área (opacidad 0,3) y la total
+  (`muted`) discontinua; eje con `formatBytes`. El % usado del mismo instante va al final del
+  tooltip («Uso: 62,5 %»). Unidad de exportación de la memoria: `B`.
+- Textos: la ayuda dice que es memoria ocupada (sobre todo cachés y búferes) que el sistema puede
+  liberar si hace falta, la disponible sin swap menos la libre, y que no cuenta en la usada.
 
 ## Resultado
 
