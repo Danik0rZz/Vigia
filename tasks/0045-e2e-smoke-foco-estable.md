@@ -1,7 +1,7 @@
 ---
 id: '0045'
 titulo: e2e estable del smoke «la ventana no le quita el foco»
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -94,6 +94,13 @@ Opcional: el test «nunca se ve» comprueba más bien que la espera está acotad
   `test:e2e:affected -- main..HEAD`, que lanza el completo). `npm run check` en verde.
 - CA2: si el helper volviera a leer tras la espera (o esperase también al foco), el test «falla
   aunque después lo pierda» pasaría a fallar: la lectura falsa pierde el foco justo después.
+
+### Verifier, 2026-10-09, commit `760aa76`, rango `main..fix/0045-e2e-smoke-foco-estable`: VERDE
+
+- check: 2613 tests en 148 ficheros, cobertura ok.
+- e2e completo (los specs fijan la ventana del CI con `useCiWindow`): 291/291.
+- CA1: los 4 tests 0045 del smoke ×30 con `--workers=1`: 120/120; ×30 con los workers por defecto:
+  120/120.
 
 ## Resultado
 
