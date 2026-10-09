@@ -88,6 +88,14 @@ disponible (la que se puede usar sin swap) menos la libre.
 - Las claves de i18n no se fijan; CA5 busca por contenido (es: «recuperable», «liberar» y «caché»;
   en: «reclaimable», distinto de es y sin copiar la `description`).
 - «Abrir en Métricas» de la memoria no se toca (la ficha no lo dice; sigue con `mem.usage`).
+
+**Decisión del Orquestador (delegada por Dani, refinable), 2026-10-09:** se respeta el límite
+documentado de la OpenAPI («up to 10 metrics» por consulta), aunque hoy el entorno acepte 11: una
+API que tolera más de lo documentado puede dejar de hacerlo sin aviso. Ninguna consulta del canal
+lleva más de 10 expresiones; si las series pasan de 10, se parten en dos consultas (tres en total,
+en paralelo, casadas por posición). Los tests de CA2 fijan que ninguna petición lleva más de 10
+expresiones en `metricSelector`, no el número exacto de consultas.
+
 - No hay criterio para «el % sigue en el tooltip»: no lo cubre ningún test.
 
 **Tests (commit ee987a9):**
