@@ -263,6 +263,7 @@
     "processMetricsRejected": "Dynatrace rejected the process metrics query ({{status}}): {{detail}}",
     "processGroupMetricsRejected": "Dynatrace rejected the process group metrics query ({{status}}): {{detail}}",
     "applicationMetricsRejected": "Dynatrace rejected the application metrics query ({{status}}): {{detail}}",
+    "diskMetricsRejected": "Dynatrace rejected the disk metrics query ({{status}}): {{detail}}",
     "monitorMetricsRejected": "Dynatrace rejected the monitor metrics query ({{status}}): {{detail}}",
     "entityNotFound": "The entity does not exist in this environment.",
     "entityNamesRejected": "Dynatrace rejected the entity names query ({{status}}): {{detail}}",

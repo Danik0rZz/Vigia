@@ -263,6 +263,7 @@
     "processMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del proceso ({{status}}): {{detail}}",
     "processGroupMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del process group ({{status}}): {{detail}}",
     "applicationMetricsRejected": "Dynatrace ha rechazado la consulta de métricas de la aplicación ({{status}}): {{detail}}",
+    "diskMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del disco ({{status}}): {{detail}}",
     "monitorMetricsRejected": "Dynatrace ha rechazado la consulta de métricas del monitor ({{status}}): {{detail}}",
     "entityNotFound": "La entidad no existe en este entorno.",
     "entityNamesRejected": "Dynatrace ha rechazado la consulta de nombres de las entidades ({{status}}): {{detail}}",

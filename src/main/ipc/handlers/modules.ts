@@ -67,6 +67,7 @@ import {
   applicationEntitySelector,
   toApplicationMetrics
 } from '../../modules/application-metrics'
+import { diskMarkerSelector, diskSeriesSelector, toDiskMetrics } from '../../modules/disk-metrics'
 import { monitorBreakdownQueries, toMonitorBreakdown } from '../../modules/monitor-breakdown'
 import {
   DISK_RANGE_SELECTOR,
@@ -98,6 +99,7 @@ type ModuleChannels =
   | 'entities:processMetrics'
   | 'entities:processGroupMetrics'
   | 'entities:applicationMetrics'
+  | 'entities:diskMetrics'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -453,6 +455,41 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'processMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:diskMetrics': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      // Sin entitySelector: la entidad de estas métricas es el HOST y con entityId del disco no
+      // llega ninguna serie (paso 0 de la 0040). El disco va en el filtro de cada expresión.
+      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Series con la resolución que elija la API; marcadores del rango con Inf (sin fold ni
+        // last: dan 400). Las dos en paralelo y ninguna pasa de 10 expresiones.
+        const [series, markers] = await Promise.all([
+          query(diskSeriesSelector(entityId)),
+          query(diskMarkerSelector(entityId), 'Inf')
+        ])
+        return toDiskMetrics(series, markers)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'diskMetricsRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }

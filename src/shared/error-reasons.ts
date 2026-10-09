@@ -42,6 +42,7 @@ export const errorReasonKeys = [
   'processMetricsRejected',
   'processGroupMetricsRejected',
   'applicationMetricsRejected',
+  'diskMetricsRejected',
   'entityNotFound',
   'entityNamesRejected',
   // Datos locales

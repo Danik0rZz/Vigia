@@ -36,6 +36,8 @@ import {
   processGroupEntityIdSchema,
   applicationEntityIdSchema,
   applicationMetricsResultSchema,
+  diskEntityIdSchema,
+  diskMetricsResultSchema,
   processGroupMetricsResultSchema,
   problemDetailOutputSchema,
   problemSummarySchema,
@@ -422,6 +424,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: applicationMetricsResultSchema
+  },
+  /**
+   * Métricas de una entidad DISK en el rango (ficha 0040): series y marcadores por papel
+   * (uso, espacio, lectura y escritura, latencia, cola e inodos). La interfaz manda el id y
+   * main construye los selectores, con el disco en el filtro de cada expresión.
+   */
+  'entities:diskMetrics': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: diskEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: diskMetricsResultSchema
   },
   /**
    * Desglose de un browser monitor o de un HTTP monitor por localización y por paso o

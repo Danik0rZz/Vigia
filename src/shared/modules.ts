@@ -601,6 +601,68 @@ export const applicationMetricsResultSchema = z.object({
 })
 export type ApplicationMetricsResult = z.output<typeof applicationMetricsResultSchema>
 
+/**
+ * Id de una entidad DISK de Dynatrace (ficha 0040). Main lo mete dentro del filtro
+ * `:filter(eq("dt.entity.disk","<id>"))`: el formato estricto (tipo y 16 hexadecimales)
+ * impide cerrar la comilla o el paréntesis.
+ */
+export const diskEntityIdSchema = z.string().regex(/^DISK-[0-9A-F]{16}$/)
+
+/** Una serie del disco: `values[i]` es el valor en `timestamps[i]` (null sin dato). */
+export type DiskSeries = ServiceSeries
+
+/** Lectura y escritura de un disco: series y valores del rango. */
+const diskReadWriteSeriesSchema = z.object({
+  read: serviceSeriesSchema,
+  write: serviceSeriesSchema
+})
+const diskReadWriteTotalsSchema = z.object({
+  read: z.number().nullable(),
+  write: z.number().nullable()
+})
+
+/**
+ * Métricas de un disco en el rango (canal `entities:diskMetrics`, ficha 0040). Unidades sin
+ * convertir: uso e inodos libres en %, espacio en bytes, lectura y escritura en bytes/s,
+ * latencia en ms y cola en longitud media. Uso, espacio y rendimiento siempre llegan (vacíos,
+ * sin datos); latencia, cola e inodos son null si Dynatrace no trae ninguna serie de sus
+ * métricas para ese disco (no todos los discos las tienen).
+ */
+export const diskMetricsResultSchema = z.object({
+  /** Resolución que devolvió la API para las series (por ejemplo, 1m). */
+  resolution: z.string(),
+  series: z.object({
+    /** % usado (`usedPct`). */
+    usage: serviceSeriesSchema,
+    /** Bytes usados y libres (`used` y `avail`). */
+    space: z.object({ used: serviceSeriesSchema, free: serviceSeriesSchema }),
+    /** Bytes leídos y escritos por segundo. */
+    throughput: diskReadWriteSeriesSchema,
+    /** Tiempo de lectura y escritura, en ms. */
+    latency: diskReadWriteSeriesSchema.nullable(),
+    /** Longitud de la cola. */
+    queue: serviceSeriesSchema.nullable(),
+    /** % de inodos libres. */
+    inodes: serviceSeriesSchema.nullable()
+  }),
+  /** Marcadores del rango completo; null sin dato. Los inodos no llevan marcador. */
+  totals: z.object({
+    /** % usado máximo del rango. */
+    usage: z.number().nullable(),
+    /** Bytes libres: último punto con dato de la serie. */
+    free: z.number().nullable(),
+    /** Medias del rango, en bytes/s. */
+    throughput: diskReadWriteTotalsSchema,
+    /** Medias del rango, en ms. */
+    latency: diskReadWriteTotalsSchema.nullable(),
+    /** Longitud media de la cola. */
+    queue: z.number().nullable()
+  }),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type DiskMetricsResult = z.output<typeof diskMetricsResultSchema>
+
 /** Una localización del monitor en el rango (ficha 0023). */
 export const monitorLocationSchema = z.object({
   id: z.string(),
