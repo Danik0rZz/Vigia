@@ -139,7 +139,7 @@ También: `entities:hostLogs` en `channel-coverage.test.ts` y en «todos los can
 fuente sin ruta), `sim.hostLogsQueries`, `sim.hostLogsFail`, `sim.hostLogsEmpty` y la entidad
 `hostLogsProcessBody` (con las mismas rutas en `properties`).
 
-Ejecución sin el código: 30 unitarios en rojo (`canal entities:hostLogs: expected undefined`,
+Ejecución sin el código: 31 unitarios en rojo (`canal entities:hostLogs: expected undefined`,
 `implementación de entities:hostLogs: expected undefined`, textos de `entities.host.logs` sin
 definir, los dos registros de canales, y `entities:get` que hoy saca la ruta del log) y los 4 e2e
 de la 0041 en rojo (no existe `host-logs`). Los e2e vecinos del host y de entidades (0014 a 0020,
