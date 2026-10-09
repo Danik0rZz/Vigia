@@ -1,7 +1,7 @@
 ---
 id: '0039'
 titulo: 'HOST: memoria total y memoria recuperable en el marcador y el gráfico de memoria'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -10,7 +10,7 @@ aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la e
 rama: feat/0039-host-memoria-total-recuperable
 adrs: [2, 4]
 adr_nuevo:
-api: v2, `GET /metrics/{metricId}` y `GET /metrics/query` con `builtin:host.mem.total` (confirmada en vivo en la 0016) y `builtin:host.mem.recl` (la dio Dani; a confirmar); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read`.
+api: v2, `GET /metrics/{metricId}` y `GET /metrics/query` con `builtin:host.mem.total` (confirmada en vivo en la 0016) y `builtin:host.mem.recl` (confirmada en vivo en el paso 0 de la 0039); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read`.
 migracion: no
 rondas_revision: 0
 ---
@@ -65,7 +65,48 @@ en uso, pero creo que es interesante plasmar además la memoria total (`builtin:
 
 ## Verificación
 
-(pendiente)
+**Paso 0 (en vivo, solo lectura, 2026-10-09; `src/main/modules/host-memory-explore.live.test.ts`):**
+`builtin:host.mem.recl` existe («Memory reclaimable»), unidad `Byte`, agregaciones auto, avg, max
+y min (por defecto avg), `resolutionInfSupported`, entidad HOST y una dimensión
+`dt.entity.host`. Con datos en los 3 hosts de muestra (una serie por host, el último punto a null,
+los mismos puntos que la usada). En los 3: usada + recuperable < total, y usada / total ≈
+`mem.usage` (la usada no incluye la recuperable: apilarlas tiene sentido). Las 10 expresiones de
+series de la 0016 más la recuperable (11) caben en una consulta (200, 11 resultados), aunque la
+OpenAPI dice «up to 10 metrics». La `description` del descriptor: la recuperable es la memoria
+disponible (la que se puede usar sin swap) menos la libre.
+
+**Decisiones del test-writer (delegadas, refinables):**
+
+- Salida: `series.memoryBytes = { used, reclaimable, total }` (series en bytes) y
+  `totals.memory.reclaimable` (último punto con dato, como `used` y `total`). `series.memory`
+  (%) se queda.
+- La recuperable va en la misma consulta de series (siguen siendo dos consultas).
+- Testids: `host-marker-reclaimable` (palabra y valor, dentro de `host-marker-memory`),
+  `host-marker-reclaimable-help` (icono enfocable) y `host-marker-reclaimable-tooltip`.
+- Orden de las series del gráfico: usada, recuperable, total (`data-series`, en es: «usad…»,
+  «…recuperable…» y «…total…»).
+- Las claves de i18n no se fijan; CA5 busca por contenido (es: «recuperable», «liberar» y «caché»;
+  en: «reclaimable», distinto de es y sin copiar la `description`).
+- «Abrir en Métricas» de la memoria no se toca (la ficha no lo dice; sigue con `mem.usage`).
+- No hay criterio para «el % sigue en el tooltip»: no lo cubre ningún test.
+
+**Tests (commit ee987a9):**
+
+- CA1 → `src/main/modules/host-memory-explore.live.test.ts`, «CA1 (0039): el informe dice si la
+  recuperable existe, su unidad y si hay datos…» (se salta sin `.env.live.local`; pasa).
+- CA2 → `src/main/ipc/handlers/host-metrics.test.ts`, describe «CA2 (0039)» (4 tests); además,
+  CA3, CA4 y CA5 de la 0016 piden ahora la recuperable en la consulta y en los totales.
+- CA3 → `e2e/views.spec.ts`, «CA3 (0039): el marcador de memoria enseña usada / total y
+  recuperable…»; `HOST_CHART_SERIES.memory` (CA2 y CA7 de la 0018) pasa a tres series; y
+  `src/renderer/src/pages/entities/host-charts.test.ts`, describe «CA3 (0039)» (apiladas, total
+  discontinua y eje en bytes; los tests de la 0018 de apilado, eje 0–100 y nombres, ajustados).
+- CA4 → `e2e/views.spec.ts`, «CA4 (0039): el tooltip de ayuda de «recuperable» sale con el ratón
+  y con el foco».
+- CA5 → `src/renderer/src/locales/host-page.test.ts`, describe «CA5 (0039)» (3 tests).
+
+Ejecución sin el código: 18 unitarios fallan (faltan `memRecl`, `memoryBytes`, `reclaimable`,
+las tres series y los textos) y 4 e2e (CA2 y CA7 de la 0018: «Memoria usada» sola; CA3 y CA4 de
+la 0039: no existen `host-marker-reclaimable` ni su ayuda).
 
 ## Resultado
 
