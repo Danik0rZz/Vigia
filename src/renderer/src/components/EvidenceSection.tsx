@@ -53,7 +53,7 @@ import {
   type DataGridHandle,
   type RowStatus
 } from './DataGrid'
-import { EvidenceDescription } from './EvidenceDescription'
+import { EvidenceDescriptions } from './EvidenceDescription'
 import { EvidenceMetricChart } from './EvidenceMetricChart'
 import { PanelBoundary } from './PanelBoundary'
 import { BUTTON_SECONDARY, INPUT } from './styles'
@@ -195,7 +195,29 @@ function ChangeCard({
   )
 }
 
-/** Detalle de un EVENT: descripción, propiedades, zonas, todas las etiquetas y el mini gráfico. */
+/** Propiedades genéricas de la evidencia (data.properties), siempre como texto. */
+function EvidenceProperties({ view }: { view: EvidenceView }): JSX.Element | null {
+  const { t } = useTranslation()
+  if (view.properties.length === 0) return null
+  return (
+    <section className="grid gap-0.5">
+      <h4 className="text-xs font-medium text-muted-foreground">
+        {t('problems.eventTable.properties')}
+      </h4>
+      <dl data-testid="evidence-properties" className="grid grid-cols-[auto_1fr] gap-x-3 text-xs">
+        {view.properties.map((property, index) => (
+          <div key={`${index}-${property.key}`} className="contents">
+            <dt className="text-muted-foreground">{property.key}</dt>
+            {/* Siempre como texto. */}
+            <dd className="break-all whitespace-pre-wrap">{property.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
+}
+
+/** Detalle de un EVENT: descripciones, propiedades, zonas, todas las etiquetas y el mini gráfico. */
 function EventDetail({
   view,
   problem
@@ -204,31 +226,11 @@ function EventDetail({
   problem: ProblemContext
 }): JSX.Element {
   const { t } = useTranslation()
-  const properties = view.event?.properties ?? []
   const metric = view.event?.metric ?? null
-  const description = view.event?.description ?? null
   return (
     <div className="grid gap-2">
-      {description !== null && <EvidenceDescription description={description} />}
-      {properties.length > 0 && (
-        <section className="grid gap-0.5">
-          <h4 className="text-xs font-medium text-muted-foreground">
-            {t('problems.eventTable.properties')}
-          </h4>
-          <dl
-            data-testid="evidence-properties"
-            className="grid grid-cols-[auto_1fr] gap-x-3 text-xs"
-          >
-            {properties.map((property, index) => (
-              <div key={`${index}-${property.key}`} className="contents">
-                <dt className="text-muted-foreground">{property.key}</dt>
-                {/* Siempre como texto. */}
-                <dd className="break-all whitespace-pre-wrap">{property.text}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
+      <EvidenceDescriptions view={view} />
+      <EvidenceProperties view={view} />
       {view.managementZones.length > 0 && (
         <section className="grid gap-0.5">
           <h4 className="text-xs font-medium text-muted-foreground">
@@ -332,14 +334,20 @@ function EvidenceDetailBody({
 }): JSX.Element {
   const typeText = useTypeText()
   if (view.type === 'EVENT') return <EventDetail view={view} problem={problem} />
-  if (view.type === 'METRIC' || view.type === 'TRANSACTIONAL') {
-    return <ChangeCard view={view} problem={problem} />
-  }
+  // En los demás tipos, debajo de su resumen, las descripciones y las propiedades (ficha 0035).
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3">
-      <span className="text-sm">{view.displayName}</span>
-      <span className="text-xs text-muted-foreground">{typeText(view)}</span>
-      <Times view={view} />
+    <div className="grid gap-2">
+      {view.type === 'METRIC' || view.type === 'TRANSACTIONAL' ? (
+        <ChangeCard view={view} problem={problem} />
+      ) : (
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <span className="text-sm">{view.displayName}</span>
+          <span className="text-xs text-muted-foreground">{typeText(view)}</span>
+          <Times view={view} />
+        </div>
+      )}
+      <EvidenceDescriptions view={view} />
+      <EvidenceProperties view={view} />
     </div>
   )
 }
