@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /entities` con `entitySelector=type("PROCESS_GROUP_INSTANCE"),fromRelationships.isProcessOf(entityId("<host>"))`, `fields=+properties.logFileStatus,+properties.logPathLastUpdate,+properties.logSourceState` (formato `properties.FIELD` de la OpenAPI), `from`, `to` y `pageSize`; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `entities.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -96,7 +96,24 @@ Delegadas por Dani; conservadoras y refinables.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Ficha] La ficha quedó corrupta en `68ee374`: una segunda copia del front matter y de la ficha
+   en mitad de una decisión (probable `String.replace` de node con `` $` `` en el reemplazo), y las
+   decisiones del developer dentro de «Ideas surgidas». Rehacerla desde `1d2fe40` con las
+   decisiones una sola vez en su sitio.
+2. [Casos límite] `modules.ts:708` ignora `page.truncated`: con más de 10 páginas de 500, la
+   tarjeta diría «N de M» con N corto y sin aviso, contra el contrato de `DtClient.paginate`
+   («la interfaz debe avisar»). Añadir `truncated` a la salida, una nota en la tarjeta (es y en) y
+   un test que pida 10 páginas, ni una más, y dé `truncated: true`.
+
+Bien: ninguna ruta llega a la interfaz por el canal nuevo (solo enums validados, fecha y recuento),
+el log de main, los errores, `entities:get` («Todas las propiedades», claves exactas en
+`HIDDEN_EXACT` sin quitar `logLevel` ni similares) ni la caché. CA2 a CA6 con su test; la
+paginación sigue la OpenAPI; sin scope nuevo; ADR-0004; nada del tenant.
+
+Opcional: `HostLogs.tsx:119` reutiliza `fromProblem: true` para «Volver», como `HostTables` y
+`EntityInfoCard`; si se renombra, en todos los sitios a la vez.
 
 ## Verificación
 
