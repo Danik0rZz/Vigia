@@ -38,6 +38,12 @@ abajo):
   rutas completas); relaciones «Instancias», «Hosts», «Servicios» y «Otras», con «Ver nombres».
 - Rango global, «Actualizar», errores por panel. Textos en es y en.
 
+**Nota del Orquestador (2026-10-09, por la revisión de la 0031, refinable):** el canal recorta las
+instancias por encima de unas 498 (tope de 1000 series) y lo avisa en `partial`. Si `partial` no
+viene vacío, la página enseña el aviso de recorte (como el desglose del host) y el marcador
+«Instancias» no presenta `instances.total` como el total real del grupo (por ejemplo, «498+» o el
+número con la nota «como mínimo»). Quedarse con las de más CPU queda para Dani (BACKLOG).
+
 ## Criterios de aceptación
 
 - CA1 (e2e): la página de un process group del simulador enseña sus marcadores, los cuatro gráficos
