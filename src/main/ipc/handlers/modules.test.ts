@@ -783,6 +783,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0040: métricas de un disco (su comportamiento, en disk-metrics.test).
+    await call('entities:diskMetrics' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'DISK-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     // Ficha 0023: desglose de un monitor (su comportamiento, en monitor-breakdown.test).
     await call('entities:monitorBreakdown' as IpcChannel, {
       environmentId: envId,

@@ -1530,6 +1530,26 @@ function tagsManyBody(): Record<string, unknown> {
   )
 }
 
+/**
+ * Ficha 0040: la entidad DISK de /datos, con las claves vistas en vivo (paso 0): `properties`
+ * con `detectedName` y `filesystemType`, y la relación `fromRelationships.isDiskOf` con su
+ * host (HOST_METRICS_ID, el de la página del host).
+ */
+function diskInfoBody(): Record<string, unknown> {
+  return {
+    entityId: DISK_PAGE_ID,
+    displayName: DISK_PAGE_NAME,
+    type: 'DISK',
+    firstSeenTms: PROCESS_INFO_FIRST_SEEN,
+    lastSeenTms: HOST_INFO_LAST_SEEN,
+    managementZones: [],
+    tags: [],
+    properties: { detectedName: DISK_PAGE_NAME, filesystemType: DISK_PAGE_FILESYSTEM },
+    fromRelationships: { isDiskOf: [{ id: HOST_METRICS_ID, type: 'HOST' }] },
+    toRelationships: {}
+  }
+}
+
 /** Ficha 0015: lo que devuelve el simulador en /entities/{id}, por id (el resto, 404). */
 function entityBodies(): Record<string, Record<string, unknown>> {
   return {
@@ -1551,7 +1571,9 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     [APPLICATION_METRICS_ID]: applicationInfoBody(),
     // Ficha 0037.
     [TAGS_ID]: tagsMixedBody(),
-    [TAGS_MANY_ID]: tagsManyBody()
+    [TAGS_MANY_ID]: tagsManyBody(),
+    // Ficha 0040.
+    [DISK_PAGE_ID]: diskInfoBody()
   }
 }
 
@@ -3399,6 +3421,109 @@ function isHostBreakdownQuery(query: URLSearchParams): boolean {
   return hostBreakdownHost(query) !== null
 }
 
+/**
+ * Ficha 0040: métricas de un disco (canal entities:diskMetrics). Como en vivo (paso 0 de la
+ * ficha): las de `builtin:host.disk.*` tienen el HOST como entidad, así que con
+ * `entitySelector=entityId("<disco>")` no llega ninguna serie; el disco se acota con
+ * `:filter(eq("dt.entity.disk","<disco>"))`, y el `metricId` de la respuesta llega sin las
+ * comillas del valor. Como mucho 10 expresiones por consulta (OpenAPI, ficha 0039); `:last` y
+ * `:fold` con `Inf` dan 400. Solo /datos (DISK_PAGE_ID) tiene datos; los otros dos discos
+ * del host responden sin series.
+ */
+const DISK_PAGE_ID = 'DISK-00000000000E2E12'
+const DISK_PAGE_NAME = '/datos'
+const DISK_PAGE_FILESYSTEM = 'ext4'
+const DISK_PAGE_IDS = HOST_PAGE_DISKS.map((disk) => disk.id)
+const DISK_T0 = Date.parse('2026-10-03T08:00:00.000Z')
+/** Series de /datos (último punto a null, como en vivo). */
+const DISK_PAGE_SERIES: Record<string, (number | null)[]> = {
+  'builtin:host.disk.usedPct': [90, 91, 92, null],
+  'builtin:host.disk.used': [450 * GB, 454 * GB, 455 * GB, null],
+  'builtin:host.disk.avail': [50 * GB, 46 * GB, 45 * GB, null],
+  'builtin:host.disk.bytesRead': [2_000_000, 3_000_000, 2_500_000, null],
+  'builtin:host.disk.bytesWritten': [10_000, 14_000, 12_000, null],
+  'builtin:host.disk.readTime': [10, 14, 12, null],
+  'builtin:host.disk.writeTime': [16, 20, 18, null],
+  'builtin:host.disk.queueLength': [0.5, 1, 0.75, null],
+  'builtin:host.disk.inodesAvail': [97, 97, 96.5, null]
+}
+/** Valor del rango (resolution=Inf) de /datos por métrica y agregación. */
+const DISK_PAGE_MARKERS: Record<string, number> = {
+  'builtin:host.disk.usedPct:max': 92.5,
+  'builtin:host.disk.bytesRead:avg': 2_500_000,
+  'builtin:host.disk.bytesWritten:avg': 12_000,
+  'builtin:host.disk.readTime:avg': 12,
+  'builtin:host.disk.writeTime:avg': 18,
+  'builtin:host.disk.queueLength:avg': 0.75
+}
+
+/** Disco inventado al que va el filtro de la expresión (null si no lleva el de ninguno). */
+function diskOfExpression(expression: string): string | null {
+  const id = /:filter\(eq\("dt\.entity\.disk","(DISK-[0-9A-F]{16})"\)\)/.exec(expression)?.[1]
+  return id !== undefined && DISK_PAGE_IDS.includes(id) ? id : null
+}
+
+/** ¿Es una consulta de entities:diskMetrics (expresiones filtradas por un disco inventado)? */
+function isDiskMetricsQuery(query: URLSearchParams): boolean {
+  const expressions = splitSelector(query.get('metricSelector') ?? '')
+  return (
+    expressions.length > 0 &&
+    expressions.every((e) => e.startsWith('builtin:host.disk.')) &&
+    expressions.some((e) => diskOfExpression(e) !== null)
+  )
+}
+
+/** Respuesta del simulador a una consulta de métricas de un disco inventado. */
+function diskMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const expressions = splitSelector(selector)
+  const inf = query.get('resolution') === 'Inf'
+  if (expressions.length > HOST_MAX_EXPRESSIONS) {
+    return [400, { error: { code: 400, message: 'Más de 10 métricas en la consulta (simulado)' } }]
+  }
+  if (inf && (selector.includes(':fold(') || /:last\b/.test(selector))) {
+    return [400, { error: { code: 400, message: 'Transformación no admitida con Inf (simulado)' } }]
+  }
+  // Como en vivo: acotar con entityId del disco no devuelve nada (su entidad es el host).
+  const byDiskEntity = DISK_PAGE_IDS.some((id) => (query.get('entitySelector') ?? '').includes(id))
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '1m',
+      result: expressions.map((expression) => {
+        const disk = diskOfExpression(expression)
+        const [metric = '', rest = ''] = expression.split(
+          /:filter\(eq\("dt\.entity\.disk","DISK-[0-9A-F]{16}"\)\)/
+        )
+        const empty = disk !== DISK_PAGE_ID || byDiskEntity || sim.diskEmpty.includes(metric)
+        const values = inf
+          ? [DISK_PAGE_MARKERS[`${metric}${rest}`] ?? null]
+          : (DISK_PAGE_SERIES[metric] ?? null)
+        return {
+          metricId: disk === null ? expression : expression.replace(`"${disk}"`, disk),
+          dataPointCountRatio: 0.004,
+          dimensionCountRatio: 0.004,
+          data:
+            empty || values === null
+              ? []
+              : [
+                  {
+                    dimensionMap: { 'dt.entity.host': HOST_METRICS_ID, 'dt.entity.disk': disk },
+                    dimensions: [HOST_METRICS_ID, disk],
+                    timestamps: inf
+                      ? [DISK_T0 + 180_000]
+                      : [0, 1, 2, 3].map((i) => DISK_T0 + i * 60_000),
+                    values
+                  }
+                ]
+        }
+      })
+    }
+  ]
+}
+
 /** Respuesta del simulador a una consulta de discos o procesos del host inventado. */
 function hostBreakdownResponse(query: URLSearchParams): [number, unknown] {
   const selector = query.get('metricSelector') ?? ''
@@ -3558,6 +3683,10 @@ const defaultSim = () => ({
   processEmpty: [] as string[],
   /** Ficha 0023: consultas del desglose de los monitores inventados (sus query). */
   monitorBreakdownQueries: [] as URLSearchParams[],
+  /** Ficha 0040: consultas de métricas de los discos inventados (sus query). */
+  diskMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0040: métricas (sin filtro ni agregación) que llegan sin series al disco. */
+  diskEmpty: [] as string[],
   /** Ficha 0017: consultas de discos y procesos del host inventado (sus query). */
   hostBreakdownQueries: [] as URLSearchParams[],
   /** Ficha 0019: las consultas de discos y procesos fallan con un 400. */
@@ -3859,6 +3988,12 @@ async function startServer(): Promise<void> {
         if (isProcessMetricsQuery(url.searchParams)) {
           sim.processMetricQueries.push(url.searchParams)
           const [status, body] = processMetricResponse(url.searchParams)
+          return send(status, body)
+        }
+        // Ficha 0040: las del canal entities:diskMetrics, aparte.
+        if (isDiskMetricsQuery(url.searchParams)) {
+          sim.diskMetricQueries.push(url.searchParams)
+          const [status, body] = diskMetricResponse(url.searchParams)
           return send(status, body)
         }
         // Ficha 0017: las del canal entities:hostBreakdown, aparte.
@@ -14559,4 +14694,229 @@ test('CA5 (0034): la tarjeta «Información» de la aplicación sale la última,
   await clickInPlace(appInfoEntity('calls', INFO_FEW_ID), { scroll: true })
   await expect(page.getByTestId('entity-page-service')).toBeVisible()
   expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FEW_ID}`)
+})
+
+/**
+ * Ficha 0040: página del disco (DISK), a la que se llega desde la tabla de discos del host (0019).
+ * Datos del canal entities:diskMetrics del simulador (DISK_PAGE_SERIES y DISK_PAGE_MARKERS, de
+ * /datos) y de su entidad (diskInfoBody).
+ *
+ * Nombres que fijan estos tests (decisión del test-writer, refinable; los del proceso con el
+ * prefijo `disk`): la página `entity-page-disk`; la fila `disk-markers`; cada marcador
+ * `disk-marker-<id>` (usage, free, read, write, latency o queue, y problems); dentro, el valor
+ * principal en `disk-marker-value` (el de uso con `data-level`: `normal`, `warning` o `error`,
+ * umbrales del 80 y el 90 %), lo de debajo en `disk-marker-secondary` y el texto del nivel, si no
+ * es `normal`, en `disk-marker-level`; los recuentos, en `disk-marker-open` y
+ * `disk-marker-closed`. La sección `disk-charts`; cada gráfico en un `disk-chart-panel` con
+ * `data-kind` (usage, space, throughput y latency o queue, en ese orden) y su título en un
+ * encabezado; dentro, el `Chart` con testid `disk-chart-<kind>` (con `data-series`). La tarjeta
+ * `disk-info`, al final.
+ *
+ * Formato (como la tabla de discos del host, 0019): espacio en GB, lectura y escritura en bytes
+ * por segundo (kB/s, MB/s) y latencia en ms. Con latencia y cola, sale Latencia (decisión del
+ * test-writer, como Disponibilidad antes que Recursos en la 0028); sin latencia, Cola.
+ */
+type DiskChartKind = 'usage' | 'space' | 'throughput' | 'latency' | 'queue'
+const DISK_PAGE_TEST_ID = 'entity-page-disk'
+const DISK_MARKER_LABELS: Record<string, string> = {
+  usage: 'Uso',
+  free: 'Libre',
+  read: 'Lectura',
+  write: 'Escritura',
+  latency: 'Latencia',
+  queue: 'Cola',
+  problems: 'Problemas'
+}
+const DISK_CHART_TITLES: Record<DiskChartKind, RegExp> = {
+  usage: /^Uso/,
+  space: /^Espacio/,
+  throughput: /^Lectura y escritura/,
+  latency: /^Latencia/,
+  queue: /^Cola/
+}
+/** Las series de cada gráfico, en su orden. */
+const DISK_CHART_SERIES: Record<DiskChartKind, RegExp[]> = {
+  usage: [/./],
+  space: [/usad/i, /libre/i],
+  throughput: [/lectura/i, /escritura/i],
+  latency: [/lectura/i, /escritura/i],
+  queue: [/./]
+}
+
+const diskPage = (): Locator => page.getByTestId(DISK_PAGE_TEST_ID)
+const diskMarker = (id: string): Locator => diskPage().getByTestId(`disk-marker-${id}`)
+const diskChartPanel = (kind: DiskChartKind): Locator =>
+  diskPage().locator(`[data-testid="disk-chart-panel"][data-kind="${kind}"]`)
+
+/** Ficha 0040: abre por URL la página del disco /datos. */
+async function openDiskPage(): Promise<Locator> {
+  await goToRoute(`/entities/DISK/${DISK_PAGE_ID}`)
+  await expect(diskPage()).toBeVisible()
+  return diskPage()
+}
+
+/** Ficha 0040: comprueba las series de un gráfico del disco (se monta vacío mientras carga). */
+async function expectDiskChartSeries(kind: DiskChartKind): Promise<void> {
+  const plot = diskChartPanel(kind).getByTestId(`disk-chart-${kind}`)
+  await expect(plot.locator('canvas').first(), kind).toBeVisible()
+  await expect(plot, kind).toHaveAttribute('data-series', /\[.+\]/)
+  const series = JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
+  expect(series, kind).toHaveLength(DISK_CHART_SERIES[kind].length)
+  for (const [i, pattern] of DISK_CHART_SERIES[kind].entries()) {
+    expect(series[i], `${kind}[${i}]`).toMatch(pattern)
+  }
+}
+
+/** Ficha 0040: los `data-kind` de los paneles de gráficos, en el orden en que se pintan. */
+async function diskChartKinds(): Promise<string[]> {
+  return diskPage()
+    .getByTestId('disk-charts')
+    .getByTestId('disk-chart-panel')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-kind') ?? ''))
+}
+
+/** Ficha 0040: los marcadores comunes (uso, libre, lectura, escritura y problemas). */
+async function expectDiskCommonMarkers(): Promise<void> {
+  const levels = es.entities.host.markers.levels
+  // Uso: % máximo del rango (92,5 %), en error (≥ 90 %) y con su texto.
+  const usage = diskMarker('usage')
+  await expect(usage.getByTestId('disk-marker-value')).toHaveText(/^92,5\s?%$/)
+  await expect(usage.getByTestId('disk-marker-value')).toHaveAttribute('data-level', 'error')
+  await expect(usage.getByTestId('disk-marker-level')).toContainText(levels.error)
+  // Libre: último dato de avail (45 GB; el último punto llega a null).
+  await expect(diskMarker('free').getByTestId('disk-marker-value')).toHaveText(/^45,0\sGB$/)
+  // Lectura y escritura: medias del rango, en bytes por segundo.
+  await expect(diskMarker('read').getByTestId('disk-marker-value')).toHaveText(/^2,5\sMB\/s$/)
+  await expect(diskMarker('write').getByTestId('disk-marker-value')).toHaveText(/^12,0\skB\/s$/)
+  // Problemas: el disco no tiene ninguno.
+  const problems = diskMarker('problems')
+  await expect(problems.getByTestId('disk-marker-open')).toHaveText(loneNumber('0'))
+  await expect(problems.getByTestId('disk-marker-closed')).toHaveText(loneNumber('0'))
+}
+
+test('CA4 (0040): pulsar un disco en la tabla del host abre su página con su nombre, y «Volver» regresa al host sin volver a pedir sus datos', async () => {
+  await openHostPage()
+  await expectHostTablesLoaded()
+  const link = diskRow(DISK_PAGE_ID).getByRole('link', { name: DISK_PAGE_NAME })
+  await expect(link).toHaveAttribute('href', new RegExp(`#/entities/DISK/${DISK_PAGE_ID}$`))
+
+  await settledRequests()
+  const breakdownBefore = sim.hostBreakdownQueries.length
+  const metricsBefore = sim.hostMetricQueries.length
+  await clickInPlace(link, { scroll: true })
+  await expect(diskPage()).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/DISK/${DISK_PAGE_ID}`)
+  await expect(diskPage().getByRole('heading', { level: 1 })).toHaveText(DISK_PAGE_NAME)
+  await expect(diskPage().getByTestId('entity-page-id')).toHaveText(DISK_PAGE_ID)
+  // Es la página del disco, no la genérica.
+  await expect(diskPage().getByTestId('disk-markers')).toBeVisible()
+
+  const before = await settledRequests()
+  await clickInPlace(diskPage().getByTestId('entity-back'), { scroll: true })
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${HOST_METRICS_ID}`)
+  await expectHostTablesLoaded()
+  await expectHostMarkerValues()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver al host').toEqual([])
+  expect(sim.hostBreakdownQueries).toHaveLength(breakdownBefore)
+  expect(sim.hostMetricQueries).toHaveLength(metricsBefore)
+})
+
+test('CA5 (0040): la página del disco enseña sus marcadores, sus cuatro gráficos y su «Información» con los valores del simulador', async () => {
+  const entityPage = await openDiskPage()
+  const row = entityPage.getByTestId('disk-markers')
+  await expect(row).toBeVisible()
+
+  // Marcadores: uso, libre, lectura, escritura, latencia (antes que cola) y problemas.
+  for (const id of ['usage', 'free', 'read', 'write', 'latency', 'problems']) {
+    await expect(row.getByTestId(`disk-marker-${id}`), id).toBeVisible()
+    await expect(row.getByTestId(`disk-marker-${id}`), id).toContainText(
+      DISK_MARKER_LABELS[id] ?? id
+    )
+  }
+  await expect(row.getByTestId('disk-marker-queue')).toHaveCount(0)
+  await expectDiskCommonMarkers()
+  // Latencia: media de lectura (12 ms) y, debajo, la de escritura (18 ms).
+  const latency = diskMarker('latency')
+  await expect(latency.getByTestId('disk-marker-value')).toHaveText(/^12(,0)?\s?ms$/)
+  await expect(latency.getByTestId('disk-marker-secondary')).toContainText(
+    /(^|[^\d.,])18(,0)?\s?ms/
+  )
+
+  // Cuatro gráficos en su orden: uso, espacio, lectura y escritura, y latencia.
+  const section = entityPage.getByTestId('disk-charts')
+  await expect(section).toBeVisible()
+  const panels = section.getByTestId('disk-chart-panel')
+  await expect(panels).toHaveCount(4)
+  const kinds = await diskChartKinds()
+  expect(kinds).toEqual(['usage', 'space', 'throughput', 'latency'])
+  for (const [index, kind] of (kinds as DiskChartKind[]).entries()) {
+    await expect(panels.nth(index).getByRole('heading').first(), kind).toHaveText(
+      DISK_CHART_TITLES[kind]
+    )
+    await expectDiskChartSeries(kind)
+  }
+
+  // «Información», al final: el sistema de ficheros y el host del que es el disco, con enlace.
+  const info = entityPage.getByTestId('disk-info')
+  await expect(info).toBeVisible()
+  await expect(info).toContainText('Información')
+  await expect(info).toContainText(DISK_PAGE_FILESYSTEM)
+  await expect(info).toContainText('Disco de')
+  const host = info.locator(`a[href$="#/entities/HOST/${HOST_METRICS_ID}"]`)
+  await expect(host).toHaveCount(1)
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(info, text).not.toContainText(text)
+  }
+  const markersBox = await settledBox(row)
+  const chartsBox = await settledBox(section)
+  const infoBox = await settledBox(info)
+  expect(markersBox.y + markersBox.height, 'marcadores encima de los gráficos').toBeLessThanOrEqual(
+    chartsBox.y + 1
+  )
+  expect(chartsBox.y + chartsBox.height, 'gráficos encima de «Información»').toBeLessThanOrEqual(
+    infoBox.y + 1
+  )
+
+  // Ni «Página en construcción» ni marcadores de otro tipo.
+  await expect(entityPage.getByTestId('entity-under-construction')).toHaveCount(0)
+  await expect(entityPage).not.toContainText('Página en construcción')
+  for (const other of ['host-markers', 'process-markers', 'service-markers']) {
+    await expect(page.getByTestId(other), other).toHaveCount(0)
+  }
+
+  // Las consultas del canal: acotadas al disco con el filtro, con el rango global y sin pasar de
+  // 10 expresiones.
+  await settledRequests()
+  expect(sim.diskMetricQueries.length).toBeGreaterThan(0)
+  for (const query of sim.diskMetricQueries) {
+    const expressions = splitSelector(query.get('metricSelector') ?? '')
+    expect(expressions.length).toBeLessThanOrEqual(HOST_MAX_EXPRESSIONS)
+    for (const expression of expressions) expect(diskOfExpression(expression)).toBe(DISK_PAGE_ID)
+    expect(query.get('entitySelector') ?? '').not.toContain(DISK_PAGE_ID)
+    expect(query.get('from')).toBe('now-2h')
+  }
+})
+
+test('CA5 (0040): sin latencia, el marcador y el gráfico de cola ocupan su sitio y el resto sigue', async () => {
+  sim.diskEmpty = ['builtin:host.disk.readTime', 'builtin:host.disk.writeTime']
+  const entityPage = await openDiskPage()
+  const row = entityPage.getByTestId('disk-markers')
+  await expect(row.getByTestId('disk-marker-queue')).toBeVisible()
+  await expect(row.getByTestId('disk-marker-queue')).toContainText(
+    DISK_MARKER_LABELS['queue'] ?? ''
+  )
+  await expect(row.getByTestId('disk-marker-latency')).toHaveCount(0)
+  await expectDiskCommonMarkers()
+  // Cola: longitud media del rango (0,75).
+  await expect(diskMarker('queue').getByTestId('disk-marker-value')).toHaveText(/^0,(75|8)$/)
+
+  await expect(entityPage.getByTestId('disk-chart-panel')).toHaveCount(4)
+  expect(await diskChartKinds()).toEqual(['usage', 'space', 'throughput', 'queue'])
+  await expect(diskChartPanel('queue').getByRole('heading').first()).toHaveText(
+    DISK_CHART_TITLES.queue
+  )
+  await expectDiskChartSeries('queue')
+  await expect(entityPage.getByTestId('disk-info')).toBeVisible()
 })

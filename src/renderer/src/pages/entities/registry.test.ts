@@ -108,3 +108,22 @@ describe('CA10 (0003): los textos nuevos existen en es y en', () => {
     expect(missing).toEqual([])
   })
 })
+
+describe('CA2 (0040): DISK tiene su página y su nombre en es y en', () => {
+  it('DISK tiene entrada propia en el registro, distinta de la genérica y de las demás', () => {
+    const entry = ENTITY_PAGES['DISK']
+    expect(entry, 'DISK en ENTITY_PAGES').toBeDefined()
+    expect(entry?.Page).toBeTypeOf('function')
+    expect(entry?.Page, 'DISK no es la genérica').not.toBe(GenericEntityPage)
+    expect(entityPageFor('DISK')).toBe(entry?.Page)
+    const others = TYPES.map(({ type }) => ENTITY_PAGES[type]?.Page)
+    expect(others, 'la página del disco es propia').not.toContain(entry?.Page)
+  })
+
+  it('DISK se llama «Disco» en es y «Disk» en en', () => {
+    const labelKey = ENTITY_PAGES['DISK']?.labelKey ?? ''
+    expect(labelKey, 'labelKey de DISK').not.toBe('')
+    expect(lookup(es, labelKey), `es: ${labelKey}`).toBe('Disco')
+    expect(lookup(en, labelKey), `en: ${labelKey}`).toBe('Disk')
+  })
+})
