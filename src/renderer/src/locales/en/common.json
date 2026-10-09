@@ -946,6 +946,70 @@
         }
       }
     },
+    "processGroup": {
+      "invalidId": "This ID is not in the format of a Dynatrace Process group (PROCESS_GROUP- and 16 hexadecimal characters): its data is not requested.",
+      "markers": {
+        "label": "Process group markers",
+        "instances": "Instances",
+        "instancesCaption": "With data in the range",
+        "atLeast": "{{value}}+",
+        "instancesPartial": "At least: Dynatrace truncated the query",
+        "cpu": "CPU",
+        "cpuCaption": "Group total, range average",
+        "memory": "Memory",
+        "memoryCaption": "Group total, range average",
+        "network": "Network",
+        "problems": "Problems",
+        "max": "Maximum: {{value}}",
+        "inAverage": "Average inbound",
+        "outAverage": "Average outbound: {{value}}"
+      },
+      "charts": {
+        "title": "Process group metrics",
+        "label": "Charts of the Process group metrics",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "network": "Network",
+        "cpuByInstance": "CPU by instance",
+        "series": {
+          "cpu": "CPU usage (total)",
+          "memory": "Working set (total)",
+          "in": "Inbound",
+          "out": "Outbound"
+        }
+      },
+      "instances": {
+        "title": "Instances",
+        "label": "Process group instances",
+        "empty": "No instances with data in the range",
+        "partial": "Dynatrace truncated the instances query: the list and the total may be incomplete.",
+        "columns": {
+          "name": "Instance",
+          "host": "Host",
+          "cpu": "Average CPU",
+          "memory": "Average memory"
+        }
+      },
+      "info": {
+        "label": "Process group information",
+        "column": "Process group",
+        "rows": {
+          "technologies": "Technologies",
+          "listenPorts": "Listening ports",
+          "detectedName": "Detected name",
+          "executable": "Executable",
+          "firstSeen": "First seen",
+          "lastSeen": "Last seen",
+          "managementZones": "Management zones"
+        },
+        "groups": {
+          "instances": "Instances",
+          "hosts": "Hosts",
+          "services": "Services",
+          "other": "Other relationships"
+        }
+      }
+    },
     "service": {
       "markers": {
         "label": "Service indicators",

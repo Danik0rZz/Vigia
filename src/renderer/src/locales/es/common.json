@@ -946,6 +946,70 @@
         }
       }
     },
+    "processGroup": {
+      "invalidId": "Este ID no tiene el formato de un Process group de Dynatrace (PROCESS_GROUP- y 16 caracteres hexadecimales): no se piden sus datos.",
+      "markers": {
+        "label": "Marcadores del Process group",
+        "instances": "Instancias",
+        "instancesCaption": "Con datos en el rango",
+        "atLeast": "{{value}}+",
+        "instancesPartial": "Como mínimo: Dynatrace ha recortado la consulta",
+        "cpu": "CPU",
+        "cpuCaption": "Total del grupo, media del rango",
+        "memory": "Memoria",
+        "memoryCaption": "Total del grupo, media del rango",
+        "network": "Red",
+        "problems": "Problemas",
+        "max": "Máxima: {{value}}",
+        "inAverage": "Entrada media",
+        "outAverage": "Salida media: {{value}}"
+      },
+      "charts": {
+        "title": "Métricas del Process group",
+        "label": "Gráficos de las métricas del Process group",
+        "cpu": "CPU",
+        "memory": "Memoria",
+        "network": "Red",
+        "cpuByInstance": "CPU por instancia",
+        "series": {
+          "cpu": "Uso de CPU (total)",
+          "memory": "Working set (total)",
+          "in": "Entrada",
+          "out": "Salida"
+        }
+      },
+      "instances": {
+        "title": "Instancias",
+        "label": "Instancias del Process group",
+        "empty": "Sin instancias con datos en el rango",
+        "partial": "Dynatrace ha recortado la consulta de instancias: la lista y el total pueden estar incompletos.",
+        "columns": {
+          "name": "Instancia",
+          "host": "Host",
+          "cpu": "CPU media",
+          "memory": "Memoria media"
+        }
+      },
+      "info": {
+        "label": "Información del Process group",
+        "column": "Process group",
+        "rows": {
+          "technologies": "Tecnologías",
+          "listenPorts": "Puertos de escucha",
+          "detectedName": "Nombre detectado",
+          "executable": "Ejecutable",
+          "firstSeen": "Visto por primera vez",
+          "lastSeen": "Visto por última vez",
+          "managementZones": "Management zones"
+        },
+        "groups": {
+          "instances": "Instancias",
+          "hosts": "Hosts",
+          "services": "Servicios",
+          "other": "Otras relaciones"
+        }
+      }
+    },
     "service": {
       "markers": {
         "label": "Marcadores del servicio",

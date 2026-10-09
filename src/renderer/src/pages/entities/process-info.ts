@@ -39,10 +39,17 @@ export interface ProcessInfo {
 const EXE_NAME = 'EXE_NAME'
 
 export function buildProcessInfo(data: EntityData): ProcessInfo {
-  return { rows: buildRows(data), groups: buildGroups(data) }
+  return {
+    rows: buildProcessRows(data),
+    groups: buildRelationGroups(data, PROCESS_RELATION_GROUP_KEYS, groupOf)
+  }
 }
 
-function buildRows(data: EntityData): ProcessRow[] {
+/**
+ * Filas del proceso. También las del process group (ficha 0032): en vivo trae las mismas claves
+ * (`detectedName`, `listenPorts`, `softwareTechnologies` y `metadata`).
+ */
+export function buildProcessRows(data: EntityData): ProcessRow[] {
   const properties = new Map<string, string>()
   for (const property of data.properties) {
     const text = property.text.trim()
@@ -116,9 +123,17 @@ function groupOf(direction: 'from' | 'to', name: string): ProcessRelationGroupKe
   return 'other'
 }
 
-function buildGroups(data: EntityData): RelationGroup<ProcessRelationGroupKey>[] {
-  const groups = new Map<ProcessRelationGroupKey, RelationGroup<ProcessRelationGroupKey>>(
-    PROCESS_RELATION_GROUP_KEYS.map((key) => [key, { key, total: 0, entities: [] }])
+/**
+ * Reparte las relaciones en los grupos `keys` (en ese orden) según `groupOf`; los grupos sin
+ * ninguna, fuera. Lo usan el proceso y el process group (ficha 0032).
+ */
+export function buildRelationGroups<K extends string>(
+  data: EntityData,
+  keys: readonly K[],
+  groupOf: (direction: 'from' | 'to', name: string) => K
+): RelationGroup<K>[] {
+  const groups = new Map<K, RelationGroup<K>>(
+    keys.map((key) => [key, { key, total: 0, entities: [] }])
   )
   for (const relationship of data.relationships) {
     const group = groups.get(groupOf(relationship.direction, relationship.name))

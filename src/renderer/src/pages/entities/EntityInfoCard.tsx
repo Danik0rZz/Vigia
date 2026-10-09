@@ -18,10 +18,11 @@ import type { RelatedEntity, RelationGroup } from './service-info'
  * del host (ficha 0020), la de los monitores (ficha 0026) y la del proceso (ficha 0029). Cada
  * tarjeta pone sus filas; aquí van el marco (aviso del scope, error y esqueleto), los chips, las
  * relaciones con «Ver nombres» a demanda y «Todas las propiedades». `prefix` da los `data-testid`
- * (`service-info`, `host-info`, `monitor-info`, `process-info`). Todo lo del tenant se pinta como
- * texto, nunca como HTML. Los textos comunes siguen en `entities.service.info`.
+ * (`service-info`, `host-info`, `monitor-info`, `process-info`, `process-group-info`). Todo lo del
+ * tenant se pinta como texto, nunca como HTML. Los textos comunes siguen en `entities.service.info`.
  */
-export type InfoPrefix = 'service-info' | 'host-info' | 'monitor-info' | 'process-info'
+export type InfoPrefix =
+  'service-info' | 'host-info' | 'monitor-info' | 'process-info' | 'process-group-info'
 
 /**
  * Marco de la tarjeta, entre la cabecera y los marcadores. Sin `entities.read`, el aviso del
