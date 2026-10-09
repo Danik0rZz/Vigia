@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -74,7 +74,17 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+Ficha ligera: los tests del developer cubren CA1 (el smoke real con `expectShownWithoutFocus` y una
+ventana sintética que se ve tarde) y CA2 (se ve con el foco y luego lo pierde: falla; nunca se ve:
+falla acotado). El foco se comprueba sobre la misma lectura con la que el poll dio la ventana por
+visible, así que la espera no puede esconderlo. Tests anteriores al arreglo (`3d1dba6`) y sin tocar
+después. Solo cambian `e2e/smoke.spec.ts` y `e2e/window-state.ts`: ni app, ni
+`playwright.config.ts`, ni timeouts globales, ni `retries`. La causa la confirma
+`src/main/window.ts` (`show: false` y `showInactive()` en `ready-to-show`).
+
+Opcional: el test «nunca se ve» comprueba más bien que la espera está acotada; podría ir como CA1.
 
 ## Verificación
 
