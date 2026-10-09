@@ -1544,6 +1544,8 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     [MONITOR_HTTP_ID]: monitorInfoHttpBody(),
     // Ficha 0029.
     [PROCESS_METRICS_ID]: processInfoBody(),
+    // Ficha 0032.
+    [PROCESS_GROUP_PAGE_ID]: processGroupInfoBody(),
     // Ficha 0037.
     [TAGS_ID]: tagsMixedBody(),
     [TAGS_MANY_ID]: tagsManyBody()
@@ -2404,22 +2406,161 @@ const PROCESS_GROUP_INSTANCE_VALUES: Record<string, number[]> = {
   ]
 }
 
-/** ¿Es una consulta de métricas del process group inventado? */
-function isProcessGroupMetricsQuery(query: URLSearchParams): boolean {
-  return (query.get('entitySelector') ?? '').includes(PROCESS_GROUP_ID)
+/**
+ * Ficha 0032: el process group de la página (PROCESS_GROUP_PAGE_ID), con siete instancias en tres
+ * hosts (ids inventados, solo tipos estándar), para la tabla «Instancias» y el gráfico «CPU por
+ * instancia» (como mucho 5, las de más CPU). Mismos totales que el de la 0031; sus medias por
+ * instancia, las de aquí. En el orden en que llegan (no el de CPU).
+ */
+const PROCESS_GROUP_PAGE_ID = 'PROCESS_GROUP-0000000000E2EC00'
+const PROCESS_GROUP_PAGE_SELECTOR = `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isInstanceOf(entityId("${PROCESS_GROUP_PAGE_ID}"))`
+const pgPageHost = (n: number): { hostId: string; hostName: string } => ({
+  hostId: `HOST-0000000000E2EA0${n}`,
+  hostName: `host-grupo-${n}`
+})
+interface ProcessGroupInstanceFake {
+  id: string
+  name: string
+  hostId: string
+  hostName: string
+  cpu: number
+  memory: number
+}
+const PROCESS_GROUP_PAGE_INSTANCES: ProcessGroupInstanceFake[] = [
+  [3, 200_000_000, 1],
+  [41.5, 700_000_000, 2],
+  [12, 300_000_000, 3],
+  [0.5, 100_000_000, 1],
+  [27, 600_000_000, 2],
+  [8, 250_000_000, 3],
+  [19, 450_000_000, 1]
+].map(([cpu, memory, host], i) => ({
+  id: `PROCESS_GROUP_INSTANCE-0000000000E2EB0${i + 1}`,
+  name: `instancia-grupo-${i + 1}`,
+  ...pgPageHost(host ?? 1),
+  cpu: cpu ?? 0,
+  memory: memory ?? 0
+}))
+/** Las instancias de la página, de más a menos CPU media. */
+const PROCESS_GROUP_PAGE_BY_CPU = PROCESS_GROUP_PAGE_INSTANCES.slice().sort((a, b) => b.cpu - a.cpu)
+/** Los tres hosts de sus instancias. */
+const PROCESS_GROUP_PAGE_HOSTS = [1, 2, 3].map(pgPageHost)
+Object.assign(
+  ENTITY_NAMES,
+  Object.fromEntries([
+    [PROCESS_GROUP_PAGE_ID, 'grupo-pagos-e2e'],
+    ...PROCESS_GROUP_PAGE_INSTANCES.map((instance) => [instance.id, instance.name]),
+    ...PROCESS_GROUP_PAGE_HOSTS.map((host) => [host.hostId, host.hostName])
+  ])
+)
+
+/** Las instancias inventadas de cada process group, con su CPU y su memoria medias. */
+function processGroupInstances(groupId: string): ProcessGroupInstanceFake[] {
+  if (groupId === PROCESS_GROUP_PAGE_ID) return PROCESS_GROUP_PAGE_INSTANCES
+  return PROCESS_GROUP_INSTANCES.map((instance, i) => ({
+    ...instance,
+    cpu: PROCESS_GROUP_INSTANCE_VALUES[
+      `builtin:tech.generic.cpu.usage${PROCESS_GROUP_BY_INSTANCE}`
+    ]?.[i] as number,
+    memory: PROCESS_GROUP_INSTANCE_VALUES[
+      `builtin:tech.generic.mem.workingSetSize${PROCESS_GROUP_BY_INSTANCE}`
+    ]?.[i] as number
+  }))
 }
 
-/** Respuesta del simulador a una consulta de métricas del process group inventado. */
+/** El process group inventado de la consulta (el de la 0031 o el de la página), o null. */
+function processGroupOf(query: URLSearchParams): string | null {
+  const scope = query.get('entitySelector') ?? ''
+  if (scope.includes(PROCESS_GROUP_PAGE_ID)) return PROCESS_GROUP_PAGE_ID
+  if (scope.includes(PROCESS_GROUP_ID)) return PROCESS_GROUP_ID
+  return null
+}
+
+/** ¿Es una consulta de métricas de un process group inventado? */
+function isProcessGroupMetricsQuery(query: URLSearchParams): boolean {
+  return processGroupOf(query) !== null
+}
+
+/**
+ * Respuesta del simulador a una consulta de métricas de un process group inventado.
+ *
+ * Ficha 0032: además de lo de la 0031,
+ * - `sim.processGroupMetricsFail`: 400 (errores por panel);
+ * - `sim.processGroupTruncated`: las expresiones por instancia llegan recortadas
+ *   (dimensionCountRatio > 1), como un grupo de más de unas 498 instancias (el canal lo avisa en
+ *   `partial`);
+ * - series por instancia (sin resolution=Inf) de la CPU, para el gráfico «CPU por instancia»: una
+ *   expresión de `builtin:tech.generic.cpu.usage` partida por
+ *   `dt.entity.process_group_instance` da una serie por instancia, de más a menos CPU, con su
+ *   nombre en dimensionMap (con `:names`) y, si lleva `:limit(N)`, solo las N primeras. Con
+ *   resolution=Inf, como en la 0031, la media de cada instancia.
+ */
 function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
   const selector = query.get('metricSelector') ?? ''
   const inf = query.get('resolution') === 'Inf'
+  if (sim.processGroupMetricsFail) {
+    return [
+      400,
+      { error: { code: 400, message: 'Métricas del process group no disponibles (simulado)' } }
+    ]
+  }
   if (inf && selector.includes(':fold(')) {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
+  const groupId = processGroupOf(query) ?? PROCESS_GROUP_ID
+  const instances = processGroupInstances(groupId)
   // Como en vivo: con entityId("<grupo>") estas métricas no traen nada.
-  const scoped = query.get('entitySelector') === PROCESS_GROUP_SELECTOR
+  const scoped =
+    query.get('entitySelector') ===
+    (groupId === PROCESS_GROUP_PAGE_ID ? PROCESS_GROUP_PAGE_SELECTOR : PROCESS_GROUP_SELECTOR)
   const expressions = splitSelector(selector)
   const at = PROCESS_T0 + 1_800_000
+  const byInstance = (expression: string): boolean =>
+    expression.includes('splitBy("dt.entity.process_group_instance"')
+  const instanceValue = (expression: string, instance: ProcessGroupInstanceFake): number | null =>
+    expression.startsWith('builtin:tech.generic.cpu.usage')
+      ? instance.cpu
+      : expression.startsWith('builtin:tech.generic.mem.workingSetSize')
+        ? instance.memory
+        : null
+  const dimensionMapOf = (
+    expression: string,
+    instance: ProcessGroupInstanceFake
+  ): Record<string, string> => ({
+    'dt.entity.process_group_instance': instance.id,
+    ...(expression.includes(':names')
+      ? { 'dt.entity.process_group_instance.name': instance.name }
+      : {}),
+    ...(expression.includes('"dt.entity.host"')
+      ? {
+          'dt.entity.host': instance.hostId,
+          ...(expression.includes(':names') ? { 'dt.entity.host.name': instance.hostName } : {})
+        }
+      : {})
+  })
+  const perInstanceData = (expression: string): unknown[] => {
+    if (inf) {
+      // Con Inf, solo la expresión exacta de la 0031.
+      if (!expression.endsWith(PROCESS_GROUP_BY_INSTANCE)) return []
+      if (instanceValue(expression, instances[0]!) === null) return []
+      return instances.map((instance) => ({
+        dimensionMap: dimensionMapOf(expression, instance),
+        dimensions: [instance.id, instance.hostId],
+        timestamps: [at],
+        values: [instanceValue(expression, instance)]
+      }))
+    }
+    // Series por instancia: solo de la CPU, de más a menos y con el límite que se pida.
+    if (!expression.startsWith('builtin:tech.generic.cpu.usage')) return []
+    const limit = /:limit\((\d+)\)/.exec(expression)
+    const sorted = instances.slice().sort((a, b) => b.cpu - a.cpu)
+    return (limit === null ? sorted : sorted.slice(0, Number(limit[1]))).map((instance) => ({
+      dimensionMap: dimensionMapOf(expression, instance),
+      dimensions: [instance.id],
+      timestamps: PROCESS_TIMESTAMPS,
+      values: [instance.cpu, null, instance.cpu + 1]
+    }))
+  }
   return [
     200,
     {
@@ -2427,28 +2568,16 @@ function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
       nextPageKey: null,
       resolution: inf ? 'Inf' : '10m',
       result: expressions.map((expression) => {
-        const perInstance = PROCESS_GROUP_INSTANCE_VALUES[expression]
         const total = inf
           ? PROCESS_GROUP_MARKERS[expression] === undefined
             ? undefined
             : [PROCESS_GROUP_MARKERS[expression]]
           : PROCESS_GROUP_SERIES[expression]
+        const perInstance = byInstance(expression)
         const data = !scoped
           ? []
-          : perInstance !== undefined
-            ? inf
-              ? PROCESS_GROUP_INSTANCES.map((instance, i) => ({
-                  dimensionMap: {
-                    'dt.entity.process_group_instance': instance.id,
-                    'dt.entity.process_group_instance.name': instance.name,
-                    'dt.entity.host': instance.hostId,
-                    'dt.entity.host.name': instance.hostName
-                  },
-                  dimensions: [instance.id, instance.hostId],
-                  timestamps: [at],
-                  values: [perInstance[i] ?? null]
-                }))
-              : []
+          : perInstance
+            ? perInstanceData(expression)
             : total === undefined
               ? []
               : [
@@ -2459,15 +2588,124 @@ function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
                     values: total
                   }
                 ]
+        const truncated = perInstance && sim.processGroupTruncated
         return {
           metricId: expression,
           dataPointCountRatio: 0.005,
-          dimensionCountRatio: 0.005,
+          dimensionCountRatio: truncated ? 1.5 : 0.005,
           data
         }
       })
     }
   ]
+}
+
+const PROCESS_GROUP_BAND_OPEN = {
+  problemId: 'pd-process-group-band-open',
+  displayId: 'P-E2E83',
+  title: 'Process group con CPU saturada'
+}
+const PROCESS_GROUP_BAND_CLOSED = {
+  problemId: 'pd-process-group-band-closed',
+  displayId: 'P-E2E84',
+  title: 'Process group sin instancias'
+}
+
+/**
+ * Ficha 0032: los problemas del process group de la página (PROCESS_GROUP_PAGE_ID), uno abierto y
+ * uno cerrado, dentro de las últimas 2 h y sin solaparse. Salen en las consultas con
+ * affectedEntities (recuentos y franja) y en el detalle.
+ */
+function processGroupBandProblems(): FakeProblem[] {
+  const now = sim.bandNow
+  return (
+    [
+      [PROCESS_GROUP_BAND_OPEN, 'OPEN', now - 35 * 60_000, -1],
+      [PROCESS_GROUP_BAND_CLOSED, 'CLOSED', now - 100 * 60_000, now - 70 * 60_000]
+    ] as const
+  ).map(([ids, status, startTime, endTime]) => ({
+    ...ids,
+    status,
+    severityLevel: 'PERFORMANCE',
+    impactLevel: 'INFRASTRUCTURE',
+    startTime,
+    endTime,
+    affectedEntities: [
+      {
+        entityId: { id: PROCESS_GROUP_PAGE_ID, type: 'PROCESS_GROUP' },
+        name: 'grupo-pagos-e2e'
+      }
+    ],
+    impactedEntities: [],
+    managementZones: [],
+    problemFilters: [],
+    evidenceDetails: { totalCount: 0, details: [] }
+  }))
+}
+
+/**
+ * Ficha 0032: el process group de la página en /entities/{id}, para la tarjeta «Información».
+ * Claves de `properties`, las vistas en vivo en PROCESS_GROUP (docs/notas-api-v2.md, b):
+ * `detectedName`, `listenPorts`, `softwareTechnologies` y `metadata`; relaciones con los nombres
+ * vistos en vivo (live-reports de entities-explore): from `runsOn` (los hosts) e
+ * `isNetworkClientOfProcessGroup`; to `isInstanceOf` (las instancias) y `runsOn` (los servicios).
+ * Valores e ids inventados.
+ *
+ * - `metadata`, como en el proceso (0029), con `COMMAND_LINE_ARGS` (con una contraseña y un token
+ *   inventados) y `EXE_PATH` (con un usuario inventado): no pueden salir en ningún sitio.
+ * - «Servicios»: INFO_FEW_ID (para abrir su página) y PROCESS_INFO_SERVICE_2; «Otras»: un process
+ *   group del que es cliente de red (PROCESS_INFO_PG).
+ */
+const PROCESS_GROUP_INFO_SECRETS = {
+  commandLineArgs: '-Dclave.bd=CLAVE-GRUPO-E2E --token TOKEN-GRUPO-E2E -Xmx640m',
+  exePath: '/home/usuario-e2e-0032/opt/grupo/bin/pagos-grupo-e2e'
+}
+const PROCESS_GROUP_INFO_SECRET_PARTS = [
+  PROCESS_GROUP_INFO_SECRETS.commandLineArgs,
+  PROCESS_GROUP_INFO_SECRETS.exePath,
+  'CLAVE-GRUPO-E2E',
+  'TOKEN-GRUPO-E2E',
+  '-Xmx640m',
+  'usuario-e2e-0032',
+  '/opt/grupo/bin/'
+]
+function processGroupInfoBody(): Record<string, unknown> {
+  return {
+    entityId: PROCESS_GROUP_PAGE_ID,
+    displayName: 'grupo-pagos-e2e',
+    type: 'PROCESS_GROUP',
+    firstSeenTms: PROCESS_INFO_FIRST_SEEN,
+    lastSeenTms: PROCESS_INFO_LAST_SEEN,
+    managementZones: [{ id: '3201', name: 'Zona grupo A' }],
+    tags: [],
+    properties: {
+      detectedName: 'pagos-grupo-detectado-e2e',
+      listenPorts: [9090, 9443],
+      softwareTechnologies: [
+        { type: 'JAVA', edition: 'OpenJDK', version: '21.0.1' },
+        { type: 'APACHE_TOMCAT', version: '10.1' }
+      ],
+      metadata: [
+        { key: 'COMMAND_LINE_ARGS', value: PROCESS_GROUP_INFO_SECRETS.commandLineArgs },
+        { key: 'EXE_NAME', value: 'pagos-grupo-e2e' },
+        { key: 'EXE_PATH', value: PROCESS_GROUP_INFO_SECRETS.exePath }
+      ]
+    },
+    fromRelationships: {
+      runsOn: PROCESS_GROUP_PAGE_HOSTS.map((host) => ({ id: host.hostId, type: 'HOST' })),
+      isNetworkClientOfProcessGroup: [{ id: PROCESS_INFO_PG, type: 'PROCESS_GROUP' }]
+    },
+    toRelationships: {
+      isInstanceOf: PROCESS_GROUP_PAGE_INSTANCES.map((instance) => ({
+        id: instance.id,
+        type: 'PROCESS_GROUP_INSTANCE'
+      })),
+      runsOn: [
+        { id: INFO_FEW_ID, type: 'SERVICE' },
+        { id: PROCESS_INFO_SERVICE_2, type: 'SERVICE' }
+      ]
+    }
+  }
 }
 
 /**
@@ -2834,6 +3072,9 @@ const HOST_PAGE_PROCESSES = HOST_PAGE_CPU.map((avg, i) => {
 
 // Ficha 0028: los procesos de la tabla del host también responden a las métricas del proceso.
 for (const process of HOST_PAGE_PROCESSES) PROCESS_METRICS_IDS.add(process.id)
+// Ficha 0032: las instancias del process group de la página, también (abrir su página de proceso
+// y, si la página del grupo los pide por instancia, sus series).
+for (const instance of PROCESS_GROUP_PAGE_INSTANCES) PROCESS_METRICS_IDS.add(instance.id)
 
 const breakdownCompact = (text: string): string => text.replace(/["\s]/g, '')
 const breakdownRelation = (hostId: string): string =>
@@ -3005,6 +3246,10 @@ const defaultSim = () => ({
   processMetricQueries: [] as URLSearchParams[],
   /** Ficha 0031: consultas de métricas del process group inventado (sus query). */
   processGroupMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0032: las consultas de métricas de los process groups inventados fallan con un 400. */
+  processGroupMetricsFail: false,
+  /** Ficha 0032: las expresiones por instancia del process group llegan recortadas (ratio > 1). */
+  processGroupTruncated: false,
   /** Ficha 0028: las consultas de métricas de los procesos inventados fallan con un 400. */
   processMetricsFail: false,
   /** Ficha 0028: métricas (sin agregación) que llegan sin series a los procesos inventados. */
@@ -3199,6 +3444,7 @@ async function startServer(): Promise<void> {
               ...hostBandProblems(),
               ...monitorBandProblems(),
               ...processBandProblems(),
+              ...processGroupBandProblems(),
               ...longIdProblems()
             ],
             selector
@@ -3242,7 +3488,8 @@ async function startServer(): Promise<void> {
             ...bandProblems(),
             ...hostBandProblems(),
             ...monitorBandProblems(),
-            ...processBandProblems()
+            ...processBandProblems(),
+            ...processGroupBandProblems()
           ].find((p) => p['problemId'] === decodeURIComponent(single[1] ?? ''))
           return found
             ? send(200, { ...found, ...(found['problemId'] === 'pa-1' ? detailExtras : {}) })
@@ -12583,5 +12830,544 @@ test('CA5 (0037): sin etiquetas, o sin el scope entities.read, no hay fila de p�
     await invoke('environments:setActive', { environmentId: env['Producción'] })
     await invoke('environments:delete', { id: noEntities })
     await reloadUi()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0032: página de un PROCESS_GROUP (marcadores, gráficos, instancias e «Información»).
+// ---------------------------------------------------------------------------
+
+/**
+ * Página del process group inventado de la ficha 0032 (PROCESS_GROUP_PAGE_ID, siete instancias en
+ * tres hosts), con el canal entities:processGroupMetrics de la 0031 (totales PROCESS_GROUP_SERIES
+ * y PROCESS_GROUP_MARKERS), sus problemas (processGroupBandProblems: uno abierto y uno cerrado) y
+ * entities:get (processGroupInfoBody).
+ *
+ * Nombres que fijan estos tests (la ficha no los da; decisión del test-writer, delegada por Dani y
+ * refinable), los del proceso (0028 y 0029) con el prefijo `process-group`:
+ * - Marcadores: la fila `process-group-markers`; cada marcador `process-group-marker-<id>`
+ *   (instances, cpu, memory, network y problems); el valor principal en
+ *   `process-group-marker-value` (el de la CPU con `data-level`), lo de debajo en
+ *   `process-group-marker-secondary` (máxima y salida) y los recuentos en
+ *   `process-group-marker-open` y `process-group-marker-closed`.
+ * - Gráficos: la sección `process-group-charts`; cada uno en un `process-group-chart-panel` con
+ *   `data-kind` (cpu, memory, network y cpu-instances, en ese orden) y su título en un
+ *   encabezado; dentro, el `Chart` con testid `process-group-chart-<kind>` (con `data-series`).
+ *   La franja, `process-group-problem-band`, en el panel de la CPU; cada tramo,
+ *   `process-group-problem-segment` con `data-problem-id`.
+ * - Tabla: la tarjeta `process-group-instances`, con el `DataGrid` `process-group-instances-grid`
+ *   (columnas name, host, cpu y memory, en ese orden) y filas `process-group-instance-row` con
+ *   `data-instance-id`; la barra de CPU, `process-group-instance-cpu-bar`. El nombre de la
+ *   instancia y el de su host son enlaces a su página. Con `partial`, el aviso
+ *   `process-group-instances-partial`.
+ * - «Información»: `process-group-info`, con `process-group-info-row` (`data-key`: al menos
+ *   technologies, listenPorts y detectedName), `process-group-info-value`,
+ *   `process-group-info-chip`, `process-group-info-relations`, `process-group-info-group`
+ *   (`data-group`: instances, hosts, services y other), `-group-toggle`, `-group-count`,
+ *   `-entity` (`data-entity-id`), `-names`, `-entity-name` y `-properties-toggle`.
+ *
+ * Formato, como el proceso (0028): CPU en % con un decimal; memoria en MB; red en bits por segundo
+ * (bytes/s × 8). Los marcadores enseñan los `totals` del canal: la CPU, la media del total del
+ * grupo (la suma de sus instancias, 64,5 %) y debajo la máxima (112,5 %).
+ *
+ * «CPU por instancia»: la ficha no dice de dónde salen las series; el simulador las da de dos
+ * formas (decisión del test-writer): en entities:processGroupMetrics, una expresión de
+ * `cpu.usage` partida por `dt.entity.process_group_instance` (de más a menos CPU, con
+ * `:limit(N)` si se pide), o en entities:processMetrics de cada instancia. Los tests solo miran el
+ * gráfico: una serie por instancia, las cinco de más CPU, con su nombre.
+ */
+const PG_PAGE_TEST_ID = 'entity-page-process_group'
+type PgChartKind = 'cpu' | 'memory' | 'network' | 'cpu-instances'
+const PG_METRIC_MARKERS = ['instances', 'cpu', 'memory', 'network'] as const
+const PG_MARKER_LABELS: Record<string, string> = {
+  instances: 'Instancias',
+  cpu: 'CPU',
+  memory: 'Memoria',
+  network: 'Red',
+  problems: 'Problemas'
+}
+const PG_CHART_KINDS: PgChartKind[] = ['cpu', 'memory', 'network', 'cpu-instances']
+const PG_CHART_TITLES: Record<PgChartKind, string> = {
+  cpu: 'CPU',
+  memory: 'Memoria',
+  network: 'Red',
+  'cpu-instances': 'CPU por instancia'
+}
+const PG_INSTANCE_COLUMNS = ['name', 'host', 'cpu', 'memory'] as const
+/** Las cinco instancias de más CPU, las del gráfico «CPU por instancia». */
+const PG_TOP_FIVE = PROCESS_GROUP_PAGE_BY_CPU.slice(0, 5)
+
+const pgPage = (): Locator => page.getByTestId(PG_PAGE_TEST_ID)
+const pgMarker = (id: string): Locator => pgPage().getByTestId(`process-group-marker-${id}`)
+const pgChartPanel = (kind: PgChartKind): Locator =>
+  pgPage().locator(`[data-testid="process-group-chart-panel"][data-kind="${kind}"]`)
+const pgChartPlot = (kind: PgChartKind): Locator =>
+  pgChartPanel(kind).getByTestId(`process-group-chart-${kind}`)
+const pgBand = (): Locator => pgChartPanel('cpu').getByTestId('process-group-problem-band')
+const pgSegment = (problemId: string): Locator =>
+  pgBand().locator(`[data-testid="process-group-problem-segment"][data-problem-id="${problemId}"]`)
+const pgInstances = (): Locator => pgPage().getByTestId('process-group-instances')
+const pgInstanceRow = (id: string): Locator =>
+  pgInstances().locator(`[data-testid="process-group-instance-row"][data-instance-id="${id}"]`)
+const pgInfoCard = (): Locator => pgPage().getByTestId('process-group-info')
+const pgInfoRow = (key: string): Locator =>
+  pgInfoCard().locator(`[data-testid="process-group-info-row"][data-key="${key}"]`)
+const pgInfoValue = (key: string): Locator => pgInfoRow(key).getByTestId('process-group-info-value')
+const pgInfoGroup = (key: string): Locator =>
+  pgInfoCard().locator(`[data-testid="process-group-info-group"][data-group="${key}"]`)
+const pgInfoEntity = (group: string, id: string): Locator =>
+  pgInfoGroup(group).locator(`[data-testid="process-group-info-entity"][data-entity-id="${id}"]`)
+
+/** Ficha 0032: abre por URL la página del process group de la ficha. */
+async function openProcessGroupPage(): Promise<Locator> {
+  await goToRoute(`/entities/PROCESS_GROUP/${PROCESS_GROUP_PAGE_ID}`)
+  const entityPage = pgPage()
+  await expect(entityPage).toBeVisible()
+  return entityPage
+}
+
+/** Ficha 0032: espera a que el gráfico tenga sus series y las devuelve. */
+async function pgChartSeries(kind: PgChartKind): Promise<string[]> {
+  const plot = pgChartPlot(kind)
+  await expect(plot.locator('canvas').first()).toBeVisible()
+  await expect(plot).toHaveAttribute('data-series', /\[.+\]/)
+  return JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
+}
+
+/** Ficha 0032: los `data-kind` de los paneles de gráficos, en el orden en que se pintan. */
+async function pgChartKinds(): Promise<string[]> {
+  return pgPage()
+    .getByTestId('process-group-charts')
+    .getByTestId('process-group-chart-panel')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-kind') ?? ''))
+}
+
+/** Ficha 0032: las series de los cuatro gráficos, con sus nombres. */
+async function expectPgChartSeries(): Promise<void> {
+  expect(await pgChartSeries('cpu'), 'cpu').toHaveLength(1)
+  expect(await pgChartSeries('memory'), 'memory').toHaveLength(1)
+  const network = await pgChartSeries('network')
+  expect(network, 'network').toHaveLength(2)
+  expect(network[0]).toMatch(/entrada/i)
+  expect(network[1]).toMatch(/salida/i)
+  // Una línea por instancia: las cinco de más CPU (de siete), con su nombre.
+  const instances = await pgChartSeries('cpu-instances')
+  expect(instances, 'cpu-instances').toHaveLength(5)
+  expect(instances.slice().sort()).toEqual(PG_TOP_FIVE.map((instance) => instance.name).sort())
+}
+
+/** Ficha 0032: los marcadores con los valores del simulador, ya formateados (es). */
+async function expectPgMarkers(): Promise<void> {
+  // Instancias: siete.
+  await expect(pgMarker('instances').getByTestId('process-group-marker-value')).toHaveText(
+    /^\s*7\s*$/
+  )
+  // CPU: media del total 64,5 % y, debajo, la máxima de la serie, 112,5 %; normal, sin texto.
+  const cpu = pgMarker('cpu')
+  await expect(cpu.getByTestId('process-group-marker-value')).toHaveText(/^64,5\s?%$/)
+  await expect(cpu.getByTestId('process-group-marker-secondary')).toContainText(
+    /(^|[^\d.,])112,5\s?%/
+  )
+  await expect(cpu.getByTestId('process-group-marker-value')).toHaveAttribute(
+    'data-level',
+    'normal'
+  )
+  // Memoria: media del total, 925 MB.
+  await expect(pgMarker('memory').getByTestId('process-group-marker-value')).toHaveText(
+    /^925(,0)?\sMB$/
+  )
+  // Red: entrada 5120 B/s y salida 768 B/s, en bits por segundo (40 960 y 6144 bit/s).
+  const network = pgMarker('network')
+  await expect(network.getByTestId('process-group-marker-value')).toHaveText(/^41(,0)?\skbit\/s$/)
+  await expect(network.getByTestId('process-group-marker-secondary')).toContainText(
+    /(^|[^\d.,])6,1\skbit\/s/
+  )
+  // Problemas: uno abierto y uno cerrado.
+  await expect(pgMarker('problems').getByTestId('process-group-marker-open')).toHaveText(
+    loneNumber('1')
+  )
+  await expect(pgMarker('problems').getByTestId('process-group-marker-closed')).toHaveText(
+    loneNumber('1')
+  )
+}
+
+/** Ficha 0032: la CPU de una instancia en la tabla (es): 41,5 %; las enteras, con o sin «,0». */
+const cpuText = (cpu: number): RegExp =>
+  Number.isInteger(cpu)
+    ? new RegExp(`(^|[^\\d,.])${cpu}(,0)?\\s?%`)
+    : new RegExp(`(^|[^\\d,.])${String(cpu).replace('.', ',')}\\s?%`)
+
+/** Ficha 0032: los ids de las filas de la tabla de instancias, en el orden en que se pintan. */
+const pgInstanceOrder = (): Promise<string[]> =>
+  tableOrder(pgInstances(), 'process-group-instance-row', 'data-instance-id')
+
+/** Ficha 0032: ni la línea de comandos ni la ruta completa del grupo, en ningún sitio. */
+async function expectNoProcessGroupSecrets(where: string): Promise<void> {
+  const html = await page.content()
+  const text = await page.locator('body').innerText()
+  for (const part of PROCESS_GROUP_INFO_SECRET_PARTS) {
+    expect(html, `${where}: HTML con «${part}»`).not.toContain(part)
+    expect(text, `${where}: texto con «${part}»`).not.toContain(part)
+  }
+}
+
+/** Ficha 0032: despliega un grupo de relaciones del process group (si no lo está). */
+async function expandPgInfoGroup(key: string): Promise<Locator> {
+  const group = pgInfoGroup(key)
+  const toggle = group.getByTestId('process-group-info-group-toggle')
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') {
+    await clickInPlace(toggle, { scroll: true })
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  return group
+}
+
+test('CA1 (0032): la página de un process group enseña sus marcadores, sus cuatro gráficos y la tabla de instancias con los valores del simulador, sin «Página en construcción»', async () => {
+  const entityPage = await openProcessGroupPage()
+
+  // Cinco marcadores: instancias, CPU, memoria, red y problemas, con su nombre y sus valores.
+  const row = entityPage.getByTestId('process-group-markers')
+  await expect(row).toBeVisible()
+  for (const id of [...PG_METRIC_MARKERS, 'problems']) {
+    await expect(row.getByTestId(`process-group-marker-${id}`), id).toBeVisible()
+    await expect(row.getByTestId(`process-group-marker-${id}`), id).toContainText(
+      PG_MARKER_LABELS[id] ?? id
+    )
+  }
+  await expectPgMarkers()
+
+  // Cuatro gráficos en su orden: CPU, memoria, red y CPU por instancia.
+  const section = entityPage.getByTestId('process-group-charts')
+  await expect(section).toBeVisible()
+  const panels = section.getByTestId('process-group-chart-panel')
+  await expect(panels).toHaveCount(4)
+  expect(await pgChartKinds()).toEqual(PG_CHART_KINDS)
+  for (const [index, kind] of PG_CHART_KINDS.entries()) {
+    await expect(panels.nth(index).getByRole('heading').first(), kind).toContainText(
+      PG_CHART_TITLES[kind]
+    )
+  }
+  await expectPgChartSeries()
+
+  // Tabla «Instancias»: las siete, de más a menos CPU, con nombre, host, CPU (con barra) y memoria.
+  const card = pgInstances()
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Instancias')
+  const grid = card.getByTestId('process-group-instances-grid')
+  await expect(grid).toHaveAttribute('role', 'grid')
+  expect(await gridColumns(grid)).toEqual(PG_INSTANCE_COLUMNS.map((c) => `col-${c}`))
+  await expect(card.getByTestId('process-group-instance-row')).toHaveCount(7)
+  expect(await pgInstanceOrder()).toEqual(PROCESS_GROUP_PAGE_BY_CPU.map((i) => i.id))
+  for (const instance of PROCESS_GROUP_PAGE_INSTANCES) {
+    const cells = pgInstanceRow(instance.id).getByRole('gridcell')
+    await expect(cells, instance.name).toHaveCount(PG_INSTANCE_COLUMNS.length)
+    await expect(cells.nth(0), instance.name).toHaveText(instance.name)
+    await expect(cells.nth(1), instance.name).toHaveText(instance.hostName)
+    await expect(cells.nth(2), instance.name).toContainText(cpuText(instance.cpu))
+    await expect(
+      cells.nth(2).getByTestId('process-group-instance-cpu-bar'),
+      instance.name
+    ).toHaveCount(1)
+    await expect(cells.nth(3), instance.name).toHaveText(
+      new RegExp(`^${instance.memory / 1_000_000},0\\sMB$`)
+    )
+  }
+  // Sin recorte, sin aviso.
+  await expect(card.getByTestId('process-group-instances-partial')).toHaveCount(0)
+
+  // Ni el bloque ni el texto de «Página en construcción», ni marcadores de otro tipo.
+  await expect(entityPage.getByTestId('entity-under-construction')).toHaveCount(0)
+  await expect(entityPage).not.toContainText('Página en construcción')
+  for (const other of ['service-markers', 'host-markers', 'monitor-markers', 'process-markers']) {
+    await expect(page.getByTestId(other), other).toHaveCount(0)
+  }
+
+  // Las consultas del canal, con el selector de las instancias del grupo y el rango global.
+  await settledRequests()
+  expect(sim.processGroupMetricQueries.length).toBeGreaterThanOrEqual(2)
+  for (const query of sim.processGroupMetricQueries) {
+    expect(query.get('entitySelector')).toBe(PROCESS_GROUP_PAGE_SELECTOR)
+    expect(query.get('from')).toBe('now-2h')
+  }
+})
+
+test('CA1 (0032), nota del Orquestador: con las instancias recortadas (partial), la tabla avisa del recorte y el marcador «Instancias» no presenta el total como real', async () => {
+  sim.processGroupTruncated = true
+  await openProcessGroupPage()
+  const card = pgInstances()
+  await expect(card.getByTestId('process-group-instance-row').first()).toBeVisible()
+
+  // El aviso, como el del desglose del host; las filas siguen.
+  const notice = card.getByTestId('process-group-instances-partial')
+  await expect(notice).toBeVisible()
+  await expect(notice).toContainText(/incomplet|recort/i)
+  await expect(card.getByTestId('process-group-instance-row')).toHaveCount(7)
+
+  // «Instancias»: el número que llegó, pero no como total real («7+» o «como mínimo 7»).
+  const marker = pgMarker('instances')
+  await expect(marker).toContainText(loneNumber('7'))
+  await expect(marker.getByTestId('process-group-marker-value')).not.toHaveText(/^\s*7\s*$/)
+  await expect(marker).toContainText(/7\s*\+|mínimo|al menos/i)
+})
+
+test('CA2 (0032): pulsar una instancia abre su página de proceso y «Volver» regresa al grupo; pulsar su host abre la del host', async () => {
+  await openProcessGroupPage()
+  const target = PROCESS_GROUP_PAGE_BY_CPU[1]
+  const id = target?.id ?? ''
+  const name = target?.name ?? ''
+  const hostId = target?.hostId ?? ''
+  const hostName = target?.hostName ?? ''
+  const row = pgInstanceRow(id)
+  await expect(row).toBeVisible()
+
+  // La instancia: enlace a su página de proceso.
+  const link = row.getByRole('link', { name })
+  await expect(link).toHaveAttribute('href', new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${id}$`))
+  await clickInPlace(link, { scroll: true })
+  const processEntityPage = page.getByTestId('entity-page-process_group_instance')
+  await expect(processEntityPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP_INSTANCE/${id}`)
+  await expect(processEntityPage.getByTestId('entity-page-id')).toHaveText(id)
+
+  // «Volver» regresa al grupo, con su tabla.
+  await clickInPlace(processEntityPage.getByTestId('entity-back'), { scroll: true })
+  await expect(pgPage()).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP/${PROCESS_GROUP_PAGE_ID}`)
+  await expect(pgInstanceRow(id)).toBeVisible()
+
+  // Su host: enlace a la página del host.
+  const hostLink = pgInstanceRow(id).getByRole('link', { name: hostName })
+  await expect(hostLink).toHaveAttribute('href', new RegExp(`#/entities/HOST/${hostId}$`))
+  await clickInPlace(hostLink, { scroll: true })
+  const hostEntityPage = page.getByTestId('entity-page-host')
+  await expect(hostEntityPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/HOST/${hostId}`)
+  await expect(hostEntityPage.getByTestId('entity-page-id')).toHaveText(hostId)
+})
+
+test('CA3 (0032): la franja de problemas sale sobre el gráfico de CPU con los problemas del grupo, y pulsar un tramo abre el problema', async () => {
+  await openProcessGroupPage()
+  await pgChartSeries('cpu')
+  const band = pgBand()
+  await expect(band).toBeVisible()
+  await expect(band.getByTestId('process-group-problem-segment')).toHaveCount(2)
+  for (const { problemId } of [PROCESS_GROUP_BAND_OPEN, PROCESS_GROUP_BAND_CLOSED]) {
+    await expect(pgSegment(problemId), problemId).toHaveCount(1)
+  }
+  // Solo en el panel de la CPU.
+  await expect(page.getByTestId('process-group-problem-band')).toHaveCount(1)
+
+  // La lista se pide con el grupo y el rango global.
+  await settledRequests()
+  const lists = sim.entityProblemListQueries.filter((query) =>
+    (query.get('problemSelector') ?? '').includes(PROCESS_GROUP_PAGE_ID)
+  )
+  expect(lists).toHaveLength(1)
+  expect(lists[0]?.get('problemSelector')).toBe(`affectedEntities("${PROCESS_GROUP_PAGE_ID}")`)
+  expect(lists[0]?.get('from')).toBe('now-2h')
+
+  // Encima del gráfico: la franja acaba antes de que empiece el canvas.
+  const bandBox = await settledBox(band)
+  const plotBox = await settledBox(pgChartPlot('cpu'))
+  expect(bandBox.y + bandBox.height).toBeLessThanOrEqual(plotBox.y + 1)
+
+  // Pulsar un tramo abre ese problema; «Volver» regresa al grupo.
+  await clickInPlace(pgSegment(PROCESS_GROUP_BAND_CLOSED.problemId), { scroll: true })
+  await expect(page.getByTestId('problem-page')).toBeVisible()
+  await expect(page.getByTestId('problem-page-title')).toContainText(
+    PROCESS_GROUP_BAND_CLOSED.displayId
+  )
+  expect(await currentRoute()).toBe(`/problems/${PROCESS_GROUP_BAND_CLOSED.problemId}`)
+  await page.getByTestId('problem-back').click()
+  await expect(pgPage()).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP/${PROCESS_GROUP_PAGE_ID}`)
+})
+
+/**
+ * Ficha 0032, CA4 (unitario): en `src/main/ipc/handlers/entity-detail.test.ts`. Este e2e es el
+ * CA5: la tarjeta, la última, y nada de la línea de comandos en la página.
+ */
+test('CA5 (0032): la tarjeta «Información» del process group sale la última, con sus filas y relaciones, y sin la línea de comandos ni la ruta completa en ningún sitio de la página', async () => {
+  const entityPage = await openProcessGroupPage()
+  const card = pgInfoCard()
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Información')
+  await expect(card.getByTestId('process-group-info-row').first()).toBeVisible()
+  for (const id of ['process-group-markers', 'process-group-charts', 'process-group-instances']) {
+    await expect(entityPage.getByTestId(id), id).toBeVisible()
+  }
+
+  // La última sección: nada visible detrás; gráficos e instancias, encima.
+  expect(await visibleNeighbours(PG_PAGE_TEST_ID, 'process-group-info', 'after')).toEqual([])
+  const infoBox = await settledBox(card)
+  for (const id of ['process-group-markers', 'process-group-charts', 'process-group-instances']) {
+    const box = await settledBox(entityPage.getByTestId(id))
+    expect(box.y + box.height, `${id} encima de «Información»`).toBeLessThanOrEqual(infoBox.y + 1)
+  }
+
+  // Filas con las claves vistas en vivo: tecnologías, puertos y nombre detectado.
+  await expect(pgInfoRow('technologies').getByTestId('process-group-info-chip')).toHaveText([
+    'JAVA OpenJDK 21.0.1',
+    'APACHE_TOMCAT 10.1'
+  ])
+  await expect(pgInfoValue('listenPorts')).toContainText(loneNumber('9090'))
+  await expect(pgInfoValue('listenPorts')).toContainText(loneNumber('9443'))
+  await expect(pgInfoValue('detectedName')).toContainText('pagos-grupo-detectado-e2e')
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(card, text).not.toContainText(text)
+  }
+
+  // Relaciones: Instancias, Hosts, Servicios y Otras.
+  const relations = card.getByTestId('process-group-info-relations')
+  const groups = relations.getByTestId('process-group-info-group')
+  await expect(groups).toHaveCount(4)
+  expect(await dataKeys(groups, 'data-group')).toEqual(['instances', 'hosts', 'services', 'other'])
+  for (const [key, title, count] of [
+    ['instances', 'Instancias', '7'],
+    ['hosts', 'Hosts', '3'],
+    ['services', 'Servicios', '2'],
+    ['other', 'Otras', '1']
+  ] as const) {
+    await expect(pgInfoGroup(key), key).toContainText(title)
+    await expect(pgInfoGroup(key).getByTestId('process-group-info-group-count'), key).toHaveText(
+      new RegExp(`^\\s*${count}\\s*$`)
+    )
+  }
+
+  // «Ver nombres» de los hosts: una llamada con sus tres ids y los nombres en su sitio.
+  const hosts = await expandPgInfoGroup('hosts')
+  await settledRequests()
+  const namesBefore = sim.entityNamesQueries.length
+  await clickInPlace(hosts.getByTestId('process-group-info-names'), { scroll: true })
+  await expect.poll(() => sim.entityNamesQueries.length).toBe(namesBefore + 1)
+  const selector = sim.entityNamesQueries[namesBefore]?.get('entitySelector') ?? ''
+  for (const host of PROCESS_GROUP_PAGE_HOSTS) {
+    expect(selector).toContain(host.hostId)
+    await expect(
+      pgInfoEntity('hosts', host.hostId).getByTestId('process-group-info-entity-name')
+    ).toHaveText(host.hostName)
+  }
+
+  // Enlaces: una instancia a su página de proceso y un servicio a la suya.
+  await expandPgInfoGroup('instances')
+  const instance = PROCESS_GROUP_PAGE_INSTANCES[0]?.id ?? ''
+  await expect(pgInfoEntity('instances', instance)).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${instance}$`)
+  )
+  await expandPgInfoGroup('services')
+  await expect(pgInfoEntity('services', INFO_FEW_ID)).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/SERVICE/${INFO_FEW_ID}$`)
+  )
+  const other = await expandPgInfoGroup('other')
+  await expect(other).toContainText('isNetworkClientOfProcessGroup')
+
+  // «Todas las propiedades», desplegada: metadata sin la línea de comandos ni la ruta.
+  await clickInPlace(card.getByTestId('process-group-info-properties-toggle'), { scroll: true })
+  await expect(
+    card.locator('[data-testid="process-group-info-property"][data-key="metadata"]')
+  ).toContainText('pagos-grupo-e2e')
+
+  // Con todo desplegado: ni la línea de comandos ni la ruta completa en ningún sitio.
+  await expectNoProcessGroupSecrets('todo desplegado')
+})
+
+test('CA6 (0032): cambiar el rango global vuelve a pedir los datos; «Actualizar» también; volver a la página sin cambios, no', async () => {
+  await openProcessGroupPage()
+  await expectPgMarkers()
+  await expectPgChartSeries()
+  await settledRequests()
+  // Al entrar: las consultas del grupo y los recuentos de problemas, con el rango global.
+  const groupQueries = sim.processGroupMetricQueries.length
+  const instanceQueries = sim.processMetricQueries.length
+  expect(groupQueries).toBeGreaterThanOrEqual(2)
+  expect(sim.entityProblemQueries).toHaveLength(2)
+  for (const query of [
+    ...sim.processGroupMetricQueries,
+    ...sim.processMetricQueries,
+    ...sim.entityProblemQueries
+  ]) {
+    expect(query.get('from')).toBe('now-2h')
+  }
+
+  // Rango nuevo: otra vez, con now-24h.
+  await page.getByTestId('time-range-24h').click()
+  await expect.poll(() => sim.processGroupMetricQueries.length).toBe(groupQueries * 2)
+  await expect.poll(() => sim.processMetricQueries.length).toBe(instanceQueries * 2)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(4)
+  for (const query of [
+    ...sim.processGroupMetricQueries.slice(groupQueries),
+    ...sim.processMetricQueries.slice(instanceQueries),
+    ...sim.entityProblemQueries.slice(2)
+  ]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectPgMarkers()
+
+  // Fuera y vuelta, sin cambiar nada: ninguna petición nueva.
+  await goTo('metrics')
+  await expect(pgPage()).toHaveCount(0)
+  const before = await settledRequests()
+  await openProcessGroupPage()
+  await expectPgMarkers()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver a la página').toEqual([])
+
+  // «Actualizar», en la cabecera de la página: otra vez, con el rango actual.
+  await pgPage().getByTestId('module-refresh').click()
+  await expect.poll(() => sim.processGroupMetricQueries.length).toBe(groupQueries * 3)
+  await expect.poll(() => sim.entityProblemQueries.length).toBe(6)
+  for (const query of [
+    ...sim.processGroupMetricQueries.slice(groupQueries * 2),
+    ...sim.entityProblemQueries.slice(4)
+  ]) {
+    expect(query.get('from')).toBe('now-24h')
+  }
+  await expectPgMarkers()
+})
+
+test('CA6 (0032): si falla el canal de métricas, sus marcadores, cada gráfico y la tabla enseñan el aviso con Reintentar y el marcador de problemas sigue', async () => {
+  sim.processGroupMetricsFail = true
+  await openProcessGroupPage()
+
+  // El de problemas, con sus recuentos y sin aviso.
+  await expect(pgMarker('problems').getByTestId('process-group-marker-open')).toHaveText(
+    loneNumber('1')
+  )
+  await expect(pgMarker('problems').getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  // Cada marcador de métricas, en su sitio, con el aviso y Reintentar y sin valor.
+  for (const id of PG_METRIC_MARKERS) {
+    const marker = pgMarker(id)
+    await expect(marker, id).toBeVisible()
+    await expect(marker.getByRole('alert').first(), id).toBeVisible()
+    await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toBeVisible()
+    await expect(marker.getByTestId('process-group-marker-value'), id).toHaveCount(0)
+  }
+  // Cada gráfico, con su aviso y Reintentar, sin gráfico.
+  for (const kind of PG_CHART_KINDS) {
+    const panel = pgChartPanel(kind)
+    await expect(panel, kind).toBeVisible()
+    await expect(panel.getByRole('alert').first(), kind).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Reintentar' }), kind).toBeVisible()
+    await expect(panel.getByTestId(`process-group-chart-${kind}`), kind).toHaveCount(0)
+  }
+  // La tabla de instancias, también, sin filas.
+  await expect(pgInstances().getByRole('alert').first()).toBeVisible()
+  await expect(pgInstances().getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  await expect(pgInstances().getByTestId('process-group-instance-row')).toHaveCount(0)
+
+  // Reintentar, con el canal ya bien: llegan valores, los cuatro gráficos y la tabla.
+  sim.processGroupMetricsFail = false
+  await clickInPlace(pgMarker('cpu').getByRole('button', { name: 'Reintentar' }), {
+    scroll: true
+  })
+  await expectPgMarkers()
+  await expect(pgPage().getByTestId('process-group-chart-panel')).toHaveCount(4)
+  await expectPgChartSeries()
+  await expect(pgInstances().getByTestId('process-group-instance-row')).toHaveCount(7)
+  for (const id of PG_METRIC_MARKERS) {
+    await expect(pgMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
   }
 })

@@ -597,6 +597,98 @@ describe('CA1 (0029): entities:get de un proceso sale sin línea de comandos, ar
 })
 
 /**
+ * Ficha 0032, CA4: lo mismo para un PROCESS_GROUP. Claves vistas en vivo en PROCESS_GROUP
+ * (docs/notas-api-v2.md): `detectedName`, `listenPorts`, `softwareTechnologies` y `metadata`; en
+ * `metadata`, la línea de comandos (`COMMAND_LINE_ARGS`) y la ruta completa (`EXE_PATH`), como en
+ * el proceso (0029). Ninguno de esos valores sale de `entities:get` (ni en la respuesta ni en el
+ * log); el resto sí. Entidad inventada, solo tipos estándar.
+ */
+describe('CA4 (0032): entities:get de un process group sale sin la línea de comandos ni las rutas de metadata', () => {
+  const GROUP_ID = 'PROCESS_GROUP-00000000000032A1'
+  const SECRETS = {
+    password: 'CLAVE-GRUPO-0032',
+    token: 'TOKEN-GRUPO-0032',
+    userName: 'usuario-inventado-0032'
+  }
+  const ARGS = `--db-password=${SECRETS.password} --token ${SECRETS.token} -Xmx384m`
+  const EXE_PATH = `/home/${SECRETS.userName}/servicios/bin/pagos-grupo`
+
+  function groupBody(): Record<string, unknown> {
+    return {
+      entityId: GROUP_ID,
+      displayName: 'pagos-grupo',
+      type: 'PROCESS_GROUP',
+      firstSeenTms: FIRST_SEEN,
+      lastSeenTms: LAST_SEEN,
+      properties: {
+        detectedName: 'pagos-grupo-detectado',
+        listenPorts: [9090, 9443],
+        softwareTechnologies: [{ type: 'JAVA', edition: 'OpenJDK', version: '21.0.1' }],
+        metadata: [
+          { key: 'COMMAND_LINE_ARGS', value: ARGS },
+          { key: 'EXE_NAME', value: 'pagos-grupo' },
+          { key: 'EXE_PATH', value: EXE_PATH },
+          { key: 'KUBERNETES_NAMESPACE', value: 'espacio-grupo' }
+        ]
+      },
+      fromRelationships: { runsOn: [{ id: HOST_ID, type: 'HOST' }] },
+      toRelationships: { isInstanceOf: [{ id: PGI_ID, type: 'PROCESS_GROUP_INSTANCE' }] }
+    }
+  }
+
+  async function getGroup(): Promise<{ data: EntityData; text: string }> {
+    respondEntity = (id) =>
+      id === GROUP_ID
+        ? json(200, groupBody())
+        : json(404, { error: { code: 404, message: `Entity ${id} not found` } })
+    const result = await call(GET, { entityId: GROUP_ID })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    return { data: result.data as EntityData, text: JSON.stringify(result) }
+  }
+
+  it('la línea de comandos y la ruta completa no salen, ni en la respuesta ni en el log', async () => {
+    const { data, text } = await getGroup()
+    const hidden = [
+      ARGS,
+      EXE_PATH,
+      ...Object.values(SECRETS),
+      '-Xmx384m',
+      '/home/',
+      'servicios/bin'
+    ]
+    for (const value of hidden) expect(text, value).not.toContain(value)
+    const logged = JSON.stringify([
+      vi.mocked(deps.logger.warn).mock.calls,
+      vi.mocked(deps.logger.error).mock.calls
+    ])
+    for (const value of hidden) expect(logged, `log: ${value}`).not.toContain(value)
+    for (const property of data.properties) {
+      for (const value of Object.values(SECRETS)) {
+        expect(property.text, `${property.key}: ${value}`).not.toContain(value)
+      }
+    }
+  })
+
+  it('lo demás sigue llegando: nombre detectado, puertos, tecnologías, el resto de metadata y las relaciones', async () => {
+    const { data } = await getGroup()
+    const text = (key: string): string => data.properties.find((p) => p.key === key)?.text ?? ''
+    expect(data.properties.map((p) => p.key)).toEqual(
+      expect.arrayContaining(['detectedName', 'listenPorts', 'softwareTechnologies', 'metadata'])
+    )
+    expect(text('detectedName')).toBe('pagos-grupo-detectado')
+    for (const port of ['9090', '9443']) expect(text('listenPorts')).toContain(port)
+    expect(text('softwareTechnologies')).toContain('JAVA')
+    for (const part of ['EXE_NAME', 'pagos-grupo', 'KUBERNETES_NAMESPACE', 'espacio-grupo']) {
+      expect(text('metadata'), part).toContain(part)
+    }
+    expect(data.relationships.map((r) => `${r.direction} ${r.name}`).sort()).toEqual([
+      'from runsOn',
+      'to isInstanceOf'
+    ])
+  })
+})
+
+/**
  * Ficha 0037, CA1: `entities:get` manda las etiquetas separadas, `{ context, key, value }`, con
  * `context`, `key` y `value` de `EnrichedTagDto` (OpenAPI v2); `value` es null en las de solo
  * clave. Se conserva el orden de la respuesta (ordenar es cosa de la vista).
