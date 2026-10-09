@@ -15328,12 +15328,16 @@ test('CA5 (0042): la tarjeta «Eventos» del host enseña los 20 más recientes 
   await expect(hostEventRows()).toHaveCount(20)
   await expect(card.getByTestId('host-events-summary')).toContainText('20 de 22')
 
-  // La consulta: eventSelector con el host y sus relacionados, sin los que no entran.
-  expect(sim.hostEventsQueries.length).toBeGreaterThan(0)
-  const asked = sim.hostEventsQueries.flatMap((query) => hostEventsSelectorIds(query) ?? [])
+  // La consulta: eventSelector con el host y sus relacionados, sin los que no entran. Solo las
+  // de este host: una recarga del test anterior puede dejar una consulta tardía de otro.
+  const queries = sim.hostEventsQueries.filter((query) =>
+    (hostEventsSelectorIds(query) ?? []).includes(HOST_EVENTS_HOST)
+  )
+  expect(queries.length).toBeGreaterThan(0)
+  const asked = queries.flatMap((query) => hostEventsSelectorIds(query) ?? [])
   expect([...new Set(asked)].sort()).toEqual([...HOST_EVENTS_IDS].sort())
   for (const id of HOST_EVENTS_EXCLUDED) expect(asked, id).not.toContain(id)
-  for (const query of sim.hostEventsQueries) {
+  for (const query of queries) {
     expect(query.has('optionalEntitySelector')).toBe(false)
     expect(query.has('entitySelector')).toBe(false)
     expect(query.get('from')).toBe('now-2h')

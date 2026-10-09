@@ -387,8 +387,10 @@ describe('CA4 (0042): la consulta lleva el selector con el host y sus relacionad
       (_, i) => `PROCESS_GROUP_INSTANCE-${hex(0x420000 + i)}`
     )
     for (const id of many) TYPE_OF[id] = 'PROCESS_GROUP_INSTANCE'
+    // Solo los procesos: sin la EC2 de fromRelationships.runsOn (que también entraría).
     host = {
       ...hostBody(),
+      fromRelationships: {},
       toRelationships: { isProcessOf: many.map((id) => ({ id, type: 'PROCESS_GROUP_INSTANCE' })) }
     }
     // Un evento por cada proceso 0, 100, 200, 300 y 400 (en consultas distintas) y dos del host.
