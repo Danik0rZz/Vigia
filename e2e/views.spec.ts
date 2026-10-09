@@ -5350,11 +5350,15 @@ test('v0.10.0: desplegar con clic y con Enter, aria-expanded y aria-controls, Ta
   const properties = detail.getByTestId('evidence-properties')
   await expect(properties).toBeVisible()
   await expect(properties).toContainText('97')
-  // Ficha 0001: dt.event.description va en su sección (el HTML, como texto) y no en propiedades.
+  // Ficha 0001: dt.event.description va en su sección y no en propiedades. CA6 (0043): el HTML de
+  // formato (b) se interpreta; el peligroso (img con onerror) no se crea ni se ejecuta.
   await expect(properties).not.toContainText(TABLE_HTML)
+  await expect(properties).not.toContainText('negrita')
   const description = detail.getByTestId('evidence-description')
-  await expect(description).toContainText(TABLE_HTML)
-  await expect(detail.locator('b, img')).toHaveCount(0)
+  await expect(description).toContainText('negrita')
+  await expect(description).not.toContainText('<b>')
+  await expect(detail.locator('b')).toHaveText(['negrita'])
+  await expect(detail.locator('img, script, iframe')).toHaveCount(0)
   expect(await page.evaluate(() => (window as { __xss?: unknown }).__xss ?? null)).toBeNull()
   await expect(detail.getByTestId('evidence-zones')).toContainText('Producción')
   for (const tag of ['equipo:pagos', 'zona:eu', 'critico', 'capa:infra']) {
@@ -5467,7 +5471,7 @@ test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y propiedades de 
   await expect(empty.getByTestId('evidence-variation').locator('.sr-only')).toHaveCount(0)
   await expect(empty.getByTestId('evidence-metric-id')).toHaveText('builtin:host.cpu.usage')
 
-  // EVENT con propiedades: siempre visibles en el detalle, como texto (el <b> no es HTML).
+  // EVENT con propiedades: siempre visibles en el detalle.
   await expect(evidenceRow('Reinicio del proceso')).toContainText('PROCESS_RESTART')
   const event = await item('Reinicio del proceso')
   await expect(event.getByTestId('evidence-more')).toHaveCount(0)
@@ -5475,8 +5479,10 @@ test('v0.9.1: tarjetas de cambio (METRIC y TRANSACTIONAL), N/A y propiedades de 
   // Ficha 0001: dt.event.description sale en su sección, no en las propiedades.
   await expect(properties.locator('dt')).toHaveText(['exit.code'])
   await expect(properties.locator('dd')).toHaveText(['137'])
-  await expect(event.getByTestId('evidence-description')).toContainText(EV_PROPERTY)
-  await expect(event.locator('b')).toHaveCount(0)
+  // CA6 (0043): el <b> de la descripción se interpreta (formato permitido) y no se ve como texto.
+  await expect(event.getByTestId('evidence-description')).toContainText('reinicio manual')
+  await expect(event.getByTestId('evidence-description')).not.toContainText('<b>')
+  await expect(event.locator('b')).toHaveText(['reinicio'])
   // EVENT sin propiedades: sin bloque de propiedades.
   await expect(evidenceRow('Despliegue')).toContainText('CUSTOM_DEPLOYMENT')
   await expect((await item('Despliegue')).getByTestId('evidence-properties')).toHaveCount(0)
@@ -7424,12 +7430,14 @@ test('CA9 (0001) y CA3 (0002): con el teclado, Tab llega a «Copiar», Enter lo 
   await expect(row).toBeFocused()
 })
 
-test('CA10 (0001): el HTML en crudo de la descripción se ve como texto y no crea img ni script', async () => {
+test('CA10 (0001), actualizado por CA6 (0043): el HTML peligroso de la descripción no crea img, script ni iframe ni se ejecuta', async () => {
   await openDescriptionProblem()
   const detail = await expandRow('Descripción con HTML')
   const { section } = descriptionParts(detail)
-  await expect(section).toContainText('<img src=x onerror="window.__xssDesc=1">')
-  await expect(section).toContainText('<script>window.__xssDesc=2</script>')
+  // El texto de alrededor se sigue viendo; el HTML peligroso no se crea (ni como elemento ni
+  // ejecutándose). Desde la 0043 no se exige verlo como texto.
+  await expect(section).toContainText('Texto')
+  await expect(section).toContainText('fin')
   await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Aviso'])
   await expect(detail.locator('img, script, iframe')).toHaveCount(0)
   expect(
