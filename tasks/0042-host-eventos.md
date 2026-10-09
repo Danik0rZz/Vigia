@@ -1,7 +1,7 @@
 ---
 id: '0042'
 titulo: 'HOST: tarjeta «Eventos» con los eventos del host y de lo que corre en él (scope events.read)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -205,6 +205,12 @@ conecta», porque `events.read` sale aún como scope que Vigía no usa.
 
 Los dos los corrigió el test-writer en `b8aac1c`. Código en `fd80a9c` (canal) y `49db995`
 (tarjeta). `npm run check` en verde (3053 tests) y e2e completo en verde (316).
+
+### Verifier, 2026-10-09, commit `6d266d4`, rango `main..feat/0042-host-eventos`: VERDE
+
+- check: 3053 tests en 168 ficheros, cobertura ok.
+- e2e completo: 316/316.
+- Los 3 e2e de la 0042 ×3 con `--workers=1`: 9/9.
 
 ## Resultado
 
