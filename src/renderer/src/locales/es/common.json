@@ -762,6 +762,32 @@
           "memory": "Memoria media"
         }
       },
+      "logs": {
+        "title": "Logs",
+        "label": "Procesos del host con logs detectados",
+        "summary_one": "{{withLogs}} de {{count}} proceso con logs",
+        "summary_other": "{{withLogs}} de {{count}} procesos con logs",
+        "empty": "Sin logs detectados",
+        "columns": {
+          "name": "Proceso",
+          "status": "Estado del fichero",
+          "source": "Fuente",
+          "updated": "Última actualización"
+        },
+        "sources_one": "{{count}} fuente",
+        "sources_other": "{{count}} fuentes",
+        "noUpdate": "Sin fecha",
+        "fileStatus": {
+          "FILE_STATUS_OK": "Se lee",
+          "FILE_STATUS_NOT_EXIST": "El fichero no existe",
+          "FILE_STATUS_NOT_MONITORED_ANY_MORE": "Ya no se monitoriza",
+          "unknown": "Sin estado"
+        },
+        "sourceState": {
+          "LOG_STORAGE_CONFIGURATION_STATUS_SEND_TO_STORAGE": "Se envía al almacenamiento",
+          "unknown": "Sin estado de la fuente"
+        }
+      },
       "info": {
         "label": "Información del host",
         "ipsMore_one": "Ver la IP restante",

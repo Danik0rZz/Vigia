@@ -280,6 +280,28 @@ export function useHostBreakdown(
 }
 
 /**
+ * Procesos de un HOST con logs detectados en el rango global (ficha 0041, tarjeta «Logs»). Con
+ * `envId` null (sin `entities.read`) o `entityId` null no se pide nada.
+ */
+export function useHostLogs(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:hostLogs'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { hostLogs: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:hostLogs', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
  * Métricas de un PROCESS_GROUP_INSTANCE en el rango global (canal de la ficha 0027; marcadores y
  * gráficos de la 0028, una sola llamada). Con `entityId` null (id que no es de un proceso) no se
  * pide nada.

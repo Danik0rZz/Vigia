@@ -762,6 +762,32 @@
           "memory": "Average memory"
         }
       },
+      "logs": {
+        "title": "Logs",
+        "label": "Processes of the host with detected logs",
+        "summary_one": "{{withLogs}} of {{count}} process with logs",
+        "summary_other": "{{withLogs}} of {{count}} processes with logs",
+        "empty": "No logs detected",
+        "columns": {
+          "name": "Process",
+          "status": "File status",
+          "source": "Source",
+          "updated": "Last update"
+        },
+        "sources_one": "{{count}} source",
+        "sources_other": "{{count}} sources",
+        "noUpdate": "No date",
+        "fileStatus": {
+          "FILE_STATUS_OK": "Being read",
+          "FILE_STATUS_NOT_EXIST": "File does not exist",
+          "FILE_STATUS_NOT_MONITORED_ANY_MORE": "No longer monitored",
+          "unknown": "No status"
+        },
+        "sourceState": {
+          "LOG_STORAGE_CONFIGURATION_STATUS_SEND_TO_STORAGE": "Sent to storage",
+          "unknown": "No source status"
+        }
+      },
       "info": {
         "label": "Information about the host",
         "ipsMore_one": "Show the remaining IP address",
