@@ -1,7 +1,7 @@
 ---
 id: '0043'
 titulo: 'Visor de Markdown: interpretar el HTML de formato de las descripciones, con lista blanca'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -194,6 +194,13 @@ defecto de cada tema. Ya no queda abierto para Dani; se afina si la prueba a man
   `title` (ya saneados). Un `pre` escrito en HTML sin `code` copia su texto con «Copiar».
 - Pendiente para el doc-writer: la línea de `src/renderer/CLAUDE.md` que dice «nunca `rehype-raw`;
   sin HTML en crudo» (la cambia el ADR nuevo).
+
+### Verifier, 2026-10-09, commit `8a3ac7a`, rango `main..feat/0043-markdown-html-seguro`: VERDE
+
+- `npm ci --ignore-scripts` con las dependencias nuevas: bien.
+- check: 2918 tests en 158 ficheros, cobertura ok.
+- e2e completo: 304/304.
+- Los tres e2e actualizados por CA6 ×3 con `--workers=1`: 3/3 cada uno.
 
 ## Resultado
 
