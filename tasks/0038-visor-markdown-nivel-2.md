@@ -1,7 +1,7 @@
 ---
 id: '0038'
 titulo: 'Visor de Markdown: capa visual cuidada (código con colores y números de línea, avisos y marcas)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -173,4 +173,8 @@ refinable):**
 
 ## Resultado
 
-(pendiente)
+- Commits: `08d7c38` (tests), `8908b34` y `c44eefb` (código y estilos), más los de la ficha.
+- Ficheros principales: `src/renderer/src/components/MarkdownText.tsx`, `markdown-plugins.ts`, `src/renderer/src/assets/main.css`, locales es y en, `e2e/views.spec.ts` y `src/main/env-colors.test.ts`.
+- Rondas de revisión: 1 (APROBADO). Verifier en verde (2735 tests, e2e 304/304).
+- ADR nuevo: ninguno (el ADR-0008 lo sustituirá el ADR de la ficha 0043).
+- Sugerencias 1 y 2 del revisor pasan a «Mejoras anotadas» del BACKLOG; la 3 está hecha (ARCHITECTURE).
