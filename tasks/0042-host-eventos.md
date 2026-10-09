@@ -1,7 +1,7 @@
 ---
 id: '0042'
 titulo: 'HOST: tarjeta «Eventos» con los eventos del host y de lo que corre en él (scope events.read)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -214,4 +214,4 @@ Los dos los corrigió el test-writer en `b8aac1c`. Código en `fd80a9c` (canal) 
 
 ## Resultado
 
-(pendiente)
+Commits: `e331d2e`, `b8aac1c` (tests), `fd80a9c` (canal `entities:hostEvents`), `49db995` (tarjeta «Eventos»). Ficheros principales: `src/main/modules/host-events.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/modules.ts`, `src/shared/dynatrace.ts` (scope `events.read`), `src/renderer/src/pages/entities/HostEvents.tsx` y `entity-page-types.ts`. Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones. Pendiente de Dani: la prueba a mano de arriba.

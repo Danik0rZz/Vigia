@@ -733,6 +733,7 @@ títulos, ni propiedades, ni entidades de los eventos: son datos del cliente.
   `correlationId(…)` existe, pero la OpenAPI no lo relaciona con los problemas.
 - **Errores:** un `eventSelector` mal formado da **400**.
 - **Tiempos:** mediana de unos 330 ms y máximo por debajo de 0,5 s.
+- **Eventos de un host y de lo que corre en él (ficha 0042, paso 0 en vivo):** `eventSelector=entityId("<host>","<id-2>",…)` con ids de tipos mezclados da 200 y trae los mismos eventos que una consulta por tipo con `entitySelector` y relaciones (6 o 7 peticiones). El límite es de **longitud del selector, no de número de ids**: unos 9.900 caracteres dan 200 y desde unos 10.485, **400**; un host puede tener más de 200 ids relacionados, así que se reparte en varias consultas. Relaciones del HOST: procesos `to:isProcessOf`, discos `to:isDiskOf`, interfaces `to:isNetworkInterfaceOf`, grupos de contenedores `to:isCgiOfHost`, **nodo de Kubernetes `to:isNodeOfHost`** y máquina virtual `from:runsOn`. El HOST **no tiene relación con `OS_SERVICE`**. La respuesta llega ordenada por `startTime` descendente. El `optionalEntitySelector` de la interfaz de Dynatrace no está en la OpenAPI y no se usa.
 
 ## f) Settings 2.0 (solo lectura)
 
