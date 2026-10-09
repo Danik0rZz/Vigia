@@ -87,7 +87,7 @@ describe('CA5 (0043): readableColor ajusta un color de bajo contraste', () => {
     expect(luminance(DARK)).toBeLessThan(0.1)
   })
 
-  it.each(['#dd0000', '#ff0000', '#1f6feb', '#808080', '#8a4a00'])(
+  it.each(['#dd0000', '#ff0000', '#1f6feb', '#808080', '#b06000'])(
     '%s ya contrasta en los dos temas: se devuelve igual',
     (color) => {
       for (const background of BACKGROUNDS) {
