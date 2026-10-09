@@ -1,7 +1,7 @@
 ---
 id: '0040'
 titulo: 'DISK: página del disco, a la que se llega pulsando un disco del host'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -204,4 +204,8 @@ del host (0014 a 0019 y 0039) siguen en verde con el simulador ampliado.
 
 ## Resultado
 
-(pendiente)
+Commits (`main..HEAD`): `85d132f` tests, `685ae20` canal, `69f381e` página, `9d83725` enlace desde la tabla del host, más los de la ficha. 1 ronda de revisión (APROBADO), verifier en verde (2974 unitarios, 309 e2e). ADR nuevo: ninguno. Sin migraciones.
+
+Ficheros principales: `src/main/modules/disk-metrics.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/ipc.ts` y `modules.ts`, `src/renderer/src/pages/entities/Disk{EntityPage,Markers,Charts,Info}.tsx` con `disk-charts.ts` y `disk-info.ts`, `HostTables.tsx`, `registry.ts` y los textos `entities.disk` en es y en.
+
+Pendiente de Dani: la prueba a mano con un host real (ver arriba).

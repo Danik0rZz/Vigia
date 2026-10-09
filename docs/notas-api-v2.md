@@ -642,6 +642,17 @@ navegador, tipo de usuario o geolocalización).
   la forma `:filter(eq(...))` equivale a `entityId(...)` en vivo (0006, 0023), pero este filtro es
   deducido: no se ha probado en vivo.
 
+### Métricas de un disco (ficha 0040, observado en vivo, solo lectura)
+
+3 discos, `now-2h`. `builtin:host.disk.*` da 16 métricas, todas con `entityType` HOST y las dimensiones `dt.entity.host` y `dt.entity.disk`.
+
+- Son métricas **del host**: con `entitySelector=entityId("<disco>")` no llega ninguna serie (0 de 3 en las 16). Hay que acotar con `:filter(eq("dt.entity.disk","<disco>"))` en cada expresión; así las 16 traen una serie cada una y ninguna de otro disco. La agregación va detrás del filtro (`…:filter(…):max`).
+- El `metricId` de la respuesta llega **sin las comillas** del valor del filtro, así que no es la expresión enviada: los resultados se casan por posición.
+- Elegidas por papel: uso `usedPct`; espacio `used` y `avail`; rendimiento `bytesRead` y `bytesWritten`; latencia `readTime` y `writeTime`; cola `queueLength`; inodos `inodesAvail` (% libre).
+- No todos los discos de un host traen las de E/S: `readTime` y `writeTime` suelen venir en uno solo. Latencia, cola e inodos pueden quedar `null`.
+- `:last` con `resolution=Inf` da 400; el libre se saca de la serie (último punto con dato).
+- Entidad `DISK`: `properties` con `detectedName` y `filesystemType`, `firstSeenTms` y `lastSeenTms`, y la relación `fromRelationships.isDiskOf` (HOST).
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2
