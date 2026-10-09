@@ -1,7 +1,7 @@
 ---
 id: '0042'
 titulo: 'HOST: tarjeta «Eventos» con los eventos del host y de lo que corre en él (scope events.read)'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -188,6 +188,9 @@ conecta», porque `events.read` sale aún como scope que Vigía no usa.
    segunda llega después del `resetState` del test siguiente. Arreglo propuesto: en el test de la
    0042, quedarse con las consultas cuyo selector incluye `HOST_EVENTS_HOST` (o esperar
    `settledRequests()` y vaciar `sim.hostEventsQueries` antes de abrir la página).
+
+Los dos los corrigió el test-writer en `b8aac1c`. Código en `fd80a9c` (canal) y `49db995`
+(tarjeta). `npm run check` en verde (3053 tests) y e2e completo en verde (316).
 
 ## Resultado
 
