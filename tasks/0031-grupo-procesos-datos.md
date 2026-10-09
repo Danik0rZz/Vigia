@@ -1,7 +1,7 @@
 ---
 id: '0031'
 titulo: 'PROCESS_GROUP: análisis de métricas en vivo y canal de series, marcadores e instancias'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -75,7 +75,69 @@ los procesos de los hosts de los problemas de los últimos 7 días; informe sin 
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `05c1854` (`test(grupo-procesos): criterios de la ficha 0031`). Los unitarios
+y el e2e fallan porque el canal no existe (`canal entities:processGroupMetrics: expected
+undefined`, `implementación de entities:processGroupMetrics: expected undefined`,
+`UNKNOWN_CHANNEL` en el e2e), no por el test: 34 unitarios en rojo (19 de CA2, 13 de CA3 a CA5 y
+los registros de `channel-coverage.test.ts` y `modules.test.ts`) y el e2e de CA6 en rojo.
+
+| Criterio | Test                                                                                                                                                       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/process-group-metrics-explore.live.test.ts` › `CA1 (0031): el informe no contiene ningún id ni nombre observado` (ya pasa: paso 0 hecho) |
+| CA2      | `src/shared/ipc.test.ts` › `CA2 (0031): entrada de entities:processGroupMetrics`                                                                           |
+| CA3      | `src/main/ipc/handlers/process-group-metrics.test.ts` › `CA3 (0031): las consultas llevan las métricas, el selector confirmado, el id y el rango`          |
+| CA4      | `src/main/ipc/handlers/process-group-metrics.test.ts` › `CA4 (0031): series, totales e instancias del grupo`                                               |
+| CA5      | `src/main/ipc/handlers/process-group-metrics.test.ts` › `CA5 (0031): errores de Dynatrace y grupo sin datos`                                               |
+| CA6      | `e2e/views.spec.ts` › `CA6 (0031): entities:processGroupMetrics por IPC con ids inventados: dos consultas, total del grupo e instancias`                   |
+
+**Paso 0 (CA1), en vivo y de solo lectura, el 2026-10-09:** 3 grupos de los procesos del host de
+los problemas de los últimos 7 días (10 candidatos, todos con 2 a 4 instancias), `now-24h`, unas
+150 peticiones GET, token fuera del log. Informe en
+`live-reports/process-group-metrics-explore.json` (ignorado), sin ids ni nombres.
+
+- `cpu.usage`, `mem.workingSetSize`, `network.bytesRx` y `network.bytesTx` solo tienen la
+  dimensión `dt.entity.process_group_instance` (ninguna de grupo): con `entityId("<grupo>")` no
+  llega ninguna serie.
+- **Selector que funciona:**
+  `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isInstanceOf(entityId("<id>"))`. En
+  `/entities` da las mismas instancias que `toRelationships.isInstanceOf` de la entidad del
+  grupo; en `/metrics/query`, tantas series por instancia como instancias.
+- **Total del grupo:** `:splitBy():sum` es, punto a punto, igual a la suma de las series por
+  instancia (`:splitBy()` y `:splitBy():avg` dan la media de las instancias, no el total). Con
+  `resolution=Inf`, `:splitBy():sum` queda a menos del 1 % de la media de esa suma (en un grupo
+  con CPU casi a cero, más: valores en [0, 1]). Ninguna expresión con `Inf` da el máximo de la
+  suma (`:max` y la suma de máximos por instancia no coinciden).
+- **Por instancia:** `:splitBy("dt.entity.process_group_instance"):names` trae
+  `dt.entity.process_group_instance.name`; con `:parents` delante y
+  `splitBy("dt.entity.process_group_instance","dt.entity.host")`, además `dt.entity.host` (un
+  `HOST-…`) y `dt.entity.host.name`. Cada instancia tiene un host (`isProcessOf`).
+- Consultas exactas del canal, comprobadas en los 3 grupos con el selector de arriba (todas 200,
+  `metricId` igual a la expresión, una serie por expresión del total y una por instancia en las
+  medias; las instancias de CPU y de memoria, las mismas y tantas como entidades; todas con
+  nombre, host y nombre del host):
+  - series, sin `resolution` (`10m` con `now-24h`): `cpu.usage:splitBy():sum`,
+    `mem.workingSetSize:splitBy():sum`, `network.bytesRx:splitBy():sum` y
+    `network.bytesTx:splitBy():sum`;
+  - marcadores, con `resolution=Inf`: las cuatro de arriba (media del total) y
+    `cpu.usage:parents:splitBy("dt.entity.process_group_instance","dt.entity.host"):avg:names` y
+    lo mismo con `mem.workingSetSize` (medias por instancia, a menos del 1 % de la media de su
+    serie).
+- Dos de los tres grupos no traen red: sin series en esas métricas.
+
+**Decisiones del test-writer (delegadas por el Orquestador, refinables):**
+
+- Forma de la salida: `series` con `cpu`, `memory` y `network` (`in`/`out`); `totals` con
+  `cpu: { avg, max }`, `memory: { avg }` y `network: { in, out }`; `instances: { items, total }`
+  (como `processes` de `entities:hostBreakdown`), cada una con `id`, `name`, `hostId`, `hostName`,
+  `cpu` (media) y `memory` (media). Más `resolution`, `warnings` y `partial`, como en la 0027.
+- Los cuatro papeles tienen métrica: un papel sin datos llega con series vacías (no `null`); los
+  `null` de CA4 son los de los totales sin dato y los de cada instancia (CPU o memoria sin dato,
+  host que no llega en `dimensionMap`). Sin nombre en `dimensionMap`, `name` es el id.
+- La CPU máxima del grupo es el máximo de la serie del total (ninguna expresión con `Inf` lo da).
+- Instancias de CPU y memoria casadas por id; ordenadas por CPU media de más a menos, las de CPU
+  `null` al final. Sin tope: `total` es el número de instancias.
+- Dos peticiones, las dos a `/metrics/query`: nombres y hosts llegan en `dimensionMap`, no hace
+  falta `/entities`.
 
 ## Resultado
 
