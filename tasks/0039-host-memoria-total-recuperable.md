@@ -80,7 +80,8 @@ disponible (la que se puede usar sin swap) menos la libre.
 - Salida: `series.memoryBytes = { used, reclaimable, total }` (series en bytes) y
   `totals.memory.reclaimable` (último punto con dato, como `used` y `total`). `series.memory`
   (%) se queda.
-- La recuperable va en la misma consulta de series (siguen siendo dos consultas).
+- La recuperable va con las series (sustituido por la decisión del Orquestador de abajo: como
+  mucho 10 expresiones por consulta).
 - Testids: `host-marker-reclaimable` (palabra y valor, dentro de `host-marker-memory`),
   `host-marker-reclaimable-help` (icono enfocable) y `host-marker-reclaimable-tooltip`.
 - Orden de las series del gráfico: usada, recuperable, total (`data-series`, en es: «usad…»,
@@ -98,12 +99,22 @@ expresiones en `metricSelector`, no el número exacto de consultas.
 
 - No hay criterio para «el % sigue en el tooltip»: no lo cubre ningún test.
 
-**Tests (commit ee987a9):**
+**Tests (commits ee987a9 y 6840f0c, este con el límite de 10 expresiones):**
 
 - CA1 → `src/main/modules/host-memory-explore.live.test.ts`, «CA1 (0039): el informe dice si la
-  recuperable existe, su unidad y si hay datos…» (se salta sin `.env.live.local`; pasa).
-- CA2 → `src/main/ipc/handlers/host-metrics.test.ts`, describe «CA2 (0039)» (4 tests); además,
-  CA3, CA4 y CA5 de la 0016 piden ahora la recuperable en la consulta y en los totales.
+  recuperable existe, su unidad y si hay datos…» (se salta sin `.env.live.local`; pasa). La
+  prueba de 11 expresiones juntas queda marcada como «exploración», no como la consulta del canal.
+- CA2 → `src/main/ipc/handlers/host-metrics.test.ts`, describe «CA2 (0039)» (5 tests): total y
+  recuperable una vez cada una entre las consultas de series y acotadas al host; «ninguna
+  petición lleva más de 10 expresiones en `metricSelector`»; `memoryBytes` bien casadas aunque
+  las series vayan en varias consultas; totales y vacíos. El simulador unitario y el del e2e
+  responden 400 con más de 10 expresiones. CA3 (0016) ya no exige dos peticiones: junta las
+  expresiones de todas las consultas de series (las 11, una vez cada una) y de marcadores, y
+  comprueba el límite; CA4 y CA5 de la 0016 piden la recuperable en los totales.
+- e2e que contaban consultas (CA7 de la 0016, CA2 y CA6 de la 0018, CA3 de la 0039): cuentan
+  llamadas al canal por la única consulta de marcadores (`resolution=Inf`) y comprueban el límite
+  de 10 (`expectHostQueriesWithinLimit`); CA6 (0018) mide las consultas de una llamada y espera
+  el doble y el triple.
 - CA3 → `e2e/views.spec.ts`, «CA3 (0039): el marcador de memoria enseña usada / total y
   recuperable…»; `HOST_CHART_SERIES.memory` (CA2 y CA7 de la 0018) pasa a tres series; y
   `src/renderer/src/pages/entities/host-charts.test.ts`, describe «CA3 (0039)» (apiladas, total
@@ -113,8 +124,10 @@ expresiones en `metricSelector`, no el número exacto de consultas.
 - CA5 → `src/renderer/src/locales/host-page.test.ts`, describe «CA5 (0039)» (3 tests).
 
 Ejecución sin el código: 18 unitarios fallan (faltan `memRecl`, `memoryBytes`, `reclaimable`,
-las tres series y los textos) y 4 e2e (CA2 y CA7 de la 0018: «Memoria usada» sola; CA3 y CA4 de
-la 0039: no existen `host-marker-reclaimable` ni su ayuda).
+las tres series y los textos; el del límite de 10 pasa hoy, con 10 expresiones, y es la guarda
+para cuando se añada la recuperable) y 5 e2e (CA2 y CA7 de la 0018 y CA6 de la 0019: «Memoria
+usada» sola; CA3 y CA4 de la 0039: no existen `host-marker-reclaimable` ni su ayuda). CA7 (0016)
+y CA6 (0018) pasan con el código actual.
 
 ## Resultado
 
