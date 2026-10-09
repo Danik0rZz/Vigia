@@ -108,6 +108,16 @@ por lo que falta, no por el test: los 7 e2e de la 0032 porque la página no tien
   `entities:processMetrics` de cada instancia. El test solo mira el gráfico: cinco series con el
   nombre de las cinco de más CPU. Ojo: `CA6 (0031)` exige dos consultas al canal y que la de series
   no lleve `:parents:splitBy(…):avg:names`.
+
+**Decisión del Orquestador (delegada por Dani, refinable), 2026-10-09:** «CPU por instancia» sale
+de `entities:processMetrics` (0027) de las cinco instancias de más CPU media según
+`instances.items` del canal de la 0031: cinco llamadas al canal ya existente, con expresiones ya
+confirmadas en vivo. No se cambia el canal de la 0031 ni se añade una expresión nueva sin probar en
+vivo (regla de no inventar). Se piden después de llegar las instancias, con el mismo rango y solo con
+«Actualizar» o un rango nuevo (ADR-0004). Si una falla, ese gráfico enseña su aviso con Reintentar.
+Si en el futuro se quiere una sola consulta (`splitBy` por instancia con `:sort`/`:limit`), primero
+se prueba en vivo.
+
 - **Marcadores:** los `totals` del canal; la CPU es la media del total del grupo (suma de las
   instancias, 64,5 %) y debajo la máxima (112,5 %); red en bit/s como el proceso.
 - **Recorte (nota del Orquestador):** con `partial`, aviso `process-group-instances-partial` (texto
