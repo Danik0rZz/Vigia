@@ -1,7 +1,7 @@
 ---
 id: '0038'
 titulo: 'Visor de Markdown: capa visual cuidada (código con colores y números de línea, avisos y marcas)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -164,6 +164,12 @@ refinable):**
 - **Estilos:** clases `md-*` en `@layer components` de `main.css` (el contenido lo genera
   react-markdown) y tokens `--md-*` en los dos temas; colores de sintaxis inspirados en los de
   GitHub, ajustados a 4,5:1.
+
+### Verifier, 2026-10-09, commit `d5306d8`, rango `main..feat/0038-visor-markdown-nivel-2`: VERDE
+
+- `npm ci --ignore-scripts` con las dependencias nuevas: bien.
+- check: 2735 tests en 156 ficheros, cobertura ok.
+- e2e completo: 304/304.
 
 ## Resultado
 
