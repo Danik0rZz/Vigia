@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /entities` con `entitySelector=type("PROCESS_GROUP_INSTANCE"),fromRelationships.isProcessOf(entityId("<host>"))`, `fields=+properties.logFileStatus,+properties.logPathLastUpdate,+properties.logSourceState` (formato `properties.FIELD` de la OpenAPI), `from`, `to` y `pageSize`; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `entities.read`.
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -114,6 +114,18 @@ paginación sigue la OpenAPI; sin scope nuevo; ADR-0004; nada del tenant.
 
 Opcional: `HostLogs.tsx:119` reutiliza `fromProblem: true` para «Volver», como `HostTables` y
 `EntityInfoCard`; si se renombra, en todos los sitios a la vez.
+
+### Ronda 2: APROBADO
+
+Los dos CAMBIOS de la ronda 1, resueltos. La ficha tiene un solo front matter; frente a `1d2fe40`
+solo cambian el estado, `rondas_revision` y las secciones «Decisiones del developer» (una vez, en
+su sitio) y «Notas del revisor». `d8ebfee`: `page.truncated` llega a la salida, validado por
+`hostLogsResultSchema`, con la nota `host-logs-partial` (`role="status"`, es y en) y
+`host-logs-truncated.test.ts` (10 páginas exactas y `truncated: true`). `z.literal(true).optional()`
+es aceptable: no cambia la forma sin recorte y no obliga a reescribir tests de criterio. Tras
+`8e46d61` solo hay ficheros de test nuevos; nada toca rutas, logs, errores, scopes, API ni CSP.
+
+Opcional: un test de interfaz de la nota `host-logs-partial`; sigue en pie lo de `fromProblem`.
 
 ## Verificación
 
