@@ -1,7 +1,7 @@
 ---
 id: '0038'
 titulo: 'Visor de Markdown: capa visual cuidada (código con colores y números de línea, avisos y marcas)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -91,7 +91,44 @@ de la 0035:
 
 ## Verificación
 
-(pendiente)
+**Tests escritos (test-writer, 2026-10-09):** commit `08d7c38`. Todos los nuevos fallan porque la
+capa visual aún no existe; los de CA5, la cita normal, `[!INFO]`, la marca en medio del texto y los
+dos de guarda de CSS (mismos `--md-hl-*` en los dos temas, sin hojas de highlight.js) ya pasan, como
+regresión.
+
+| Criterio | Test                                                                                                                                                                                          |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/renderer/src/components/MarkdownText.visual.test.ts`, `CA1 (0038): bloques de código…` (yaml con números y `hljs-*`; sin lenguaje, con números y sin `hljs-*`; una línea, un número)     |
+| CA2      | `e2e/views.spec.ts`, `CA2 (0038): «Copiar» de un bloque copia su código exacto…` (bloque YAML de P-835, fixture de la 0035)                                                                   |
+| CA3      | `MarkdownText.visual.test.ts`, `CA3 (0038): avisos de GitHub` (los cinco en es y en, minúsculas, cita normal y `[!INFO]` siguen siendo cita)                                                  |
+| CA4      | `MarkdownText.visual.test.ts`, `CA4 (0038): marcas…` (✓ ✔ ✅ / ✗ ✘ ❌ / ⚠ en `li` y en `p`; en medio del texto, ninguna)                                                                      |
+| CA5      | `MarkdownText.test.ts` (0001, sin cambios) y `MarkdownText.visual.test.ts`, `CA5 (0038)` (HTML en crudo dentro de aviso, elemento con marca y bloque de código)                               |
+| CA6      | `MarkdownText.visual.test.ts`, `CA6 (0038)` (los 9 lenguajes con colores; rust, go, ruby y cpp sin colores y con números; `rehype-highlight`, `highlight.js` o `lowlight` con versión exacta) |
+| CA7      | `src/main/env-colors.test.ts`, `CA7 (0038): contraste del visor de Markdown` (claro y oscuro) y `CA7 (0038): los colores de sintaxis salen del tema`                                          |
+| CA8      | `src/renderer/src/locales/markdown-viewer.test.ts`, `CA8 (0038)` (más la paridad de `locales.test.ts`)                                                                                        |
+
+**Contrato elegido al escribir los tests (la ficha no fija nombres; decisión delegada por Dani,
+refinable):**
+
+- Números de línea: un elemento por línea con `data-line-number="N"`, fuera del `code`, cuyo texto
+  es exactamente el código (sin salto final). Tokens con las clases `hljs-*` de highlight.js.
+- Bloque en la interfaz: `data-testid="md-code-block"`, botón `md-code-copy` con el texto «Copiar»
+  (`markdown.copyCode`) y aviso `md-code-copy-status` con `errorScreen.copied` («Copiado»), como el
+  «Copiar» de la descripción. Copia el código sin salto final.
+- Avisos: caja con clases `md-alert` y `md-alert-<tipo>` (`note`, `tip`, `important`, `warning`,
+  `caution`), título delante del cuerpo y sin el marcador `[!TIPO]`; el marcador en minúsculas
+  también vale (como GitHub) y un tipo desconocido (`[!INFO]`) sigue siendo cita. Títulos:
+  `markdown.alerts.<tipo>`: es Información, Consejo, Importante, Aviso, Peligro; en Note, Tip,
+  Important, Warning, Caution (los de GitHub; la ficha no daba los ingleses).
+- Marcas: el `li` o el `p` que empieza por la marca lleva `md-mark-success`, `md-mark-error` o
+  `md-mark-warning`; el símbolo se sigue viendo.
+- Colores: tokens `--md-*` en `main.css`, #rrggbb, en `:root` y en el bloque oscuro:
+  `--md-code-bg`, `--md-line-number`, al menos cuatro `--md-hl-*` (distintos entre sí),
+  `--md-inline-code` y `--md-inline-code-bg`, `--md-mark-success|error|warning` y
+  `--md-alert-note|tip|important|warning|caution`. Texto ≥ 4.5 frente a su fondo (el del bloque, la
+  píldora o `--background`). Las reglas `.hljs*` de `main.css` usan `var(--md-hl-*)`, sin colores
+  fijos, y no se importa ninguna hoja de `highlight.js/styles`.
+- La 0035 solo vio `yaml` en vivo (`docs/notas-api-v2.md`), así que la lista es la de la ficha.
 
 ## Resultado
 
