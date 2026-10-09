@@ -12,7 +12,7 @@ adrs: [8]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -87,7 +87,23 @@ de la 0035:
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA8 con su test, sin tocar tests tras `08d7c38`. `lowlight` 3.3.0 y `highlight.js` 11.11.2
+con versión exacta en devDependencies, como el resto de librerías solo del renderer (Vite las mete
+en el bundle); `highlight.js` una sola vez en el lockfile. El plugin propio en lugar de
+`rehype-highlight` está justificado (9 lenguajes, no 37). Los plugins solo cambian el árbol: sin
+HTML crudo, `rehype-raw`, `style` en línea ni cambios de CSP o `harden.ts` (ADR-0008). «Copiar» por
+`app:copyText`. Colores en `:root` y oscuro; `.hljs-*` solo con `var(--md-hl-*)`.
+
+Sugerencias, no bloquean:
+
+1. Contraste: el título del aviso va sobre `bg-hover` encima de la fila de detalle y la tarjeta;
+   en claro, `--md-alert-caution` y `--md-alert-important` rondan 4,3–4,6:1. Quitar el fondo de
+   `.md-alert` u oscurecer esos dos tokens.
+2. `li` con marca pierde también el número en un `ol`: limitar `list-style: none` a `ul > li`.
+3. Doc-writer: lowlight y highlight.js a «Versiones fijadas» de `docs/ARCHITECTURE.md` (el
+   ADR-0008 no se edita; lo sustituye el ADR nuevo de la 0043).
 
 ## Verificación
 
