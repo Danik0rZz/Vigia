@@ -260,6 +260,7 @@
     "hostMetricsRejected": "Dynatrace rejected the host metrics query ({{status}}): {{detail}}",
     "hostBreakdownRejected": "Dynatrace rejected the host disks and processes query ({{status}}): {{detail}}",
     "hostLogsRejected": "Dynatrace rejected the host logs query ({{status}}): {{detail}}",
+    "hostEventsRejected": "Dynatrace rejected the host events query ({{status}}): {{detail}}",
     "monitorBreakdownRejected": "Dynatrace rejected the monitor breakdown by location and step query ({{status}}): {{detail}}",
     "processMetricsRejected": "Dynatrace rejected the process metrics query ({{status}}): {{detail}}",
     "processGroupMetricsRejected": "Dynatrace rejected the process group metrics query ({{status}}): {{detail}}",
@@ -787,6 +788,25 @@
         "sourceState": {
           "LOG_STORAGE_CONFIGURATION_STATUS_SEND_TO_STORAGE": "Sent to storage",
           "unknown": "No source status"
+        }
+      },
+      "events": {
+        "title": "Events",
+        "label": "Events of the host and of what runs on it",
+        "summary": "{{shown}} of {{count}} events",
+        "active": "Active",
+        "empty": "No events in the time range",
+        "columns": {
+          "type": "Type",
+          "title": "Title",
+          "entity": "Entity",
+          "start": "Start",
+          "end": "End",
+          "status": "Status"
+        },
+        "status": {
+          "OPEN": "Open",
+          "CLOSED": "Closed"
         }
       },
       "info": {

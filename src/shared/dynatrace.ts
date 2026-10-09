@@ -11,7 +11,9 @@ export const MODULE_SCOPES = {
   metrics: { classic: ['metrics.read'], oauth: ['environment-api:metrics:read'] },
   slos: { classic: ['slo.read'], oauth: ['environment-api:slo:read'] },
   /** Datos de una entidad y nombres de sus relaciones (ficha 0014): GET /entities y /entities/{id}. */
-  entities: { classic: ['entities.read'], oauth: ['environment-api:entities:read'] }
+  entities: { classic: ['entities.read'], oauth: ['environment-api:entities:read'] },
+  /** Eventos del host y de lo que corre en él (ficha 0042): GET /events. */
+  events: { classic: ['events.read'], oauth: ['environment-api:events:read'] }
 } as const satisfies Record<string, { classic: readonly string[]; oauth: readonly string[] }>
 
 /** Scopes de token clásico de todos los módulos, sin repetir y ordenados. */

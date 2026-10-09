@@ -1,4 +1,5 @@
 import { DT_ENDPOINTS, problemCommentsEndpoint } from '@shared/dt-endpoints'
+import { HOST_EVENTS_LIMIT } from '@shared/modules'
 import { timeRangeToDt } from '@shared/time-range'
 import type { DtClient } from '../../dynatrace/client'
 import { DtError } from '../../dynatrace/errors'
@@ -76,6 +77,14 @@ import {
   hostLogsSelector,
   toHostLogs
 } from '../../modules/host-logs'
+import {
+  HOST_EVENTS_ENTITY_FIELDS,
+  hostEventIds,
+  hostEventSelectors,
+  hostEventsEntitySchema,
+  hostEventsPageSchema,
+  toHostEvents
+} from '../../modules/host-events'
 import { monitorBreakdownQueries, toMonitorBreakdown } from '../../modules/monitor-breakdown'
 import {
   DISK_RANGE_SELECTOR,
@@ -103,6 +112,7 @@ type ModuleChannels =
   | 'entities:hostMetrics'
   | 'entities:hostBreakdown'
   | 'entities:hostLogs'
+  | 'entities:hostEvents'
   | 'entities:monitorMetrics'
   | 'entities:monitorBreakdown'
   | 'entities:processMetrics'
@@ -715,6 +725,50 @@ export function createModuleHandlers(
             error.status,
             {
               key: 'hostLogsRejected',
+              params: { status: error.status, detail: error.message }
+            }
+          )
+        }
+        throw error
+      }
+    },
+
+    'entities:hostEvents': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      try {
+        // 1. Las relaciones del host: de ahí salen los ids de lo que corre en él.
+        const host = await client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          // El id ya viene validado (hostEntityIdSchema); se codifica igual por ser ruta.
+          path: `/entities/${encodeURIComponent(entityId)}`,
+          query: { fields: HOST_EVENTS_ENTITY_FIELDS },
+          schema: hostEventsEntitySchema
+        })
+        // 2. Una consulta de eventos por cada eventSelector (casi siempre, una). Cada una trae
+        // sus 20 más recientes: entre todas están los 20 más recientes del conjunto.
+        const range = timeRangeToDt(timeRange)
+        const pages = await Promise.all(
+          hostEventSelectors(hostEventIds(entityId, host)).map((eventSelector) =>
+            client.dtRequest({
+              envId: environmentId,
+              api: 'classic',
+              path: DT_ENDPOINTS.events.path,
+              query: { eventSelector, ...range, pageSize: HOST_EVENTS_LIMIT },
+              schema: hostEventsPageSchema
+            })
+          )
+        )
+        return toHostEvents(pages)
+      } catch (error) {
+        // Un rechazo de Dynatrace llega con su texto y sin motivo: se le da uno.
+        if (error instanceof DtError && error.reason === undefined && error.status !== undefined) {
+          throw new DtError(
+            error.code,
+            `Dynatrace ha rechazado la consulta de eventos del host: ${error.message}`,
+            error.status,
+            {
+              key: 'hostEventsRejected',
               params: { status: error.status, detail: error.message }
             }
           )

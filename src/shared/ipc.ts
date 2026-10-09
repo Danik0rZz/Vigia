@@ -25,6 +25,7 @@ import {
   hostMetricsResultSchema,
   hostBreakdownResultSchema,
   hostLogsResultSchema,
+  hostEventsResultSchema,
   impactLevels,
   metricInfoSchema,
   metricResultSchema,
@@ -386,6 +387,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: hostLogsResultSchema
+  },
+  /**
+   * Eventos de una entidad HOST y de lo que corre en ella en el rango (ficha 0042): los 20 más
+   * recientes y el total. La interfaz manda el id; main lee las relaciones del host y construye
+   * los eventSelector.
+   */
+  'entities:hostEvents': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: hostEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: hostEventsResultSchema
   },
   /**
    * Métricas de un browser monitor o de un HTTP monitor en el rango (ficha 0022):

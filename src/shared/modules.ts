@@ -431,6 +431,41 @@ export const hostLogsResultSchema = z.object({
 })
 export type HostLogsResult = z.output<typeof hostLogsResultSchema>
 
+/** Eventos que enseña la tarjeta «Eventos» del host (ficha 0042): los más recientes del rango. */
+export const HOST_EVENTS_LIMIT = 20
+
+/**
+ * Un evento del host o de lo que corre en él (ficha 0042, `GET /events`). `title` es texto del
+ * tenant: la interfaz lo pinta como texto, nunca como HTML.
+ */
+export const hostEventSchema = z.object({
+  /** `eventType` de Dynatrace (`HIGH_CPU`, `PROCESS_RESTART`…). */
+  eventType: z.string(),
+  title: z.string(),
+  /** `OPEN` o `CLOSED` (OpenAPI); otro valor se enseña tal cual. */
+  status: z.string(),
+  /** Inicio, en epoch ms. */
+  startTime: z.number(),
+  /** Fin, en epoch ms; null si el evento sigue activo (en vivo llega -1). */
+  endTime: z.number().nullable(),
+  entity: z.object({
+    id: z.string().min(1),
+    /** null si Dynatrace no trae el nombre. */
+    name: z.string().nullable(),
+    type: z.string()
+  })
+})
+export type HostEvent = z.output<typeof hostEventSchema>
+
+/** Eventos del host (canal `entities:hostEvents`, ficha 0042). */
+export const hostEventsResultSchema = z.object({
+  /** Como mucho `HOST_EVENTS_LIMIT`, del más reciente al más antiguo. */
+  events: z.array(hostEventSchema).max(HOST_EVENTS_LIMIT),
+  /** Eventos del rango según Dynatrace (la suma, si se repartió en varias consultas). */
+  totalCount: z.number().int().nonnegative()
+})
+export type HostEventsResult = z.output<typeof hostEventsResultSchema>
+
 /**
  * Id de un browser monitor (SYNTHETIC_TEST) o de un HTTP monitor (HTTP_CHECK) de
  * Dynatrace (ficha 0022). Como el del servicio: main construye los selectores con
