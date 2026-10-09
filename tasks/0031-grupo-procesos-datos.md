@@ -1,7 +1,7 @@
 ---
 id: '0031'
 titulo: 'PROCESS_GROUP: análisis de métricas en vivo y canal de series, marcadores e instancias'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -141,4 +141,14 @@ los problemas de los últimos 7 días (10 candidatos, todos con 2 a 4 instancias
 
 ## Resultado
 
-(pendiente)
+**Developer (`14b4efe`):** canal `entities:processGroupMetrics` en `src/shared/ipc.ts` (esquemas
+`processGroupEntityIdSchema` y `processGroupMetricsResultSchema` en `src/shared/modules.ts`),
+lógica pura en `src/main/modules/process-group-metrics.ts` y handler en
+`src/main/ipc/handlers/modules.ts` con el patrón de `entities:processMetrics` (dos consultas a
+`/metrics/query` en paralelo). Un 400 o 404 lleva `reason` `processGroupMetricsRejected` (es y en).
+
+Decisiones del developer (refinables):
+
+- Las expresiones se casan por posición, como en el proceso (cada una vuelve en el orden pedido).
+- Instancias: primero las de la consulta de CPU, después las que solo traen memoria; nombre y host,
+  del primer `dimensionMap` que los traiga. Empates de CPU, en el orden de la API.
