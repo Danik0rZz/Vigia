@@ -130,6 +130,15 @@ rango, y el `EVENT` va por la rama del recorte). CA1 pasa en vivo (51 peticiones
   pinten igual; no hay test para ellas porque la ficha no dice qué claves son: queda para el
   developer o el Planificador.
 
+**Decisión del Orquestador (delegada por Dani, refinable), 2026-10-09:** regla genérica, sin nombrar
+claves del tenant. En cualquier evidencia, una propiedad cuya clave contenga `description` (sin
+distinguir mayúsculas) y no sea `dt.event.description` se pinta como Markdown, igual que la
+«Descripción» (mismo componente, mismo límite, «Copiar» y nota de recorte), en su propia sección
+con la clave como título, debajo de «Descripción»; y deja de salir como texto plano en la lista de
+propiedades. Los tests usan una clave inventada (por ejemplo `custom.description`) y comprueban
+también que una clave sin «description» sigue en la lista como texto. Si alguna de esas claves
+resulta no ser Markdown en la prueba a mano, se afina la regla.
+
 ## Resultado
 
 (pendiente)
