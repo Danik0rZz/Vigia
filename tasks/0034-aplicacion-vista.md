@@ -1,7 +1,7 @@
 ---
 id: '0034'
 titulo: 'APPLICATION: página con marcadores, gráficos, acciones de usuario e información'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion
@@ -117,4 +117,39 @@ que ya no lo es).
 
 ## Resultado
 
-(pendiente)
+Página de APPLICATION en `e1b7357` (consulta `useApplicationMetrics` y
+`lib/application-format.ts`) y `fd73d63` (página): `WebApplicationEntityPage.tsx` con
+`ApplicationMarkers`, `ApplicationCharts` (`application-charts.ts`), `ApplicationActions`
+(`application-actions.ts`) y `ApplicationInfo` (`application-info.ts`), sobre las piezas comunes
+(`EntitySections`, `EntityChartPanel`, `ProblemBand` con el prefijo `application` y
+`EntityInfoCard` con `application-info`). Textos en `entities.application` (es y en). Sin cambios
+en main, IPC ni dependencias.
+
+**Decisiones del developer (refinables):**
+
+- «Sin datos» de un papel = total `null` y ninguna muestra con valor en la serie (`roleHasData`).
+  Mientras carga, si falla el canal o sin acceso a Métricas, salen los cuatro marcadores (con
+  esqueleto, aviso o «—») y, con acceso, los cuatro gráficos; la fila de marcadores ajusta sus
+  columnas a los que salen. Sin ningún papel con datos, la sección de gráficos no se pinta.
+- La franja de problemas va sobre el Apdex; si el Apdex no sale (sin datos), sobre el primer
+  gráfico que salga, para no perderla.
+- Acciones y errores en barras con el valor de cada intervalo tal cual (sin pasarlo a «por
+  minuto» como el servicio); Apdex con el eje de 0 a 1. Unidades de la exportación: «Apdex»,
+  «ms», «acciones» y «errores».
+- «Abrir en Métricas»: la métrica y la agregación de main con
+  `:filter(eq("dt.entity.application","<id>")):splitBy()` (la dimensión del catálogo de la 0033),
+  como el servicio con la suya. Esa forma exacta no se ha probado en vivo: entra en la prueba a
+  mano de Dani.
+- Marcadores: Apdex con dos decimales y el texto de su categoría; el verde de excelente y buena
+  es `text-status-closed` (el token verde que ya existe). Errores con `data-level="error"` si son
+  más de 0. Debajo de cada valor, una línea: «Media del rango», «Acciones de usuario en el
+  rango», «Visually complete, media» y «JavaScript y peticiones, en el rango».
+- Tabla: las filas no abren nada (las acciones no tienen página; como las tablas del monitor);
+  la barra de la duración es relativa a la acción más lenta de la tabla.
+- «Información»: además de las cuatro claves de `properties`, visto por primera y última vez y
+  las management zones, como en las demás tarjetas; `applicationLikeDeleted` y las de reglas,
+  solo en «Todas las propiedades». «Otras relaciones» enseña el nombre de cada relación.
+
+**Pruebas:** `npm run check` en verde (2636 tests en 153 ficheros, cobertura 92 %);
+`npm run test:e2e:affected -- main..HEAD` corre el e2e completo (toca `src/renderer/src/lib/`,
+transversal): 296/296.
