@@ -128,6 +128,15 @@ conservadora y refinable):**
 defecto del tema oscuro (claro) puede quedar ilegible; la ficha solo habla del color del texto frente
 al fondo del tema.
 
+**Decisión del Orquestador (delegada por Dani, opción conservadora y refinable), 2026-10-09:** un
+`background-color` válido se conserva solo si el texto que queda encima se lee a ≥ 3:1 en los dos
+temas: con su `color` en línea si lo trae (ese par se mide tal cual, y si no llega a 3:1 se quitan
+los dos), o con el color de texto por defecto de cada tema (`--foreground`) si no lo trae. Si no
+llega en alguno de los dos temas, se quita el `background-color` (el texto queda con el fondo del
+tema). Un `background-color` casi transparente cuenta como el fondo del tema. Se comprueba con los
+mismos `readableColor` y `THEME_BACKGROUNDS` de `markdown-color.ts`, ampliados con el texto por
+defecto de cada tema. Ya no queda abierto para Dani; se afina si la prueba a mano lo pide.
+
 ## Resultado
 
 (pendiente)
