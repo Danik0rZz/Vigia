@@ -653,6 +653,18 @@ navegador, tipo de usuario o geolocalización).
 - `:last` con `resolution=Inf` da 400; el libre se saca de la serie (último punto con dato).
 - Entidad `DISK`: `properties` con `detectedName` y `filesystemType`, `firstSeenTms` y `lastSeenTms`, y la relación `fromRelationships.isDiskOf` (HOST).
 
+### Logs de los procesos de un host (ficha 0041, observado en vivo, solo lectura)
+
+3 hosts con procesos, `now-2h`. Consulta: `GET /entities` con `entitySelector=type("PROCESS_GROUP_INSTANCE"),fromRelationships.isProcessOf(entityId("<host>"))` y `fields=+properties.logFileStatus,+properties.logPathLastUpdate,+properties.logSourceState`.
+
+- Da 200 con `fromRelationships` (plural, la de la OpenAPI) y también con `fromRelationship` (la de la captura de la interfaz), con el mismo recuento. Rango relativo y absoluto dan el mismo total; `pageSize=500` se acepta. De 10 a 150 procesos por host, una sola página.
+- Las tres propiedades son de tipo `Map` y llegan como **lista de `{ key, value }`**. La `key` es la fuente del log: **una ruta de fichero** o un nombre de fuente con espacios y sin barra. Nunca se enseña.
+- `logFileStatus`: `value` enum; vistos `FILE_STATUS_OK`, `FILE_STATUS_NOT_EXIST` y `FILE_STATUS_NOT_MONITORED_ANY_MORE`.
+- `logPathLastUpdate`: `value` es una fecha en **segundos** desde epoch; de 1 a 9 entradas por proceso. La llevan casi todos los procesos.
+- `logSourceState`: `value` es un objeto `{ storageStatus }`; visto `LOG_STORAGE_CONFIGURATION_STATUS_SEND_TO_STORAGE`.
+- Un proceso sin logs llega sin esas claves en `properties`.
+- `GET /entities/{id}` de un proceso con `+properties` trae también las tres, con las rutas en las claves: `entity-secrets.ts` las quita enteras.
+
 ## d) SLOs
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/slos-explore.live.test.ts` (6 lecturas, solo 2

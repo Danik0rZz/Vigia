@@ -11,7 +11,7 @@ bueno de Dani o de peticiones en su nombre.
   **grupo-procesos** (0031 y 0032 hechas; [0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
   **aplicacion** (0033 y 0034 hechas; [0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
   **markdown** (0035, 0038 y 0043 hechas; [0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
-  [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** (0039 y 0040 hechas; [0039](tasks/0039-host-memoria-total-recuperable.md),
+  [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** (0039, 0040 y 0041 hechas; [0039](tasks/0039-host-memoria-total-recuperable.md),
   [0040](tasks/0040-pagina-disco.md), [0041](tasks/0041-host-logs.md), [0042](tasks/0042-host-eventos.md)).
 
 ## Próximo
@@ -181,6 +181,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Página del disco: pasar el nombre del host en el estado al llegar desde su tabla, o pedirlo con `entities:names` a demanda, para que «Disco de» enseñe el nombre y no el tipo y el id. (surgió en 0040)
 - Página del disco: los inodos libres ya llegan en `series.inodes` y no se pintan; serie o marcador si Dani lo quiere. (surgió en 0040)
 - `entities:diskMetrics`: el casado de resultados por posición se desplazaría si Dynatrace devolviera menos `result` que expresiones; comentarlo o comprobar la longitud. (surgió en 0040)
+- Host: `fromProblem: true` se reutiliza para el «Volver» en `HostLogs`, `HostTables` y `EntityInfoCard`; si se renombra, en todos los sitios a la vez. (surgió en 0041)
+- Host: test de interfaz de la nota `host-logs-partial` (aviso de recuento parcial de la tarjeta «Logs»). (surgió en 0041)
 
 ## Aparcado
 
@@ -255,3 +257,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0043](tasks/0043-markdown-html-seguro.md) (lote markdown): las descripciones interpretan el HTML de formato (colores, negrita, marcas, tablas, `details`) con lista blanca (`rehype-raw` + `rehype-sanitize`, `style` solo con color, contraste ≥ 3:1 en claro y en oscuro); ADR-0011 sustituye la regla del HTML en crudo del 0008.
 - [0039](tasks/0039-host-memoria-total-recuperable.md) (lote host-2): la memoria del host enseña usada y recuperable apiladas y la total discontinua, en bytes; el marcador añade usada / total y la recuperable con ayuda. Series en dos consultas (límite de 10 expresiones). Sin migraciones.
 - [0040](tasks/0040-pagina-disco.md) (lote host-2): la tabla de discos del host enlaza a la página del disco (tipo `DISK`), con marcadores (uso, libre, lectura, escritura, latencia o cola, problemas), gráficos e «Información»; canal `entities:diskMetrics`. Sin migraciones.
+- [0041](tasks/0041-host-logs.md) (lote host-2): tarjeta «Logs» en la página del host (procesos con logs, estado del fichero y de la fuente, última actualización; nunca rutas) con canal `entities:hostLogs`; `entities:get` deja de sacar las propiedades de log con rutas. Sin migraciones.

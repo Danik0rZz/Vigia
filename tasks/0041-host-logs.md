@@ -1,7 +1,7 @@
 ---
 id: '0041'
 titulo: 'HOST: tarjeta «Logs» con los procesos del host que tienen logs detectados'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -208,4 +208,8 @@ de la 0041 en rojo (no existe `host-logs`). Los e2e vecinos del host y de entida
 
 ## Resultado
 
-(pendiente)
+- Commits: tests `8e46d61`; canal `216d45a`; `entities:get` sin propiedades de log `b296b34`; tarjeta `5087bfd`; aviso de recorte `d8ebfee` (ronda 1); más los de la ficha.
+- Ficheros principales: `src/main/modules/host-logs.ts`, `src/main/modules/entity-secrets.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/modules.ts`, `src/shared/ipc.ts`, `src/renderer/src/pages/entities/HostLogs.tsx` y `host-logs.ts`, `HostEntityPage.tsx`, locales es y en, `e2e/views.spec.ts`.
+- Rondas de revisión: 2 (CAMBIOS por la ficha corrupta y el recorte sin aviso; APROBADO). Verifier verde: 3010 unitarios y 313 e2e.
+- ADR nuevo: ninguno. Sin migraciones.
+- Pendiente de Dani: con un host real con logs, que la tarjeta cuadra con Dynatrace (y si el resumen «N de N» le vale).
