@@ -1011,6 +1011,74 @@
         }
       }
     },
+    "application": {
+      "invalidId": "Este ID no tiene el formato de una aplicación web de Dynatrace (APPLICATION- y 16 caracteres hexadecimales): no se piden sus datos.",
+      "markers": {
+        "label": "Marcadores de la aplicación",
+        "apdex": "Apdex",
+        "apdexCaption": "Media del rango",
+        "actions": "Acciones",
+        "actionsCaption": "Acciones de usuario en el rango",
+        "duration": "Duración",
+        "durationCaption": "Visually complete, media",
+        "errors": "Errores",
+        "errorsCaption": "JavaScript y peticiones, en el rango",
+        "problems": "Problemas"
+      },
+      "charts": {
+        "title": "Métricas de la aplicación",
+        "label": "Gráficos de las métricas de la aplicación",
+        "apdex": "Apdex",
+        "actions": "Acciones",
+        "duration": "Duración",
+        "errors": "Errores",
+        "series": {
+          "apdex": "Apdex",
+          "actions": "Acciones de usuario",
+          "duration": "Visually complete (media)",
+          "errors": "Errores"
+        },
+        "units": {
+          "actions": "acciones",
+          "errors": "errores"
+        }
+      },
+      "apdex": {
+        "excellent": "Excelente",
+        "good": "Buena",
+        "fair": "Aceptable",
+        "poor": "Pobre",
+        "unacceptable": "Inaceptable"
+      },
+      "actions": {
+        "title": "Acciones de usuario",
+        "label": "Acciones de usuario de la aplicación, las de más volumen",
+        "empty": "Sin acciones de usuario con datos en el rango (Dynatrace solo las da de las acciones clave).",
+        "columns": {
+          "name": "Acción",
+          "count": "Acciones",
+          "duration": "Duración media"
+        }
+      },
+      "info": {
+        "label": "Información de la aplicación",
+        "column": "Aplicación",
+        "rows": {
+          "applicationType": "Tipo de aplicación",
+          "applicationInjectionType": "Tipo de inyección",
+          "customizedName": "Nombre personalizado",
+          "detectedName": "Nombre detectado",
+          "firstSeen": "Visto por primera vez",
+          "lastSeen": "Visto por última vez",
+          "managementZones": "Management zones"
+        },
+        "groups": {
+          "calls": "Llama a",
+          "synthetic": "Monitores sintéticos",
+          "other": "Otras relaciones"
+        }
+      }
+    },
     "service": {
       "markers": {
         "label": "Marcadores del servicio",

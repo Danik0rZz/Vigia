@@ -29,8 +29,12 @@ const SEGMENT_BOX = 'rounded border py-px text-xs leading-4'
  */
 const MIN_SEGMENT_WIDTH = 'calc(0.75rem + 8px)'
 
-/** Páginas que llevan la franja: servicio (0010), host (0018), monitor (0024) y proceso (0028). */
-export type BandTestIdPrefix = 'service' | 'host' | 'monitor' | 'process' | 'process-group'
+/**
+ * Páginas que llevan la franja: servicio (0010), host (0018), monitor (0024), proceso (0028),
+ * process group (0032) y aplicación (0034).
+ */
+export type BandTestIdPrefix =
+  'service' | 'host' | 'monitor' | 'process' | 'process-group' | 'application'
 
 /**
  * Franja de los problemas de la entidad sobre el gráfico «Tasa de error» del servicio (ficha 0010)
