@@ -11,6 +11,45 @@ cumplidos los criterios manuales de las fases 2, 3, 4 y 6. "Probar conexión con
 queda cubierto por las pruebas en vivo (`npm run test:live`, v0.7.0), y "XLSX y CSV en Excel" se
 revisa con las exportaciones reales de esas pruebas.
 
+## v0.11.0
+
+Fichas 0001 a 0045. Pruebas a mano con los datos reales (el detalle de cada una, en su ficha). Dani las dio por cumplidas el 2026-10-10, con algunos cambios pedidos al Planificador; queda el zip:
+
+- [x] **Antes de nada:** añadir los scopes `entities.read` (0014) y `events.read` (0042) al token del
+      entorno; «Probar conexión» deja de avisar con ellos y avisa sin ellos.
+- [x] **Descripciones de problemas (0001, 0035, 0038, 0043):** con problemas reales, que las
+      descripciones se ven bien (listas, tablas, enlaces, código con colores, avisos y marcas, HTML de
+      formato), en claro y en oscuro; que los enlaces abren el navegador del sistema; que «Copiar»
+      pega el texto original; que ninguna sale con la nota de recorte; que la descripción sale en
+      todas las evidencias, y que las otras propiedades con «description» son de verdad Markdown.
+      Abrir el problema del ejemplo y comprobar que se ve como la captura o mejor.
+- [x] **«Analizar entidad» (0003):** sale en las evidencias con entidad y lleva a la página del tipo
+      correcto (y a la genérica en los tipos personalizados o de extensión).
+- [x] **Aviso por Telegram sin variables (0004):** con las variables quitadas un momento, una tarea
+      termina igual, con el aviso en la terminal.
+- [x] **Ventana pequeña (0005):** a 960×600 o unos 1024 px, la ruta de la barra superior se ve y se
+      pulsa; al volver de un problema por la ruta, la lista queda en la misma fila; exportar los SLOs
+      de Inicio a XLSX enseña «Guardado: …» dentro de la tarjeta y se puede repetir.
+- [x] **Métricas (0006):** una consulta normal ya no avisa de «solo parte de los puntos».
+- [x] **Servicio (0008, 0009, 0010, 0012, 0013, 0015):** marcadores, gráficos, franja de problemas e
+      «Información» cuadran con Dynatrace en el mismo rango, se leen en claro y en oscuro y con la
+      ventana pequeña; «Abrir en Métricas» desde cada gráfico; un servicio sin tráfico enseña «—»; en
+      la VPS (150 %), la franja se ve entera.
+- [x] **Host (0018, 0019, 0020, 0036, 0039, 0040, 0041, 0042):** marcadores y gráficos (con memoria
+      usada, recuperable y total), discos y procesos, «Información» al final, página del disco,
+      tarjetas «Logs» (sin rutas) y «Eventos» cuadran con Dynatrace.
+- [x] **Monitores (0024, 0025, 0026):** marcadores, gráficos, localizaciones, pasos e «Información»
+      cuadran con Dynatrace en los dos tipos; «Abrir en Métricas» trae solo ese monitor; «Cada N
+      minutos» coincide con Dynatrace.
+- [x] **Proceso (0028, 0029):** marcadores y gráficos cuadran; Recursos no sale 100 veces más
+      pequeño; la tarjeta no enseña ninguna línea de comandos ni ruta con nombres de usuario.
+- [x] **Grupo de procesos (0032):** marcadores, gráficos e instancias cuadran con Dynatrace.
+- [x] **Aplicación (0034):** marcadores, gráficos y acciones cuadran; «Abrir en Métricas» trae solo
+      esa aplicación.
+- [x] **Etiquetas (0037):** las píldoras se leen bien en claro y en oscuro.
+- [ ] Arrancar el zip 0.11.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de
+      `%APPDATA%\vigia`**; lo hace Dani.
+
 ## v0.8.0
 
 Incluye lo de la v0.7.0. Pruebas a mano con los datos reales:

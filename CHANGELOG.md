@@ -3,7 +3,12 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
-## [Sin publicar]
+## [0.11.0] - 2026-10-10
+
+Análisis de entidades: páginas propias para servicio, host, disco, proceso, grupo de procesos,
+browser y HTTP monitor y aplicación web, con marcadores, gráficos, franja de problemas, etiquetas e
+«Información»; descripciones de problemas con Markdown y HTML de formato seguro; flujo con agentes y
+avisos por Telegram. Fichas 0001 a 0045.
 
 Sin migraciones nuevas.
 

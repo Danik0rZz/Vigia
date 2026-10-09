@@ -32,10 +32,11 @@ que no está escrito, para los agentes no existe.
 
 ## Estado
 
-Última actualización: 2026-10-06.
+Última actualización: 2026-10-10.
 
-- **v0.10.2 cerrada** (2026-10-04). La primera versión (fases 1, 2, 3, 4 y 6) la aceptó Dani el
-  2026-10-04; lo de cada versión está en `CHANGELOG.md`.
+- **v0.11.0 cerrada** (2026-10-10): análisis de entidades (servicio, host, disco, proceso, grupo de
+  procesos, monitores y aplicación web) y descripciones con Markdown y HTML seguro (ADR-0011). Dani
+  dio por buenas sus pruebas a mano; queda arrancar el zip. Lo de cada versión, en `CHANGELOG.md`.
 - **Flujo con agentes desde el 2026-10-06** (ADR-0007): Planificador, Orquestador y subagentes;
   hooks de git y CI en Windows.
 - **Siguiente:** lo que diga "Próximo" del `BACKLOG.md`; nada se empieza sin ficha aprobada.
