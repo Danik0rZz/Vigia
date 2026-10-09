@@ -8,7 +8,7 @@ bueno de Dani o de peticiones en su nombre.
 
 - Cola aprobada por Dani el 2026-10-09, en este orden: lote **mejoras-entidades**
   (0036 y 0037 hechas),
-  **grupo-procesos** (0031 hecha; [0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
+  **grupo-procesos** (0031 y 0032 hechas; [0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
   **aplicacion** ([0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
   **markdown** ([0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
   [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** ([0039](tasks/0039-host-memoria-total-recuperable.md),
@@ -164,6 +164,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Test de `entities:processGroupMetrics` con `dimensionCountRatio` > 1 en las expresiones por instancia que compruebe `partial`. (surgió en 0031)
 - Instancias del process group: con más de unas 498, quedarse con las de más CPU (`:sort`/`:limit`) en vez de un subconjunto cualquiera; cambia el comportamiento del canal, lo decide Dani. `instances.total` cuenta solo las recibidas; la vista (0032) debe avisar del recorte con `partial`. (surgió en 0031)
 - e2e intermitente de `e2e/smoke.spec.ts` («VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco»): falló una vez en local con `visible: false` (la ventana aún no se veía al leerla, con 4 workers); relanzado, en verde. Si vuelve a salir, merece su ficha. (surgió en 0044)
+- Process group (0032): en «CPU por instancia», dos instancias con el mismo nombre se juntan en la leyenda; añadir el host al nombre de la serie cuando se repite. (surgió en 0032)
+- Tablas «Instancias» (process group) y «Procesos» (host): el enlace del host lleva `tabIndex={-1}` y no se alcanza con el teclado; revisar las dos a la vez. (surgió en 0032)
+- Live de solo lectura: añadir una pasada del selector de «Abrir en Métricas» del process group con `isInstanceOf` (hoy solo está probado `isProcessOf`). (surgió en 0032)
+- e2e `CA6 (0032)`: comprobar también que tras «Actualizar» vuelven a salir las consultas por instancia. (surgió en 0032)
 
 ## Aparcado
 
@@ -227,5 +231,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0029](tasks/0029-proceso-informacion.md) (lote proceso): tarjeta «Información» en la página del proceso, con datos, relaciones agrupadas, nombres a demanda y todas las propiedades; main filtra la línea de comandos, los argumentos, el entorno y las rutas de ejecutable de las propiedades de cualquier entidad. Con ella queda completo el lote «proceso» (0027 a 0029).
 - [0036](tasks/0036-entidades-informacion-al-final.md) (lote mejoras-entidades): la tarjeta «Información» pasa al final de las páginas de servicio, host, browser monitor, HTTP monitor y proceso, con el orden fijado en `EntitySections`.
 - [0031](tasks/0031-grupo-procesos-datos.md) (lote grupo-procesos): canal `entities:processGroupMetrics` con series, totales e instancias del process group (la vista es la 0032).
+- [0032](tasks/0032-grupo-procesos-vista.md) (lote grupo-procesos): la página del process group deja de estar en construcción, con marcadores, gráficos (CPU por instancia con cinco llamadas a `entities:processMetrics`), tabla de instancias e «Información». Con ella queda completo el lote «grupo-procesos» (0031 y 0032).
 - [0037](tasks/0037-entidades-etiquetas-pildoras.md) (lote mejoras-entidades): las etiquetas de las páginas de servicio, host, browser monitor, HTTP monitor y proceso salen como píldoras `clave: valor` bajo la cabecera, y `entities:get` las devuelve estructuradas. Con ella queda completo el lote «mejoras-entidades» (0036 y 0037).
 - [0044](tasks/0044-e2e-tooltip-menu-estable.md): e2e estable del tooltip del menú plegado; `hoverFresh` espera a que acabe la animación y a que se cierre el tooltip de otro botón (resuelve la mejora anotada en 0027).

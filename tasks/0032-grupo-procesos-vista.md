@@ -1,7 +1,7 @@
 ---
 id: '0032'
 titulo: 'PROCESS_GROUP: página con marcadores, gráficos, instancias e información'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -157,7 +157,7 @@ se prueba en vivo.
 
 ## Resultado
 
-(pendiente)
+Commits: `d289705` (tokens), `57d7ca0` (consultas), `bb23367` (página), `8f4351d` (test de la 0008); `main..HEAD` trae también los de tests y fichas. Ficheros principales: `ProcessGroupEntityPage.tsx`, `ProcessGroupMarkers.tsx`, `ProcessGroupCharts.tsx`, `ProcessGroupInstances.tsx`, `ProcessGroupInfo.tsx`, `process-group-*.ts`, `data/query-list.ts` y `data/modules.ts`. Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Migraciones: no.
 
 **Decisiones del developer (delegadas por Dani, refinables), 2026-10-09:**
 
