@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics` (`metricSelector=builtin:host.disk.*`), `GET /metrics/{metricId}`, `GET /metrics/query` y `GET /entities/{entityId}` (0014); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scopes `metrics.read` y `entities.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -82,7 +82,19 @@ errores con `reason`; simulador.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test; tras `85d132f` solo se añaden `disk-charts.test.ts` y `disk-info.test.ts`.
+CA3 fija el filtro en cada expresión, ≤ 10 por consulta (el simulador da 400 si se pasa), sin
+`entitySelector`, el rango, los papeles `null` y el `reason`. Series (9, sin `resolution`) y
+marcadores (6, `Inf`) son las del paso 0 en vivo con `:filter(eq("dt.entity.disk",…))`; «Abrir en
+Métricas» usa el mismo filtro. Id validado con `^DISK-[0-9A-F]{16}$` en Zod y en el renderer: no se
+puede cerrar la comilla ni el paréntesis. Navegación con `fromProblem` como la tabla de procesos;
+«Volver» con `navigate(-1)` sin pedir nada; consulta `MANUAL` (ADR-0004). Sin dependencias, esquema
+ni CSP; ids sintéticos.
+
+Opcional: el casado por posición se desplazaría si Dynatrace devolviera menos `result` que
+expresiones; un comentario o una comprobación de la longitud.
 
 ## Verificación
 
