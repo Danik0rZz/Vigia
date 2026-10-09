@@ -134,6 +134,45 @@ tema). Un `background-color` casi transparente cuenta como el fondo del tema. Se
 mismos `readableColor` y `THEME_BACKGROUNDS` de `markdown-color.ts`, ampliados con el texto por
 defecto de cada tema. Ya no queda abierto para Dani; se afina si la prueba a mano lo pide.
 
+**Decisiones del developer (2026-10-09, opción más segura):**
+
+- Dependencias: `rehype-raw` 7.0.0 y `rehype-sanitize` 6.0.0, licencia MIT las dos, en
+  `devDependencies` (solo van al bundle del renderer, como `react-markdown`).
+- Piezas: `markdown-html.ts` (lista blanca y orden de los plugins) y `markdown-color.ts`
+  (validación de colores, `readableColor` y el plugin `rehypeSafeColors`). Orden en `MarkdownText`:
+  proteger el Markdown → `rehype-raw` → `rehype-sanitize` → restaurar el Markdown → colores →
+  avisos, marcas y resaltado de código (la capa visual va después del saneado, así sus clases no se
+  quitan y una clase escrita en el HTML nunca llega).
+- **Marca `data-vigia-slot`:** los elementos que genera el propio Markdown (casillas de las listas
+  de tareas, notas al pie, clases `language-*`, alineación de tablas, imágenes) no pasan por la
+  lista blanca de atributos. Antes de `rehype-raw` sus propiedades se guardan en el `VFile` y se
+  dejan con `data-vigia-slot` = un valor aleatorio de la sesión (`crypto.getRandomValues`) y su
+  índice; el saneado solo deja pasar ese atributo si encaja con ese valor, y después se les
+  devuelven sus propiedades. Una marca escrita en el HTML se quita. Los que no están en la lista
+  (`img`, `input`, `section`) viajan como `span` o `div` y recuperan su etiqueta al final.
+- **Etiquetas añadidas a la lista blanca:** `h1`–`h6`, `blockquote` y `a` (las genera el Markdown;
+  la ficha dice «además de las que genera el Markdown»), y `caption`, `colgroup` y `col` como
+  partes de la tabla. Atributos para el HTML escrito: `title` y `style` en todas, `href` en `a`
+  (solo http/https, y además el `urlTransform` y el componente de la 0001) y `color` en `font`;
+  nada más (ni `open` en `details`, ni `start`, `align`, `colspan` o `rowspan` escritos a mano).
+- Se quitan con todo su contenido: `script`, `style`, `template`, `noscript`, `iframe`, `frame`,
+  `frameset`, `noframes`, `object`, `embed`, `applet`, `svg`, `math`, `textarea`, `select`,
+  `button`, `title`, `xmp`, `noembed`, `plaintext`, `video`, `audio`, `picture` y `map`. El resto
+  de etiquetas desconocidas se quita y deja su texto.
+- `font color` sale como `span` con `style` (gana el `color` del `style` si lleva los dos, como en
+  CSS). Valores válidos: `#rgb`, `#rrggbb`, `rgb()`/`rgba()` con números separados por comas
+  (canales ≤ 255, opacidad ≤ 1) y los nombres de CSS Color 4 (sin `transparent` ni
+  `currentcolor`); con varias declaraciones válidas de la misma propiedad, gana la última.
+- Un texto en `rgba` se conserva tal cual si ya se lee mezclado sobre el fondo; si no, se ajusta
+  como color opaco. Un fondo con opacidad ≤ 0,1 cuenta como el del tema y se quita.
+- Los colores se miden contra lo heredado del elemento padre (su color y su fondo ya decididos),
+  no solo contra el tema: un texto dentro de un fondo en línea se ajusta frente a ese fondo. Si ni
+  ajustado se lee, se quita el color.
+- Los componentes `p`, `li`, `ol`, `code`, `th` y `td` de `MarkdownText` pasan ahora `style` y
+  `title` (ya saneados). Un `pre` escrito en HTML sin `code` copia su texto con «Copiar».
+- Pendiente para el doc-writer: la línea de `src/renderer/CLAUDE.md` que dice «nunca `rehype-raw`;
+  sin HTML en crudo» (la cambia el ADR nuevo).
+
 ## Resultado
 
 (pendiente)
