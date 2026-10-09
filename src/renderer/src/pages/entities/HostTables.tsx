@@ -21,6 +21,7 @@ import {
   DEFAULT_PROCESS_SORT,
   byId,
   diskComparators,
+  diskLinkId,
   diskTotal,
   processComparators,
   processLinkId,
@@ -141,10 +142,21 @@ function DisksCard({ breakdown }: { breakdown: UseQueryResult<HostBreakdownResul
 function DisksTable({ disks }: { disks: HostDisk[] }): JSX.Element {
   const { t, i18n } = useTranslation()
   const lang = i18n.language
+  const navigate = useNavigate()
   const [sort, setSort] = useState<GridSort<DiskColumnId>>(DEFAULT_DISK_SORT)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const items = sortRows(disks, sort, diskComparators(lang), [byId])
   const header = (id: DiskColumnId): string => t(`entities.host.disks.columns.${id}`)
+
+  // Ficha 0040: con `fromProblem`, «Volver» va atrás en el historial y el host no se vuelve a pedir.
+  const linkState = (disk: HostDisk): EntityLocationState => ({
+    fromProblem: true,
+    name: disk.name
+  })
+  const open = (disk: HostDisk): void => {
+    const id = diskLinkId(disk)
+    if (id !== null) void navigate(entityPath('DISK', id), { state: linkState(disk) })
+  }
 
   const columns: DataGridColumn<HostDisk, DiskColumnId>[] = [
     {
@@ -153,7 +165,22 @@ function DisksTable({ disks }: { disks: HostDisk[] }): JSX.Element {
       className: 'truncate px-2 py-2 font-medium',
       sortable: 'asc',
       cellTitle: (disk) => disk.name,
-      cell: (disk) => disk.name
+      cell: (disk) => {
+        const id = diskLinkId(disk)
+        if (id === null) return disk.name
+        return (
+          <Link
+            to={entityPath('DISK', id)}
+            state={linkState(disk)}
+            // La fila también abre el disco: sin esto, se navegaría dos veces.
+            onClick={(event) => event.stopPropagation()}
+            tabIndex={-1}
+            className="rounded-sm underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+          >
+            {disk.name}
+          </Link>
+        )
+      }
     },
     {
       id: 'usage',
@@ -203,8 +230,7 @@ function DisksTable({ disks }: { disks: HostDisk[] }): JSX.Element {
       gridTemplate={DISK_GRID}
       sort={sort}
       onSortChange={setSort}
-      // Un disco no tiene página propia que abrir.
-      onActivate={() => undefined}
+      onActivate={open}
       selected={null}
       rowTestId="host-disk-row"
       rowData={diskRowData}

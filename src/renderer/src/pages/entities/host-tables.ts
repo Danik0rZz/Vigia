@@ -1,5 +1,6 @@
 import { compareCodes, type Comparator, type GridSort } from '@shared/grid-sort'
 import {
+  diskEntityIdSchema,
   entityIdSchema,
   type HostBreakdownResult,
   type HostDisk,
@@ -84,4 +85,12 @@ export function processLinkId(process: HostProcess): string | null {
     process.id.startsWith('PROCESS_GROUP_INSTANCE-')
     ? process.id
     : null
+}
+
+/**
+ * Id del disco para el enlace a su página (ficha 0040), solo si es un id de DISK válido (el que da
+ * `dt.entity.disk`); si no, sin enlace.
+ */
+export function diskLinkId(disk: HostDisk): string | null {
+  return diskEntityIdSchema.safeParse(disk.id).success ? disk.id : null
 }
