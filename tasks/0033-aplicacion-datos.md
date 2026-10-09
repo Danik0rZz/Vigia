@@ -1,7 +1,7 @@
 ---
 id: '0033'
 titulo: 'APPLICATION: análisis de métricas en vivo y canal de series y marcadores'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion
@@ -171,4 +171,20 @@ Informe en `live-reports/application-metrics-explore.json` (ignorado), sin ids n
 
 ## Resultado
 
-(pendiente)
+Canal `entities:applicationMetrics` en `8c1e083`: esquema en `src/shared/modules.ts`
+(`applicationEntityIdSchema`, `applicationMetricsResultSchema`), consultas y transformación en
+`src/main/modules/application-metrics.ts` y handler en `src/main/ipc/handlers/modules.ts`. Las
+métricas por papel son las de la tabla de "Verificación" (paso 0); ningún papel se queda sin
+métrica. Un 400 o 404 acaba en error con `reason` `applicationMetricsRejected` (es y en).
+
+**Decisiones del developer (refinables):**
+
+- Tres consultas en paralelo a `/metrics/query`: series y totales con el mismo `metricSelector`
+  (los cinco papeles, en ese orden) y `entityId` de la aplicación; las acciones, con
+  `resolution=Inf` y el selector de `isApplicationMethodOf`. Se casan por posición, como en la
+  0031 (el `metricId` es igual a la expresión).
+- Una acción que solo llega en la duración media (sin recuento) entra con `count: null`, al final.
+  En empate de recuento se conserva el orden de la API (load, xhr, custom).
+- `topActions` lleva `max(10)` en el esquema de salida.
+- En el e2e afectado, `smoke.spec.ts` › «no le quita el foco del sistema» falló una vez con la
+  carga en paralelo y pasa solo: no es de esta ficha.
