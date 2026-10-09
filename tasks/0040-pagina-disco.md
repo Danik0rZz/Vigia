@@ -1,7 +1,7 @@
 ---
 id: '0040'
 titulo: 'DISK: página del disco, a la que se llega pulsando un disco del host'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -83,7 +83,84 @@ errores con `reason`; simulador.
 
 ## Verificación
 
-(pendiente)
+**Paso 0 (en vivo, solo lectura, 2026-10-09; `src/main/modules/disk-metrics-explore.live.test.ts`):**
+3 discos (uno por host de `type("HOST")`, el que más papeles con datos tiene en su host),
+`now-2h`, unas 25 peticiones GET, token fuera del log. Informe en
+`live-reports/disk-metrics-explore.json` (ignorado), sin ids ni nombres.
+
+- Catálogo: `builtin:host.disk.*` da 16 métricas en una página, todas con `entityType` HOST, las
+  dimensiones `dt.entity.host` y `dt.entity.disk`, agregaciones auto, avg, max y min (los tiempos,
+  también count y sum; por defecto avg) y `resolutionInfSupported`: `avail`, `used` (Byte),
+  `usedPct`, `free`, `inodesAvail`, `utilTime` (Percent), `bytesRead`, `bytesWritten`
+  (BytePerSecond), `throughput.read`/`.write` (BitPerSecond), `readOps`, `writeOps` (PerSecond),
+  `readTime`, `writeTime` (MilliSecond), `queueLength` e `inodesTotal` (Count).
+- **Con `entitySelector=entityId("<disco>")` no llega ninguna serie** (0 de 3 en las 16): la
+  entidad de las métricas es el HOST. **Con `:filter(eq("dt.entity.disk","<disco>"))`, las 16
+  tienen datos en los 3 discos**, una serie cada una y ninguna de otro disco. No todos los discos
+  de un host traen las de E/S: en 4 de 5 hosts, `readTime`/`writeTime` solo los trae un disco.
+- El `metricId` de la respuesta **no** es la expresión enviada: Dynatrace quita las comillas del
+  valor (`…:filter(eq("dt.entity.disk",DISK-…))`). Los resultados se casan por posición.
+- Elección por papel: Uso `usedPct`; Espacio `used` y `avail`; Rendimiento `bytesRead` y
+  `bytesWritten`; Latencia `readTime` y `writeTime`; Cola `queueLength`; Inodos `inodesAvail`
+  (% de inodos libres).
+- Consultas exactas del canal, confirmadas en los 3 discos (200, una serie por expresión, ratios
+  < 0,01, último punto de las series a null): series sin `resolution` (`1m` con `now-2h`) con las
+  9 expresiones `builtin:host.disk.{usedPct,used,avail,bytesRead,bytesWritten,readTime,writeTime,queueLength,inodesAvail}:filter(eq("dt.entity.disk","<disco>"))`,
+  y marcadores con `resolution=Inf`: `usedPct…:max`, `bytesRead…:avg`, `bytesWritten…:avg`,
+  `readTime…:avg`, `writeTime…:avg` y `queueLength…:avg` (la agregación, detrás del filtro). Ninguna
+  pasa de 10 expresiones (decisión de la 0039).
+- Entidad (`GET /entities/{id}`): `type` DISK, `firstSeenTms` y `lastSeenTms` (números), `tags`
+  vacías, `properties` con `detectedName` y `filesystemType`, y una relación,
+  `fromRelationships.isDiskOf` (1 HOST). `type("DISK")` también se lista en `/entities`.
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- Salida del canal (`entities:diskMetrics`): `resolution`; `series` con `usage` (%),
+  `space: { used, free }` (bytes; `free` es `avail`), `throughput: { read, write }` (bytes/s),
+  `latency: { read, write }` (ms), `queue` e `inodes` (% libre); `totals` con `usage` (% máximo,
+  `usedPct:max`), `free` (último punto con dato de `avail`; `:last` con Inf da 400),
+  `throughput: { read, write }` (medias), `latency: { read, write }` (medias) y `queue` (media);
+  `warnings` y `partial`. Los inodos no tienen marcador (la página no los pinta).
+- «Papeles `null`»: latencia, cola e inodos son `null` (en `series` y en `totals`) si Dynatrace no
+  devuelve ninguna serie para sus métricas en ese disco (no todos los discos las traen). Uso,
+  espacio y rendimiento nunca son `null`: sin series, llegan vacías y su marcador a null.
+- Las consultas no llevan `entitySelector` con el id del disco (los simuladores, como en vivo, no
+  devuelven nada con él); el número de consultas no se fija, solo que ninguna pasa de 10.
+- Página: con latencia y cola, sale **Latencia** (marcador: media de lectura y, debajo, la de
+  escritura; gráfico: lectura y escritura); sin latencia, Cola. Rendimiento en bytes por segundo
+  (kB/s, MB/s), como la tabla de discos del host (0019); espacio en GB; latencia en ms. Umbrales de
+  uso del 80 y el 90 % con el texto de nivel del host (`entities.host.markers.levels`).
+- Testids (los del proceso con el prefijo `disk`): `entity-page-disk`, `disk-markers`,
+  `disk-marker-{usage,free,read,write,latency|queue,problems}` con `disk-marker-value`
+  (`data-level` en el uso), `disk-marker-secondary`, `disk-marker-level`, `disk-marker-open` y
+  `disk-marker-closed`; `disk-charts`, `disk-chart-panel` con `data-kind`
+  (`usage`, `space`, `throughput`, `latency` o `queue`) y `disk-chart-<kind>` con `data-series`;
+  `disk-info`. Textos en `entities.disk.{markers,charts,info}`; el nombre del tipo, por
+  `ENTITY_PAGES.DISK.labelKey`.
+- La «Información» se comprueba con lo visto en vivo (sistema de ficheros y «Disco de» con enlace
+  al host). La franja de problemas sobre el uso y la rejilla 2×2 no tienen criterio propio: no las
+  cubre ningún test (el disco del simulador no tiene problemas).
+
+**Tests (commit `85d132f`):**
+
+| Criterio | Test                                                                                                                                                                                                                 |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/disk-metrics-explore.live.test.ts` › `CA1 (0040): el informe trae el catálogo, qué métricas tienen datos y las claves de la entidad, sin ids ni nombres` (pasa)                                    |
+| CA2      | `src/renderer/src/pages/entities/registry.test.ts` › describe `CA2 (0040)` (2 tests)                                                                                                                                 |
+| CA3      | `src/main/ipc/handlers/disk-metrics.test.ts` › tres describe `CA3 (0040)` (consultas, transformación con papeles null, errores; 12 tests) y `src/shared/ipc.test.ts` › `CA3 (0040): entrada de entities:diskMetrics` |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0040): pulsar un disco en la tabla del host abre su página con su nombre, y «Volver» regresa al host sin volver a pedir sus datos`                                                       |
+| CA5      | `e2e/views.spec.ts` › `CA5 (0040): la página del disco enseña sus marcadores, sus cuatro gráficos y su «Información»…` y `CA5 (0040): sin latencia, el marcador y el gráfico de cola…`                               |
+| CA6      | `src/renderer/src/locales/disk-page.test.ts` › describe `CA6 (0040)` (4 tests)                                                                                                                                       |
+
+También: `entities:diskMetrics` en `channel-coverage.test.ts` y en «todos los canales de módulos»
+(`modules.test.ts`). Simulador del e2e: `isDiskMetricsQuery`/`diskMetricResponse` (datos de
+/datos, `DISK_PAGE_ID`), `sim.diskMetricQueries`, `sim.diskEmpty` y la entidad `diskInfoBody`.
+
+Ejecución sin el código: 36 unitarios en rojo (`canal entities:diskMetrics: expected undefined`,
+`implementación de entities:diskMetrics: expected undefined`, `DISK en ENTITY_PAGES: expected
+undefined`, textos de `entities.disk` sin definir, y los dos registros de canales) y los 3 e2e de
+la 0040 en rojo (no existe el enlace del disco en la tabla ni `entity-page-disk`). Los e2e vecinos
+del host (0014 a 0019 y 0039) siguen en verde con el simulador ampliado.
 
 ## Resultado
 
