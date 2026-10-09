@@ -422,7 +422,12 @@ export const hostLogsResultSchema = z.object({
   /** Cuántos procesos tienen logs (`processes.length`). */
   withLogs: z.number().int().nonnegative(),
   /** Cuántos procesos tiene el host. */
-  total: z.number().int().nonnegative()
+  total: z.number().int().nonnegative(),
+  /**
+   * `true` si se llegó al tope de páginas y quedaban procesos: la lista y `withLogs` pueden
+   * estar cortos. Solo llega cuando es `true` (sin recorte, no viene).
+   */
+  truncated: z.literal(true).optional()
 })
 export type HostLogsResult = z.output<typeof hostLogsResultSchema>
 

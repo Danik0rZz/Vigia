@@ -777,6 +777,7 @@
         "sources_one": "{{count}} fuente",
         "sources_other": "{{count}} fuentes",
         "noUpdate": "Sin fecha",
+        "partial": "El host tiene más procesos de los que se han pedido: la lista y el recuento pueden estar incompletos.",
         "fileStatus": {
           "FILE_STATUS_OK": "Se lee",
           "FILE_STATUS_NOT_EXIST": "El fichero no existe",

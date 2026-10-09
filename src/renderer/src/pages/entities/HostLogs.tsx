@@ -72,9 +72,17 @@ export function HostLogs({
 function LogsContent({ data }: { data: HostLogsResult }): JSX.Element {
   const { t, i18n } = useTranslation()
   const summary = (
-    <p data-testid="host-logs-summary" className="text-sm text-muted-foreground">
-      {t('entities.host.logs.summary', { withLogs: data.withLogs, count: data.total })}
-    </p>
+    <>
+      <p data-testid="host-logs-summary" className="text-sm text-muted-foreground">
+        {t('entities.host.logs.summary', { withLogs: data.withLogs, count: data.total })}
+      </p>
+      {/* Tope de páginas alcanzado: el recuento y la lista pueden estar cortos. */}
+      {data.truncated === true && (
+        <p data-testid="host-logs-partial" role="status" className="text-xs text-status-warning">
+          {t('entities.host.logs.partial')}
+        </p>
+      )}
+    </>
   )
   if (data.processes.length === 0) {
     return (
@@ -82,7 +90,7 @@ function LogsContent({ data }: { data: HostLogsResult }): JSX.Element {
         <p data-testid="host-logs-empty" className="text-sm text-muted-foreground">
           {t('entities.host.logs.empty')}
         </p>
-        {data.total > 0 && summary}
+        {(data.total > 0 || data.truncated === true) && summary}
       </>
     )
   }

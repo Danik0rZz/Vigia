@@ -127,7 +127,8 @@ export function toHostLogProcess(entity: HostLogsEntity): HostLogProcess | null 
 export function toHostLogs(
   entities: HostLogsEntity[],
   totalCount: number | null,
-  invalid: number
+  invalid: number,
+  truncated = false
 ): HostLogsResult {
   const processes = entities
     .map(toHostLogProcess)
@@ -135,6 +136,8 @@ export function toHostLogs(
   return {
     processes,
     withLogs: processes.length,
-    total: totalCount ?? entities.length + invalid
+    total: totalCount ?? entities.length + invalid,
+    // Recortado (tope de páginas): la interfaz avisa de que la lista puede estar corta.
+    ...(truncated ? { truncated: true as const } : {})
   }
 }

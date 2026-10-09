@@ -705,7 +705,7 @@ export function createModuleHandlers(
           schema: hostLogsEntitySchema,
           maxPages: HOST_LOGS_MAX_PAGES
         })
-        return toHostLogs(page.items, page.totalCount, page.invalid)
+        return toHostLogs(page.items, page.totalCount, page.invalid, page.truncated)
       } catch (error) {
         // Un rechazo de Dynatrace llega con su texto y sin motivo: se le da uno.
         if (error instanceof DtError && error.reason === undefined && error.status !== undefined) {

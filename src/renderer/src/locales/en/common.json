@@ -777,6 +777,7 @@
         "sources_one": "{{count}} source",
         "sources_other": "{{count}} sources",
         "noUpdate": "No date",
+        "partial": "The host has more processes than were requested: the list and the count may be incomplete.",
         "fileStatus": {
           "FILE_STATUS_OK": "Being read",
           "FILE_STATUS_NOT_EXIST": "File does not exist",
