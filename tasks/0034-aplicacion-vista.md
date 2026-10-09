@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:applicationMetrics` de la 0033, `entities:get`/`entities:names` y los canales de problemas)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -51,6 +51,8 @@ se pinta.
 ## Pruebas a mano para Dani
 
 - Con aplicaciones reales, que marcadores, gráficos y acciones cuadran con Dynatrace.
+- Que «Abrir en Métricas» desde un gráfico de la aplicación trae solo esa aplicación (el filtro por
+  `dt.entity.application` es deducido, no probado en vivo).
 
 ## Fuera de alcance
 
@@ -62,7 +64,22 @@ se pinta.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test, sin tocar tests tras `d2005f7`. El selector de «Abrir en Métricas»
+(`:filter(eq("dt.entity.application",…))`) es deducible: las cuatro métricas tienen esa dimensión
+(0033), la forma `:filter(eq(...))` equivale a `entityId(...)` en vivo (0006, 0023) y métrica y
+agregación coinciden con main. Apdex con cortes inclusivos, color siempre con su texto y tokens en
+los dos temas. Lista de acciones vacía: título y aviso, sin filas ni error; el error va antes.
+Relaciones de «Información» las vistas en vivo. Solo renderer; ADR-0004; id validado; nada del
+tenant.
+
+Sugerencias, no bloquean:
+
+- Doc-writer: anotar en `docs/notas-api-v2.md` que el filtro de «Abrir en Métricas» de la aplicación
+  usa `dt.entity.application` y es deducido.
+- La prueba a mano del filtro que cita el developer no estaba en la ficha: añadida por el
+  Orquestador en «Pruebas a mano para Dani».
 
 ## Verificación
 
