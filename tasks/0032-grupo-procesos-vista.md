@@ -1,7 +1,7 @@
 ---
 id: '0032'
 titulo: 'PROCESS_GROUP: página con marcadores, gráficos, instancias e información'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -68,7 +68,11 @@ número con la nota «como mínimo»). Quedarse con las de más CPU queda para D
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) En «CPU por instancia», dos instancias con el mismo nombre se juntan en la leyenda de
+  ECharts; se podría añadir el host al nombre de la serie cuando se repite.
+- (developer) El enlace del host en la tabla «Instancias» lleva `tabIndex={-1}` como los de la tabla
+  de procesos del host (la fila abre la instancia con el teclado): el host no se alcanza con el
+  teclado. Revisar en las dos tablas a la vez.
 
 ## Notas del revisor
 
@@ -135,3 +139,35 @@ se prueba en vivo.
 ## Resultado
 
 (pendiente)
+
+**Decisiones del developer (delegadas por Dani, refinables), 2026-10-09:**
+
+- **«CPU por instancia»**, como dice la decisión del Orquestador: `topInstances`
+  (`process-group-charts.ts`) toma las cinco primeras de `instances.items` con CPU y con id de
+  PROCESS_GROUP_INSTANCE válido, y la página pide `entities:processMetrics` de cada una
+  (`useProcessMetricsList`, con la misma clave que la página del proceso: abrir una de esas
+  instancias con el mismo rango no la vuelve a pedir). Se piden al llegar las instancias; con
+  «Actualizar» se repiten junto con la del grupo (las dos cuelgan del módulo `entities`). Si falla la
+  del grupo, el panel enseña su aviso; si falla una instancia, el de esa, y Reintentar repite solo
+  las fallidas (`combineQueries`, `data/query-list.ts`).
+- **Colores:** cinco líneas necesitan cinco colores: tokens nuevos `--chart-4` y `--chart-5` (claro y
+  oscuro), `series4`/`series5` en `ChartColors` y su contraste en `env-colors.test.ts`.
+- **Eje de la CPU** del grupo y de «CPU por instancia», desde 0 y sin tope de 100 % (la del grupo es la
+  suma de sus instancias).
+- **«Abrir en Métricas»** de CPU, memoria y red del total: la expresión de main (`:splitBy():sum`) con
+  `:filter(in("dt.entity.process_group_instance",entitySelector("type(PROCESS_GROUP_INSTANCE),fromRelationships.isInstanceOf(entityId(<id>))")))`:
+  Métricas solo recibe el selector. El filtro `in(entitySelector(…))` lo probó en vivo la 0017 con
+  `isProcessOf`; con `isInstanceOf` no está probado (solo afecta al enlace, no a lo que pide la
+  página). La de «CPU por instancia», la de la CPU del proceso (0028) de cada instancia, separadas por
+  comas.
+- **Recorte:** con `partial` no vacío, el marcador enseña «N+» y debajo «Como mínimo: Dynatrace ha
+  recortado la consulta», y la tabla, el aviso `process-group-instances-partial`.
+- **Marcadores:** debajo de la CPU y la memoria, «Total del grupo, media del rango»; la memoria sin
+  máxima (el canal no la trae). Umbrales de la CPU, los del host sobre la media del total.
+- **Información:** filas del proceso (las mismas claves en vivo), con `buildProcessRows` y
+  `buildRelationGroups` sacados de `process-info.ts`; «Otras» se titula «Otras relaciones», como en el
+  proceso.
+- **Textos:** «Process group» con mayúscula en los textos en es que lo nombran (el test del glosario
+  exige que el término se escriba igual en los dos idiomas).
+- **Test de otra ficha:** `CA7 (0008)` aún contaba PROCESS_GROUP entre los tipos en construcción; sale
+  de la lista en un commit propio (`8f4351d`), como hicieron la 0018, la 0024 y la 0028.
