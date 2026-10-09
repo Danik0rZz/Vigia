@@ -1,7 +1,7 @@
 ---
 id: '0041'
 titulo: 'HOST: tarjeta «Logs» con los procesos del host que tienen logs detectados'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -200,6 +200,11 @@ Ejecución sin el código: 31 unitarios en rojo (`canal entities:hostLogs: expec
 definir, los dos registros de canales, y `entities:get` que hoy saca la ruta del log) y los 4 e2e
 de la 0041 en rojo (no existe `host-logs`). Los e2e vecinos del host y de entidades (0014 a 0020,
 0028, 0029, 0032, 0036, 0037, 0039 y 0040) siguen en verde con el simulador ampliado.
+
+### Verifier, 2026-10-09, commit `2207aa0`, rango `main..feat/0041-host-logs`: VERDE
+
+- check: 3010 tests en 166 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/ipc.ts`): 313/313 (incluye los 4 de la 0041).
 
 ## Resultado
 
