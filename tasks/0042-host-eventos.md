@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /events` (`eventSelector` con `entityId("id-1","id-2")`, `entitySelector`, `from`, `to`, `pageSize`); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `events.read` (token clásico) y `environment-api:events:read` (OAuth), de la OpenAPI. El `optionalEntitySelector` de la captura de Dani **no está en la OpenAPI** (es la interfaz interna de Dynatrace, `/rest/v2/events`) y no se usa.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -77,7 +77,21 @@ estado; «20 de N» si hay más. Los títulos son texto del tenant: como texto, 
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test; tras `e331d2e` solo cambia `b8aac1c` (test-writer, anotado), legítimo: el
+unitario de 450 procesos contradecía la decisión de meter `from:runsOn` y el e2e contaba una
+consulta tardía del test anterior; los dos siguen probando lo mismo. `GET /events` con
+`eventSelector=entityId(...)` y el scope `events.read` en la OpenAPI; `optionalEntitySelector` ni
+se usa ni se manda (lo fijan los tests). `MODULE_SCOPES.events` entra en `REQUIRED_CLASSIC_SCOPES`,
+así «Probar conexión» lo da como scope que falta (CA3). Zod en las dos direcciones; todo id pasa
+por `entityIdSchema` antes de entrar en el selector; reparto por longitud ≤ 9.800 sin trozos vacíos;
+la unión de los 20 más recientes por trozo da los 20 del conjunto; `reason: hostEventsRejected`
+(ADR-0005); `MANUAL` (ADR-0004); títulos como texto. `entity-page-types.ts` resuelve el ciclo y
+`registry.ts` lo exige con `satisfies`. Sin dependencias, CSP, migración ni datos del tenant.
+
+Opcional: el filtro por `HOST_EVENTS_HOST` del e2e dejaría sin comprobar los trozos sin el host si
+el fixture necesitara varias consultas (hoy cabe en una).
 
 ## Verificación
 
