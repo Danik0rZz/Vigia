@@ -48,6 +48,8 @@ const LOAD = 'builtin:host.cpu.load'
 const MEM = 'builtin:host.mem.usage'
 const MEM_USED = 'builtin:host.mem.used'
 const MEM_TOTAL = 'builtin:host.mem.total'
+/** Ficha 0039: confirmada en vivo (paso 0): existe, en Byte, con dimensión dt.entity.host. */
+const MEM_RECL = 'builtin:host.mem.recl'
 const NET_IN = 'builtin:host.net.nic.trafficIn'
 const NET_OUT = 'builtin:host.net.nic.trafficOut'
 const DISK = 'builtin:host.disk.usedPct'
@@ -60,6 +62,7 @@ type SeriesKind =
   | 'memory'
   | 'memUsed'
   | 'memTotal'
+  | 'memRecl'
   | 'netIn'
   | 'netOut'
   | 'disk'
@@ -73,6 +76,7 @@ const SERIES_KINDS: SeriesKind[] = [
   'memory',
   'memUsed',
   'memTotal',
+  'memRecl',
   'netIn',
   'netOut',
   'disk'
@@ -138,6 +142,7 @@ function seriesKindOf(expression: string): SeriesKind | null {
   if (key === MEM && plainOrAvg(expression)) return 'memory'
   if (key === MEM_USED && plainOrAvg(expression)) return 'memUsed'
   if (key === MEM_TOTAL && plainOrAvg(expression)) return 'memTotal'
+  if (key === MEM_RECL && plainOrAvg(expression)) return 'memRecl'
   if (key === NET_IN && merged(expression) && has(expression, 'sum')) return 'netIn'
   if (key === NET_OUT && merged(expression) && has(expression, 'sum')) return 'netOut'
   if (key === DISK && merged(expression) && has(expression, 'max')) return 'disk'
@@ -272,6 +277,8 @@ beforeEach(() => {
     // Bytes: el último con dato es el tercero (no el primero).
     memUsed: [4_000_000_000, null, 5_000_000_000, null],
     memTotal: [16_000_000_000, null, 17_000_000_000, null],
+    // Ficha 0039: recuperable en bytes; en vivo, usada + recuperable < total.
+    memRecl: [2_000_000_000, null, 3_000_000_000, null],
     // bits/s, suma de las dos interfaces de perItem.
     netIn: [1500, null, 3700, null],
     netOut: [300, null, 450, null],
@@ -395,7 +402,8 @@ describe('CA3 (0016): dos consultas a /metrics/query con las expresiones confirm
     expect(series, 'consulta de series').toBeDefined()
     expect(markers, 'consulta de marcadores').toBeDefined()
 
-    // Series: las 10 expresiones (≤ 10, una consulta) y sin resolution (la elige la API).
+    // Series: las 11 expresiones (con la recuperable de la 0039; en vivo, 11 caben en una
+    // consulta) y sin resolution (la elige la API).
     // Red sumada por interfaces (splitBy():sum) y disco más lleno (splitBy():max).
     expect(series?.searchParams.has('resolution')).toBe(false)
     expect(expressionsOf(series).map(seriesKindOf).sort()).toEqual([...SERIES_KINDS].sort())
@@ -463,7 +471,12 @@ describe('CA4 (0016): la respuesta se transforma en series y totales', () => {
     expect((result.data as { totals: unknown }).totals).toEqual({
       cpu: { avg: 20.25, max: 97.5 },
       // used y total en bytes, del tercer punto (el cuarto llega a null).
-      memory: { avg: 47.5, used: 5_000_000_000, total: 17_000_000_000 },
+      memory: {
+        avg: 47.5,
+        used: 5_000_000_000,
+        total: 17_000_000_000,
+        reclaimable: 3_000_000_000
+      },
       network: { in: 2600, out: 375 },
       disk: { max: 93 },
       load: { avg: 1.75 }
@@ -474,7 +487,8 @@ describe('CA4 (0016): la respuesta se transforma en series y totales', () => {
     seriesData = {
       ...seriesData,
       memUsed: [null, null, null, null],
-      memTotal: [null, null, null, null]
+      memTotal: [null, null, null, null],
+      memRecl: [null, null, null, null]
     }
     markerData = { ...markerData, load: null, cpuMax: null }
     const result = await call({ environmentId: envId, ...base })
@@ -482,7 +496,7 @@ describe('CA4 (0016): la respuesta se transforma en series y totales', () => {
     expect(result.data).toMatchObject({
       totals: {
         cpu: { avg: 20.25, max: null },
-        memory: { avg: 47.5, used: null, total: null },
+        memory: { avg: 47.5, used: null, total: null, reclaimable: null },
         load: { avg: null }
       }
     })
@@ -517,7 +531,7 @@ describe('CA5 (0016): errores de Dynatrace y host sin datos', () => {
     })
     expect((result.data as { totals: unknown }).totals).toEqual({
       cpu: { avg: null, max: null },
-      memory: { avg: null, used: null, total: null },
+      memory: { avg: null, used: null, total: null, reclaimable: null },
       network: { in: null, out: null },
       disk: { max: null },
       load: { avg: null }
@@ -563,5 +577,70 @@ describe('CA6 (0016): warnings y resultados recortados', () => {
     markerExtras = { ratios: { dataPointCountRatio: ratio, dimensionCountRatio: ratio } }
     const result = await call({ environmentId: envId, ...base })
     expect(result).toMatchObject({ ok: true, data: { partial: [] } })
+  })
+})
+
+/**
+ * Ficha 0039: memoria total y recuperable. La consulta de series lleva `builtin:host.mem.total`
+ * y `builtin:host.mem.recl` (confirmada en vivo en el paso 0: existe, en Byte, una serie por
+ * host), acotadas al host; la salida trae `series.memoryBytes` con `used`, `reclaimable` y
+ * `total` en bytes, y `totals.memory.reclaimable` del último punto con dato (como used y total).
+ */
+describe('CA2 (0039): memoria total y recuperable en las consultas y en la salida', () => {
+  it('la consulta de series lleva la total y la recuperable, acotadas al host y sin agregación distinta de avg', async () => {
+    const result = await call({ environmentId: envId, ...base })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    const series = seriesQuery()
+    const kinds = expressionsOf(series).map(seriesKindOf)
+    expect(kinds).toContain('memTotal')
+    expect(kinds).toContain('memRecl')
+    for (const expression of expressionsOf(series).filter((e) =>
+      [MEM_TOTAL, MEM_RECL].includes(keyOf(e))
+    )) {
+      expect(scopedToHost(expression, series?.searchParams ?? new URLSearchParams())).toBe(true)
+    }
+    // La API admite hasta 10 métricas por consulta; en vivo, las 11 de las series caben en una.
+    expect(metricQueries()).toHaveLength(2)
+  })
+
+  it('series.memoryBytes con usada, recuperable y total en bytes, sin convertir y con los nulos', async () => {
+    const result = await call({ environmentId: envId, ...base })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    expect(result.data).toMatchObject({
+      series: {
+        // El % de siempre sigue (para el marcador y el tooltip).
+        memory: { timestamps: T, values: [40, null, 55, null] },
+        memoryBytes: {
+          used: { timestamps: T, values: [4_000_000_000, null, 5_000_000_000, null] },
+          reclaimable: { timestamps: T, values: [2_000_000_000, null, 3_000_000_000, null] },
+          total: { timestamps: T, values: [16_000_000_000, null, 17_000_000_000, null] }
+        }
+      }
+    })
+  })
+
+  it('totals.memory trae la total y la recuperable del último punto con dato', async () => {
+    // El último con dato de la recuperable es el segundo (no el tercero, que llega a null).
+    seriesData = { ...seriesData, memRecl: [2_000_000_000, 2_500_000_000, null, null] }
+    const result = await call({ environmentId: envId, ...base })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    expect((result.data as { totals: { memory: unknown } }).totals.memory).toEqual({
+      avg: 47.5,
+      used: 5_000_000_000,
+      total: 17_000_000_000,
+      reclaimable: 2_500_000_000
+    })
+  })
+
+  it('sin resultados, memoryBytes vacías y la recuperable a null', async () => {
+    seriesExtras = { empty: 'result' }
+    markerExtras = { empty: 'result' }
+    const result = await call({ environmentId: envId, ...base })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    const none = { timestamps: [], values: [] }
+    expect(result.data).toMatchObject({
+      series: { memoryBytes: { used: none, reclaimable: none, total: none } },
+      totals: { memory: { used: null, total: null, reclaimable: null } }
+    })
   })
 })

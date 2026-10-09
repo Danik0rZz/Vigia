@@ -129,3 +129,47 @@ describe('CA7 (0019): textos de las tablas de discos y procesos en es y en', () 
     }
   })
 })
+
+/**
+ * Ficha 0039: textos de la memoria total y recuperable, en `entities.host` de es y en. No se
+ * fijan las claves (las elige el developer); sí que existan: la palabra «recuperable» en los
+ * marcadores, su ayuda (lo que el sistema puede liberar si hace falta, como cachés) y, en las
+ * series del gráfico, la usada, la recuperable y la total. La ayuda en inglés se redacta a partir
+ * de la `description` del descriptor, sin copiarla tal cual.
+ */
+const keysMatching = (texts: Record<string, unknown>, prefix: string, pattern: RegExp): string[] =>
+  Object.keys(texts).filter((key) => key.startsWith(prefix) && pattern.test(String(texts[key])))
+
+describe('CA5 (0039): textos de la memoria recuperable y total en es y en', () => {
+  it('marcador: «recuperable» y su ayuda (liberar, cachés) en español', () => {
+    expect(keysMatching(esHost, 'markers.', /recuperable/i).length).toBeGreaterThan(0)
+    const help = keysMatching(esHost, 'markers.', /liberar/i)
+    expect(help.length, 'ayuda de la recuperable').toBeGreaterThan(0)
+    expect(help.some((key) => /cach[ée]/i.test(String(esHost[key])))).toBe(true)
+  })
+
+  it('las mismas claves en inglés, traducidas y sin copiar la descripción de Dynatrace', () => {
+    const keys = [
+      ...keysMatching(esHost, 'markers.', /recuperable|liberar/i),
+      ...keysMatching(esHost, 'charts.series.', /recuperable/i)
+    ]
+    expect(keys.length).toBeGreaterThan(1)
+    for (const key of keys) {
+      const text = String(enHost[key] ?? '')
+      expect(text.trim(), `${key} (en)`).not.toBe('')
+      expect(text, `${key} (en)`).not.toBe(esHost[key])
+      expect(text, `${key} (en)`).not.toContain('calculated as available memory')
+    }
+    expect(keysMatching(enHost, 'markers.', /reclaimable/i).length).toBeGreaterThan(0)
+  })
+
+  it('series del gráfico: usada, recuperable y una total de memoria distinta del «Uso total» de la CPU', () => {
+    expect(keysMatching(esHost, 'charts.series.', /usad/i).length).toBeGreaterThan(0)
+    expect(keysMatching(esHost, 'charts.series.', /recuperable/i).length).toBeGreaterThan(0)
+    const totals = keysMatching(esHost, 'charts.series.', /total/i).filter(
+      (key) => key !== 'charts.series.total'
+    )
+    expect(totals.length, 'serie de la memoria total').toBeGreaterThan(0)
+    for (const key of totals) expect(String(enHost[key] ?? '').trim(), key).not.toBe('')
+  })
+})

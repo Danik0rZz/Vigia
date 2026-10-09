@@ -1981,6 +1981,7 @@ type HostSeriesKind =
   | 'memory'
   | 'memUsed'
   | 'memTotal'
+  | 'memRecl'
   | 'netIn'
   | 'netOut'
   | 'disk'
@@ -1994,6 +1995,8 @@ const HOST_SERIES: Record<HostSeriesKind, (number | null)[]> = {
   memory: [50, null, 62.5],
   memUsed: [8_000_000_000, null, 10_000_000_000],
   memTotal: [16_000_000_000, null, 16_000_000_000],
+  // Ficha 0039: recuperable en bytes (en vivo, usada + recuperable < total); último dato 2,5 GB.
+  memRecl: [3_000_000_000, null, 2_500_000_000],
   netIn: [2000, null, 5000],
   netOut: [400, null, 900],
   disk: [81, null, 91]
@@ -2039,7 +2042,8 @@ function hostSeriesKind(expression: string): HostSeriesKind | null {
     'builtin:host.cpu.iowait': 'iowait',
     'builtin:host.mem.usage': 'memory',
     'builtin:host.mem.used': 'memUsed',
-    'builtin:host.mem.total': 'memTotal'
+    'builtin:host.mem.total': 'memTotal',
+    'builtin:host.mem.recl': 'memRecl'
   }
   const key = hostMetricKey(expression)
   const plain = kinds[key]
@@ -10408,7 +10412,8 @@ const HOST_CHART_TITLES: Record<HostChartKind, string> = {
 /** Las series de cada gráfico, en su orden: CPU con el total y su desglose, y red con las dos. */
 const HOST_CHART_SERIES: Record<HostChartKind, RegExp[]> = {
   cpu: [/total/i, /user/i, /system/i, /iowait/i],
-  memory: [/./],
+  // Ficha 0039: usada y recuperable apiladas, y la total.
+  memory: [/usad/i, /recuperable/i, /total/i],
   network: [/entrada/i, /salida/i],
   disk: [/./]
 }
@@ -10640,6 +10645,78 @@ test('CA7 (0018): si falla el canal de métricas, marcadores y gráficos enseña
   for (const id of HOST_MARKER_IDS) {
     await expect(hostMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
   }
+})
+
+/**
+ * Ficha 0039: memoria total y recuperable en el marcador y el gráfico «Memoria» del HOST, con los
+ * datos de HOST_METRICS_ID (usada 10 GB, total 16 GB y recuperable 2,5 GB en el último punto).
+ *
+ * Nombres que fijan estos tests (decisión delegada, refinable): dentro de `host-marker-memory`,
+ * la recuperable en `host-marker-reclaimable` (la palabra y su valor) y, junto a la palabra, el
+ * icono de ayuda `host-marker-reclaimable-help` (enfocable); su tooltip,
+ * `host-marker-reclaimable-tooltip`.
+ */
+const reclaimableHelp = (): Locator =>
+  hostMarker('memory').getByTestId('host-marker-reclaimable-help')
+const reclaimableTooltip = (): Locator => page.getByTestId('host-marker-reclaimable-tooltip')
+
+test('CA3 (0039): el marcador de memoria enseña usada / total y recuperable, y el gráfico tiene usada, recuperable y total', async () => {
+  await openHostPage()
+  const memory = hostMarker('memory')
+  // El valor principal sigue siendo el % usado.
+  await expect(memory.getByTestId('host-marker-value')).toHaveText(/^57(,0)?\s?%$/)
+  // Debajo, usada / total (10 y 16 GB) y la recuperable (2,5 GB, del último punto con dato).
+  const secondary = memory.getByTestId('host-marker-secondary')
+  await expect(secondary).toContainText(/(^|[^\d.,])10,0\sGB/)
+  await expect(secondary).toContainText(/(^|[^\d.,])16,0\sGB/)
+  const reclaimable = memory.getByTestId('host-marker-reclaimable')
+  await expect(reclaimable).toBeVisible()
+  await expect(reclaimable).toContainText(/recuperable/i)
+  await expect(reclaimable).toContainText(/(^|[^\d.,])2,5\sGB/)
+
+  // El gráfico: tres series, usada, recuperable y total (cada una, una vez).
+  const series = await hostChartSeries('memory')
+  expect(series).toHaveLength(3)
+  for (const pattern of [/usad/i, /recuperable/i, /total/i]) {
+    expect(
+      series.filter((name) => pattern.test(name)),
+      String(pattern)
+    ).toHaveLength(1)
+  }
+
+  // La recuperable llega en la misma llamada al canal (sus dos consultas).
+  await settledRequests()
+  expect(sim.hostMetricQueries).toHaveLength(2)
+  expect(
+    sim.hostMetricQueries.some((query) =>
+      (query.get('metricSelector') ?? '').includes('builtin:host.mem.recl')
+    )
+  ).toBe(true)
+})
+
+test('CA4 (0039): el tooltip de ayuda de «recuperable» sale con el ratón y con el foco', async () => {
+  await openHostPage()
+  const help = reclaimableHelp()
+  await expect(help).toBeVisible()
+  await expect(reclaimableTooltip()).toHaveCount(0)
+
+  // Con el ratón: lo que el sistema puede liberar si hace falta (como cachés).
+  await hoverFresh(page, help)
+  await expect(reclaimableTooltip()).toBeVisible()
+  await expect(reclaimableTooltip()).toContainText(/liberar/i)
+  await moveToNeutral(page)
+  await page.keyboard.press('Escape')
+  await expect(reclaimableTooltip()).toHaveCount(0)
+
+  // Con el foco, ya a la vista (Radix cierra el tooltip si su contenedor se desplaza).
+  await help.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+  await settledBox(help)
+  await help.focus()
+  await expect(help).toBeFocused()
+  await expect(reclaimableTooltip()).toBeVisible()
+  await expect(reclaimableTooltip()).toContainText(/liberar/i)
+  await page.keyboard.press('Escape')
+  await expect(reclaimableTooltip()).toHaveCount(0)
 })
 
 /**
