@@ -705,7 +705,10 @@
         "levels": {
           "warning": "Warning: over 80%",
           "error": "Critical: over 90%"
-        }
+        },
+        "reclaimable": "Reclaimable",
+        "reclaimableHelpLabel": "What reclaimable memory is",
+        "reclaimableHelp": "Memory the system is holding (mostly caches and buffers) but can free up when needed: what can be used without swapping, minus the free memory. It is not counted as used."
       },
       "charts": {
         "title": "Metrics for the host",
@@ -722,8 +725,11 @@
           "memory": "Memory used",
           "in": "Inbound",
           "out": "Outbound",
-          "disk": "Fullest disk"
-        }
+          "disk": "Fullest disk",
+          "reclaimable": "Reclaimable memory",
+          "memoryTotal": "Total memory"
+        },
+        "usage": "Usage: {{value}}"
       },
       "disks": {
         "title": "Disks",

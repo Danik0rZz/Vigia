@@ -1,5 +1,7 @@
 import type { JSX, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import * as Tooltip from '@radix-ui/react-tooltip'
+import { CircleHelp } from 'lucide-react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { EntityProblemCounts, HostMetricsResult } from '@shared/modules'
 import { cn } from '../../lib/cn'
@@ -73,6 +75,7 @@ export function HostMarkers({
                     used: formatGigabytes(memory?.used ?? null, lang),
                     total: formatGigabytes(memory?.total ?? null, lang)
                   })}
+                  extra={<Reclaimable value={formatGigabytes(memory?.reclaimable ?? null, lang)} />}
                 />
               )
             }}
@@ -152,11 +155,14 @@ const LEVEL_CLASS: Record<UsageLevel, string> = {
 function UsageValue({
   pct,
   caption,
-  secondary
+  secondary,
+  extra = null
 }: {
   pct: number | null
   caption: string
   secondary: string
+  /** Línea más bajo la secundaria (la recuperable de la memoria, ficha 0039). */
+  extra?: ReactNode
 }): JSX.Element {
   const { t, i18n } = useTranslation()
   const level = usageLevel(pct)
@@ -175,7 +181,46 @@ function UsageValue({
       }
       caption={caption}
       secondary={secondary}
+      extra={extra}
     />
+  )
+}
+
+/**
+ * Memoria recuperable (ficha 0039), del último punto con dato, con un icono de ayuda que
+ * explica qué es; el tooltip se abre con el ratón y con el foco.
+ */
+function Reclaimable({ value }: { value: string }): JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <p
+      data-testid="host-marker-reclaimable"
+      className="flex items-center gap-1 text-sm text-muted-foreground"
+    >
+      <span>{t('entities.host.markers.reclaimable')}</span>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <button
+            type="button"
+            data-testid="host-marker-reclaimable-help"
+            aria-label={t('entities.host.markers.reclaimableHelpLabel')}
+            className="inline-flex cursor-help rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <CircleHelp aria-hidden="true" className="size-3.5" />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            data-testid="host-marker-reclaimable-tooltip"
+            sideOffset={6}
+            className="glass z-50 max-w-80 rounded-md px-3 py-2 text-xs text-foreground"
+          >
+            {t('entities.host.markers.reclaimableHelp')}
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+      <span className="font-medium text-foreground tabular-nums">{value}</span>
+    </p>
   )
 }
 
@@ -184,12 +229,14 @@ function MarkerBody({
   value,
   level = null,
   caption,
-  secondary
+  secondary,
+  extra = null
 }: {
   value: ReactNode
   level?: ReactNode
   caption: string
   secondary: string
+  extra?: ReactNode
 }): JSX.Element {
   return (
     <div className="grid justify-items-center gap-1">
@@ -199,6 +246,7 @@ function MarkerBody({
       <p data-testid="host-marker-secondary" className="text-sm tabular-nums wrap-anywhere">
         {secondary}
       </p>
+      {extra}
     </div>
   )
 }

@@ -705,7 +705,10 @@
         "levels": {
           "warning": "Aviso: más del 80 %",
           "error": "Crítico: más del 90 %"
-        }
+        },
+        "reclaimable": "Recuperable",
+        "reclaimableHelpLabel": "Qué es la memoria recuperable",
+        "reclaimableHelp": "Memoria que el sistema tiene ocupada (sobre todo cachés y búferes) pero puede liberar si hace falta: la disponible sin recurrir al swap menos la libre. No cuenta en la usada."
       },
       "charts": {
         "title": "Métricas del host",
@@ -722,8 +725,11 @@
           "memory": "Memoria usada",
           "in": "Entrada",
           "out": "Salida",
-          "disk": "Disco más lleno"
-        }
+          "disk": "Disco más lleno",
+          "reclaimable": "Memoria recuperable",
+          "memoryTotal": "Memoria total"
+        },
+        "usage": "Uso: {{value}}"
       },
       "disks": {
         "title": "Discos",
