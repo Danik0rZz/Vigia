@@ -7,6 +7,7 @@ import {
   useEntityProblemCounts,
   useEntityProblems,
   useHostBreakdown,
+  useHostEvents,
   useHostLogs,
   useHostMetrics,
   useModuleAccess,
@@ -17,6 +18,7 @@ import { useConnectionStatusKnown } from '../../data/tenants'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { HostCharts } from './HostCharts'
+import { HostEvents } from './HostEvents'
 import { HostInfo } from './HostInfo'
 import { HostLogs } from './HostLogs'
 import { HostMarkers } from './HostMarkers'
@@ -30,7 +32,8 @@ import { HostTables } from './HostTables'
  * llamada a `entities:hostMetrics` (ficha 0016). Solo pide datos con «Actualizar» o con un rango
  * nuevo (ADR-0004). Al final, la tarjeta «Información» (ficha 0020, canal `entities:get`), como
  * en todas las páginas de entidad (`EntitySections`, ficha 0036); justo antes, la tarjeta «Logs»
- * (ficha 0041, canal `entities:hostLogs`).
+ * (ficha 0041, canal `entities:hostLogs`) y, tras ella, la tarjeta «Eventos» (ficha 0042, canal
+ * `entities:hostEvents`).
  */
 export function HostEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -52,9 +55,18 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
   const problemList = useEntityProblems(problemsEnv, hostId)
   const info = useEntityInfo(entitiesEnv, hostId)
   const logs = useHostLogs(entitiesEnv, hostId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  // Ficha 0042: events.read y entities.read (el canal lee las relaciones del host).
+  const eventsAccess = useModuleAccess('events')
+  const eventsKnown = useConnectionStatusKnown(eventsAccess.available ? eventsAccess.envId : null)
+  const eventsEnv = eventsAccess.available && eventsKnown ? eventsAccess.envId : null
+  const events = useHostEvents(eventsEnv, hostId)
+  const refresh = useModuleRefresh(
+    metricsEnv ?? problemsEnv ?? entitiesEnv ?? eventsEnv,
+    'entities'
+  )
   const canFetch =
-    hostId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
+    hostId !== null &&
+    (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null || eventsEnv !== null)
 
   return (
     <EntityPageFrame
@@ -71,7 +83,8 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
               problems.isFetching ||
               problemList.isFetching ||
               info.isFetching ||
-              logs.isFetching
+              logs.isFetching ||
+              events.isFetching
             }
           />
         ) : undefined
@@ -110,6 +123,8 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
               {metricsEnv !== null && <HostTables breakdown={breakdown} />}
               {/* Ficha 0041: con entities.read, aunque falten las métricas. */}
               <HostLogs access={entitiesAccess} logs={logs} />
+              {/* Ficha 0042: justo antes de «Información». */}
+              <HostEvents access={eventsAccess} events={events} />
             </>
           }
           // Ficha 0020 (al final desde la 0036): si falla, lo demás sigue.

@@ -12,14 +12,19 @@ import { useActiveEnvironment, useConnectionStatus } from './tenants'
 export type { QueryListState } from './query-list'
 
 /** Módulos con datos de Dynatrace; cada uno necesita los scopes de MODULE_SCOPES. */
-export type DataModule = 'home' | 'problems' | 'metrics' | 'entities'
+export type DataModule = 'home' | 'problems' | 'metrics' | 'entities' | 'events'
 
 const REQUIRED_SCOPES: Record<DataModule, readonly string[]> = {
   home: [...MODULE_SCOPES.problems.classic, ...MODULE_SCOPES.slos.classic],
   problems: MODULE_SCOPES.problems.classic,
   metrics: MODULE_SCOPES.metrics.classic,
   /** Datos de una entidad (ficha 0014): solo lo pide su sección; no cambia los demás módulos. */
-  entities: MODULE_SCOPES.entities.classic
+  entities: MODULE_SCOPES.entities.classic,
+  /**
+   * Eventos del host (ficha 0042): el canal lee también las relaciones del host
+   * (`GET /entities/{id}`), así que pide entities.read además de events.read.
+   */
+  events: [...MODULE_SCOPES.entities.classic, ...MODULE_SCOPES.events.classic]
 }
 
 export type ModuleAccess =
@@ -292,6 +297,28 @@ export function useHostLogs(
     queryKey: moduleKey(envId ?? '', 'entities', { hostLogs: entityId }, timeRange),
     queryFn: () =>
       invoke('entities:hostLogs', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
+ * Eventos de un HOST y de lo que corre en él en el rango global (ficha 0042, tarjeta «Eventos»).
+ * Con `envId` null (sin events.read o entities.read) o `entityId` null no se pide nada.
+ */
+export function useHostEvents(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:hostEvents'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { hostEvents: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:hostEvents', {
         environmentId: envId ?? '',
         entityId: entityId ?? '',
         timeRange

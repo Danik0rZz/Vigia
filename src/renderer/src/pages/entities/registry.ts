@@ -3,6 +3,7 @@ import { BrowserMonitorEntityPage } from './BrowserMonitorEntityPage'
 import { CloudApplicationEntityPage } from './CloudApplicationEntityPage'
 import type { EntityPageProps } from './EntityPageFrame'
 import { DiskEntityPage } from './DiskEntityPage'
+import type { EntityPageType } from './entity-page-types'
 import { EnvironmentEntityPage } from './EnvironmentEntityPage'
 import { GenericEntityPage } from './GenericEntityPage'
 import { HostEntityPage } from './HostEntityPage'
@@ -22,9 +23,10 @@ export interface EntityPageEntry {
 
 /**
  * Tipo de entidad de Dynatrace → su página de análisis (ficha 0003). Añadir un
- * tipo es una entrada aquí, su página y su nombre en `entities.types` de es y en.
+ * tipo es una entrada aquí, su página, su nombre en `entities.types` de es y en y el tipo en
+ * `ENTITY_PAGE_TYPES` (`entity-page-types.ts`): el `satisfies` no compila si no coinciden.
  */
-export const ENTITY_PAGES: Readonly<Partial<Record<string, EntityPageEntry>>> = {
+const PAGES = {
   HOST: { Page: HostEntityPage, labelKey: 'entities.types.HOST' },
   SERVICE: { Page: ServiceEntityPage, labelKey: 'entities.types.SERVICE' },
   PROCESS_GROUP_INSTANCE: {
@@ -41,7 +43,9 @@ export const ENTITY_PAGES: Readonly<Partial<Record<string, EntityPageEntry>>> = 
   },
   ENVIRONMENT: { Page: EnvironmentEntityPage, labelKey: 'entities.types.ENVIRONMENT' },
   DISK: { Page: DiskEntityPage, labelKey: 'entities.types.DISK' }
-}
+} satisfies Record<EntityPageType, EntityPageEntry>
+
+export const ENTITY_PAGES: Readonly<Partial<Record<string, EntityPageEntry>>> = PAGES
 
 /**
  * La página del tipo o, si no está en el registro, la genérica. Solo las claves
