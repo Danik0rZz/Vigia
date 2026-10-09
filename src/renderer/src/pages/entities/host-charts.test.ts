@@ -24,7 +24,9 @@ const colors: ChartColors = {
   danger: '#444',
   success: '#555',
   series2: '#666',
-  series3: '#777'
+  series3: '#777',
+  series4: '#888',
+  series5: '#999'
 }
 const series = (values: (number | null)[]): HostSeries => ({
   timestamps: values.map((_, i) => 1_000 + i * 60_000),

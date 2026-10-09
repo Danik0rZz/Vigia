@@ -17,7 +17,9 @@ const COLORS: ChartColors = {
   danger: '#d1242f',
   success: '#1a7f37',
   series2: '#8250df',
-  series3: '#bf8700'
+  series3: '#bf8700',
+  series4: '#888',
+  series5: '#999'
 }
 
 const T0 = Date.UTC(2026, 9, 3, 8, 0)

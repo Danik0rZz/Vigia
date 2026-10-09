@@ -37,10 +37,13 @@
      y la de cerrado es más fina (daltonismo rojo-verde). */
   --status-open: #c42b1c;
   --status-closed: #1f7a3a;
-  /* Segundo y tercer color de serie de los gráficos (p90 y p99 de un servicio). Elemento
-     gráfico: contraste ≥ 3:1 frente a --background (src/main/env-colors.test.ts). */
+  /* Segundo a quinto color de serie de los gráficos (p90 y p99 de un servicio; las cinco
+     instancias de «CPU por instancia» de un process group, ficha 0032). Elemento gráfico:
+     contraste ≥ 3:1 frente a --background (src/main/env-colors.test.ts). */
   --chart-2: #7c3aed;
   --chart-3: #c2410c;
+  --chart-4: #0f766e;
+  --chart-5: #be185d;
   /* Color por tipo de entorno (texto del tipo y distintivo). Contraste AA (≥ 4,5)
      frente a --background, comprobado en src/main/env-colors.test.ts. Producción
      es un color fijo: no cambia con el cliente. */
@@ -81,6 +84,8 @@
   --status-closed: #4ade80;
   --chart-2: #c084fc;
   --chart-3: #fb923c;
+  --chart-4: #2dd4bf;
+  --chart-5: #f472b6;
   --env-production: #ff6a4d;
   --env-preproduction: #fbbf24;
   --env-integration: #c4b5fd;

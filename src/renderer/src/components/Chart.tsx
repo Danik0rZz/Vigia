@@ -42,6 +42,9 @@ export interface ChartColors {
   /** Segundo y tercer color de serie (p90 y p99 en los tiempos de un servicio). */
   series2: string
   series3: string
+  /** Cuarto y quinto (las cinco instancias de «CPU por instancia» de un process group, 0032). */
+  series4: string
+  series5: string
 }
 
 function readColors(): ChartColors {
@@ -56,7 +59,9 @@ function readColors(): ChartColors {
     danger: token('--danger'),
     success: token('--status-closed'),
     series2: token('--chart-2'),
-    series3: token('--chart-3')
+    series3: token('--chart-3'),
+    series4: token('--chart-4'),
+    series5: token('--chart-5')
   }
 }
 

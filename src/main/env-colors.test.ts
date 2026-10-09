@@ -134,7 +134,7 @@ describe.each(THEMES)('tema %s', (_name, selector) => {
     }
   )
 
-  it.each(['chart-2', 'chart-3'])(
+  it.each(['chart-2', 'chart-3', 'chart-4', 'chart-5'])(
     'ficha 0009: --%s (serie de un gráfico) contrasta ≥ 3 con --background (WCAG 1.4.11)',
     (token) => {
       const color = cssToken(selector, `--${token}`)
@@ -148,6 +148,13 @@ describe.each(THEMES)('tema %s', (_name, selector) => {
       cssToken(selector, token)?.toLowerCase()
     )
     expect(new Set(colors).size).toBe(3)
+  })
+
+  it('ficha 0032: las cinco series de «CPU por instancia» (acento y --chart-2 a --chart-5) se distinguen', () => {
+    const colors = ['--accent', '--chart-2', '--chart-3', '--chart-4', '--chart-5'].map((token) =>
+      cssToken(selector, token)?.toLowerCase()
+    )
+    expect(new Set(colors).size).toBe(5)
   })
 
   it('v0.9.0: abierto y cerrado tienen colores distintos', () => {

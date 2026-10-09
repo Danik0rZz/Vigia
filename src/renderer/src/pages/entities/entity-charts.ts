@@ -22,5 +22,7 @@ export const NO_COLORS: ChartColors = {
   danger: '',
   success: '',
   series2: '',
-  series3: ''
+  series3: '',
+  series4: '',
+  series5: ''
 }
