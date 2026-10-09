@@ -8,7 +8,7 @@ import { MarkdownText } from './MarkdownText'
  * fiable). Se pinta con `MarkdownText` (props: `{ text: string }`, sin
  * proveedores) y se comprueba sobre el HTML que genera React:
  *
- * - CA10: el HTML en crudo se ve como texto y no crea elementos.
+ * - CA10: el HTML peligroso no crea elementos (desde la 0043, el HTML de formato se interpreta).
  * - CA11: solo los enlaces http/https son enlaces, y abren fuera (_blank, noopener noreferrer).
  * - CA12: las imágenes no se cargan nunca: su texto alternativo o, si no tiene, la URL.
  *
@@ -79,12 +79,13 @@ describe('CA6 (0001), apoyo unitario: CommonMark + GFM como elementos', () => {
   })
 })
 
-describe('CA10 (0001): el HTML en crudo de la descripción se ve como texto', () => {
+// CA6 (0043): desde la 0043 el HTML de formato se interpreta con lista blanca. Lo peligroso sigue
+// sin crear elementos ni manejadores; lo de formato (como `b`) ya es un elemento.
+describe('CA10 (0001), actualizado por CA6 (0043): el HTML peligroso no crea elementos', () => {
   it.each([
     ['img con onerror', '<img src=x onerror="window.__xss=1">', 'img'],
     ['script', '<script>window.__xss=2</script>', 'script'],
-    ['iframe', '<iframe src="https://ejemplo.test/"></iframe>', 'iframe'],
-    ['b', '<b>negrita</b>', 'b']
+    ['iframe', '<iframe src="https://ejemplo.test/"></iframe>', 'iframe']
   ])('%s, en bloque y en línea', (_label, raw, element) => {
     for (const text of [raw, `Antes ${raw} después`, `# Aviso\n\n${raw}\n\n- punto`]) {
       const html = render(text)
@@ -92,8 +93,32 @@ describe('CA10 (0001): el HTML en crudo de la descripción se ve como texto', ()
       // Ninguna etiqueta real con manejadores on* (el texto escapado no cuenta).
       const handlers = (html.match(/<[a-z][^>]*>/gi) ?? []).filter((tag) => /\son\w+=/i.test(tag))
       expect(handlers, text).toEqual([])
-      expect(visibleText(html), text).toContain(raw)
+      // Ninguna etiqueta real con src (el texto escapado no cuenta).
+      const sources = (html.match(/<[a-z][^>]*>/gi) ?? []).filter((tag) => /\ssrc=/i.test(tag))
+      expect(sources, text).toEqual([])
     }
+  })
+
+  it('b es HTML de formato: se interpreta, en bloque y en línea', () => {
+    const raw = '<b>negrita</b>'
+    for (const text of [raw, `Antes ${raw} después`, `# Aviso\n\n${raw}\n\n- punto`]) {
+      const html = render(text)
+      expect(tags(html, 'b'), text).toHaveLength(1)
+      expect(visibleText(html), text).toContain('negrita')
+      expect(visibleText(html), text).not.toContain('<b>')
+    }
+  })
+
+  it('el texto con < y > que no es HTML se sigue viendo', () => {
+    const html = render('Si 3 < 5 y 7 > 2, entonces a<b no es una etiqueta.')
+    expect(visibleText(html)).toContain('Si 3 < 5 y 7 > 2')
+    expect(visibleText(html)).toContain('a<b no es una etiqueta')
+  })
+
+  it('el HTML dentro de código en línea sigue siendo texto', () => {
+    const html = render('Usa `<b>negrita</b>` para resaltar.')
+    expect(tags(html, 'b')).toHaveLength(0)
+    expect(visibleText(html)).toContain('<b>negrita</b>')
   })
 })
 

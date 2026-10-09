@@ -277,20 +277,36 @@ describe('CA4 (0038): marcas al principio de un elemento de lista o párrafo', (
   })
 })
 
-describe('CA5 (0038): el HTML en crudo sigue saliendo como texto con la capa visual', () => {
+// CA6 (0043): desde la 0043 el HTML de formato se interpreta con lista blanca; lo peligroso sigue
+// sin crear elementos, también dentro de la capa visual.
+describe('CA5 (0038), actualizado por CA6 (0043): HTML dentro de la capa visual', () => {
   it.each([
     ['en un aviso', '> [!NOTE]\n> <b>negrita</b> <img src=x onerror="window.__xss=1">'],
-    ['en un elemento con marca', '- ✓ <b>negrita</b> <img src=x onerror="window.__xss=1">'],
-    ['en un bloque de código', fence('xml', '<b>negrita</b> <img src=x onerror="x()">')]
-  ])('%s', (_label, text) => {
+    ['en un elemento con marca', '- ✓ <b>negrita</b> <img src=x onerror="window.__xss=1">']
+  ])('%s: b se interpreta; img y on* no salen; la capa visual sigue', (label, text) => {
     const tree = render(text)
-    expect(byTag(tree, 'b')).toEqual([])
+    expect(byTag(tree, 'b').map(textOf)).toEqual(['negrita'])
     expect(byTag(tree, 'img')).toEqual([])
     expect(all(tree).filter((n) => Object.keys(n.attrs).some((a) => a.startsWith('on')))).toEqual(
       []
     )
-    expect(textOf(tree)).toContain('<b>negrita</b>')
+    expect(textOf(tree)).not.toContain('<b>')
+    if (label === 'en un aviso') expect(byClass(tree, 'md-alert-note')).toHaveLength(1)
+    else expect(byClass(tree, 'md-mark-success').length).toBeGreaterThan(0)
   })
+
+  it.each([['en un bloque de código', fence('xml', '<b>negrita</b> <img src=x onerror="x()">')]])(
+    '%s: el HTML sigue siendo texto',
+    (_label, text) => {
+      const tree = render(text)
+      expect(byTag(tree, 'b')).toEqual([])
+      expect(byTag(tree, 'img')).toEqual([])
+      expect(all(tree).filter((n) => Object.keys(n.attrs).some((a) => a.startsWith('on')))).toEqual(
+        []
+      )
+      expect(textOf(tree)).toContain('<b>negrita</b>')
+    }
+  )
 })
 
 describe('CA6 (0038): solo se registran los lenguajes de la lista', () => {

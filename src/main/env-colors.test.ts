@@ -262,3 +262,26 @@ describe('CA7 (0038): los colores de sintaxis salen del tema, no de un tema de h
     }
   })
 })
+
+/**
+ * Ficha 0043 (CA5): el visor ajusta los colores del HTML de las descripciones frente a
+ * `THEME_BACKGROUNDS` (`src/renderer/src/components/markdown-color.ts`). Vitest no carga los .css
+ * como texto en el renderer, así que aquí se comprueba que esos fondos son los `--background` de
+ * los dos temas de `main.css`, en el orden claro, oscuro.
+ */
+describe('CA5 (0043): los fondos del ajuste de contraste son los de los temas', () => {
+  it('THEME_BACKGROUNDS lleva el --background claro y el oscuro, en ese orden', () => {
+    const source = readFileSync(
+      resolve('src/renderer/src/components/markdown-color.ts'),
+      'utf8'
+    ).toLowerCase()
+    const declaration = /theme_backgrounds[^=]*=([^\n;]*(?:\n[^\n;]*){0,4})/.exec(source)?.[1] ?? ''
+    const light = (cssToken(':root', '--background') ?? '').toLowerCase()
+    const dark = (cssToken(":root[data-theme='dark']", '--background') ?? '').toLowerCase()
+    expect(light).toMatch(/^#[0-9a-f]{6}$/)
+    expect(dark).toMatch(/^#[0-9a-f]{6}$/)
+    expect(declaration, 'THEME_BACKGROUNDS con el fondo claro').toContain(light)
+    expect(declaration, 'THEME_BACKGROUNDS con el fondo oscuro').toContain(dark)
+    expect(declaration.indexOf(light)).toBeLessThan(declaration.indexOf(dark))
+  })
+})
