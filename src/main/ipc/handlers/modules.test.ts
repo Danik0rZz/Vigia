@@ -783,6 +783,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0041: procesos del host con logs (su comportamiento, en host-logs.test).
+    await call('entities:hostLogs' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'HOST-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     // Ficha 0040: métricas de un disco (su comportamiento, en disk-metrics.test).
     await call('entities:diskMetrics' as IpcChannel, {
       environmentId: envId,

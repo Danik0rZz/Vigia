@@ -1573,7 +1573,9 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     [TAGS_ID]: tagsMixedBody(),
     [TAGS_MANY_ID]: tagsManyBody(),
     // Ficha 0040.
-    [DISK_PAGE_ID]: diskInfoBody()
+    [DISK_PAGE_ID]: diskInfoBody(),
+    // Ficha 0041.
+    [HOST_LOGS_PAGE.id]: hostLogsProcessBody()
   }
 }
 
@@ -3389,6 +3391,106 @@ for (const process of HOST_PAGE_PROCESSES) PROCESS_METRICS_IDS.add(process.id)
 // y, si la página del grupo los pide por instancia, sus series).
 for (const instance of PROCESS_GROUP_PAGE_INSTANCES) PROCESS_METRICS_IDS.add(instance.id)
 
+/**
+ * Ficha 0041: logs detectados en los procesos de la página del host (HOST_METRICS_ID), canal
+ * entities:hostLogs. Como en vivo (paso 0 de la ficha): `GET /entities` con
+ * `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isProcessOf(entityId("<host>"))` y
+ * `fields=+properties.logFileStatus,+properties.logPathLastUpdate,+properties.logSourceState`; las
+ * tres propiedades llegan como listas de `{ key, value }` cuya `key` es la ruta del fichero (o el
+ * nombre de la fuente), `logPathLastUpdate` en segundos y `logSourceState` como
+ * `{ storageStatus }`. De los 15 procesos de HOST_PAGE_PROCESSES, tienen logs tres que no salen en
+ * la tabla de procesos (no están entre los 10 con más CPU): proceso-host-3 (OK, con fuente),
+ * proceso-host-6 (el fichero no existe; ruta de Windows) y proceso-host-11 (solo última
+ * actualización, de una fuente sin ruta). Ninguna de estas rutas puede verse en la app.
+ */
+const HOST_LOGS_USER = 'usuario-logs-e2e-0041'
+const HOST_LOGS_PATHS = {
+  unix: `/home/${HOST_LOGS_USER}/pagos/logs/app-e2e.log`,
+  windows: `C:\\Users\\${HOST_LOGS_USER}\\informes\\salida-e2e.log`,
+  source: 'Fuente generica de logs e2e'
+}
+/** Trozos de las rutas que tampoco pueden verse sueltos. */
+const HOST_LOGS_FRAGMENTS = [
+  ...Object.values(HOST_LOGS_PATHS),
+  HOST_LOGS_USER,
+  '/home/',
+  'C:\\Users',
+  'app-e2e.log',
+  'salida-e2e.log',
+  'generica de logs'
+]
+const HOST_LOGS_S = Date.parse('2026-10-03T07:30:00.000Z') / 1000
+const HOST_LOGS_ENTRIES: Record<string, Record<string, unknown>> = {
+  [HOST_PAGE_PROCESSES[2]?.id ?? '']: {
+    logFileStatus: [{ key: HOST_LOGS_PATHS.unix, value: 'FILE_STATUS_OK' }],
+    logPathLastUpdate: [{ key: HOST_LOGS_PATHS.unix, value: HOST_LOGS_S }],
+    logSourceState: [
+      {
+        key: HOST_LOGS_PATHS.unix,
+        value: { storageStatus: 'LOG_STORAGE_CONFIGURATION_STATUS_SEND_TO_STORAGE' }
+      }
+    ]
+  },
+  [HOST_PAGE_PROCESSES[5]?.id ?? '']: {
+    logFileStatus: [{ key: HOST_LOGS_PATHS.windows, value: 'FILE_STATUS_NOT_EXIST' }],
+    logPathLastUpdate: [{ key: HOST_LOGS_PATHS.windows, value: HOST_LOGS_S - 3600 }]
+  },
+  [HOST_PAGE_PROCESSES[10]?.id ?? '']: {
+    logPathLastUpdate: [{ key: HOST_LOGS_PATHS.source, value: HOST_LOGS_S - 7200 }]
+  }
+}
+const HOST_LOGS_IDS = Object.keys(HOST_LOGS_ENTRIES)
+/** El proceso con logs cuya página tiene `entities:get` (con las mismas rutas en properties). */
+const HOST_LOGS_PAGE = HOST_PAGE_PROCESSES[5]!
+function hostLogsProcessBody(): Record<string, unknown> {
+  return {
+    entityId: HOST_LOGS_PAGE.id,
+    displayName: HOST_LOGS_PAGE.name,
+    type: 'PROCESS_GROUP_INSTANCE',
+    firstSeenTms: PROCESS_INFO_FIRST_SEEN,
+    lastSeenTms: PROCESS_INFO_LAST_SEEN,
+    properties: {
+      detectedName: 'proceso-logs-detectado-e2e',
+      processType: 'JAVA',
+      ...HOST_LOGS_ENTRIES[HOST_LOGS_PAGE.id]
+    },
+    fromRelationships: { isProcessOf: [{ id: HOST_METRICS_ID, type: 'HOST' }] }
+  }
+}
+const HOST_LOGS_SELECTOR = (hostId: string): string =>
+  `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isProcessOf(entityId("${hostId}"))`
+
+/** Respuesta del simulador a la consulta de logs de un host (null si no es esa consulta). */
+function hostLogsResponse(query: URLSearchParams): { status: number; body: unknown } | null {
+  const selector = query.get('entitySelector') ?? ''
+  const hostId = /isProcessOf\(entityId\("([^"]+)"\)\)/.exec(selector)?.[1]
+  if (hostId === undefined || !selector.startsWith('type("PROCESS_GROUP_INSTANCE")')) return null
+  sim.hostLogsQueries.push(query)
+  if (sim.hostLogsFail) {
+    return { status: 400, body: { error: { code: 400, message: 'Consulta de logs rechazada' } } }
+  }
+  // Solo la forma documentada (OpenAPI): `fromRelationships`, en plural.
+  if (selector !== HOST_LOGS_SELECTOR(hostId)) {
+    return { status: 400, body: { error: { code: 400, message: 'entitySelector no válido' } } }
+  }
+  const fields = (query.get('fields') ?? '').split(',')
+  const asked = (key: string): boolean => fields.includes(`+properties.${key}`)
+  const list = hostId === HOST_METRICS_ID ? HOST_PAGE_PROCESSES : []
+  const entities = list.map((process) => {
+    const entries = sim.hostLogsEmpty ? {} : (HOST_LOGS_ENTRIES[process.id] ?? {})
+    return {
+      entityId: process.id,
+      displayName: process.name,
+      type: 'PROCESS_GROUP_INSTANCE',
+      properties: Object.fromEntries(Object.entries(entries).filter(([key]) => asked(key)))
+    }
+  })
+  return {
+    status: 200,
+    body: { totalCount: entities.length, pageSize: 500, nextPageKey: null, entities }
+  }
+}
+
 const breakdownCompact = (text: string): string => text.replace(/["\s]/g, '')
 const breakdownRelation = (hostId: string): string =>
   `fromRelationships.isProcessOf(entityId(${hostId}))`
@@ -3730,7 +3832,13 @@ const defaultSim = () => ({
   /** Ficha 0014: query de las peticiones a /entities (entities:names). */
   entityNamesQueries: [] as URLSearchParams[],
   /** Ficha 0015: las peticiones a /entities/{id} (entities:get) fallan con un 400. */
-  entityInfoFail: false
+  entityInfoFail: false,
+  /** Ficha 0041: query de las consultas de logs de un host (entities:hostLogs). */
+  hostLogsQueries: [] as URLSearchParams[],
+  /** Ficha 0041: las consultas de logs de un host fallan con un 400. */
+  hostLogsFail: false,
+  /** Ficha 0041: los procesos del host llegan sin ninguna propiedad de logs. */
+  hostLogsEmpty: false
 })
 const sim = defaultSim()
 
@@ -4129,6 +4237,9 @@ async function startServer(): Promise<void> {
           : send(404, { error: { code: 404, message: 'Entity not found' } })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/entities') {
+        // Ficha 0041: la consulta de logs del host no es de entities:names.
+        const logs = hostLogsResponse(url.searchParams)
+        if (logs !== null) return send(logs.status, logs.body)
         sim.entityNamesQueries.push(url.searchParams)
         const selector = url.searchParams.get('entitySelector') ?? ''
         const inner = /^entityId\((.*)\)$/.exec(selector)?.[1]
@@ -14919,4 +15030,160 @@ test('CA5 (0040): sin latencia, el marcador y el gráfico de cola ocupan su siti
   )
   await expectDiskChartSeries('queue')
   await expect(entityPage.getByTestId('disk-info')).toBeVisible()
+})
+
+/**
+ * Ficha 0041: tarjeta «Logs» en la página del host (HOST_METRICS_ID), canal entities:hostLogs,
+ * con HOST_LOGS_ENTRIES: 3 de los 15 procesos de HOST_PAGE_PROCESSES tienen logs.
+ *
+ * Nombres que fijan estos tests (decisión del test-writer, refinable; en la ficha): la tarjeta
+ * `host-logs`, antes de «Información» (`host-info`); dentro, el resumen `host-logs-summary` y una
+ * fila `host-log-row` (con `data-process-id`) por proceso con logs, con el nombre como enlace a su
+ * página, el estado en `host-log-status` (con `data-status`, el enum de Dynatrace, su texto y su
+ * color) y la última actualización en `host-log-updated`. Regla de Dani: ninguna ruta de log se ve
+ * en la app (ni en la tarjeta ni en «Todas las propiedades» del proceso).
+ */
+const hostLogsCard = (): Locator => page.getByTestId('host-logs')
+const hostLogRow = (id: string): Locator =>
+  hostLogsCard().locator(`[data-testid="host-log-row"][data-process-id="${id}"]`)
+
+/** Ficha 0041: ninguna ruta (ni trozo de ella) en el HTML del elemento, atributos incluidos. */
+async function expectNoLogPaths(target: Locator, where: string): Promise<void> {
+  const html = await target.evaluate((element) => element.outerHTML)
+  for (const fragment of HOST_LOGS_FRAGMENTS) {
+    expect(html.includes(fragment), `${where}: ${fragment}`).toBe(false)
+  }
+}
+
+test('CA4 (0041): la tarjeta «Logs» del host enseña el resumen y los procesos con logs, sin rutas; pulsar uno abre su página, y su «Todas las propiedades» tampoco enseña rutas', async () => {
+  const hostPage = await openHostPage()
+  const card = hostLogsCard()
+  await expect(card).toBeVisible()
+  await expect(card.getByTestId('host-logs-summary')).toHaveText('3 de 15 procesos con logs')
+  await expect(card.getByTestId('host-log-row')).toHaveCount(3)
+
+  // La consulta: el selector con el id del host y pageSize 500.
+  expect(sim.hostLogsQueries.length).toBeGreaterThan(0)
+  const query = sim.hostLogsQueries[0]!
+  expect(query.get('entitySelector')).toBe(HOST_LOGS_SELECTOR(HOST_METRICS_ID))
+  expect(query.get('pageSize')).toBe('500')
+
+  // Cada proceso con logs: su nombre, enlace a su página y la última actualización (una fecha).
+  for (const id of HOST_LOGS_IDS) {
+    const process = HOST_PAGE_PROCESSES.find((p) => p.id === id)!
+    const row = hostLogRow(id)
+    await expect(row, process.name).toBeVisible()
+    await expect(row.getByRole('link', { name: process.name })).toHaveAttribute(
+      'href',
+      new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${id}$`)
+    )
+    await expect(row.getByTestId('host-log-updated'), process.name).toContainText('2026')
+  }
+  // Los procesos sin logs no salen.
+  for (const process of HOST_PAGE_PROCESSES.filter((p) => !HOST_LOGS_IDS.includes(p.id))) {
+    await expect(hostLogRow(process.id), process.name).toHaveCount(0)
+  }
+
+  // Estado, con texto (no el enum) y color: el fichero que se lee y el que no existe se distinguen.
+  const ok = hostLogRow(HOST_PAGE_PROCESSES[2]!.id).getByTestId('host-log-status')
+  const missing = hostLogRow(HOST_PAGE_PROCESSES[5]!.id).getByTestId('host-log-status')
+  await expect(ok).toHaveAttribute('data-status', 'FILE_STATUS_OK')
+  await expect(missing).toHaveAttribute('data-status', 'FILE_STATUS_NOT_EXIST')
+  for (const status of [ok, missing]) {
+    await expect(status).toHaveText(/\S/)
+    await expect(status).not.toHaveText(/FILE_STATUS/)
+  }
+  expect(await ok.innerText()).not.toBe(await missing.innerText())
+  const colorOf = (target: Locator): Promise<string> =>
+    target.evaluate((element) => getComputedStyle(element).color)
+  expect(await colorOf(ok), 'color de OK frente a NOT_EXIST').not.toBe(await colorOf(missing))
+
+  // Antes de «Información».
+  const info = hostInfoCard()
+  await expect(info).toBeVisible()
+  const logsBox = await settledBox(card)
+  const infoBox = await settledBox(info)
+  expect(logsBox.y + logsBox.height, '«Logs» encima de «Información»').toBeLessThanOrEqual(
+    infoBox.y + 1
+  )
+
+  // Ninguna ruta de log en toda la página del host.
+  await expectNoLogPaths(hostPage, 'página del host')
+
+  // Pulsar un proceso abre su página.
+  const link = hostLogRow(HOST_LOGS_PAGE.id).getByRole('link', { name: HOST_LOGS_PAGE.name })
+  await clickInPlace(link, { scroll: true })
+  const processPage = page.getByTestId('entity-page-process_group_instance')
+  await expect(processPage).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP_INSTANCE/${HOST_LOGS_PAGE.id}`)
+  await expect(processPage.getByRole('heading', { level: 1 })).toHaveText(HOST_LOGS_PAGE.name)
+  await expect(processPage.getByTestId('entity-page-id')).toHaveText(HOST_LOGS_PAGE.id)
+
+  // Su «Información», con «Todas las propiedades» desplegada: sin rutas de log (sus properties
+  // traen las mismas listas con rutas, como en vivo).
+  const processCard = processInfoCard()
+  await expect(processCard.getByTestId('process-info-row').first()).toBeVisible()
+  const toggle = processCard.getByTestId('process-info-properties-toggle')
+  await expect(toggle).toContainText('Todas las propiedades')
+  await clickInPlace(toggle, { scroll: true })
+  await expect(processInfoProperty('detectedName')).toContainText('proceso-logs-detectado-e2e')
+  await expectNoLogPaths(processPage, 'página del proceso')
+})
+
+test('CA5 (0041): sin procesos con logs, la tarjeta dice «Sin logs detectados», sin aviso de error', async () => {
+  sim.hostLogsEmpty = true
+  await openHostPage()
+  const card = hostLogsCard()
+  await expect(card).toBeVisible()
+  await expect(card).toContainText('Sin logs detectados')
+  await expect(card.getByTestId('host-log-row')).toHaveCount(0)
+  await expect(card.getByRole('alert')).toHaveCount(0)
+  await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('CA5 (0041): con el canal caído, la tarjeta «Logs» enseña el aviso con Reintentar y lo demás sigue; Reintentar la carga', async () => {
+  sim.hostLogsFail = true
+  await openHostPage()
+  const card = hostLogsCard()
+  await expect(card).toBeVisible()
+  await expect(card.getByRole('alert').first()).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+  await expect(card.getByTestId('host-log-row')).toHaveCount(0)
+  // Marcadores y gráficos del host, con sus datos.
+  await expectHostMarkerValues()
+  expect(await hostChartSeries('cpu')).toHaveLength(HOST_CHART_SERIES.cpu.length)
+
+  sim.hostLogsFail = false
+  await clickInPlace(card.getByRole('button', { name: 'Reintentar' }), { scroll: true })
+  await expect(card.getByTestId('host-log-row')).toHaveCount(3)
+  await expect(card.getByTestId('host-logs-summary')).toHaveText('3 de 15 procesos con logs')
+  await expect(card.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('Aviso del scope (0041): sin entities.read, la tarjeta «Logs» dice qué scope falta y no se pide nada', async () => {
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEntities = await createEnvironment(
+    clientId,
+    'Sin entidades logs',
+    'other',
+    TOKEN_NO_ENTITIES
+  )
+  try {
+    await invoke('connection:test', { environmentId: noEntities })
+    await invoke('environments:setActive', { environmentId: noEntities })
+    await reloadUi()
+    await goToRoute(`/entities/HOST/${HOST_METRICS_ID}`)
+    await expect(page.getByTestId('entity-page-host')).toBeVisible()
+    const unavailable = hostLogsCard().getByTestId('module-unavailable')
+    await expect(unavailable).toBeVisible()
+    await expect(unavailable).toContainText('entities.read')
+    await expect(hostLogsCard().getByTestId('host-log-row')).toHaveCount(0)
+    await settledRequests()
+    expect(sim.hostLogsQueries, 'entities:hostLogs sin el scope').toHaveLength(0)
+  } finally {
+    await invoke('environments:setActive', { environmentId: env['Producción'] })
+    await invoke('environments:delete', { id: noEntities })
+    await reloadUi()
+  }
 })

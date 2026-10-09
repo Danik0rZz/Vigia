@@ -143,6 +143,8 @@ describe('cobertura de los canales IPC', () => {
       'entities:get',
       // Ficha 0017: cubierto en modules.test (todos los canales) y host-breakdown.test.
       'entities:hostBreakdown',
+      // Ficha 0041: cubierto en modules.test (todos los canales) y host-logs.test.
+      'entities:hostLogs',
       // Ficha 0016: cubierto en modules.test (todos los canales) y host-metrics.test.
       'entities:hostMetrics',
       // Ficha 0023: cubierto en modules.test (todos los canales) y monitor-breakdown.test.

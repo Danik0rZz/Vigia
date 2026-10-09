@@ -757,3 +757,71 @@ describe('CA1 (0037): entities:get transforma las etiquetas de la API en { conte
     expect(await tagsOf({ key: 'no-es-lista' })).toEqual([])
   })
 })
+
+/**
+ * Ficha 0041 (regla de Dani: la ficha no enseña rutas de ficheros de log, tampoco en «Todas las
+ * propiedades»). Visto en vivo en el paso 0: `GET /entities/{id}` de un proceso con `+properties`
+ * trae `logFileStatus`, `logPathLastUpdate` y `logSourceState`, listas de `{ key, value }` cuya
+ * `key` es la ruta del fichero de log (o el nombre de la fuente). Ninguna de esas claves sale de
+ * `entities:get` (ni en la respuesta ni en el log); el resto de propiedades, sí. Cómo se quitan
+ * (la propiedad entera o solo sus claves) lo decide el developer.
+ */
+describe('CA3 (0041): entities:get de un proceso con logs no saca las rutas de log («Todas las propiedades»)', () => {
+  const LOG_PGI = 'PROCESS_GROUP_INSTANCE-00000000000041A1'
+  const USER = 'usuario-inventado-0041'
+  const PATH_UNIX = `/home/${USER}/pagos/logs/app.log`
+  const PATH_WIN = `C:\\Users\\${USER}\\pagos\\salida.log`
+  const SOURCE = 'Fuente generica de logs 0041'
+
+  function logBody(): Record<string, unknown> {
+    return {
+      entityId: LOG_PGI,
+      displayName: 'pagos-logs',
+      type: 'PROCESS_GROUP_INSTANCE',
+      firstSeenTms: FIRST_SEEN,
+      lastSeenTms: LAST_SEEN,
+      properties: {
+        detectedName: 'pagos-logs-detectado',
+        logFileStatus: [
+          { key: PATH_UNIX, value: 'FILE_STATUS_OK' },
+          { key: PATH_WIN, value: 'FILE_STATUS_NOT_EXIST' }
+        ],
+        logPathLastUpdate: [
+          { key: PATH_UNIX, value: 1_790_000_000 },
+          { key: SOURCE, value: 1_790_000_600 }
+        ],
+        logSourceState: [
+          {
+            key: PATH_UNIX,
+            value: { storageStatus: 'LOG_STORAGE_CONFIGURATION_STATUS_SEND_TO_STORAGE' }
+          }
+        ]
+      },
+      fromRelationships: { isProcessOf: [{ id: HOST_ID, type: 'HOST' }] }
+    }
+  }
+
+  it('ninguna ruta ni fuente de log sale en las propiedades, en la salida ni en el log; el resto sigue', async () => {
+    respondEntity = (id) =>
+      id === LOG_PGI
+        ? json(200, logBody())
+        : json(404, { error: { code: 404, message: `Entity ${id} not found` } })
+    const result = await call(GET, { entityId: LOG_PGI })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    const data = result.data as EntityData
+    const text = JSON.stringify(result)
+    const hidden = [PATH_UNIX, PATH_WIN, SOURCE, USER, '/home/', 'C:\\', 'app.log', 'salida.log']
+    for (const value of hidden) expect(text, value).not.toContain(value)
+    // Ni las barras de las rutas en ninguna propiedad.
+    for (const property of data.properties) {
+      expect(property.text, property.key).not.toMatch(/[\\/]/)
+    }
+    const logged = JSON.stringify([
+      vi.mocked(deps.logger.warn).mock.calls,
+      vi.mocked(deps.logger.error).mock.calls
+    ])
+    for (const value of hidden) expect(logged, `log: ${value}`).not.toContain(value)
+    // Lo demás sigue llegando.
+    expect(data.properties.find((p) => p.key === 'detectedName')?.text).toBe('pagos-logs-detectado')
+  })
+})

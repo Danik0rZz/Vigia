@@ -367,6 +367,55 @@ describe('CA3 (0040): entrada de entities:diskMetrics', () => {
   })
 })
 
+describe('CA2 (0041): entrada de entities:hostLogs', () => {
+  /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
+  const input = (): { safeParse: (value: unknown) => { success: boolean } } => {
+    const contract = ipcContract as unknown as Record<
+      string,
+      { input: { safeParse: (value: unknown) => { success: boolean } } } | undefined
+    >
+    const entry = contract['entities:hostLogs']
+    expect(entry, 'canal entities:hostLogs').toBeDefined()
+    return entry!.input
+  }
+  const base = { environmentId: '00000000-0000-4000-8000-000000000001', timeRange: '2h' }
+  const HOST_ID = 'HOST-0123456789ABCDEF'
+
+  it('acepta un HOST con 16 hexadecimales en mayúsculas, con rango relativo o absoluto', () => {
+    expect(input().safeParse({ ...base, entityId: HOST_ID }).success).toBe(true)
+    expect(
+      input().safeParse({
+        ...base,
+        entityId: HOST_ID,
+        timeRange: { from: '2026-10-01T08:00:00.000Z', to: '2026-10-01T10:00:00.000Z' }
+      }).success
+    ).toBe(true)
+  })
+
+  it.each([
+    ['un proceso', 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF'],
+    ['un disco', 'DISK-0123456789ABCDEF'],
+    ['minúsculas en el id', 'HOST-0123456789abcdef'],
+    ['15 hexadecimales', 'HOST-0123456789ABCDE'],
+    ['17 hexadecimales', 'HOST-0123456789ABCDEF0'],
+    ['comillas', 'HOST-0123456789ABCDE"'],
+    ['paréntesis', 'HOST-0123456789ABCDE)'],
+    ['inyección tras un id válido', 'HOST-0123456789ABCDEF")),type("SERVICE'],
+    ['espacios alrededor', ' HOST-0123456789ABCDEF '],
+    ['vacío', ''],
+    ['sin id', undefined]
+  ])('rechaza %s', (_case, entityId) => {
+    expect(input().safeParse({ ...base, entityId }).success).toBe(false)
+  })
+
+  it('rechaza un entorno que no es uuid y un rango que no es el de la app', () => {
+    expect(input().safeParse({ ...base, entityId: HOST_ID, environmentId: 'x' }).success).toBe(
+      false
+    )
+    expect(input().safeParse({ ...base, entityId: HOST_ID, timeRange: '3h' }).success).toBe(false)
+  })
+})
+
 describe('CA2 (0031): entrada de entities:processGroupMetrics', () => {
   /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
   const input = (): { safeParse: (value: unknown) => { success: boolean } } => {
