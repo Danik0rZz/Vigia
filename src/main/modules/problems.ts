@@ -16,10 +16,12 @@ import {
   MAX_EVENT_TAGS,
   MAX_EVENT_TAG_LENGTH,
   MAX_EVENT_ZONES,
+  MAX_EXTRA_DESCRIPTIONS,
   type EventData,
   type EventDescription,
   type EvidenceEntity,
-  type EvidenceWire
+  type EvidenceWire,
+  type ExtraDescription
 } from '@shared/problem-evidence'
 
 /** Máximo de caracteres de `text()` en el problemSelector (Environment API v2). */
@@ -245,6 +247,15 @@ function rawProperties(data: Raw | null): { key: string; value: unknown }[] {
 /** Propiedad observada del evento con su descripción en Markdown (ficha 0001). */
 const DESCRIPTION_KEY = 'dt.event.description'
 
+/** El texto tal cual (sin recortar espacios), recortado a MAX_DESCRIPTION_LENGTH. */
+const clipDescription = (text: string): EventDescription =>
+  text.length > MAX_DESCRIPTION_LENGTH
+    ? { text: text.slice(0, MAX_DESCRIPTION_LENGTH), truncated: true }
+    : { text, truncated: false }
+
+const hasText = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim() !== ''
+
 /**
  * La primera `dt.event.description` con texto no vacío (sin contar espacios),
  * sobre las propiedades EN CRUDO y tal cual (sin recortar espacios), recortada
@@ -255,13 +266,34 @@ export function eventDescription(
 ): EventDescription | null {
   for (const property of properties) {
     if (property.key !== DESCRIPTION_KEY) continue
-    const text = property.value
-    if (typeof text !== 'string' || text.trim() === '') continue
-    return text.length > MAX_DESCRIPTION_LENGTH
-      ? { text: text.slice(0, MAX_DESCRIPTION_LENGTH), truncated: true }
-      : { text, truncated: false }
+    if (hasText(property.value)) return clipDescription(property.value)
   }
   return null
+}
+
+/**
+ * Otra propiedad con «description» en la clave, sin distinguir mayúsculas
+ * (decisión del Orquestador en la ficha 0035: puede traer Markdown). Solo si su
+ * valor es texto: un valor de otro tipo sigue como propiedad genérica.
+ */
+const isExtraDescription = (property: { key: string; value: unknown }): boolean =>
+  property.key !== DESCRIPTION_KEY &&
+  property.key.toLowerCase().includes('description') &&
+  typeof property.value === 'string'
+
+/**
+ * Las demás propiedades con «description» en la clave y texto no vacío, en su
+ * orden, con el mismo tope que la descripción. Nunca van al log.
+ */
+export function extraDescriptions(
+  properties: readonly { key: string; value: unknown }[]
+): ExtraDescription[] {
+  return properties
+    .filter(isExtraDescription)
+    .flatMap((property) =>
+      hasText(property.value) ? [{ key: property.key, ...clipDescription(property.value) }] : []
+    )
+    .slice(0, MAX_EXTRA_DESCRIPTIONS)
 }
 
 /** Tag como texto: stringRepresentation o, si falta o está vacía, key:value o key. */
@@ -329,9 +361,10 @@ export function toEvidenceWire(item: z.output<typeof evidenceItemSchema>): Evide
     startTime: item.startTime ?? null,
     endTime: item.endTime ?? null,
     eventType: item.eventType ?? null,
-    // En un EVENT, la descripción va en su campo y no ocupa sitio entre las 8.
+    // Las descripciones (de cualquier tipo, ficha 0035) van en sus campos y no
+    // ocupan sitio entre las 8.
     properties: properties
-      .filter((property) => !isEvent || property.key !== DESCRIPTION_KEY)
+      .filter((property) => property.key !== DESCRIPTION_KEY && !isExtraDescription(property))
       .slice(0, MAX_EVENT_PROPERTIES)
       .map((property) => ({ key: property.key, text: propertyText(property.value) })),
     metricId: item.metricId ?? null,
@@ -340,7 +373,8 @@ export function toEvidenceWire(item: z.output<typeof evidenceItemSchema>): Evide
     valueAfter: item.valueAfterChangePoint ?? null,
     // Sobre las propiedades EN CRUDO: el selector no cabe en el recorte de arriba.
     eventMetric: isEvent ? eventMetricInfo(properties) : null,
-    description: isEvent ? eventDescription(properties) : null,
+    description: eventDescription(properties),
+    extraDescriptions: extraDescriptions(properties),
     data: isEvent ? toEventData(item.data) : null
   }
 }

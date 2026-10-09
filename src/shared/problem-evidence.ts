@@ -43,12 +43,14 @@ export const eventDataSchema = z.object({
 export type EventData = z.output<typeof eventDataSchema>
 
 /**
- * Tope de la descripción del evento (`dt.event.description`), ficha 0001. Regla:
- * el doble de la máxima observada en vivo, redondeado hacia arriba al millar,
- * entre 5 000 y 20 000 (el límite de `app:copyText`). Medido el 2026-10-06: la
- * máxima fue 245 caracteres, así que queda en el mínimo.
+ * Tope de la descripción del evento (`dt.event.description`) y de las demás
+ * propiedades con «description» en la clave. Regla (fichas 0001 y 0035): el
+ * doble de la máxima observada en vivo, redondeado hacia arriba al millar,
+ * entre 5 000 y 20 000 (el límite de `app:copyText`). Medido el 2026-10-09
+ * (ficha 0035): la máxima fue 4 096 caracteres (parece un tope de Dynatrace en
+ * el valor de la propiedad), así que queda en 9 000.
  */
-export const MAX_DESCRIPTION_LENGTH = 5000
+export const MAX_DESCRIPTION_LENGTH = 9000
 
 /**
  * Descripción del evento (Markdown del tenant, sin interpretar en main): el
@@ -60,6 +62,17 @@ export const eventDescriptionSchema = z.object({
   truncated: z.boolean()
 })
 export type EventDescription = z.output<typeof eventDescriptionSchema>
+
+/** Cuántas propiedades más con «description» en la clave cruzan el IPC por evidencia. */
+export const MAX_EXTRA_DESCRIPTIONS = 4
+
+/**
+ * Otra propiedad con «description» en la clave (sin distinguir mayúsculas) que
+ * no es `dt.event.description` (ficha 0035): su clave, que hace de título, y su
+ * Markdown con el mismo tope y la misma marca de recorte que la descripción.
+ */
+export const extraDescriptionSchema = eventDescriptionSchema.extend({ key: z.string() })
+export type ExtraDescription = z.output<typeof extraDescriptionSchema>
 
 /**
  * Evidencia de un problema tal como la manda main: los campos de los 5 tipos
@@ -88,8 +101,14 @@ export const evidenceWireSchema = z.object({
   valueAfter: z.number().nullable(),
   /** Solo en EVENT: el selector de métrica (extraído en main, entero) y su umbral. */
   eventMetric: eventMetricSchema.nullable(),
-  /** Solo en EVENT: `dt.event.description` (extraída en main, fuera de `properties`). */
+  /** `dt.event.description` de cualquier tipo de evidencia (extraída en main, fuera de `properties`). */
   description: eventDescriptionSchema.nullable(),
+  /**
+   * Las demás propiedades con «description» en la clave, en su orden (extraídas
+   * en main, fuera de `properties`). Main siempre la manda; es opcional para
+   * que un wire anterior a la ficha 0035 siga siendo válido.
+   */
+  extraDescriptions: z.array(extraDescriptionSchema).max(MAX_EXTRA_DESCRIPTIONS).optional(),
   /** Solo en EVENT con `data`. */
   data: eventDataSchema.nullable()
 })
@@ -134,6 +153,12 @@ export interface EvidenceView {
   after: number | null
   /** Variación entre antes y después (METRIC y TRANSACTIONAL); null sin los dos valores. */
   change: ChangeView | null
+  /** Propiedades genéricas (`data.properties`) como texto, de cualquier tipo de evidencia. */
+  properties: { key: string; text: string }[]
+  /** `dt.event.description`, de cualquier tipo de evidencia (ficha 0035). */
+  description: EventDescription | null
+  /** Las demás propiedades con «description» en la clave (ficha 0035). */
+  extraDescriptions: ExtraDescription[]
   event: {
     eventType: string | null
     properties: { key: string; text: string }[]
@@ -208,6 +233,9 @@ export function toEvidenceView(evidence: EvidenceWire, index = 0): EvidenceView 
     before: evidence.valueBefore,
     after: evidence.valueAfter,
     change: isChange ? changeOf(evidence.valueBefore, evidence.valueAfter) : null,
+    properties: evidence.properties,
+    description: evidence.description,
+    extraDescriptions: evidence.extraDescriptions ?? [],
     event:
       evidence.evidenceType === 'EVENT'
         ? {
