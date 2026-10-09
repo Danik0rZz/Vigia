@@ -135,6 +135,8 @@ describe('cobertura de los canales IPC', () => {
   it('los canales de módulos y de exportación están en sus factorías', () => {
     const byFactory = coveredByFactory()
     expect([...(byFactory['modules'] ?? [])].sort()).toEqual([
+      // Ficha 0033: cubierto en modules.test (todos los canales) y application-metrics.test.
+      'entities:applicationMetrics',
       // Ficha 0014: cubiertos en modules.test (todos los canales) y entity-detail.test.
       'entities:get',
       // Ficha 0017: cubierto en modules.test (todos los canales) y host-breakdown.test.

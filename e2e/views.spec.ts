@@ -2709,6 +2709,135 @@ function processGroupInfoBody(): Record<string, unknown> {
 }
 
 /**
+ * Ficha 0033: métricas de una aplicación web (canal entities:applicationMetrics), con ids
+ * inventados. Imita lo observado en vivo (paso 0): las de la aplicación se acotan con
+ * `entityId("<aplicación>")` y, con `:splitBy()`, traen una serie sin dimensiones (con
+ * resolution=Inf, el total del rango); las de acción (`builtin:apps.web.action.*`) solo con
+ * `type("APPLICATION_METHOD"),fromRelationships.isApplicationMethodOf(entityId("<aplicación>"))`
+ * y traen en dimensionMap el id y el nombre de la acción. Responde SOLO a esas expresiones (las
+ * demás, sin series); un resultado por expresión, en el orden pedido y con el metricId igual a
+ * la expresión. fold con resolution=Inf da 400.
+ */
+const APPLICATION_METRICS_ID = 'APPLICATION-00000000000E2E33'
+const APPLICATION_SELECTOR = `entityId("${APPLICATION_METRICS_ID}")`
+const APPLICATION_METHODS_SELECTOR = `type("APPLICATION_METHOD"),fromRelationships.isApplicationMethodOf(entityId("${APPLICATION_METRICS_ID}"))`
+const APPLICATION_TOP =
+  ':splitBy("dt.entity.application_method"):sort(value(count,descending)):limit(10)'
+/** Serie de la aplicación por expresión (las exactas del paso 0), sin resolution. */
+const APPLICATION_SERIES: Record<string, (number | null)[]> = {
+  'builtin:apps.web.apdex.userType:splitBy():avg': [0.95, null, 0.81],
+  'builtin:apps.web.actionCount.summary:splitBy():sum': [60, 75, null],
+  'builtin:apps.web.visuallyComplete.load.browser:splitBy():avg': [1_200, null, 1_640.5],
+  'builtin:apps.web.countOfErrors:splitBy():sum': [2, null, 5],
+  'builtin:apps.web.startedSessions:splitBy():sum': [8, 11, null]
+}
+/** Total del rango (resolution=Inf), por expresión. */
+const APPLICATION_TOTALS: Record<string, number> = {
+  'builtin:apps.web.apdex.userType:splitBy():avg': 0.88,
+  'builtin:apps.web.actionCount.summary:splitBy():sum': 135,
+  'builtin:apps.web.visuallyComplete.load.browser:splitBy():avg': 1_420.75,
+  'builtin:apps.web.countOfErrors:splitBy():sum': 7,
+  'builtin:apps.web.startedSessions:splitBy():sum': 19
+}
+/** Acciones inventadas por tipo, con su recuento y su duración media (ya de más a menos). */
+const APPLICATION_ACTIONS: Record<
+  string,
+  { id: string; name: string; count: number; avg: number }[]
+> = {
+  load: [
+    {
+      id: 'APPLICATION_METHOD-00000000000E2E34',
+      name: 'Carga de portada',
+      count: 90,
+      avg: 1_510
+    }
+  ],
+  xhr: [
+    {
+      id: 'APPLICATION_METHOD-00000000000E2E35',
+      name: 'Petición de catálogo',
+      count: 140,
+      avg: 320.5
+    },
+    { id: 'APPLICATION_METHOD-00000000000E2E36', name: 'Petición de carrito', count: 25, avg: 410 }
+  ]
+}
+
+/** ¿Es una consulta de métricas de la aplicación inventada? */
+function isApplicationMetricsQuery(query: URLSearchParams): boolean {
+  return (query.get('entitySelector') ?? '').includes(APPLICATION_METRICS_ID)
+}
+
+/** Respuesta del simulador a una consulta de métricas de la aplicación inventada. */
+function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && selector.includes(':fold(')) {
+    return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
+  }
+  const entitySelector = query.get('entitySelector')
+  const expressions = splitSelector(selector)
+  const at = PROCESS_T0 + 1_800_000
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '10m',
+      result: expressions.map((expression) => {
+        const action = /^builtin:apps\.web\.action\.duration\.(load|xhr|custom)\.browser(.*)$/.exec(
+          expression
+        )
+        let data: unknown[] = []
+        if (action !== null) {
+          // Las de acción: solo con el selector de las acciones y con Inf.
+          const [, type, rest] = action
+          const aggregation =
+            rest === `${APPLICATION_TOP}:count:names`
+              ? 'count'
+              : rest === `${APPLICATION_TOP}:avg:names`
+                ? 'avg'
+                : null
+          if (entitySelector === APPLICATION_METHODS_SELECTOR && inf && aggregation !== null) {
+            data = (APPLICATION_ACTIONS[type!] ?? []).map((item) => ({
+              dimensionMap: {
+                'dt.entity.application_method': item.id,
+                'dt.entity.application_method.name': item.name
+              },
+              dimensions: [item.id],
+              timestamps: [at],
+              values: [aggregation === 'count' ? item.count : item.avg]
+            }))
+          }
+        } else if (entitySelector === APPLICATION_SELECTOR) {
+          const values = inf
+            ? APPLICATION_TOTALS[expression] === undefined
+              ? undefined
+              : [APPLICATION_TOTALS[expression]]
+            : APPLICATION_SERIES[expression]
+          if (values !== undefined) {
+            data = [
+              {
+                dimensionMap: {},
+                dimensions: [],
+                timestamps: inf ? [at] : PROCESS_TIMESTAMPS,
+                values
+              }
+            ]
+          }
+        }
+        return {
+          metricId: expression,
+          dataPointCountRatio: 0.005,
+          dimensionCountRatio: 0.005,
+          data
+        }
+      })
+    }
+  ]
+}
+
+/**
  * Ficha 0023: desglose de un browser monitor y de un HTTP monitor por localización y por paso o
  * petición (canal entities:monitorBreakdown), con ids inventados. Responde SOLO a las expresiones
  * confirmadas en vivo (paso 0 de la ficha) y con el ámbito con que se probaron; a cualquier otra,
@@ -3246,6 +3375,8 @@ const defaultSim = () => ({
   processMetricQueries: [] as URLSearchParams[],
   /** Ficha 0031: consultas de métricas del process group inventado (sus query). */
   processGroupMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0033: consultas de métricas de la aplicación inventada (sus query). */
+  applicationMetricQueries: [] as URLSearchParams[],
   /** Ficha 0032: las consultas de métricas de los process groups inventados fallan con un 400. */
   processGroupMetricsFail: false,
   /** Ficha 0032: las expresiones por instancia del process group llegan recortadas (ratio > 1). */
@@ -3538,6 +3669,12 @@ async function startServer(): Promise<void> {
             send(status, body)
           }, sim.eventMetricDelayMs)
           return
+        }
+        // Ficha 0033: las del canal entities:applicationMetrics, aparte.
+        if (isApplicationMetricsQuery(url.searchParams)) {
+          sim.applicationMetricQueries.push(url.searchParams)
+          const [status, body] = applicationMetricResponse(url.searchParams)
+          return send(status, body)
         }
         // Ficha 0031: las del canal entities:processGroupMetrics, aparte.
         if (isProcessGroupMetricsQuery(url.searchParams)) {
@@ -7808,6 +7945,56 @@ test('CA6 (0031): entities:processGroupMetrics por IPC con ids inventados: dos c
       ],
       total: 2
     },
+    warnings: [],
+    partial: []
+  })
+})
+
+test('CA6 (0033): entities:applicationMetrics por IPC con ids inventados: tres consultas, series, totales y las 10 acciones', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:applicationMetrics', {
+    environmentId: env['Producción'],
+    entityId: APPLICATION_METRICS_ID,
+    timeRange: '2h'
+  })
+  // Tres consultas al simulador, todas con el rango: series y totales (Inf) con entityId de la
+  // aplicación, y las acciones (Inf) con el selector de sus acciones.
+  expect(sim.applicationMetricQueries).toHaveLength(3)
+  for (const query of sim.applicationMetricQueries) expect(query.get('from')).toBe('now-2h')
+  const app = sim.applicationMetricQueries.filter(
+    (q) => q.get('entitySelector') === APPLICATION_SELECTOR
+  )
+  expect(app.map((q) => q.get('resolution') ?? 'API').sort()).toEqual(['API', 'Inf'])
+  const actions = sim.applicationMetricQueries.filter(
+    (q) => q.get('entitySelector') === APPLICATION_METHODS_SELECTOR
+  )
+  expect(actions).toHaveLength(1)
+  expect(actions[0]?.get('resolution')).toBe('Inf')
+  expect(actions[0]?.get('metricSelector')).toContain(
+    `builtin:apps.web.action.duration.xhr.browser${APPLICATION_TOP}:count:names`
+  )
+
+  const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: PROCESS_TIMESTAMPS,
+    values
+  })
+  const [load] = APPLICATION_ACTIONS['load']!
+  const [catalog, cart] = APPLICATION_ACTIONS['xhr']!
+  expect(data).toMatchObject({
+    resolution: '10m',
+    series: {
+      apdex: series([0.95, null, 0.81]),
+      actions: series([60, 75, null]),
+      duration: series([1_200, null, 1_640.5]),
+      errors: series([2, null, 5]),
+      sessions: series([8, 11, null])
+    },
+    totals: { apdex: 0.88, actions: 135, duration: 1_420.75, errors: 7, sessions: 19 },
+    // Las de los tres tipos juntas, de más a menos recuento.
+    topActions: [
+      { id: catalog!.id, name: catalog!.name, count: 140, duration: 320.5 },
+      { id: load!.id, name: load!.name, count: 90, duration: 1_510 },
+      { id: cart!.id, name: cart!.name, count: 25, duration: 410 }
+    ],
     warnings: [],
     partial: []
   })
