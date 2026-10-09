@@ -54,6 +54,30 @@
   --env-other: #4b5563;
   --production: var(--env-production);
 
+  /* Visor de Markdown (ficha 0038). Texto ≥ 4,5 frente a su fondo: números y sintaxis sobre
+     --md-code-bg, código en línea sobre su píldora, marcas y títulos de aviso sobre --background
+     (src/main/env-colors.test.ts). Los --md-hl-* son los colores de sintaxis de highlight.js. */
+  --md-code-bg: #f6f8fa;
+  --md-line-number: #57606a;
+  --md-hl-keyword: #cf222e;
+  --md-hl-string: #0a3069;
+  --md-hl-number: #0550ae;
+  --md-hl-comment: #5f6873;
+  --md-hl-attr: #116329;
+  --md-hl-title: #8250df;
+  --md-hl-type: #953800;
+  --md-hl-meta: #1b2130;
+  --md-inline-code: #6d28d9;
+  --md-inline-code-bg: #ede9fe;
+  --md-mark-success: #176c30;
+  --md-mark-error: #c42b1c;
+  --md-mark-warning: #8a4a00;
+  --md-alert-note: #1f5fc8;
+  --md-alert-tip: #176c30;
+  --md-alert-important: #7c3aed;
+  --md-alert-warning: #8a4a00;
+  --md-alert-caution: #c42b1c;
+
   --motion-duration: 200ms;
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
 }
@@ -91,6 +115,26 @@
   --env-integration: #c4b5fd;
   --env-development: #34d399;
   --env-other: #9ca3af;
+  --md-code-bg: #161b22;
+  --md-line-number: #8b949e;
+  --md-hl-keyword: #ff7b72;
+  --md-hl-string: #a5d6ff;
+  --md-hl-number: #79c0ff;
+  --md-hl-comment: #8b949e;
+  --md-hl-attr: #7ee787;
+  --md-hl-title: #d2a8ff;
+  --md-hl-type: #ffa657;
+  --md-hl-meta: #e6e9ef;
+  --md-inline-code: #d2b8ff;
+  --md-inline-code-bg: #2a2140;
+  --md-mark-success: #4ade80;
+  --md-mark-error: #ff6b6b;
+  --md-mark-warning: #fcd34d;
+  --md-alert-note: #5b93ff;
+  --md-alert-tip: #4ade80;
+  --md-alert-important: #c084fc;
+  --md-alert-warning: #fcd34d;
+  --md-alert-caution: #ff6b6b;
 }
 
 /* Movimiento reducido: todas las transiciones y animaciones CSS pasan a casi 0. */
@@ -178,4 +222,195 @@ body {
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/*
+ * Visor de Markdown (MarkdownText.tsx, ficha 0038). Clases propias para el contenido del tenant:
+ * los elementos los genera react-markdown y no llevan clases de Tailwind una a una.
+ */
+@layer components {
+  .md-text {
+    @apply grid min-w-0 gap-2 text-xs leading-relaxed;
+  }
+  .md-text :where(p, li) {
+    overflow-wrap: break-word;
+  }
+  .md-text h1 {
+    @apply mt-1 text-lg leading-snug font-semibold;
+  }
+  .md-text h2 {
+    @apply mt-1 border-b border-border pb-1 text-base leading-snug font-semibold;
+  }
+  .md-text h3 {
+    @apply mt-0.5 text-sm font-semibold;
+  }
+  .md-text :where(h4, h5, h6) {
+    @apply text-xs font-semibold;
+  }
+  .md-text h6 {
+    @apply text-muted-foreground;
+  }
+  .md-text ul {
+    @apply grid list-disc gap-1 pl-5;
+  }
+  .md-text ol {
+    @apply grid list-decimal gap-1 pl-5;
+  }
+  .md-text li > :where(ul, ol) {
+    @apply mt-1;
+  }
+  .md-text hr {
+    border-color: var(--border);
+  }
+  .md-text table {
+    @apply border-collapse;
+  }
+  .md-text :where(th, td) {
+    @apply border border-border px-2 py-0.5 text-left;
+  }
+  .md-text th {
+    @apply bg-hover font-semibold;
+  }
+  .md-text tbody tr:nth-child(even) {
+    @apply bg-hover;
+  }
+
+  /* Código en línea: píldora con el color de acento. */
+  .md-text :not(pre) > code {
+    @apply rounded-sm px-1 py-px font-mono break-words;
+    color: var(--md-inline-code);
+    background-color: var(--md-inline-code-bg);
+  }
+
+  /* Bloque de código: cabecera con lenguaje y «Copiar», números de línea y código. */
+  .md-code-block {
+    @apply min-w-0 overflow-hidden rounded-md border border-border;
+    background-color: var(--md-code-bg);
+  }
+  .md-code-header {
+    @apply flex items-center gap-2 border-b border-border px-2 py-1 text-[11px];
+    color: var(--md-line-number);
+  }
+  .md-code-language {
+    @apply mr-auto font-mono;
+  }
+  .md-code-copy {
+    @apply rounded-md border border-border px-2 py-0.5 text-foreground hover:bg-hover;
+  }
+  .md-code-body {
+    @apply flex font-mono text-xs leading-5;
+  }
+  .md-code-gutter {
+    @apply shrink-0 border-r border-border py-2 pr-2 pl-3 text-right select-none;
+    color: var(--md-line-number);
+  }
+  .md-code-gutter > span {
+    @apply block;
+  }
+  .md-code-pre {
+    @apply m-0 min-w-0 flex-1 overflow-x-auto py-2 pr-3 pl-3 text-foreground;
+  }
+  .md-code-pre > code {
+    @apply bg-transparent p-0 whitespace-pre;
+    color: inherit;
+  }
+
+  /* Colores de sintaxis (clases de highlight.js) con los tokens del tema, sin sus hojas. */
+  .md-code-pre .hljs-keyword,
+  .md-code-pre .hljs-selector-tag,
+  .md-code-pre .hljs-doctag,
+  .md-code-pre .hljs-name {
+    color: var(--md-hl-keyword);
+  }
+  .md-code-pre .hljs-string,
+  .md-code-pre .hljs-regexp,
+  .md-code-pre .hljs-char.escape_ {
+    color: var(--md-hl-string);
+  }
+  .md-code-pre .hljs-number,
+  .md-code-pre .hljs-literal,
+  .md-code-pre .hljs-symbol,
+  .md-code-pre .hljs-bullet {
+    color: var(--md-hl-number);
+  }
+  .md-code-pre .hljs-comment,
+  .md-code-pre .hljs-quote {
+    color: var(--md-hl-comment);
+    font-style: italic;
+  }
+  .md-code-pre .hljs-attr,
+  .md-code-pre .hljs-attribute,
+  .md-code-pre .hljs-property,
+  .md-code-pre .hljs-selector-attr {
+    color: var(--md-hl-attr);
+  }
+  .md-code-pre .hljs-title,
+  .md-code-pre .hljs-section,
+  .md-code-pre .hljs-selector-id,
+  .md-code-pre .hljs-selector-class {
+    color: var(--md-hl-title);
+  }
+  .md-code-pre .hljs-type,
+  .md-code-pre .hljs-built_in,
+  .md-code-pre .hljs-params {
+    color: var(--md-hl-type);
+  }
+  .md-code-pre .hljs-meta,
+  .md-code-pre .hljs-variable,
+  .md-code-pre .hljs-template-variable,
+  .md-code-pre .hljs-subst,
+  .md-code-pre .hljs-tag {
+    color: var(--md-hl-meta);
+  }
+  .md-code-pre .hljs-emphasis {
+    font-style: italic;
+  }
+  .md-code-pre .hljs-strong {
+    font-weight: 600;
+  }
+
+  /* Citas y avisos de GitHub (borde izquierdo con el color del tipo). */
+  .md-quote {
+    @apply border-l-2 border-border pl-3 text-muted-foreground;
+  }
+  .md-alert {
+    @apply grid gap-1 rounded-r-md border-l-[3px] bg-hover px-3 py-2;
+    border-left-color: var(--md-alert-color);
+  }
+  .md-alert-title {
+    @apply flex items-center gap-1.5 font-semibold;
+    color: var(--md-alert-color);
+  }
+  .md-alert-note {
+    --md-alert-color: var(--md-alert-note);
+  }
+  .md-alert-tip {
+    --md-alert-color: var(--md-alert-tip);
+  }
+  .md-alert-important {
+    --md-alert-color: var(--md-alert-important);
+  }
+  .md-alert-warning {
+    --md-alert-color: var(--md-alert-warning);
+  }
+  .md-alert-caution {
+    --md-alert-color: var(--md-alert-caution);
+  }
+
+  /* Marcas al principio de un elemento: el símbolo con el color; el elemento de lista sin viñeta. */
+  .md-text li:is(.md-mark-success, .md-mark-error, .md-mark-warning) {
+    list-style: none;
+  }
+  .md-mark-glyph {
+    @apply font-semibold;
+  }
+  .md-mark-glyph-success {
+    color: var(--md-mark-success);
+  }
+  .md-mark-glyph-error {
+    color: var(--md-mark-error);
+  }
+  .md-mark-glyph-warning {
+    color: var(--md-mark-warning);
+  }
 }
