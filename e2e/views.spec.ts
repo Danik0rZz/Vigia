@@ -2354,6 +2354,123 @@ function processMetricResponse(query: URLSearchParams): [number, unknown] {
 }
 
 /**
+ * Ficha 0031: métricas de un process group (canal entities:processGroupMetrics), con ids
+ * inventados. Imita lo observado en vivo (paso 0): las instancias del grupo se eligen con
+ * `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isInstanceOf(entityId("<grupo>"))`; el total
+ * del grupo es `:splitBy():sum` (una serie, sin dimensiones) y, por instancia,
+ * `:parents:splitBy("dt.entity.process_group_instance","dt.entity.host"):avg:names` con
+ * resolution=Inf trae en dimensionMap la instancia, su host y sus nombres. Responde SOLO a esas
+ * expresiones (las demás, sin series); un resultado por expresión, en el orden pedido y con el
+ * metricId igual a la expresión. fold con resolution=Inf da 400.
+ */
+const PROCESS_GROUP_ID = 'PROCESS_GROUP-00000000000E2E60'
+const PROCESS_GROUP_SELECTOR = `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isInstanceOf(entityId("${PROCESS_GROUP_ID}"))`
+const PROCESS_GROUP_BY_INSTANCE =
+  ':parents:splitBy("dt.entity.process_group_instance","dt.entity.host"):avg:names'
+/** Instancias inventadas del grupo, con su host. */
+const PROCESS_GROUP_INSTANCES = [
+  {
+    id: 'PROCESS_GROUP_INSTANCE-00000000000E2E61',
+    name: 'Instancia uno',
+    hostId: 'HOST-00000000000E2E61',
+    hostName: 'Host uno'
+  },
+  {
+    id: 'PROCESS_GROUP_INSTANCE-00000000000E2E62',
+    name: 'Instancia dos',
+    hostId: 'HOST-00000000000E2E62',
+    hostName: 'Host dos'
+  }
+]
+/** Total del grupo por expresión (las exactas del paso 0), sin resolution. */
+const PROCESS_GROUP_SERIES: Record<string, (number | null)[]> = {
+  'builtin:tech.generic.cpu.usage:splitBy():sum': [18, null, 112.5],
+  'builtin:tech.generic.mem.workingSetSize:splitBy():sum': [900_000_000, null, 950_000_000],
+  'builtin:tech.generic.network.bytesRx:splitBy():sum': [8_192, null, 2_048.5],
+  'builtin:tech.generic.network.bytesTx:splitBy():sum': [1_024, 512, null]
+}
+/** Media del total en el rango (resolution=Inf), por expresión. */
+const PROCESS_GROUP_MARKERS: Record<string, number> = {
+  'builtin:tech.generic.cpu.usage:splitBy():sum': 64.5,
+  'builtin:tech.generic.mem.workingSetSize:splitBy():sum': 925_000_000,
+  'builtin:tech.generic.network.bytesRx:splitBy():sum': 5_120,
+  'builtin:tech.generic.network.bytesTx:splitBy():sum': 768
+}
+/** Media por instancia (resolution=Inf), en el orden de PROCESS_GROUP_INSTANCES. */
+const PROCESS_GROUP_INSTANCE_VALUES: Record<string, number[]> = {
+  [`builtin:tech.generic.cpu.usage${PROCESS_GROUP_BY_INSTANCE}`]: [20.5, 44],
+  [`builtin:tech.generic.mem.workingSetSize${PROCESS_GROUP_BY_INSTANCE}`]: [
+    400_000_000, 525_000_000
+  ]
+}
+
+/** ¿Es una consulta de métricas del process group inventado? */
+function isProcessGroupMetricsQuery(query: URLSearchParams): boolean {
+  return (query.get('entitySelector') ?? '').includes(PROCESS_GROUP_ID)
+}
+
+/** Respuesta del simulador a una consulta de métricas del process group inventado. */
+function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
+  const selector = query.get('metricSelector') ?? ''
+  const inf = query.get('resolution') === 'Inf'
+  if (inf && selector.includes(':fold(')) {
+    return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
+  }
+  // Como en vivo: con entityId("<grupo>") estas métricas no traen nada.
+  const scoped = query.get('entitySelector') === PROCESS_GROUP_SELECTOR
+  const expressions = splitSelector(selector)
+  const at = PROCESS_T0 + 1_800_000
+  return [
+    200,
+    {
+      totalCount: expressions.length,
+      nextPageKey: null,
+      resolution: inf ? 'Inf' : '10m',
+      result: expressions.map((expression) => {
+        const perInstance = PROCESS_GROUP_INSTANCE_VALUES[expression]
+        const total = inf
+          ? PROCESS_GROUP_MARKERS[expression] === undefined
+            ? undefined
+            : [PROCESS_GROUP_MARKERS[expression]]
+          : PROCESS_GROUP_SERIES[expression]
+        const data = !scoped
+          ? []
+          : perInstance !== undefined
+            ? inf
+              ? PROCESS_GROUP_INSTANCES.map((instance, i) => ({
+                  dimensionMap: {
+                    'dt.entity.process_group_instance': instance.id,
+                    'dt.entity.process_group_instance.name': instance.name,
+                    'dt.entity.host': instance.hostId,
+                    'dt.entity.host.name': instance.hostName
+                  },
+                  dimensions: [instance.id, instance.hostId],
+                  timestamps: [at],
+                  values: [perInstance[i] ?? null]
+                }))
+              : []
+            : total === undefined
+              ? []
+              : [
+                  {
+                    dimensionMap: {},
+                    dimensions: [],
+                    timestamps: inf ? [at] : PROCESS_TIMESTAMPS,
+                    values: total
+                  }
+                ]
+        return {
+          metricId: expression,
+          dataPointCountRatio: 0.005,
+          dimensionCountRatio: 0.005,
+          data
+        }
+      })
+    }
+  ]
+}
+
+/**
  * Ficha 0023: desglose de un browser monitor y de un HTTP monitor por localización y por paso o
  * petición (canal entities:monitorBreakdown), con ids inventados. Responde SOLO a las expresiones
  * confirmadas en vivo (paso 0 de la ficha) y con el ámbito con que se probaron; a cualquier otra,
@@ -2886,6 +3003,8 @@ const defaultSim = () => ({
   monitorMetricQueries: [] as URLSearchParams[],
   /** Ficha 0027: consultas de métricas del proceso inventado (sus query). */
   processMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0031: consultas de métricas del process group inventado (sus query). */
+  processGroupMetricQueries: [] as URLSearchParams[],
   /** Ficha 0028: las consultas de métricas de los procesos inventados fallan con un 400. */
   processMetricsFail: false,
   /** Ficha 0028: métricas (sin agregación) que llegan sin series a los procesos inventados. */
@@ -3172,6 +3291,12 @@ async function startServer(): Promise<void> {
             send(status, body)
           }, sim.eventMetricDelayMs)
           return
+        }
+        // Ficha 0031: las del canal entities:processGroupMetrics, aparte.
+        if (isProcessGroupMetricsQuery(url.searchParams)) {
+          sim.processGroupMetricQueries.push(url.searchParams)
+          const [status, body] = processGroupMetricResponse(url.searchParams)
+          return send(status, body)
         }
         // Ficha 0027: las del canal entities:processMetrics, aparte.
         if (isProcessMetricsQuery(url.searchParams)) {
@@ -7365,6 +7490,76 @@ test('CA6 (0027): entities:processMetrics por IPC con un id inventado: dos consu
       network: { in: 2_560, out: 384 },
       availability: 83.5,
       resources: 0.9
+    },
+    warnings: [],
+    partial: []
+  })
+})
+
+test('CA6 (0031): entities:processGroupMetrics por IPC con ids inventados: dos consultas, total del grupo e instancias', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:processGroupMetrics', {
+    environmentId: env['Producción'],
+    entityId: PROCESS_GROUP_ID,
+    timeRange: '2h'
+  })
+  // Dos consultas al simulador (series y marcadores con Inf), con el selector de las instancias
+  // del grupo y con el rango.
+  expect(sim.processGroupMetricQueries).toHaveLength(2)
+  for (const query of sim.processGroupMetricQueries) {
+    expect(query.get('from')).toBe('now-2h')
+    expect(query.get('entitySelector')).toBe(PROCESS_GROUP_SELECTOR)
+  }
+  expect(sim.processGroupMetricQueries.map((q) => q.get('resolution') ?? 'API').sort()).toEqual([
+    'API',
+    'Inf'
+  ])
+  // Las medias por instancia, solo en la de marcadores.
+  const selectorOf = (resolution: string | null): string =>
+    sim.processGroupMetricQueries
+      .find((q) => q.get('resolution') === resolution)
+      ?.get('metricSelector') ?? ''
+  expect(selectorOf(null)).not.toContain(PROCESS_GROUP_BY_INSTANCE)
+  expect(selectorOf('Inf')).toContain(`builtin:tech.generic.cpu.usage${PROCESS_GROUP_BY_INSTANCE}`)
+
+  const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: PROCESS_TIMESTAMPS,
+    values
+  })
+  const [one, two] = PROCESS_GROUP_INSTANCES
+  expect(data).toMatchObject({
+    resolution: '10m',
+    series: {
+      cpu: series([18, null, 112.5]),
+      memory: series([900_000_000, null, 950_000_000]),
+      network: { in: series([8_192, null, 2_048.5]), out: series([1_024, 512, null]) }
+    },
+    totals: {
+      // La máxima, de la serie del total.
+      cpu: { avg: 64.5, max: 112.5 },
+      memory: { avg: 925_000_000 },
+      network: { in: 5_120, out: 768 }
+    },
+    // Por CPU media, de más a menos.
+    instances: {
+      items: [
+        {
+          id: two!.id,
+          name: two!.name,
+          hostId: two!.hostId,
+          hostName: two!.hostName,
+          cpu: 44,
+          memory: 525_000_000
+        },
+        {
+          id: one!.id,
+          name: one!.name,
+          hostId: one!.hostId,
+          hostName: one!.hostName,
+          cpu: 20.5,
+          memory: 400_000_000
+        }
+      ],
+      total: 2
     },
     warnings: [],
     partial: []

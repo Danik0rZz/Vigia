@@ -149,6 +149,8 @@ describe('cobertura de los canales IPC', () => {
       'entities:problemCounts',
       // Ficha 0010: cubierto en modules.test (todos los canales) y entity-problem-list.test.
       'entities:problems',
+      // Ficha 0031: cubierto en modules.test (todos los canales) y process-group-metrics.test.
+      'entities:processGroupMetrics',
       // Ficha 0027: cubierto en modules.test (todos los canales) y process-metrics.test.
       'entities:processMetrics',
       // Ficha 0006: cubierto en modules.test (todos los canales) y service-metrics.test.
