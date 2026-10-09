@@ -1,7 +1,7 @@
 ---
 id: '0032'
 titulo: 'PROCESS_GROUP: página con marcadores, gráficos, instancias e información'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -76,7 +76,51 @@ número con la nota «como mínimo»). Quedarse con las de más CPU queda para D
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `8801a71` (`test(grupo-procesos): criterios de la ficha 0032 (#0032)`). Fallan
+por lo que falta, no por el test: los 7 e2e de la 0032 porque la página no tiene sus secciones
+(`process-group-*`: `element(s) not found`) y los 3 unitarios de CA7 porque no existe
+`entities.processGroup` en los locales. **CA4 ya pasa:** el filtro de main de la 0029
+(`entity-secrets.ts`, en `toEntityData` para todas las entidades) ya quita `COMMAND_LINE_ARGS` y
+`EXE_PATH` de un PROCESS_GROUP; queda como salvaguarda. Con el simulador ampliado siguen en verde
+`CA6 (0031)`, `CA3 (0028)`, `CA3 (0029)` y `CA1 (0036)`.
+
+| Criterio | Test                                                                                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `e2e/views.spec.ts` › `CA1 (0032): la página de un process group enseña sus marcadores, sus cuatro gráficos y la tabla de instancias…` y `CA1 (0032), nota del Orquestador: con las instancias recortadas (partial), la tabla avisa…` |
+| CA2      | `e2e/views.spec.ts` › `CA2 (0032): pulsar una instancia abre su página de proceso y «Volver» regresa al grupo; pulsar su host abre la del host`                                                                                       |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0032): la franja de problemas sale sobre el gráfico de CPU con los problemas del grupo, y pulsar un tramo abre el problema`                                                                               |
+| CA4      | `src/main/ipc/handlers/entity-detail.test.ts` › `CA4 (0032): entities:get de un process group sale sin la línea de comandos ni las rutas de metadata`                                                                                 |
+| CA5      | `e2e/views.spec.ts` › `CA5 (0032): la tarjeta «Información» del process group sale la última, con sus filas y relaciones, y sin la línea de comandos…`                                                                                |
+| CA6      | `e2e/views.spec.ts` › `CA6 (0032): cambiar el rango global vuelve a pedir los datos; …` y `CA6 (0032): si falla el canal de métricas, sus marcadores, cada gráfico y la tabla enseñan el aviso…`                                      |
+| CA7      | `src/renderer/src/locales/process-group-page.test.ts` › `CA7 (0032): textos de la página del process group en es y en`                                                                                                                |
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- **Simulador:** un process group nuevo para la página, `PROCESS_GROUP_PAGE_ID`, con siete
+  instancias en tres hosts (para «como mucho 5, las de más CPU»), los mismos totales que el de la
+  0031 y dos problemas (P-E2E83 abierto y P-E2E84 cerrado). El de la 0031 (dos instancias) no
+  cambia. Flags nuevos: `processGroupMetricsFail` (400) y `processGroupTruncated`
+  (`dimensionCountRatio` 1.5 en las expresiones por instancia → `partial`).
+- **«CPU por instancia»:** el canal de la 0031 no trae series por instancia y la ficha no dice de
+  dónde salen. El simulador las da de dos formas: en `entities:processGroupMetrics`, una expresión
+  de `cpu.usage` partida por `dt.entity.process_group_instance` sin `resolution=Inf` (de más a
+  menos CPU, con nombre si lleva `:names` y recortada si lleva `:limit(N)`), o en
+  `entities:processMetrics` de cada instancia. El test solo mira el gráfico: cinco series con el
+  nombre de las cinco de más CPU. Ojo: `CA6 (0031)` exige dos consultas al canal y que la de series
+  no lleve `:parents:splitBy(…):avg:names`.
+- **Marcadores:** los `totals` del canal; la CPU es la media del total del grupo (suma de las
+  instancias, 64,5 %) y debajo la máxima (112,5 %); red en bit/s como el proceso.
+- **Recorte (nota del Orquestador):** con `partial`, aviso `process-group-instances-partial` (texto
+  con «incomplet» o «recort») y el marcador «Instancias» no puede ser «7» a secas: «7+», «como
+  mínimo» o «al menos».
+- **Relaciones de «Información»** (vistas en vivo en PROCESS_GROUP, informe de
+  `entities-explore`): «Instancias» = `isInstanceOf` de to, «Hosts» = `runsOn` de from,
+  «Servicios» = `runsOn` de to, «Otras» = el resto (en el simulador, `isNetworkClientOfProcessGroup`).
+  Filas exigidas: `technologies`, `listenPorts` y `detectedName`.
+- **Nombres** (testids, en el comentario del bloque de la 0032 de `e2e/views.spec.ts`): los del
+  proceso con el prefijo `process-group`; gráficos `cpu`, `memory`, `network` y `cpu-instances`;
+  tabla `process-group-instances` con columnas `name`, `host`, `cpu` y `memory`. Textos en
+  `entities.processGroup` (`markers`, `charts`, `instances`, `info.rows` e `info.groups`).
 
 ## Resultado
 
