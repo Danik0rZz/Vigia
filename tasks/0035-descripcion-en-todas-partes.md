@@ -102,6 +102,19 @@ medición encuentra Markdown en otro campo de `evidenceDetails`, se pinta igual 
 - CA5 → `e2e/views.spec.ts`, «CA5 (0035) … (Transacción con descripción larga)» y «… (Evento con
   descripción larga)»: 12 000 caracteres con un bloque YAML; si `MAX_DESCRIPTION_LENGTH` ≥ 12 000
   llega entera (marca final y sin nota de recorte), si no, nota de recorte.
+- Decisión del Orquestador (otras claves con «description») → commit `779a22d`:
+  - unitario `src/main/modules/problems-description-everywhere.test.ts`, «Decisión del
+    Orquestador (0035)»: `custom.description` (METRIC), `Runbook.Description` (EVENT) y
+    `descriptionExtra` (TRANSACTIONAL) salen de las propiedades genéricas y su Markdown llega
+    entero en el wire, con su clave (sin atarse al nombre del campo); mismo límite
+    (`MAX_DESCRIPTION_LENGTH`); `custom.owner` sigue en la lista como texto; con
+    `dt.event.description` a la vez, cada una a su sitio.
+  - e2e `e2e/views.spec.ts`, dos «Decisión del Orquestador (0035)» en P-835 (ahora con 6
+    evidencias): en el METRIC, sección propia con la clave como título, Markdown renderizado,
+    «Copiar», fuera de «Descripción» y después de ella; en un EVENT sin `dt.event.description`,
+    `Runbook.Description` también se pinta. En los dos, `custom.owner` sigue en la lista. La
+    sección se localiza por su título y su contenido, sin `data-testid`.
+  - Ejecución: los 6 unitarios y los 2 e2e fallan (la clave sigue en la lista y no hay sección).
 
 Ejecución: CA3 falla en 9 de 12 (`description` llega `null` y la clave sigue en las propiedades);
 CA4 (con descripción) y CA5 (`TRANSACTIONAL`) fallan porque no hay sección «Descripción»; CA2, CA4
