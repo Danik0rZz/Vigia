@@ -225,6 +225,24 @@ _Observado (2026-10-06, `problems-event-description.live.test.ts`, 10 detalles, 
   queda en el mínimo: margen de unas 20 veces sobre lo visto. Si se recorta, la interfaz lo dice.
   Cómo se pinta: ADR-0008.
 
+### Descripciones largas y en todas las evidencias (ficha 0035)
+
+_Observado (2026-10-09, `problems-description-everywhere.live.test.ts`, 30 días, hasta 50 detalles y el problema indicado por Dani, 51 peticiones, solo lectura):_
+
+- **Dónde llega:** `dt.event.description` solo vino en evidencias `EVENT` (también había `METRIC`,
+  `TRANSACTIONAL` y `AVAILABILITY_EVIDENCE`, sin descripción), siempre en
+  `data.properties[]`. Vigía la lee igual en cualquier tipo por si llega.
+- **Longitud:** mínima 27, mediana 162 y máxima **4 096**, también en el problema indicado. Que la
+  máxima sea justo 4 096 apunta a un tope de Dynatrace en el valor de la propiedad: la descripción
+  puede llegar ya cortada de origen sin que Vigía lo sepa.
+- **Rasgos:** títulos, listas, negrita, marcas ✓, código en línea, bloques `yaml`, tablas, líneas
+  horizontales y enlaces. Sin HTML en crudo, citas, avisos de GitHub ni `==resaltado==`.
+- **Otras claves:** en los `EVENT` hay propiedades con «description» en la clave (no `dt.*`) que
+  también traen Markdown. Vigía las pinta como Markdown en su propia sección (`extraDescriptions`,
+  hasta 4 por evidencia).
+- **Tope `MAX_DESCRIPTION_LENGTH` = 9 000** (4 096 × 2 = 8 192, redondeado al millar, regla de la
+  0001), antes 5 000.
+
 ### Estado propio de los eventos (0.10.0)
 
 _Observado (2026-10-04, `problems-event-state.live.test.ts`, 5 abiertos y 5 cerrados, 11

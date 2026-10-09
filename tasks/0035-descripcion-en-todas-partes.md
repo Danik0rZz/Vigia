@@ -1,7 +1,7 @@
 ---
 id: '0035'
 titulo: 'Problemas: la descripción del evento con formato en todas las evidencias, y medir las descripciones largas'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -71,6 +71,7 @@ medición encuentra Markdown en otro campo de `evidenceDetails`, se pinta igual 
 ## Pruebas a mano para Dani
 
 - Abrir el problema del ejemplo y comprobar que la descripción sale entera y con formato.
+- Con problemas reales, ver que las otras propiedades con «description» (secciones con su clave como título) son de verdad Markdown.
 
 ## Fuera de alcance
 
@@ -195,4 +196,8 @@ resulta no ser Markdown en la prueba a mano, se afina la regla.
 
 ## Resultado
 
-(pendiente)
+- Commits: `6254de9` y `01b9060` (código), tests en `a66d00e` y `779a22d`; rango `main..feat/0035-descripcion-en-todas-partes`.
+- Ficheros principales: `src/shared/problem-evidence.ts`, `src/main/modules/problems.ts`, `src/renderer/src/components/EvidenceDescription.tsx` y `EvidenceSection.tsx`, más los tests unitarios, el live y `e2e/views.spec.ts`.
+- `MAX_DESCRIPTION_LENGTH` = 9 000; campo nuevo `extraDescriptions` (hasta 4 por evidencia) en el wire.
+- Rondas de revisión: 1 (aprobada). Verifier en verde (2657 unitarios, e2e 303/303). ADR nuevo: ninguno. Migración: no.
+- Pendiente para Dani (a mano): abrir problemas reales y comprobar que las otras propiedades con «description» son de verdad Markdown; si alguna no lo es, se afina la regla.

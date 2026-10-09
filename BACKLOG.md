@@ -10,7 +10,7 @@ bueno de Dani o de peticiones en su nombre.
   (0036 y 0037 hechas),
   **grupo-procesos** (0031 y 0032 hechas; [0031](tasks/0031-grupo-procesos-datos.md), [0032](tasks/0032-grupo-procesos-vista.md)),
   **aplicacion** (0033 y 0034 hechas; [0033](tasks/0033-aplicacion-datos.md), [0034](tasks/0034-aplicacion-vista.md)),
-  **markdown** ([0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
+  **markdown** (0035 hecha; [0035](tasks/0035-descripcion-en-todas-partes.md), [0038](tasks/0038-visor-markdown-nivel-2.md),
   [0043](tasks/0043-markdown-html-seguro.md)) y **host-2** ([0039](tasks/0039-host-memoria-total-recuperable.md),
   [0040](tasks/0040-pagina-disco.md), [0041](tasks/0041-host-logs.md), [0042](tasks/0042-host-eventos.md)).
 
@@ -169,6 +169,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - e2e `CA6 (0032)`: comprobar también que tras «Actualizar» vuelven a salir las consultas por instancia. (surgió en 0032)
 - CA5 de la 0033: comprobar la clave `applicationMetricsRejected` exacta, no solo que `reason.key` es texto. (surgió en 0033)
 - Acciones de la aplicación: confirmar en vivo el orden de `:sort(value(count,descending)):limit(10)` con una aplicación con más de 10 acciones clave por tipo; decide qué 10 quedan por tipo. (surgió en 0033)
+- **Prioritaria (seguridad):** pasar las claves de las propiedades de las evidencias del problema por `isHiddenPropertyKey` (`entity-secrets.ts`) antes de cortar a 8, con su test; ahora que se pintan en todos los tipos, una clave sensible saldría. (surgió en 0035)
+- Evidencias del problema: con más de 4 claves «description», la quinta y siguientes desaparecen sin aviso; dejarlas como texto en la lista o anotarlo. (surgió en 0035)
+- La descripción mide como máximo 4 096 caracteres, también en el problema de prueba: puede ser un recorte de Dynatrace en `evidenceDetails`. Comprobar en vivo si otro endpoint (el evento por su `eventId`) la trae entera; si no, avisar de que puede venir cortada de origen. (surgió en 0035)
 
 ## Aparcado
 
@@ -238,3 +241,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0044](tasks/0044-e2e-tooltip-menu-estable.md): e2e estable del tooltip del menú plegado; `hoverFresh` espera a que acabe la animación y a que se cierre el tooltip de otro botón (resuelve la mejora anotada en 0027).
 - [0033](tasks/0033-aplicacion-datos.md) (lote aplicacion): canal `entities:applicationMetrics` con series, totales y las 10 acciones con más volumen de una aplicación web (la vista es la 0034).
 - [0034](tasks/0034-aplicacion-vista.md) (lote aplicacion): la página de la aplicación web deja de estar en construcción, con marcadores (Apdex por categoría), gráficos, tabla de acciones clave e «Información». Con ella queda completo el lote «aplicacion» (0033 y 0034).
+- [0035](tasks/0035-descripcion-en-todas-partes.md) (lote markdown): la «Descripción» con Markdown sale en todos los tipos de evidencia, también las otras propiedades con «description», y el límite sube a 9 000.
