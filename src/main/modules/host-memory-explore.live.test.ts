@@ -12,8 +12,10 @@ import { DtError } from '../dynatrace/errors'
  *
  * Descriptor de `builtin:host.mem.recl` (o, si no existe, búsqueda con
  * `text=reclaimable`), y datos de usada, recuperable y total en como mucho 3
- * hosts de type("HOST") con now-2h. Además, si la consulta de series de la 0016
- * admite una expresión más (la API documenta 10 métricas por consulta).
+ * hosts de type("HOST") con now-2h. Además, solo como exploración, si la API
+ * acepta hoy 11 expresiones en una consulta (documenta 10). NO es la consulta del
+ * canal: por decisión del Orquestador (ficha 0039), el canal nunca pasa de 10
+ * expresiones por consulta y parte las series en dos.
  *
  * El informe (live-reports/host-memory-explore.json, ignorado) guarda SOLO
  * comportamientos: códigos, unidad, agregaciones, tramos y relaciones. Nunca un
@@ -31,7 +33,10 @@ const MEM_USED = 'builtin:host.mem.used'
 const MEM_TOTAL = 'builtin:host.mem.total'
 const MEM_RECL = 'builtin:host.mem.recl'
 
-/** Las 10 expresiones de series de la 0016, más la recuperable. */
+/**
+ * Las 10 expresiones de series de la 0016, más la recuperable: solo para explorar el límite de
+ * la API; el canal las parte en consultas de 10 como mucho (ficha 0039).
+ */
 const SERIES_PLUS_RECL = [
   'builtin:host.cpu.usage',
   'builtin:host.cpu.user',
@@ -207,7 +212,8 @@ describe.skipIf(live === null)('Ficha 0039: memoria recuperable de un host (paso
     report['por host'] = rows
   })
 
-  it('la consulta de series de la 0016 con la recuperable (11 expresiones)', async () => {
+  // Solo exploración del límite: el canal no manda nunca más de 10 expresiones juntas.
+  it('exploración: ¿acepta la API 11 expresiones en una consulta? (no es la consulta del canal)', async () => {
     const id = hosts[0]
     if (id === undefined) return
     const { code, body } = await codeOf(
@@ -217,7 +223,7 @@ describe.skipIf(live === null)('Ficha 0039: memoria recuperable de un host (paso
         from: 'now-2h'
       })
     )
-    report['once expresiones en una consulta'] = {
+    report['exploración: once expresiones en una consulta (el canal no pasa de 10)'] = {
       codigo: code,
       resultados: Array.isArray(body?.['result']) ? (body['result'] as unknown[]).length : 0
     }

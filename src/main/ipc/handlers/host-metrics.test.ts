@@ -54,6 +54,9 @@ const NET_IN = 'builtin:host.net.nic.trafficIn'
 const NET_OUT = 'builtin:host.net.nic.trafficOut'
 const DISK = 'builtin:host.disk.usedPct'
 
+/** Límite de la OpenAPI: «You can select up to 10 metrics for one query» (ficha 0039). */
+const MAX_EXPRESSIONS = 10
+
 type SeriesKind =
   | 'cpu'
   | 'user'
@@ -216,6 +219,11 @@ function metricsResponse(query: URLSearchParams): Response {
     return json(failWith.status, { error: { code: failWith.status, message: failWith.message } })
   }
   const selector = query.get('metricSelector') ?? ''
+  // Ficha 0039 (decisión del Orquestador): la OpenAPI admite hasta 10 métricas por consulta. En
+  // vivo hoy pasan 11, pero el simulador se ciñe a lo documentado y da 400 con más de 10.
+  if (splitSelector(selector).length > MAX_EXPRESSIONS) {
+    return json(400, { error: { code: 400, message: 'más de 10 métricas en la consulta' } })
+  }
   // Observado en vivo (ficha 0006): fold y resolution=Inf en la misma consulta dan 400.
   if (query.get('resolution') === 'Inf' && selector.includes(':fold(')) {
     return json(400, { error: { code: 400, message: 'fold no admite resolution Inf' } })
@@ -373,16 +381,25 @@ async function call(input: unknown): Promise<Envelope> {
 }
 
 const metricQueries = (): URL[] => requests.filter((u) => u.pathname === '/api/v2/metrics/query')
-const seriesQuery = (): URL | undefined =>
-  metricQueries().find((u) => !isMarkerQuery(u.searchParams))
-const markerQuery = (): URL | undefined =>
-  metricQueries().find((u) => isMarkerQuery(u.searchParams))
+/** Las consultas de series (más de una si pasan de 10 expresiones, ficha 0039). */
+const seriesQueries = (): URL[] => metricQueries().filter((u) => !isMarkerQuery(u.searchParams))
+const markerQueries = (): URL[] => metricQueries().filter((u) => isMarkerQuery(u.searchParams))
 const expressionsOf = (url: URL | undefined): string[] =>
   splitSelector(url?.searchParams.get('metricSelector') ?? '')
+const allExpressions = (urls: URL[]): string[] => urls.flatMap(expressionsOf)
+
+/** Ficha 0039: ninguna petición lleva más de 10 expresiones en metricSelector. */
+function expectAtMostTenPerQuery(): void {
+  for (const url of metricQueries()) {
+    expect(expressionsOf(url).length, 'expresiones en una consulta').toBeLessThanOrEqual(
+      MAX_EXPRESSIONS
+    )
+  }
+}
 
 const base = { entityId: HOST_ID, timeRange: '2h' as const }
 
-describe('CA3 (0016): dos consultas a /metrics/query con las expresiones confirmadas, el id y el rango', () => {
+describe('CA3 (0016): consultas a /metrics/query con las expresiones confirmadas, el id y el rango', () => {
   it.each([
     ['relativo (2h)', '2h' as const, { from: 'now-2h', to: null }],
     [
@@ -394,27 +411,30 @@ describe('CA3 (0016): dos consultas a /metrics/query con las expresiones confirm
     const result = await call({ environmentId: envId, entityId: HOST_ID, timeRange })
     expect(result.ok, JSON.stringify(result.error)).toBe(true)
 
-    // Exactamente dos peticiones, y las dos a /metrics/query.
-    expect(requests).toHaveLength(2)
-    expect(metricQueries()).toHaveLength(2)
-    const series = seriesQuery()
-    const markers = markerQuery()
-    expect(series, 'consulta de series').toBeDefined()
-    expect(markers, 'consulta de marcadores').toBeDefined()
+    // Solo peticiones a /metrics/query, ninguna con más de 10 expresiones (ficha 0039: con la
+    // recuperable, las series son 11 y van en más de una consulta; no se fija cuántas).
+    expect(metricQueries()).toHaveLength(requests.length)
+    expectAtMostTenPerQuery()
+    const series = seriesQueries()
+    const markers = markerQueries()
+    expect(series.length, 'consultas de series').toBeGreaterThan(0)
+    expect(markers.length, 'consultas de marcadores').toBeGreaterThan(0)
 
-    // Series: las 11 expresiones (con la recuperable de la 0039; en vivo, 11 caben en una
-    // consulta) y sin resolution (la elige la API).
-    // Red sumada por interfaces (splitBy():sum) y disco más lleno (splitBy():max).
-    expect(series?.searchParams.has('resolution')).toBe(false)
-    expect(expressionsOf(series).map(seriesKindOf).sort()).toEqual([...SERIES_KINDS].sort())
+    // Series: las 11 expresiones, cada una una vez entre todas sus consultas, y sin resolution
+    // (la elige la API). Red sumada por interfaces (splitBy():sum) y disco más lleno
+    // (splitBy():max).
+    for (const url of series) expect(url.searchParams.has('resolution')).toBe(false)
+    expect(allExpressions(series).map(seriesKindOf).sort()).toEqual([...SERIES_KINDS].sort())
 
     // Marcadores: rango completo con resolution=Inf y sin fold (juntos dan 400).
-    expect(markers?.searchParams.get('resolution')).toBe('Inf')
-    expect(markers?.searchParams.get('metricSelector') ?? '').not.toContain(':fold(')
-    expect(expressionsOf(markers).map(markerKindOf).sort()).toEqual([...MARKER_KINDS].sort())
+    for (const url of markers) {
+      expect(url.searchParams.get('resolution')).toBe('Inf')
+      expect(url.searchParams.get('metricSelector') ?? '').not.toContain(':fold(')
+    }
+    expect(allExpressions(markers).map(markerKindOf).sort()).toEqual([...MARKER_KINDS].sort())
 
-    // Todas las expresiones de las dos consultas, acotadas al host pedido; y el rango.
-    for (const url of [series, markers]) {
+    // Todas las expresiones de todas las consultas, acotadas al host pedido; y el rango.
+    for (const url of [...series, ...markers]) {
       for (const expression of expressionsOf(url)) {
         expect(scopedToHost(expression, url?.searchParams ?? new URLSearchParams())).toBe(true)
       }
@@ -433,7 +453,7 @@ describe('CA3 (0016): dos consultas a /metrics/query con las expresiones confirm
     for (const url of metricQueries()) {
       expect(url.searchParams.get('metricSelector') ?? '').not.toContain('builtin:tenant.otra')
     }
-    if (result.ok) expect(metricQueries()).toHaveLength(2)
+    if (result.ok) expect(metricQueries().length).toBeGreaterThanOrEqual(2)
   })
 })
 
@@ -587,23 +607,30 @@ describe('CA6 (0016): warnings y resultados recortados', () => {
  * `total` en bytes, y `totals.memory.reclaimable` del último punto con dato (como used y total).
  */
 describe('CA2 (0039): memoria total y recuperable en las consultas y en la salida', () => {
-  it('la consulta de series lleva la total y la recuperable, acotadas al host y sin agregación distinta de avg', async () => {
+  it('las consultas de series llevan la total y la recuperable, una vez cada una y acotadas al host', async () => {
     const result = await call({ environmentId: envId, ...base })
     expect(result.ok, JSON.stringify(result.error)).toBe(true)
-    const series = seriesQuery()
-    const kinds = expressionsOf(series).map(seriesKindOf)
-    expect(kinds).toContain('memTotal')
-    expect(kinds).toContain('memRecl')
-    for (const expression of expressionsOf(series).filter((e) =>
-      [MEM_TOTAL, MEM_RECL].includes(keyOf(e))
-    )) {
-      expect(scopedToHost(expression, series?.searchParams ?? new URLSearchParams())).toBe(true)
+    const series = seriesQueries()
+    const kinds = allExpressions(series).map(seriesKindOf)
+    expect(kinds.filter((kind) => kind === 'memTotal')).toHaveLength(1)
+    expect(kinds.filter((kind) => kind === 'memRecl')).toHaveLength(1)
+    for (const url of series) {
+      for (const expression of expressionsOf(url).filter((e) =>
+        [MEM_TOTAL, MEM_RECL].includes(keyOf(e))
+      )) {
+        expect(scopedToHost(expression, url.searchParams)).toBe(true)
+      }
     }
-    // La API admite hasta 10 métricas por consulta; en vivo, las 11 de las series caben en una.
-    expect(metricQueries()).toHaveLength(2)
   })
 
-  it('series.memoryBytes con usada, recuperable y total en bytes, sin convertir y con los nulos', async () => {
+  it('ninguna petición lleva más de 10 expresiones en metricSelector (límite de la OpenAPI)', async () => {
+    const result = await call({ environmentId: envId, ...base })
+    expect(result.ok, JSON.stringify(result.error)).toBe(true)
+    expect(metricQueries().length).toBeGreaterThanOrEqual(2)
+    expectAtMostTenPerQuery()
+  })
+
+  it('series.memoryBytes con usada, recuperable y total en bytes, sin convertir, con los nulos y bien casadas aunque las series vayan en varias consultas', async () => {
     const result = await call({ environmentId: envId, ...base })
     expect(result.ok, JSON.stringify(result.error)).toBe(true)
     expect(result.data).toMatchObject({

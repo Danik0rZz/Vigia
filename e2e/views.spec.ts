@@ -2067,6 +2067,27 @@ function hostMarkerKind(expression: string): HostMarkerKind | null {
   return null
 }
 
+/** Límite de la OpenAPI: «You can select up to 10 metrics for one query» (ficha 0039). */
+const HOST_MAX_EXPRESSIONS = 10
+
+/**
+ * Ficha 0039: cuántas llamadas al canal entities:hostMetrics ha recibido el simulador. Las series
+ * pueden ir en varias consultas (más de 10 expresiones), pero cada llamada hace una sola consulta
+ * de marcadores (resolution=Inf).
+ */
+const hostMetricCalls = (): number =>
+  sim.hostMetricQueries.filter((query) => query.get('resolution') === 'Inf').length
+
+/** Ficha 0039: ninguna consulta de métricas del host lleva más de 10 expresiones. */
+function expectHostQueriesWithinLimit(): void {
+  for (const query of sim.hostMetricQueries) {
+    expect(
+      splitSelector(query.get('metricSelector') ?? '').length,
+      'expresiones en una consulta'
+    ).toBeLessThanOrEqual(HOST_MAX_EXPRESSIONS)
+  }
+}
+
 /** ¿Es una consulta de métricas del host inventado (series o marcadores)? */
 function isHostMetricsQuery(query: URLSearchParams): boolean {
   const selector = query.get('metricSelector') ?? ''
@@ -2085,6 +2106,11 @@ function hostMetricResponse(query: URLSearchParams): [number, unknown] {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
   const marker = inf || selector.includes(':fold(')
+  // Ficha 0039 (decisión del Orquestador): la OpenAPI admite hasta 10 métricas por consulta; en
+  // vivo hoy pasan 11, pero el simulador se ciñe a lo documentado.
+  if (splitSelector(selector).length > HOST_MAX_EXPRESSIONS) {
+    return [400, { error: { code: 400, message: 'Más de 10 métricas en la consulta (simulado)' } }]
+  }
   if (sim.hostMetricsFail) {
     return [400, { error: { code: 400, message: 'Métricas del host no disponibles (simulado)' } }]
   }
@@ -8165,19 +8191,21 @@ test('CA7 (0006): entities:serviceMetrics por IPC con un id inventado: dos consu
   })
 })
 
-test('CA7 (0016): entities:hostMetrics por IPC con un id inventado: dos consultas, series y totales', async () => {
+test('CA7 (0016): entities:hostMetrics por IPC con un id inventado: consultas, series y totales', async () => {
   const data = await invoke<Record<string, unknown>>('entities:hostMetrics', {
     environmentId: env['Producción'],
     entityId: HOST_METRICS_ID,
     timeRange: '2h'
   })
-  // Dos consultas al simulador (series y marcadores con Inf), las dos con el rango global.
-  expect(sim.hostMetricQueries).toHaveLength(2)
+  // Series (una o más consultas, ficha 0039) y marcadores con Inf (una), todas con el rango
+  // global y ninguna con más de 10 expresiones.
+  expect(hostMetricCalls()).toBe(1)
+  expect(sim.hostMetricQueries.length).toBeGreaterThanOrEqual(2)
+  expectHostQueriesWithinLimit()
   for (const query of sim.hostMetricQueries) expect(query.get('from')).toBe('now-2h')
-  expect(sim.hostMetricQueries.map((q) => q.get('resolution') ?? 'API').sort()).toEqual([
-    'API',
-    'Inf'
-  ])
+  expect(
+    [...new Set(sim.hostMetricQueries.map((q) => q.get('resolution') ?? 'API'))].sort()
+  ).toEqual(['API', 'Inf'])
 
   const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
     timestamps: HOST_TIMESTAMPS,
@@ -10523,9 +10551,10 @@ test('CA2 (0018): salen los cuatro gráficos en su orden (CPU, memoria, red y di
     }
   }
 
-  // Marcadores y gráficos comparten una sola llamada al canal (sus dos consultas).
+  // Marcadores y gráficos comparten una sola llamada al canal (una consulta de marcadores).
   await settledRequests()
-  expect(sim.hostMetricQueries).toHaveLength(2)
+  expect(hostMetricCalls()).toBe(1)
+  expectHostQueriesWithinLimit()
 })
 
 test('CA3 (0018): la franja de problemas sale sobre el gráfico de CPU con los problemas del host, y pulsar un tramo abre el problema', async () => {
@@ -10570,8 +10599,11 @@ test('CA6 (0018): cambiar el rango global vuelve a pedir los datos; «Actualizar
   await openHostPage()
   await expectHostMarkerValues()
   await settledRequests()
-  // Al entrar: las dos consultas de métricas y las dos de recuentos, con el rango global.
-  expect(sim.hostMetricQueries).toHaveLength(2)
+  // Al entrar: una llamada al canal de métricas (sus consultas, que pueden ser más de dos desde
+  // la 0039) y las dos de recuentos, con el rango global.
+  expect(hostMetricCalls()).toBe(1)
+  const perCall = sim.hostMetricQueries.length
+  expect(perCall).toBeGreaterThanOrEqual(2)
   expect(sim.entityProblemQueries).toHaveLength(2)
   for (const query of [...sim.hostMetricQueries, ...sim.entityProblemQueries]) {
     expect(query.get('from')).toBe('now-2h')
@@ -10579,14 +10611,17 @@ test('CA6 (0018): cambiar el rango global vuelve a pedir los datos; «Actualizar
 
   // Rango nuevo: otra vez, con now-24h.
   await page.getByTestId('time-range-24h').click()
-  await expect.poll(() => sim.hostMetricQueries.length).toBe(4)
+  await expect.poll(() => sim.hostMetricQueries.length).toBe(2 * perCall)
   await expect.poll(() => sim.entityProblemQueries.length).toBe(4)
-  for (const query of [...sim.hostMetricQueries.slice(2), ...sim.entityProblemQueries.slice(2)]) {
+  for (const query of [
+    ...sim.hostMetricQueries.slice(perCall),
+    ...sim.entityProblemQueries.slice(2)
+  ]) {
     expect(query.get('from')).toBe('now-24h')
   }
   await expectHostMarkerValues()
   await settledRequests()
-  expect(sim.hostMetricQueries).toHaveLength(4)
+  expect(sim.hostMetricQueries).toHaveLength(2 * perCall)
 
   // Fuera y vuelta, sin cambiar nada: ninguna petición nueva.
   await goTo('metrics')
@@ -10599,9 +10634,12 @@ test('CA6 (0018): cambiar el rango global vuelve a pedir los datos; «Actualizar
 
   // «Actualizar», en la cabecera de la página: otra vez, con el rango actual.
   await page.getByTestId('entity-page-host').getByTestId('module-refresh').click()
-  await expect.poll(() => sim.hostMetricQueries.length).toBe(6)
+  await expect.poll(() => sim.hostMetricQueries.length).toBe(3 * perCall)
   await expect.poll(() => sim.entityProblemQueries.length).toBe(6)
-  for (const query of [...sim.hostMetricQueries.slice(4), ...sim.entityProblemQueries.slice(4)]) {
+  for (const query of [
+    ...sim.hostMetricQueries.slice(2 * perCall),
+    ...sim.entityProblemQueries.slice(4)
+  ]) {
     expect(query.get('from')).toBe('now-24h')
   }
   await expectHostMarkerValues()
@@ -10684,9 +10722,10 @@ test('CA3 (0039): el marcador de memoria enseña usada / total y recuperable, y 
     ).toHaveLength(1)
   }
 
-  // La recuperable llega en la misma llamada al canal (sus dos consultas).
+  // La recuperable llega en la misma llamada al canal, sin pasar de 10 expresiones por consulta.
   await settledRequests()
-  expect(sim.hostMetricQueries).toHaveLength(2)
+  expect(hostMetricCalls()).toBe(1)
+  expectHostQueriesWithinLimit()
   expect(
     sim.hostMetricQueries.some((query) =>
       (query.get('metricSelector') ?? '').includes('builtin:host.mem.recl')
