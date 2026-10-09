@@ -1,7 +1,7 @@
 ---
 id: '0035'
 titulo: 'Problemas: la descripción del evento con formato en todas las evidencias, y medir las descripciones largas'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -86,7 +86,49 @@ medición encuentra Markdown en otro campo de `evidenceDetails`, se pinta igual 
 
 ## Verificación
 
-(pendiente)
+**Tests (test-writer, 2026-10-09)**, commit `a66d00e`:
+
+- CA1 → `src/main/modules/problems-description-everywhere.live.test.ts`, «CA1 (0035): medición
+  en vivo de las descripciones» (30 días, hasta 50 detalles y el problema de
+  `VIGIA_LIVE_PROBLEM_ID`, leído con `loadLiveProblemId` de `src/test/live-env.ts`). Informe en
+  `live-reports/problems-description-everywhere.json` (ignorado), solo comportamientos.
+- CA2 → `src/shared/problem-evidence-description.test.ts`, «CA2 (0035): MAX_DESCRIPTION_LENGTH
+  está entre 5 000 y 20 000» (además, múltiplo de 1 000 y aceptado en una evidencia `METRIC`).
+- CA3 → `src/main/modules/problems-description-everywhere.test.ts`, «CA3 (0035)» (`METRIC`,
+  `TRANSACTIONAL`, `AVAILABILITY_EVIDENCE`, `MAINTENANCE_WINDOW` y un tipo desconocido; sin la
+  clave o con valor vacío, `null`).
+- CA4 → `e2e/views.spec.ts`, tres «CA4 (0035)» sobre P-835 (`METRIC` y `AVAILABILITY_EVIDENCE` con
+  descripción renderizada; `METRIC` sin descripción, sin sección).
+- CA5 → `e2e/views.spec.ts`, «CA5 (0035) … (Transacción con descripción larga)» y «… (Evento con
+  descripción larga)»: 12 000 caracteres con un bloque YAML; si `MAX_DESCRIPTION_LENGTH` ≥ 12 000
+  llega entera (marca final y sin nota de recorte), si no, nota de recorte.
+
+Ejecución: CA3 falla en 9 de 12 (`description` llega `null` y la clave sigue en las propiedades);
+CA4 (con descripción) y CA5 (`TRANSACTIONAL`) fallan porque no hay sección «Descripción»; CA2, CA4
+sin descripción y CA5 en `EVENT` ya pasan con el código de hoy (el límite actual, 5 000, está en el
+rango, y el `EVENT` va por la rama del recorte). CA1 pasa en vivo (51 peticiones, solo lectura).
+
+**Decisiones del test-writer (Dani delegó; refinables):**
+
+- La OpenAPI v2 solo documenta `data` (con `properties[]`) en `EventEvidence`. Para las demás
+  evidencias, los fixtures ponen `dt.event.description` en el mismo sitio que en vivo,
+  `data.properties[]`.
+- En CA5, el resultado depende del límite elegido («si el límite lo permite»): el test importa
+  `MAX_DESCRIPTION_LENGTH` de `src/shared/problem-evidence.ts`.
+
+**Medición en vivo (CA1, 2026-10-09), solo comportamientos:**
+
+- La descripción solo llegó en evidencias `EVENT` (las había también `METRIC`, `TRANSACTIONAL` y
+  `AVAILABILITY_EVIDENCE`, ninguna con descripción), siempre en `data.properties[]`.
+- Longitudes: mínima 27, mediana 162 y **máxima 4 096** (también en el problema indicado). Que la
+  máxima sea exactamente 4 096 apunta a un tope de Dynatrace en el valor de la propiedad; con la
+  regla de la ficha, el límite saldría en 9 000 (por debajo de 12 000: CA5 iría por el recorte).
+- Rasgos: títulos, listas, negrita, marcas ✓, código en línea, bloques `yaml`, tablas, líneas
+  horizontales y enlaces; sin HTML en crudo, citas, avisos de GitHub ni `==resaltado==`.
+- En `EVENT` hay **otras propiedades con «description» en la clave** (no `dt.*`, posiblemente
+  propias del tenant, así que no se nombran) y también traen Markdown. El punto 3 dice que se
+  pinten igual; no hay test para ellas porque la ficha no dice qué claves son: queda para el
+  developer o el Planificador.
 
 ## Resultado
 
