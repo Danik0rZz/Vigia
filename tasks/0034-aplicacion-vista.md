@@ -1,7 +1,7 @@
 ---
 id: '0034'
 titulo: 'APPLICATION: página con marcadores, gráficos, acciones de usuario e información'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion
@@ -131,6 +131,11 @@ que ya no lo es).
   `applicationMetricsFail` (400, para errores por panel; ningún CA lo exige), `applicationEmpty`
   y `applicationActionsEmpty`.
 - Barras o línea y «sin rejilla» no se ven en el DOM; ningún CA los exige: quedan para la revisión.
+
+### Verifier, 2026-10-09, commit `8150b93`, rango `main..feat/0034-aplicacion-vista`: VERDE
+
+- check: 2636 tests en 153 ficheros, cobertura ok.
+- e2e completo (toca `src/renderer/src/lib`): 296/296.
 
 ## Resultado
 
