@@ -1,7 +1,7 @@
 ---
 id: '0042'
 titulo: 'HOST: tarjeta «Eventos» con los eventos del host y de lo que corre en él (scope events.read)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -156,6 +156,38 @@ Ejecución con el código aún sin hacer: los unitarios nuevos fallan porque no 
 `MODULE_SCOPES.events`, el módulo `events` de la interfaz ni los textos (51 fallos, todos por eso);
 los tres e2e de la 0042, porque no hay tarjeta `host-events`; y `tls.spec` › «con la huella fijada
 conecta», porque `events.read` sale aún como scope que Vigía no usa.
+
+**Decisiones del developer (delegadas por Dani, conservadoras y refinables):**
+
+- Canal en `src/main/modules/host-events.ts`: `GET /entities/{host}` solo con
+  `+fromRelationships,+toRelationships`; cada `eventSelector` como mucho de 9.800 caracteres
+  (`HOST_EVENTS_MAX_SELECTOR`), con `pageSize=20` por consulta (cada una trae sus 20 más recientes,
+  así que entre todas están los 20 del conjunto); las consultas van en paralelo.
+- Un evento sin id de entidad o sin `startTime` numérico se descarta; sin `type`, el del prefijo
+  del id. Cualquier rechazo de Dynatrace (de la entidad o de los eventos) sale con
+  `reason: hostEventsRejected` y su texto como detalle.
+- Tarjeta (`HostEvents.tsx`) después de «Logs» y justo antes de «Información». «20 de N» solo si
+  `totalCount` es mayor que lo enseñado. El `eventType` va tal cual en la píldora; un estado que no
+  sea `OPEN`/`CLOSED` se enseña tal cual.
+- Para saber si la entidad lleva enlace sin importar el registro de páginas (sería un ciclo de
+  imports), `src/renderer/src/pages/entities/entity-page-types.ts` con `ENTITY_PAGE_TYPES`;
+  `registry.ts` lo exige con `satisfies Record<EntityPageType, …>` (no compila si no coinciden).
+
+**Tests de la ficha que el developer cree incorrectos (decide el Orquestador; no se han tocado):**
+
+1. `src/main/ipc/handlers/host-events.test.ts` › «con muchos procesos (450)…»: el host se
+   sobrescribe con `{ ...hostBody(), toRelationships: … }`, así que conserva el
+   `fromRelationships.runsOn` con la EC2, que por la propia decisión del test-writer entra en la
+   consulta; el test espera solo `[HOST_ID, ...many]` y falla con la EC2 de más. Arreglo propuesto:
+   añadir `fromRelationships: {}` a ese host. Con el hook de pre-commit (`vitest related`) este
+   fallo impide commitear el código.
+2. `e2e/views.spec.ts` › «CA5 (0042): la tarjeta «Eventos» del host…»: en el e2e completo falla
+   (solo pasa aislado) porque `sim.hostEventsQueries` recoge una consulta de `HOST_METRICS_ID`. La
+   lanza la recarga del `finally` del test anterior («Aviso del scope (0041)»), que deja la interfaz
+   en la página de ese host con Producción activo; el canal hace dos peticiones seguidas y la
+   segunda llega después del `resetState` del test siguiente. Arreglo propuesto: en el test de la
+   0042, quedarse con las consultas cuyo selector incluye `HOST_EVENTS_HOST` (o esperar
+   `settledRequests()` y vaciar `sim.hostEventsQueries` antes de abrir la página).
 
 ## Resultado
 
