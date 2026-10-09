@@ -1,7 +1,7 @@
 ---
 id: '0043'
 titulo: 'Visor de Markdown: interpretar el HTML de formato de las descripciones, con lista blanca'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: markdown
@@ -204,4 +204,9 @@ defecto de cada tema. Ya no queda abierto para Dani; se afina si la prueba a man
 
 ## Resultado
 
-(pendiente)
+- Commits: tests `c97a788` y `ea8a0d4`; dependencias `d006adc`; implementación `a2aad34` y `2ab8af3`; e2e de CA6 `ea15481`.
+- Ficheros principales: `src/renderer/src/components/markdown-html.ts` (lista blanca), `markdown-color.ts` (colores y contraste), `MarkdownText.tsx`, `package.json`, y los tests `MarkdownText.html.test.ts` y `markdown-color.test.ts`.
+- Revisión: 1 ronda, aprobada. Verifier en verde (2918 tests, e2e 304/304).
+- ADR nuevo: [0011](../docs/adr/0011-html-de-formato-con-lista-blanca.md), que sustituye la regla del HTML en crudo del 0008.
+- Sugerencia del revisor pasada a `BACKLOG.md`: test de la marca `data-vigia-slot` falsificada.
+- Pendiente de Dani: ver una descripción real con HTML de formato en claro y en oscuro.

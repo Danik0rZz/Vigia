@@ -20,5 +20,6 @@ Las 0001 a 0006 recogen decisiones ya tomadas en las fases 1 a 6 y en las versio
 | [0008](0008-contenido-del-tenant-con-formato.md) | Contenido del tenant con formato: sin HTML ni recursos remotos |
 | [0009](0009-avisos-por-telegram.md)              | Avisos del flujo por Telegram: opcionales y filtrados          |
 | [0010](0010-lotes-colas-fichas-ligeras.md)       | Lotes, colas y fichas ligeras para ir más rápido               |
+| [0011](0011-html-de-formato-con-lista-blanca.md) | HTML de formato del tenant interpretado con lista blanca       |
 
 Plantilla: [`_PLANTILLA.md`](_PLANTILLA.md).

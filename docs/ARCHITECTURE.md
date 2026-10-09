@@ -69,7 +69,7 @@ electron-builder 26.15.3, ESLint 9.39.5, React Router 8.4.0, Zustand 5.0.15, i18
 react-i18next 17.0.15, Tailwind CSS 4.3.3, Motion 14.0.0, cmdk 1.1.1, lucide-react 1.51.0,
 better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5.104.1, TanStack
 Virtual 3.14.13, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main),
-ECharts 6.1.0, react-markdown 10.1.0, remark-gfm 4.0.1, lowlight 3.3.0 (MIT) y highlight.js 11.11.2
+ECharts 6.1.0, react-markdown 10.1.0, remark-gfm 4.0.1, rehype-raw 7.0.0 y rehype-sanitize 6.0.0 (MIT; interpretan el HTML de formato con lista blanca, ficha 0043, ADR-0011), lowlight 3.3.0 (MIT) y highlight.js 11.11.2
 (BSD-3-Clause) (renderer; los dos últimos colorean los bloques de código con nueve lenguajes, ficha
 0038, ADR-0008). Node 22 o superior.
 

@@ -78,6 +78,7 @@ Sin migraciones nuevas.
 
 ### Cambiado
 
+- Las descripciones con Markdown (eventos y evidencias de los problemas) ahora interpretan el HTML de formato en vez de enseñarlo como texto: colores con `<span style="color:…">` o `<font color>`, fondos con `background-color`, `<b>`, `<i>`, `<mark>`, `<kbd>`, `<sub>`, `<sup>`, listas, tablas y `<details>`. Solo se admite una lista de etiquetas de formato; un color que no se leería sobre el fondo del tema se ajusta para que se lea en claro y en oscuro. Por confirmar con una descripción real con HTML de formato. Dependencias nuevas: rehype-raw 7.0.0 y rehype-sanitize 6.0.0 (ADR-0011, que sustituye la regla del HTML en crudo del ADR-0008). Sin migraciones nuevas. (ficha 0043)
 - El límite de la descripción de una evidencia sube de 5 000 a 9 000 caracteres (en vivo la más larga mide 4 096); si se pasa, la interfaz avisa del recorte. (ficha 0035)
 - Páginas de servicio, host, browser monitor, HTTP monitor y proceso: la tarjeta «Información» pasa al final de la página. El orden es ahora cabecera, marcadores, gráficos, demás tarjetas (discos y procesos del host, localizaciones y pasos de los monitores…) e «Información», que en un host puede ser muy alta. La tarjeta no cambia por dentro. Las páginas nuevas de entidad seguirán este orden solas. Sin migraciones nuevas. (ficha 0036)
 - Proyecto: los e2e que leen una exportación esperan siempre al aviso «Guardado» y a que el fichero
@@ -120,6 +121,7 @@ Sin migraciones nuevas.
 
 ### Seguridad
 
+- El HTML que se interpreta en las descripciones pasa por una lista blanca: `script`, `style`, `iframe`, `img`, `svg`, `form`, `object` y `embed` no se crean (los que llevan contenido se quitan con él), no se admiten atributos `on*`, `class` ni `id`, `style` solo conserva `color` y `background-color` con valores válidos, y los enlaces solo abren `http:` y `https:` en el navegador del sistema. La CSP no cambia. (ficha 0043)
 - La línea de comandos, los argumentos, las variables de entorno y las rutas de ejecutable (como `COMMAND_LINE_ARGS` o `EXE_PATH`) ya no llegan a la interfaz desde ninguna entidad, ni en la tarjeta ni en «Todas las propiedades»: pueden llevar contraseñas, tokens o el nombre del usuario. El filtro está en el proceso principal, antes de mandar la entidad a la pantalla. Otras rutas de `metadata` (por ejemplo, de scripts o `.jar`) siguen pasando; queda anotado en el backlog. (ficha 0029)
 
 ### Corregido

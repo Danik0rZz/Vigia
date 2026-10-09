@@ -15,9 +15,11 @@
 - Sin definición cerrada no se implementan: Service flows avanzados, Vista de negocio,
   notificaciones, Favoritos y variación de los KPI.
 - Contenido del tenant con formato (Markdown): solo con `MarkdownText`, nunca
-  `dangerouslySetInnerHTML` ni `rehype-raw`; sin HTML en crudo, solo enlaces http/https y sin
-  imágenes (ADR-0008). Los plugins de rehype propios (`markdown-plugins.ts`) solo transforman el
-  árbol, sin generar HTML.
+  `dangerouslySetInnerHTML`. El HTML de formato se interpreta solo con la lista blanca de
+  `markdown-html.ts` (`rehype-raw` + `rehype-sanitize`; `style` reconstruido solo con color y
+  fondo, ADR-0011); solo enlaces http/https y sin imágenes (ADR-0008). Los plugins de rehype
+  propios (`markdown-plugins.ts`, `markdown-color.ts`) van después del saneado y solo transforman
+  el árbol, sin generar HTML.
 - React Router 8.4.0 convierte `%2F` en `/` al leer un parámetro de ruta: un `/` codificado en un
   segmento no hace ida y vuelta (`entity-route.ts`). Los ids de Dynatrace no lo llevan.
 - Para pintar un componente sacado de un registro (`tipo → componente`), `createElement`: con JSX,

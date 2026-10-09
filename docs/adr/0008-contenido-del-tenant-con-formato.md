@@ -1,6 +1,6 @@
 # ADR-0008: Contenido del tenant con formato (Markdown) en la interfaz
 
-Estado: aceptado (2026-10-06). Ficha: 0001
+Estado: aceptado (2026-10-06); la regla del HTML en crudo, sustituida por ADR-0011. Ficha: 0001
 
 ## Contexto
 
