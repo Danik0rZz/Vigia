@@ -1,7 +1,7 @@
 ---
 id: '0031'
 titulo: 'PROCESS_GROUP: análisis de métricas en vivo y canal de series, marcadores e instancias'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -157,6 +157,11 @@ los problemas de los últimos 7 días (10 candidatos, todos con 2 a 4 instancias
   `null` al final. Sin tope: `total` es el número de instancias.
 - Dos peticiones, las dos a `/metrics/query`: nombres y hosts llegan en `dimensionMap`, no hace
   falta `/entities`.
+
+### Verifier, 2026-10-09, commit `9910bd6`, rango `main..feat/0031-grupo-procesos-datos`: VERDE
+
+- check: 2540 tests en 142 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/ipc.ts`): 280/280.
 
 ## Resultado
 
