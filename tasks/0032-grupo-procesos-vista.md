@@ -1,7 +1,7 @@
 ---
 id: '0032'
 titulo: 'PROCESS_GROUP: página con marcadores, gráficos, instancias e información'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos
@@ -149,6 +149,11 @@ se prueba en vivo.
   proceso con el prefijo `process-group`; gráficos `cpu`, `memory`, `network` y `cpu-instances`;
   tabla `process-group-instances` con columnas `name`, `host`, `cpu` y `memory`. Textos en
   `entities.processGroup` (`markers`, `charts`, `instances`, `info.rows` e `info.groups`).
+
+### Verifier, 2026-10-09, commit `314ed01`, rango `main..feat/0032-grupo-procesos-vista`: VERDE
+
+- check: 2575 tests en 147 ficheros, cobertura ok.
+- e2e completo: 287/287 (incluye CA1, la nota del recorte, CA2, CA3, CA5 y CA6 de la 0032).
 
 ## Resultado
 
