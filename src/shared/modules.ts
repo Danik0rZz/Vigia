@@ -541,6 +541,59 @@ export const processGroupMetricsResultSchema = z.object({
 })
 export type ProcessGroupMetricsResult = z.output<typeof processGroupMetricsResultSchema>
 
+/**
+ * Id de una entidad APPLICATION de Dynatrace, una aplicación web (ficha 0033). Como el
+ * del process group: main construye los entitySelector con él y el formato estricto
+ * impide inyectar nada.
+ */
+export const applicationEntityIdSchema = z.string().regex(/^APPLICATION-[0-9A-F]{16}$/)
+
+/** Una acción de usuario de la aplicación en el rango (ficha 0033). */
+export const applicationActionSchema = z.object({
+  id: z.string(),
+  /** De dimensionMap; si no llega, el id. */
+  name: z.string(),
+  /** Número de acciones en el rango; null sin dato. */
+  count: z.number().nullable(),
+  /** Duración media en ms en el rango; null sin dato. */
+  duration: z.number().nullable()
+})
+export type ApplicationAction = z.output<typeof applicationActionSchema>
+
+/**
+ * Métricas de una aplicación web en el rango (canal `entities:applicationMetrics`,
+ * ficha 0033). Unidades sin convertir: Apdex de 0 a 1, recuentos por intervalo y
+ * duraciones en ms. Los cinco papeles tienen métrica: sin datos, series vacías y
+ * totales a null.
+ */
+export const applicationMetricsResultSchema = z.object({
+  /** Resolución que devolvió la API para las series (por ejemplo, 10m o 1h). */
+  resolution: z.string(),
+  series: z.object({
+    apdex: serviceSeriesSchema,
+    actions: serviceSeriesSchema,
+    /** Visually complete de las acciones de carga, media en ms. */
+    duration: serviceSeriesSchema,
+    /** Errores de JavaScript, de peticiones y personalizados, juntos. */
+    errors: serviceSeriesSchema,
+    /** Sesiones empezadas. */
+    sessions: serviceSeriesSchema
+  }),
+  /** Valores del rango completo (resolution=Inf); null sin dato. */
+  totals: z.object({
+    apdex: z.number().nullable(),
+    actions: z.number().nullable(),
+    duration: z.number().nullable(),
+    errors: z.number().nullable(),
+    sessions: z.number().nullable()
+  }),
+  /** Las 10 acciones de más recuento entre load, xhr y custom; las de recuento null, al final. */
+  topActions: z.array(applicationActionSchema).max(10),
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type ApplicationMetricsResult = z.output<typeof applicationMetricsResultSchema>
+
 /** Una localización del monitor en el rango (ficha 0023). */
 export const monitorLocationSchema = z.object({
   id: z.string(),

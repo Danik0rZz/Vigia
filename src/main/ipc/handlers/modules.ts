@@ -60,6 +60,13 @@ import {
   processGroupEntitySelector,
   toProcessGroupMetrics
 } from '../../modules/process-group-metrics'
+import {
+  APPLICATION_ACTIONS_SELECTOR,
+  APPLICATION_SELECTOR,
+  applicationActionsEntitySelector,
+  applicationEntitySelector,
+  toApplicationMetrics
+} from '../../modules/application-metrics'
 import { monitorBreakdownQueries, toMonitorBreakdown } from '../../modules/monitor-breakdown'
 import {
   DISK_RANGE_SELECTOR,
@@ -90,6 +97,7 @@ type ModuleChannels =
   | 'entities:monitorBreakdown'
   | 'entities:processMetrics'
   | 'entities:processGroupMetrics'
+  | 'entities:applicationMetrics'
   | 'slos:list'
   | 'savedQueries:list'
   | 'savedQueries:save'
@@ -477,6 +485,45 @@ export function createModuleHandlers(
         ) {
           throw new DtError(error.code, error.message, error.status, {
             key: 'processGroupMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:applicationMetrics': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const query = (
+        metricSelector: string,
+        entitySelector: string,
+        resolution?: 'Inf'
+      ): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, entitySelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      const app = applicationEntitySelector(entityId)
+      try {
+        // Series con la resolución que elija la API; totales y acciones con Inf (sin
+        // fold: mezclarlos da 400). Las acciones, con el selector de sus acciones.
+        const [series, totals, actions] = await Promise.all([
+          query(APPLICATION_SELECTOR, app),
+          query(APPLICATION_SELECTOR, app, 'Inf'),
+          query(APPLICATION_ACTIONS_SELECTOR, applicationActionsEntitySelector(entityId), 'Inf')
+        ])
+        return toApplicationMetrics(series, totals, actions)
+      } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'applicationMetricsRejected',
             params: { status: error.status ?? 0, detail: error.message }
           })
         }

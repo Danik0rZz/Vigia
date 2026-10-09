@@ -34,6 +34,8 @@ import {
   processEntityIdSchema,
   processMetricsResultSchema,
   processGroupEntityIdSchema,
+  applicationEntityIdSchema,
+  applicationMetricsResultSchema,
   processGroupMetricsResultSchema,
   problemDetailOutputSchema,
   problemSummarySchema,
@@ -407,6 +409,19 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: processGroupMetricsResultSchema
+  },
+  /**
+   * Métricas de una aplicación web (APPLICATION) en el rango (ficha 0033): series y
+   * totales de Apdex, acciones, duración, errores y sesiones, y las 10 acciones de
+   * usuario con más volumen. La interfaz manda el id y main construye los selectores.
+   */
+  'entities:applicationMetrics': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: applicationEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: applicationMetricsResultSchema
   },
   /**
    * Desglose de un browser monitor o de un HTTP monitor por localización y por paso o
