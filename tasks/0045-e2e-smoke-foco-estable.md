@@ -1,7 +1,7 @@
 ---
 id: '0045'
 titulo: e2e estable del smoke «la ventana no le quita el foco»
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -104,4 +104,7 @@ Opcional: el test «nunca se ve» comprueba más bien que la espera está acotad
 
 ## Resultado
 
-(pendiente)
+- Commits: tests `3d1dba6`, arreglo `a383321`; revisión y verificación `760aa76`, `b3b51fa`.
+- Ficheros principales: `e2e/window-state.ts` (`expectShownWithoutFocus`) y `e2e/smoke.spec.ts`. La app no cambia.
+- Rondas de revisión: 1 (aprobada). Verifier en verde: 291/291 e2e; CA1 120/120 con uno y con varios workers.
+- ADR nuevo: ninguno. Migraciones: no.
