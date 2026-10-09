@@ -1,7 +1,7 @@
 ---
 id: '0039'
 titulo: 'HOST: memoria total y memoria recuperable en el marcador y el gráfico de memoria'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: host-2
@@ -159,6 +159,14 @@ y CA6 (0018) pasan con el código actual.
   tooltip («Uso: 62,5 %»). Unidad de exportación de la memoria: `B`.
 - Textos: la ayuda dice que es memoria ocupada (sobre todo cachés y búferes) que el sistema puede
   liberar si hace falta, la disponible sin swap menos la libre, y que no cuenta en la usada.
+
+### Verifier, 2026-10-09, commit `666a67d`, rango `main..feat/0039-host-memoria-total-recuperable`: VERDE
+
+- check: 2931 tests en 158 ficheros, cobertura ok.
+- e2e completo: 305/306 en la primera pasada. Falló una vez `CA2 (0005)` (ventana mínima,
+  `views.spec.ts:4601`) por el `expect.poll` de 5 s de `withContentSize` con los workers en
+  paralelo; aislado ×3 con `--workers=1` pasa 3/3 y `views.spec.ts` entero con `--workers=1` pasa
+  210/210. Ajeno a la ficha (tamaño de ventana bajo carga): intermitente anotado en el BACKLOG.
 
 ## Resultado
 
