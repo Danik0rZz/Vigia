@@ -67,9 +67,24 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
   llevar el ratón a su centro deja el puntero a unos 128 px, fuera del menú ya plegado: el tooltip no
   sale (5 de 5 fallan). La causa es del test, no de la app: con el puntero dentro del enlace, el
   tooltip sale.
-- Arreglo en `e2e/hover.ts`: `hoverFresh` y `moveToNeutral` leen la caja con `stableBox`, que espera
-  a que no cambie entre dos lecturas separadas 50 ms (máximo 3 s). Con él, la misma reproducción
-  (hover justo tras plegar) pasa 10 de 10. No hizo falta `expect.toPass`.
+- Primer arreglo en `e2e/hover.ts`: `hoverFresh` y `moveToNeutral` leen la caja con `stableBox`.
+  Esperar solo a que la caja no cambie entre dos lecturas no basta: con 4 workers a la vez, el
+  renderer puede no pintar en la pausa y las dos lecturas dan la caja de antes de la transición. Por
+  eso `stableBox` espera antes a que acaben las animaciones CSS finitas del documento
+  (`document.getAnimations()`) y después a dos lecturas iguales separadas 50 ms (máximo 3 s). La
+  reproducción determinista pasa 20 de 20.
+- Segundo fallo, destapado por el primer arreglo: con `shell.spec.ts --repeat-each 5` y 4 workers,
+  el test «tooltips del menú» falló en 3 de 10 tandas en `hoverFresh(nav-metrics)` con el menú recién
+  plegado (en `main`, 8 de 8 en verde: ahí el punto neutro se leía a mitad de la transición, lejos
+  del menú). Registrado en la página: el puntero sale del punto neutro, ya junto al menú plegado,
+  cruza `nav-topology`; con la máquina cargada, cada paso tarda tanto que pasan los 300 ms de retardo
+  y su tooltip se abre; al salir de él, Radix marca el puntero «en tránsito» e ignora los
+  `pointermove` sobre `nav-metrics` hasta cerrar el de Topología, cosa que ocurre después del último
+  paso. El puntero queda sobre el enlace (`:hover`) y el tooltip, cerrado. Es el mismo mecanismo que
+  pudo darse en el CI en la línea del test del menú. Arreglo: al llegar, `hoverFresh` mueve el ratón
+  1 px mientras siga abierto el tooltip de otro disparador y una vez más al final. Con él,
+  `shell.spec.ts --repeat-each 5` pasa 12 de 12 tandas y `--repeat-each 30` (720 tests), en verde.
+  No hizo falta `expect.toPass`.
 
 ## Ideas surgidas (fuera de alcance)
 
