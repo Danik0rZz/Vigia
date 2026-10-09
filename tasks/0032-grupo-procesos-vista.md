@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:processGroupMetrics` de la 0031, `entities:get`/`entities:names` de la 0014 y los canales de problemas de las fichas 0007 y 0010)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -76,7 +76,21 @@ número con la nota «como mínimo»). Quedarse con las de más CPU queda para D
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA7 con su test; los de la 0032 sin tocar tras `8801a71`. Fuera de ellos: entrada nueva de
+`data/query-list.ts` en `e2e/areas.json`, tests nuevos de tokens en `env-colors.test.ts` y
+`CA7 (0008)` (`8f4351d`), que solo quita PROCESS_GROUP de «en construcción», como la 0018, la 0024
+y la 0028. «Abrir en Métricas» con `in(…entitySelector(…isInstanceOf…))` es deducible: une la forma
+del live de la 0017 y el selector de la 0031, ambos vistos en vivo; id validado. Las cinco llamadas
+a `entities:processMetrics` reutilizan `processMetricsQuery` en `MANUAL` (ADR-0004), y Reintentar
+repite solo las fallidas. `--chart-4`/`--chart-5` con test de contraste en claro y oscuro. Sin IPC,
+API, dependencias ni esquema nuevos; nada del tenant; `partial` con «N+» y aviso.
+
+Sugerencias, no bloquean:
+
+- Añadir al live de solo lectura una pasada del selector de «Abrir en Métricas» con `isInstanceOf`.
+- En `CA6 (0032)`, comprobar también que tras «Actualizar» vuelven a salir las de instancia.
 
 ## Verificación
 
