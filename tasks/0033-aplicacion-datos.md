@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics` (`metricSelector=builtin:apps.web.*`), `GET /metrics/{metricId}` y `GET /metrics/query`; `GET /entities/{entityId}` (0014); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scopes `metrics.read` y `entities.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -77,7 +77,22 @@ tarjeta.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+Las expresiones del canal son carácter a carácter las del paso 0 en vivo (`CHANNEL_SERIES` y
+`CHANNEL_ACTIONS`): series sin `resolution`, totales con `Inf` y sin `fold`, y las seis de acciones
+con `:sort(value(count,descending)):limit(10)` y el selector `isApplicationMethodOf`. Tope: 10 por
+tipo desde la API; main junta, reordena por recuento (`null` al final) y corta a 10 (`.max(10)` en
+el esquema). El orden de `:sort` sin observar solo decide qué 10 quedan por tipo con más de 10.
+CA1 a CA6 con su test, sin tocar tests tras `bb79a6a`. Zod de entrada (id estricto) y salida, red en
+main, `reason` `applicationMetricsRejected` en es y en. `isApplicationMethodOf` no está en las
+OpenAPI pero se confirmó en vivo y es una relación, no un parámetro. Nada del tenant.
+
+Sugerencias, no bloquean:
+
+- CA5 podría comprobar `'applicationMetricsRejected'` exacto, no solo que `reason.key` es texto.
+- Doc-writer: tabla del paso 0 en `docs/notas-api-v2.md` y que el orden de `:sort(...):limit(10)`
+  queda por confirmar en vivo con más de 10 acciones clave por tipo.
 
 ## Verificación
 
