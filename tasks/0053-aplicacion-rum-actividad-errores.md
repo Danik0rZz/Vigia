@@ -90,7 +90,7 @@ Textos en es y en.
 
 Tests escritos en `bb216f9` (`test(aplicacion): criterios de la ficha 0053 (#0053)`). Fallan porque
 la vista aún no existe (testids `application-marker-users`, `application-section`… no
-encontrados; claves de `entities.application` sin definir), no por el test: 11 e2e nuevos y 5 de la
+encontrados; claves de `entities.application` sin definir), no por el test: 8 e2e nuevos y 5 de la
 0034 ajustados. Los 2 e2e de la 0052 siguen en verde con los valores nuevos del simulador.
 
 | Criterio | Test                                                                                                                                                                                                                |
