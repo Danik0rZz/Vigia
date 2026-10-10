@@ -1,7 +1,7 @@
 ---
 id: '0051'
 titulo: 'PROCESS_GROUP: tabla con las 20 de más CPU, aviso y modal «Ver todas» con transición de entrada'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -189,6 +189,12 @@ del «7+» solo existe sin `totalCount`. El unitario de `instancesTruncated` (00
 - Testids: `process-group-instances-more`, `-all`, `-dialog`, `-dialog-overlay`, `-dialog-search`,
   `-dialog-truncated`, `-dialog-grid`, `-dialog-scroll` y `-dialog-skeleton`; textos en
   `entities.processGroup.instances` (`moreOf`, `moreUnknown`, `viewAll` y `dialog.*`).
+
+### Verifier, 2026-10-10, commit `9b99b86`, rango `main..feat/0051-grupo-procesos-modal-instancias`: VERDE
+
+- check: 3178 tests en 174 ficheros, cobertura ok.
+- e2e completo (toca `main.css` y `dialogs.tsx`): 339/339, sin intermitentes.
+- Los 8 e2e de la 0051 ×3 con `--workers=1`: 24/24 (incluida la animación de CA5).
 
 ## Resultado
 
