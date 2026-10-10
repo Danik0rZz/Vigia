@@ -87,6 +87,33 @@ describe('CA7 (0032): textos de la página del process group en es y en', () => 
     }
   })
 
+  it('CA6 (0051): el aviso «N de total», «Ver todas» y los textos del modal, en es y en', () => {
+    // Claves y textos fijados por el developer (ficha ligera, decisión delegada y refinable).
+    const keys: Record<string, RegExp> = {
+      'instances.moreOf': /\{\{shown\}\}.*\{\{total\}\}/,
+      'instances.moreUnknown': /\{\{shown\}\}/,
+      'instances.viewAll': /\S/,
+      'instances.dialog.title': /\{\{name\}\}/,
+      'instances.dialog.search': /\S/,
+      'instances.dialog.truncatedOf': /\{\{shown\}\}.*\{\{total\}\}/,
+      'instances.dialog.truncated': /\{\{shown\}\}/,
+      'instances.dialog.noMatches': /\S/,
+      'instances.dialog.close': /\S/
+    }
+    for (const [key, pattern] of Object.entries(keys)) {
+      for (const [lang, messages] of [
+        ['es', esGroup],
+        ['en', enGroup]
+      ] as const) {
+        expect(String(messages[key]), `entities.processGroup.${key} (${lang})`).toMatch(pattern)
+      }
+    }
+    expect(esGroup['instances.viewAll']).toBe('Ver todas')
+    expect(String(esGroup['instances.dialog.title'])).toMatch(/^Instancias de \{\{name\}\}$/)
+    expect(String(esGroup['instances.dialog.truncatedOf'])).toMatch(/498/)
+    expect(String(enGroup['instances.dialog.truncatedOf'])).toMatch(/498/)
+  })
+
   it('las mismas claves en es y en, ninguna vacía', () => {
     expect(Object.keys(esGroup).length).toBeGreaterThan(0)
     expect(Object.keys(enGroup).sort()).toEqual(Object.keys(esGroup).sort())

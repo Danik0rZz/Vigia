@@ -2719,6 +2719,9 @@ function pgManyInstances(prefix: string, n: number): ProcessGroupInstanceFake[] 
 }
 const PROCESS_GROUP_MANY_INSTANCES = pgManyInstances('E2E7', 30)
 const PROCESS_GROUP_CUT_INSTANCES = pgManyInstances('E2E8', 25)
+/** Ficha 0051: un grupo de 12 instancias (menos de 20: ni aviso ni «Ver todas»). */
+const PROCESS_GROUP_FEW_ID = 'PROCESS_GROUP-00000000000E2E90'
+const PROCESS_GROUP_FEW_INSTANCES = pgManyInstances('E2E9', 12)
 /** De más a menos CPU media. */
 const byCpu = (list: ProcessGroupInstanceFake[]): ProcessGroupInstanceFake[] =>
   list.slice().sort((a, b) => b.cpu - a.cpu)
@@ -2737,6 +2740,7 @@ function processGroupInstances(groupId: string): ProcessGroupInstanceFake[] {
   if (groupId === PROCESS_GROUP_PAGE_ID) return PROCESS_GROUP_PAGE_INSTANCES
   if (groupId === PROCESS_GROUP_MANY_ID) return PROCESS_GROUP_MANY_INSTANCES
   if (groupId === PROCESS_GROUP_CUT_ID) return PROCESS_GROUP_CUT_INSTANCES
+  if (groupId === PROCESS_GROUP_FEW_ID) return PROCESS_GROUP_FEW_INSTANCES
   return PROCESS_GROUP_INSTANCES.map((instance, i) => ({
     ...instance,
     cpu: PROCESS_GROUP_INSTANCE_VALUES[
@@ -2755,6 +2759,7 @@ function processGroupOf(query: URLSearchParams): string | null {
   if (scope.includes(PROCESS_GROUP_ID)) return PROCESS_GROUP_ID
   if (scope.includes(PROCESS_GROUP_MANY_ID)) return PROCESS_GROUP_MANY_ID
   if (scope.includes(PROCESS_GROUP_CUT_ID)) return PROCESS_GROUP_CUT_ID
+  if (scope.includes(PROCESS_GROUP_FEW_ID)) return PROCESS_GROUP_FEW_ID
   return null
 }
 
@@ -4114,6 +4119,8 @@ const defaultSim = () => ({
   processGroupMetricsFail: false,
   /** Ficha 0032: las expresiones por instancia del process group llegan recortadas (ratio > 1). */
   processGroupTruncated: false,
+  /** Ficha 0051: /entities de las instancias de un grupo responde 403 (total no conocido). */
+  processGroupEntitiesFail: false,
   /** Ficha 0028: las consultas de métricas de los procesos inventados fallan con un 400. */
   processMetricsFail: false,
   /** Ficha 0028: métricas (sin agregación) que llegan sin series a los procesos inventados. */
@@ -4621,6 +4628,12 @@ async function startServer(): Promise<void> {
           url.searchParams.get('entitySelector') === processGroupSelector(group)
         ) {
           sim.processGroupEntityQueries.push(url.searchParams)
+          // Ficha 0051: sin entities.read, el total real no se puede saber.
+          if (sim.processGroupEntitiesFail) {
+            return send(403, {
+              error: { code: 403, message: 'Token sin entities.read (simulado)' }
+            })
+          }
           const all = processGroupInstances(group)
           const totalCount = group === PROCESS_GROUP_CUT_ID ? PROCESS_GROUP_CUT_TOTAL : all.length
           const pageSize = Number(url.searchParams.get('pageSize') ?? '50')
@@ -15024,6 +15037,9 @@ test('CA1 (0032): la página de un process group enseña sus marcadores, sus cua
 
 test('CA1 (0032), nota del Orquestador: con las instancias recortadas (partial), la tabla avisa del recorte y el marcador «Instancias» no presenta el total como real', async () => {
   sim.processGroupTruncated = true
+  // Ficha 0051 (nota del revisor de la 0050): con el total real de /entities, el marcador es
+  // exacto aunque llegue `partial`; el «como mínimo» solo vale si no se sabe el total.
+  sim.processGroupEntitiesFail = true
   await openProcessGroupPage()
   const card = pgInstances()
   await expect(card.getByTestId('process-group-instance-row').first()).toBeVisible()
@@ -15300,6 +15316,306 @@ test('CA6 (0032): si falla el canal de métricas, sus marcadores, cada gráfico 
   await expect(pgInstances().getByTestId('process-group-instance-row')).toHaveCount(7)
   for (const id of PG_METRIC_MARKERS) {
     await expect(pgMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0051: las 20 de más CPU en la tabla «Instancias», el aviso «20 de N» y el modal
+// «Ver todas» con la lista completa (canal entities:processGroupInstances, a demanda).
+// ---------------------------------------------------------------------------
+
+/**
+ * Grupos inventados de la 0050 (PROCESS_GROUP_MANY_ID, 30 instancias; PROCESS_GROUP_CUT_ID, 25
+ * que llegan recortadas de 600) y el de 12 de esta ficha (PROCESS_GROUP_FEW_ID).
+ *
+ * Nombres que fijan estos tests (la ficha no los da; decisión del developer en una ficha ligera,
+ * delegada por Dani y refinable):
+ * - Debajo de la tabla, el aviso `process-group-instances-more` (role="status") y el botón
+ *   `process-group-instances-all` («Ver todas»).
+ * - El modal: `process-group-instances-dialog` (el role="dialog" de Radix, con `data-state`),
+ *   su fondo `process-group-instances-dialog-overlay`, el buscador
+ *   `process-group-instances-dialog-search`, el aviso de recorte
+ *   `process-group-instances-dialog-truncated` y la tabla `process-group-instances-dialog-grid`
+ *   con las mismas filas (`process-group-instance-row` con `data-instance-id`) y columnas.
+ * - La consulta del modal se reconoce en el simulador por la expresión de CPU con
+ *   `:sort(value(avg,descending))` y sin `:limit` (la de la 0050).
+ */
+const pgDialog = (): Locator => page.getByTestId('process-group-instances-dialog')
+const pgViewAll = (): Locator => pgInstances().getByTestId('process-group-instances-all')
+const pgMore = (): Locator => pgInstances().getByTestId('process-group-instances-more')
+const pgDialogRows = (): Locator => pgDialog().getByTestId('process-group-instance-row')
+const pgDialogOrder = (): Promise<string[]> =>
+  tableOrder(pgDialog(), 'process-group-instance-row', 'data-instance-id')
+
+/** Ficha 0051: las consultas de la lista completa (entities:processGroupInstances). */
+const pgFullListQueries = (): URLSearchParams[] =>
+  sim.processGroupMetricQueries.filter((query) => {
+    const selector = query.get('metricSelector') ?? ''
+    return (
+      query.get('resolution') === 'Inf' &&
+      selector.includes(':sort(value(avg,descending))') &&
+      !selector.includes(':limit(')
+    )
+  })
+
+/** Ficha 0051: abre por URL la página de un process group inventado y espera sus filas. */
+async function openPgGroup(groupId: string): Promise<void> {
+  await goToRoute(`/entities/PROCESS_GROUP/${groupId}`)
+  await expect(pgPage()).toBeVisible()
+  await expect(pgInstances().getByTestId('process-group-instance-row').first()).toBeVisible()
+}
+
+/** Ficha 0051: pulsa «Ver todas» y espera el modal abierto con sus filas. */
+async function openPgDialog(): Promise<Locator> {
+  await clickInPlace(pgViewAll(), { scroll: true })
+  const dialog = pgDialog()
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toHaveAttribute('role', 'dialog')
+  await expect(dialog).toHaveAttribute('data-state', 'open')
+  await expect(pgDialogRows().first()).toBeVisible()
+  return dialog
+}
+
+/** Ficha 0051: animación de entrada de un elemento (nombre, duración, curva y fotogramas). */
+async function entranceMotion(target: Locator): Promise<{
+  name: string
+  duration: number
+  timing: string
+  keyframes: string
+}> {
+  return target.evaluate((el) => {
+    const style = getComputedStyle(el)
+    const name = style.animationName
+    const names = name.split(',').map((n) => n.trim())
+    const seconds = (value: string): number =>
+      Math.max(
+        0,
+        ...value.split(',').map((part) => {
+          const v = part.trim()
+          return v.endsWith('ms') ? parseFloat(v) / 1000 : parseFloat(v)
+        })
+      )
+    const texts: string[] = []
+    const visit = (rules: CSSRuleList): void => {
+      for (const rule of Array.from(rules)) {
+        if (rule instanceof CSSKeyframesRule) {
+          if (names.includes(rule.name)) texts.push(rule.cssText)
+        } else if ('cssRules' in rule) {
+          visit((rule as CSSGroupingRule).cssRules)
+        }
+      }
+    }
+    for (const sheet of Array.from(document.styleSheets)) visit(sheet.cssRules)
+    return {
+      name,
+      duration: seconds(style.animationDuration),
+      timing: style.animationTimingFunction,
+      keyframes: texts.join('\n')
+    }
+  })
+}
+
+test('CA1 (0051): con 30 instancias la tabla enseña las 20 de más CPU y el aviso «20 de 30» con «Ver todas»; con 12, ni aviso ni botón; sin el total real, «puede haber más»', async () => {
+  await openPgGroup(PROCESS_GROUP_MANY_ID)
+  const card = pgInstances()
+  await expect(card.getByTestId('process-group-instance-row')).toHaveCount(20)
+  expect(await pgInstanceOrder()).toEqual(
+    byCpu(PROCESS_GROUP_MANY_INSTANCES)
+      .slice(0, 20)
+      .map((instance) => instance.id)
+  )
+  await expect(pgMore()).toBeVisible()
+  await expect(pgMore()).toHaveAttribute('role', 'status')
+  await expect(pgMore()).toContainText(/(^|[^\d.,])20 de 30([^\d.,]|$)/)
+  await expect(pgMore()).toContainText(/más CPU/)
+  await expect(pgViewAll()).toBeVisible()
+  await expect(pgViewAll()).toHaveText(/^\s*Ver todas\s*$/)
+  // El total real, exacto en el marcador (de /entities), sin «como mínimo».
+  await expect(pgMarker('instances').getByTestId('process-group-marker-value')).toHaveText(
+    /^\s*30\s*$/
+  )
+
+  // Con 12 instancias: las 12, ni aviso ni botón.
+  await openPgGroup(PROCESS_GROUP_FEW_ID)
+  await expect(pgInstances().getByTestId('process-group-instance-row')).toHaveCount(12)
+  await expect(pgMore()).toHaveCount(0)
+  await expect(pgViewAll()).toHaveCount(0)
+
+  // Sin el total real (403 en /entities): «20 instancias…; puede haber más» y el botón.
+  await resetState()
+  sim.processGroupEntitiesFail = true
+  await openPgGroup(PROCESS_GROUP_MANY_ID)
+  await expect(pgInstances().getByTestId('process-group-instance-row')).toHaveCount(20)
+  await expect(pgMore()).toContainText(/(^|[^\d.,])20 instancias/)
+  await expect(pgMore()).toContainText(/puede haber más/)
+  await expect(pgMore()).not.toContainText(/ de 30/)
+  await expect(pgViewAll()).toBeVisible()
+})
+
+test('CA2 (0051): «Ver todas» abre el modal con las 30 y pide entities:processGroupInstances una sola vez, no antes de pulsar ni al volver a abrirlo', async () => {
+  await openPgGroup(PROCESS_GROUP_MANY_ID)
+  await settledRequests()
+  // La página no pide la lista completa.
+  expect(pgFullListQueries()).toHaveLength(0)
+
+  const dialog = await openPgDialog()
+  await expect(dialog.getByRole('heading')).toContainText(`Instancias de ${PROCESS_GROUP_MANY_ID}`)
+  await expect(pgDialogRows()).toHaveCount(30)
+  expect(await pgDialogOrder()).toEqual(
+    byCpu(PROCESS_GROUP_MANY_INSTANCES).map((instance) => instance.id)
+  )
+  // Mismas columnas que la tabla de la página.
+  expect(await gridColumns(dialog.getByTestId('process-group-instances-dialog-grid'))).toEqual(
+    PG_INSTANCE_COLUMNS.map((c) => `col-${c}`)
+  )
+  // Sin recorte, sin aviso.
+  await expect(dialog.getByTestId('process-group-instances-dialog-truncated')).toHaveCount(0)
+  await settledRequests()
+  expect(pgFullListQueries()).toHaveLength(1)
+  expect(pgFullListQueries()[0]?.get('entitySelector')).toBe(
+    processGroupSelector(PROCESS_GROUP_MANY_ID)
+  )
+  expect(pgFullListQueries()[0]?.get('from')).toBe('now-2h')
+
+  // Cerrar y volver a abrir: de la caché, sin pedir otra vez.
+  await page.keyboard.press('Escape')
+  await expect(pgDialog()).toHaveCount(0)
+  await openPgDialog()
+  await expect(pgDialogRows()).toHaveCount(30)
+  await settledRequests()
+  expect(pgFullListQueries()).toHaveLength(1)
+})
+
+test('CA3 (0051): con un grupo recortado, el modal avisa arriba del recorte con los números (25 de 600) y el marcador da el total real', async () => {
+  await openPgGroup(PROCESS_GROUP_CUT_ID)
+  // Con el total real de /entities, el marcador es exacto aunque llegue `partial`.
+  await expect(pgMarker('instances').getByTestId('process-group-marker-value')).toHaveText(
+    /^\s*600\s*$/
+  )
+  await expect(pgMore()).toContainText(/(^|[^\d.,])20 de 600([^\d.,]|$)/)
+
+  const dialog = await openPgDialog()
+  await expect(pgDialogRows()).toHaveCount(25)
+  const notice = dialog.getByTestId('process-group-instances-dialog-truncated')
+  await expect(notice).toBeVisible()
+  await expect(notice).toContainText(/(^|[^\d.,])25 de 600([^\d.,]|$)/)
+  await expect(notice).toContainText(loneNumber('498'))
+  // Arriba: antes que la tabla.
+  const noticeBox = await settledBox(notice)
+  const gridBox = await settledBox(dialog.getByTestId('process-group-instances-dialog-grid'))
+  expect(noticeBox.y + noticeBox.height).toBeLessThanOrEqual(gridBox.y + 1)
+})
+
+test('CA4 (0051): en el modal, el buscador filtra por nombre o host, el orden por columna funciona, Escape y clic fuera cierran con el foco en «Ver todas», y pulsar un proceso abre su página', async () => {
+  await openPgGroup(PROCESS_GROUP_MANY_ID)
+  const dialog = await openPgDialog()
+  const search = dialog.getByTestId('process-group-instances-dialog-search')
+
+  // Por nombre.
+  await search.fill('instancia-e2e7-25')
+  await expect(pgDialogRows()).toHaveCount(1)
+  expect(await pgDialogOrder()).toEqual([PROCESS_GROUP_MANY_INSTANCES[24]?.id])
+  // Por host, sin distinguir mayúsculas.
+  await search.fill('HOST-E2E7-7')
+  await expect(pgDialogRows()).toHaveCount(1)
+  expect(await pgDialogOrder()).toEqual([PROCESS_GROUP_MANY_INSTANCES[6]?.id])
+  // Sin coincidencias, ninguna fila; vacío, las 30.
+  await search.fill('no-existe-ninguna')
+  await expect(pgDialogRows()).toHaveCount(0)
+  await search.fill('')
+  await expect(pgDialogRows()).toHaveCount(30)
+
+  // Orden por nombre (ascendente, con los números en su orden) y por memoria.
+  await clickInPlace(dialog.getByTestId('sort-name'))
+  await expect
+    .poll(async () => (await pgDialogOrder()).slice(0, 3))
+    .toEqual(PROCESS_GROUP_MANY_INSTANCES.slice(0, 3).map((instance) => instance.id))
+  await clickInPlace(dialog.getByTestId('sort-memory'))
+  await expect
+    .poll(async () => (await pgDialogOrder())[0])
+    .toBe(PROCESS_GROUP_MANY_INSTANCES[29]?.id)
+
+  // Escape cierra y el foco vuelve a «Ver todas».
+  await page.keyboard.press('Escape')
+  await expect(pgDialog()).toHaveCount(0)
+  await expect(pgViewAll()).toBeFocused()
+
+  // Clic fuera (en el fondo) también cierra.
+  await openPgDialog()
+  await expect(page.getByTestId('process-group-instances-dialog-overlay')).toBeVisible()
+  const box = await settledBox(pgDialog())
+  await page.mouse.click(Math.max(2, box.x / 2), box.y + box.height / 2)
+  await expect(pgDialog()).toHaveCount(0)
+
+  // Pulsar un proceso cierra el modal y abre su página; «Volver» regresa al grupo.
+  await openPgDialog()
+  const target = byCpu(PROCESS_GROUP_MANY_INSTANCES)[25]
+  const id = target?.id ?? ''
+  const row = pgDialog().locator(
+    `[data-testid="process-group-instance-row"][data-instance-id="${id}"]`
+  )
+  const link = row.getByRole('link', { name: target?.name ?? '' })
+  await expect(link).toHaveAttribute('href', new RegExp(`#/entities/PROCESS_GROUP_INSTANCE/${id}$`))
+  await clickInPlace(link, { scroll: true })
+  const processEntityPage = page.getByTestId('entity-page-process_group_instance')
+  await expect(processEntityPage).toBeVisible()
+  await expect(pgDialog()).toHaveCount(0)
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP_INSTANCE/${id}`)
+  await clickInPlace(processEntityPage.getByTestId('entity-back'), { scroll: true })
+  await expect(pgPage()).toBeVisible()
+  expect(await currentRoute()).toBe(`/entities/PROCESS_GROUP/${PROCESS_GROUP_MANY_ID}`)
+  await expect(pgDialog()).toHaveCount(0)
+
+  // El host de una instancia, desde el modal, abre la página del host.
+  await openPgDialog()
+  const hostLink = pgDialog()
+    .locator(`[data-testid="process-group-instance-row"][data-instance-id="${id}"]`)
+    .getByRole('link', { name: target?.hostName ?? '' })
+  await expect(hostLink).toHaveAttribute(
+    'href',
+    new RegExp(`#/entities/HOST/${target?.hostId ?? ''}$`)
+  )
+  await clickInPlace(hostLink, { scroll: true })
+  await expect(page.getByTestId('entity-page-host')).toBeVisible()
+  await expect(pgDialog()).toHaveCount(0)
+  expect(await currentRoute()).toBe(`/entities/HOST/${target?.hostId ?? ''}`)
+})
+
+test('CA5 (0051): el panel del modal entra con escala, desplazamiento y opacidad con rebote (unos 300 ms) y el fondo se desenfoca; con movimiento reducido, solo un fundido corto', async () => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  try {
+    await openPgGroup(PROCESS_GROUP_MANY_ID)
+    await openPgDialog()
+    const panel = await entranceMotion(pgDialog())
+    expect(panel.name, 'animación de entrada').not.toBe('none')
+    expect(panel.duration).toBeGreaterThanOrEqual(0.2)
+    expect(panel.duration).toBeLessThanOrEqual(0.5)
+    expect(panel.keyframes).toMatch(/scale/)
+    expect(panel.keyframes).toMatch(/translate/)
+    expect(panel.keyframes).toMatch(/opacity/)
+    // Curva con rebote: un cubic-bezier con un punto de control por encima de 1.
+    const bezier = /cubic-bezier\(([^)]+)\)/.exec(panel.timing)
+    expect(bezier, panel.timing).not.toBeNull()
+    const [, y1, , y2] = (bezier?.[1] ?? '').split(',').map((v) => Number(v.trim()))
+    expect(Math.max(y1 ?? 0, y2 ?? 0)).toBeGreaterThan(1)
+    // El fondo se oscurece con desenfoque.
+    const overlay = page.getByTestId('process-group-instances-dialog-overlay')
+    expect(await overlay.evaluate((el) => getComputedStyle(el).backdropFilter)).toMatch(/blur/)
+    expect((await entranceMotion(overlay)).name).not.toBe('none')
+    await page.keyboard.press('Escape')
+    await expect(pgDialog()).toHaveCount(0)
+
+    // Con «reducir el movimiento»: solo un fundido corto, sin escala ni desplazamiento.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await openPgDialog()
+    const reduced = await entranceMotion(pgDialog())
+    expect(reduced.name, 'fundido').not.toBe('none')
+    expect(reduced.keyframes).toMatch(/opacity/)
+    expect(reduced.keyframes).not.toMatch(/scale|translate/)
+    expect(reduced.duration).toBeGreaterThan(0.01)
+    expect(reduced.duration).toBeLessThanOrEqual(0.2)
+  } finally {
+    await page.emulateMedia({ reducedMotion: null })
   }
 })
 
