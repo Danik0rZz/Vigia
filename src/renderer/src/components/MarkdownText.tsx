@@ -175,19 +175,22 @@ function Blockquote({
  * Título del Markdown del tenant (ficha 0064): un `p` con `role="heading"` y no un `h1`…`h6`
  * real, para que no entre en la jerarquía de títulos de la página (lectores de pantalla). El
  * nivel accesible queda en 5 o 6, por debajo de los de la app; el aspecto, por la clase
- * `md-h<nivel>` de `main.css`.
+ * `md-h<nivel>` de `main.css`. El `id` se conserva: el título de las notas al pie de GFM
+ * (`footnote-label`) es el destino del `aria-describedby` de sus referencias.
  */
 interface HeadingProps {
   children?: ReactNode
+  id?: string | undefined
   className?: string | undefined
   style?: CSSProperties | undefined
   title?: string | undefined
 }
 
 function heading(level: 1 | 2 | 3 | 4 | 5 | 6): (props: HeadingProps) => JSX.Element {
-  return function MarkdownHeading({ children, className, style, title }: HeadingProps) {
+  return function MarkdownHeading({ children, id, className, style, title }: HeadingProps) {
     return (
       <p
+        id={id}
         role="heading"
         aria-level={Math.min(6, 4 + level)}
         className={className === undefined ? `md-h${level}` : `md-h${level} ${className}`}

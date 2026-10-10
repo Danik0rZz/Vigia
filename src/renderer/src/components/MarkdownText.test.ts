@@ -219,3 +219,23 @@ describe('CA6 (0064): los títulos del Markdown salen con nivel 5 o 6 y sin h1�
     expect(headings(html)).toHaveLength(6)
   })
 })
+
+/**
+ * Las referencias de nota (`[^1]`) apuntan a `#user-content-fn-1`, que no es http/https: el `a`
+ * de MarkdownText (ficha 0001, ADR-0008) las deja en texto, sin `aria-describedby`. El título
+ * `footnote-label` sí debe conservar su `id`, y cualquier `aria-describedby` que quede, apuntar a
+ * un `id` del HTML.
+ */
+describe('Revisión ronda 1 (0064): las notas al pie siguen enlazadas con su título', () => {
+  it('el título de las notas conserva id="footnote-label" y ningún aria-describedby queda colgando', () => {
+    const html = render(['texto[^1]', '', '[^1]: nota'].join('\n'))
+    const label = tags(html, 'p').find(
+      (tag) => /\srole="heading"/.test(tag) && /\sid="footnote-label"/.test(tag)
+    )
+    expect(label, 'título de las notas con su id').toBeDefined()
+    const described = [...html.matchAll(/\saria-describedby="([^"]+)"/g)].map((match) => match[1])
+    for (const id of described) expect(html, id).toContain(`id="${id}"`)
+    // El título de las notas sale también como p con role=heading, no como h2.
+    expect(tags(html, 'h2')).toEqual([])
+  })
+})
