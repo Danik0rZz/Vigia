@@ -1,7 +1,7 @@
 ---
 id: '0049'
 titulo: 'Etiquetas de entidad como cápsula de dos colores (clave | valor)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -115,4 +115,7 @@ Sugerencias, no bloquean:
 
 ## Resultado
 
-(pendiente)
+- Commits: `9ddf04b` (tests), `d180c2d` (código), y los de ficha `8b8dc7d`, `f5e9e79`, `721cc1a`.
+- Ficheros principales: `src/renderer/src/pages/entities/EntityTags.tsx`, `entity-tags.ts` (`tagTone`), `src/renderer/src/assets/main.css` (`--tag-*`, `capsule-gloss`), `src/main/env-colors.test.ts`, `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Sin migraciones.
+- Pendiente de Dani: verla en claro y en oscuro.
