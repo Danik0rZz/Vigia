@@ -202,7 +202,8 @@ describe('CA6 (0064): los títulos del Markdown salen con nivel 5 o 6 y sin h1�
     expect(found).toHaveLength(2)
     expect(level(found[0])).toBe('5')
     expect(level(found[1])).toBe('6')
-    expect(visibleText(html)).toBe('ab')
+    // El texto no se pierde (react-markdown deja un salto de línea entre bloques).
+    expect(visibleText(html).split(/\s+/).filter(Boolean)).toEqual(['a', 'b'])
   })
 
   it('los niveles intermedios se quedan en 6 (min(6, 4 + nivel))', () => {
