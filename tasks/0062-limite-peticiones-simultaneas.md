@@ -12,7 +12,7 @@ adrs: [2, 4]
 adr_nuevo:
 api: ninguna nueva
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -59,7 +59,22 @@ reintento de 429 que ya existe no cambia.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA4 con su `describe` numerado en `client.concurrency.test.ts`, sin tocarlos tras `df6eb44`;
+CA5 son los e2e. Sin fugas de sitio: error del cuerpo o no-ok, cancelación en cola, justo al
+recibir sitio o en vuelo, y el 429 suelta antes de dormir; `release` es idempotente. Sin bloqueos:
+el sitio es por intento y nadie pide otro mientras ocupa uno (paginación, dos fases, OAuth con su
+propio plazo). La espera en cola no tiene plazo propio pero avanza siempre (cada intento está
+acotado). El log de la cola solo lleva el id interno y el número de pendientes. Sin IPC, CSP,
+dependencias, esquema ni endpoints; nada del tenant. Los tests nuevos no dependen del reloj ni del
+orden de microtareas: el fallo suelto del `check` del developer viene probablemente de otro suite.
+
+Sugerencias, no bloquean:
+
+1. Que el verifier pase `npm run check` 3 o 4 veces y apunte el test si falla alguno.
+2. Cancelar el cuerpo del 401 de OAuth antes de reintentar, como en el 429 (ya pasaba antes).
+3. Un handler que pase `signal` tendrá que traducir el `AbortError` a un `DtError` con `reason`.
 
 ## Verificación
 
