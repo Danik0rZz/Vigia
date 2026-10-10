@@ -388,6 +388,8 @@ export function DataGrid<T, K extends string = string>({
   // La primera fila visible, bajo la cabecera fija, cada vez que cambia.
   const lastReported = useRef(initialIndex)
   const frame = useRef(0)
+  // Al desmontarse, el fotograma pendiente no llega a correr sobre una tabla que ya no está.
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
   const onScroll = (): void => {
     if (onFirstVisibleChange === undefined) return
     cancelAnimationFrame(frame.current)
