@@ -13,7 +13,7 @@ adrs: [7, 13] # ADR que aplican, por número
 adr_nuevo: 'ADR-0014: integración por pull request (CI en la PR, check «CI ok» siempre presente, un commit por ficha y ramas de integración)' # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -115,7 +115,12 @@ Normal (`ligera: no`). Toca un servicio externo (GitHub Actions), ya no entra.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios CA1–CA5 con su `describe` numerado en `scripts/ci-changes.test.ts` y `scripts/ci-workflow.test.ts`, sin cambios desde el commit de tests (275846b); fallarían sin el código. El cambio del test de la 0056 («nunca es true sin condición») es correcto: el CA5 de la 0072 sustituye al de la 0056 y fija la expresión exacta. `scripts/ci-changes.main.test.ts` (del developer) cubre git y `GITHUB_OUTPUT`. La lista de no-código vive solo en `NON_CODE_PATTERNS`.
+- Diseño en GitHub Actions: en `pull_request` el checkout es el commit de fusión; con `fetch-depth: 2`, `HEAD^1` es `main`. `windows` con `needs.cambios.outputs.codigo == 'true'` se salta si `cambios` falla. «CI ok» con `always()` da rojo con `failure` o `cancelled` y verde con `success` + `skipped`. Push y `workflow_dispatch`: `codigo=true` y `dist:win` se ejecuta. Concurrencia: cancela en PR, encola en `main`.
+- Reglas: `contents: read`, acciones con los SHA de `PINNED`, sin dependencias, secretos ni datos del tenant.
+- Opcional (no bloquea): fijar `== 'true'` en el test de CA3; llevar la lógica de CA4 al script; un run cancelado por otro push ejecuta «CI ok» en rojo sobre el SHA antiguo (no afecta a la PR; `!cancelled()` lo evitaría, pero la ficha pide `always()`); ADR-0014 para el doc-writer.
 
 ## Verificación
 
