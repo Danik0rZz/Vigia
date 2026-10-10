@@ -1,7 +1,7 @@
 ---
 id: '0061'
 titulo: 'La ventana se recupera si el renderer cae, y copia de la base antes de migrar'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -75,7 +75,46 @@ migración que "acaba bien" y deja datos mal solo se ve después.
 
 ## Verificación
 
-(pendiente)
+Comprobado en `main` (2026-10-10) que lo descrito sigue igual: sin oyentes de `render-process-gone`
+ni `unresponsive` en `src/main`, y `openDatabase` migra sin copia previa.
+
+Tests escritos en `ce9fd08` (`test(main): criterios de la ficha 0061`); fallan porque faltan
+`src/main/crash-policy.ts` y `src/main/db/backup.ts`.
+
+- CA1: `src/main/crash-policy.test.ts`, «CA1 (0061)» (primera caída recarga y deja `reason` y
+  `exitCode` en el log; segunda antes de un minuto, diálogo y después cierre; pasado el minuto,
+  recarga otra vez; el minuto cuenta desde la última recarga; `clean-exit` y `killed` no hacen nada
+  ni cuentan).
+- CA2: `src/main/db/backup.test.ts`, «CA2 (0061)» (base en carpeta temporal migrada con un journal
+  sin la última migración: copia con el nombre de la migración pendiente, con los datos de antes, la
+  ruta en el log y la base se migra después; sin pendientes o sin fichero, nada; si la copia falla,
+  rechaza, lo registra y la base queda intacta).
+- CA3: `backup.test.ts`, «CA3 (0061)» (cuatro copias → se borra la primera; los ficheros ajenos de
+  la carpeta no se tocan).
+- CA4: `crash-policy.test.ts`, «CA4 (0061)» (mismas claves en es y en, traducidas; el mensaje de
+  caída remite al log; «Esperar»/«Cerrar» y «Wait»/«Close»; el diálogo de la política sale en el
+  idioma dado).
+
+Decisiones del test-writer (Dani delegó; conservadoras y refinables):
+
+- API de la política: `createCrashPolicy({ now, logger, reload, showErrorBox, quit, language })`
+  con `renderProcessGone({ reason, exitCode })`; textos en `crashTexts(language)` con, al menos,
+  `goneMessage`, `unresponsiveMessage`, `wait` y `close` (`CrashLanguage` = `'es' | 'en'`). La
+  política muestra el diálogo y luego cierra; `window.ts` solo le pasa lo de Electron.
+- «Idioma guardado»: el idioma vive en el `localStorage` del renderer, que main no lee. La política
+  lo recibe como `language()`; de dónde lo saca main lo decide el developer (anotarlo). No se pide
+  canal IPC nuevo por esto.
+- `unresponsive` no tiene criterio propio: solo se prueban sus textos (CA4); los segundos de espera
+  los fija el developer.
+- Copia: `backupBeforeMigrations({ file, migrationsFolder, backupDir, logger, now? })` en
+  `src/main/db/backup.ts`, asíncrona (porque `sqlite.backup` lo es) y aparte de `openDatabase`, que
+  sigue síncrona (la usan los tests con `:memory:`). Devuelve la ruta de la copia o `null`.
+- Sin pérdida de datos: **si la copia falla (también sin espacio), no se migra**: la función rechaza
+  y lo registra, y el arranque cae en el diálogo ya existente de «No se pudo abrir la base de datos
+  local». La poda de copias viejas va después de una copia correcta (no se puede probar sin forzar el
+  fallo a mitad: queda para el reviewer). Se conservan 3 y solo se borran ficheros creados como
+  copia, nunca otros de la carpeta.
+- Sin espacio en disco no se simula: es el mismo camino que cualquier fallo de la copia.
 
 ## Resultado
 
