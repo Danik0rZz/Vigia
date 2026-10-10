@@ -1,7 +1,7 @@
 ---
 id: '0072'
 titulo: 'CI en las PR a main con el e2e completo y un check «CI ok» que se ejecuta siempre'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -132,7 +132,7 @@ Tests (commit 275846b), que fallan hasta implementar:
 - CA4: `scripts/ci-workflow.test.ts`, «CA4 (0072): ci-ok («CI ok») siempre se ejecuta y falla si algún job falló» (sobre el texto de sus pasos: `needs`, `failure` y `cancelled`).
 - CA5: `scripts/ci-workflow.test.ts`, «CA5 (0072): concurrencia que cancela en las PR y encola en main». El test de la 0056 «cancel-in-progress es false» pasa a «nunca es true sin condición».
 
-Comprobación en GitHub: (pendiente)
+Comprobación en GitHub: pendiente: lo añade el Orquestador tras integrar.
 
 Verificación 2026-10-11, commit 3f1ba3a, rango `main..feat/0072-ci-en-pull-request`: **VERDE**.
 
@@ -142,4 +142,7 @@ Verificación 2026-10-11, commit 3f1ba3a, rango `main..feat/0072-ci-en-pull-requ
 
 ## Resultado
 
-(pendiente)
+- Commits: 275846b (tests), 903d051 (`ci-changes.mjs`), 8ef1295 (`ci.yml`), más los de la ficha.
+- Ficheros principales: `.github/workflows/ci.yml`, `scripts/ci-changes.mjs`, `scripts/ci-changes.test.ts`, `scripts/ci-changes.main.test.ts`, `scripts/ci-workflow.test.ts`.
+- Rondas de revisión: 1 (APROBADO). ADR nuevo: ADR-0014 (aceptado, con las decisiones de Dani de la 0073).
+- Comprobación en GitHub con dos PR de prueba: pendiente, la hace el Orquestador tras integrar. La protección de `main` no se activa aquí.

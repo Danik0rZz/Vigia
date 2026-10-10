@@ -23,5 +23,6 @@ Las 0001 a 0006 recogen decisiones ya tomadas en las fases 1 a 6 y en las versio
 | [0011](0011-html-de-formato-con-lista-blanca.md)        | HTML de formato del tenant interpretado con lista blanca       |
 | [0012](0012-react-compiler-en-el-build-del-renderer.md) | React Compiler en el build del renderer                        |
 | [0013](0013-carril-rapido-y-menos-repeticiones.md)      | Carril rápido, menos repeticiones y no esperar al CI           |
+| [0014](0014-integracion-por-pull-request.md)            | Integración por pull request: CI en la PR y «CI ok»            |
 
 Plantilla: [`_PLANTILLA.md`](_PLANTILLA.md).
