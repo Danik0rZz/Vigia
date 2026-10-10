@@ -1611,6 +1611,11 @@ const SVC_LONG_ID = 'SERVICE-00000000000E2E09'
  * separador de miles aunque el número tenga solo 4 cifras.
  */
 const SVC_KO_THOUSANDS_ID = 'SERVICE-0000000000E2E012'
+/**
+ * Ficha 0048: servicio con una caída de la disponibilidad por debajo del 90 %: por punto, 96 %,
+ * 100 %, hueco y 66,7 %; en el rango, 128 de 150 peticiones sin error (85,3 %).
+ */
+const SVC_SLO_ID = 'SERVICE-0000000000E2E048'
 const SVC_DATA: Record<
   string,
   { series: Record<SvcKind, (number | null)[]>; markers: Record<SvcKind, number> }
@@ -1627,6 +1632,10 @@ const SVC_DATA: Record<
       errors: [5000, 4000, null, 907]
     },
     markers: { ...SVC_MARKERS, requests: 45_000, errors: 9907 }
+  },
+  [SVC_SLO_ID]: {
+    series: { ...SVC_SERIES, errors: [2, 0, null, 20], rate: [4, 0, null, 33.3] },
+    markers: { ...SVC_MARKERS, errors: 22, rate: 14.7 }
   },
   [SVC_BIG_ID]: {
     series: {
@@ -10025,6 +10034,107 @@ test('CA4 (0047): un WEB_SERVICE se ve como hoy: marcadores y gráficos completo
   await expect(page.getByTestId('service-chart-panel')).toHaveCount(4)
   expect(await chartSeries('activity')).toHaveLength(2)
   await expect(servicePage.getByTestId('service-metric-set-note')).toHaveCount(0)
+})
+
+/**
+ * Ficha 0048: disponibilidad (SLO calculado por Vigía) de la página del servicio. Nombres que fijan
+ * estos tests: el panel `service-slo-panel` (dentro de `service-charts`, encima de la rejilla de
+ * los `service-chart-panel`), con su título en `service-slo-title` (disparador del tooltip, con
+ * foco) y el `Chart` `service-slo-chart` con `data-series` y `data-thresholds` (los valores de
+ * las líneas horizontales de la opción, en JSON); la línea `service-marker-availability` dentro
+ * del marcador «Tasa de error», con `data-critical` («true» por debajo del 90 %).
+ */
+const sloPanel = (): Locator => page.getByTestId('service-slo-panel')
+const sloChart = (): Locator => sloPanel().getByTestId('service-slo-chart')
+
+test('CA3 (0048): con una caída por debajo del 90 %, el gráfico de disponibilidad sale encima de la rejilla con su serie y el umbral, y el marcador en color de error', async () => {
+  const servicePage = await openServicePage(SVC_SLO_ID)
+  const section = servicePage.getByTestId('service-charts')
+
+  // El panel, dentro de la sección de gráficos y encima del primero de la rejilla.
+  const panel = section.getByTestId('service-slo-panel')
+  await expect(panel).toBeVisible()
+  await expect(panel.getByTestId('service-slo-title')).toHaveText('Disponibilidad (SLO calculado)')
+  const firstGrid = section.getByTestId('service-chart-panel').first()
+  await expect(firstGrid).toBeVisible()
+  const sloBox = await panel.boundingBox()
+  const gridBox = await firstGrid.boundingBox()
+  expect(sloBox).not.toBeNull()
+  expect(gridBox).not.toBeNull()
+  expect((sloBox?.y ?? 0) + (sloBox?.height ?? 0)).toBeLessThanOrEqual(gridBox?.y ?? 0)
+  // A todo el ancho: tan ancho como la rejilla entera.
+  const gridRow = await firstGrid.locator('xpath=..').boundingBox()
+  expect(Math.abs((sloBox?.width ?? 0) - (gridRow?.width ?? 0))).toBeLessThanOrEqual(2)
+  // La rejilla sigue con sus cuatro gráficos.
+  await expect(section.getByTestId('service-chart-panel')).toHaveCount(4)
+
+  // Su serie y la línea del umbral del 90 %.
+  const chart = sloChart()
+  await expect(chart.locator('canvas').first()).toBeVisible()
+  await expect(chart).toHaveAttribute('data-series', /\[.+\]/)
+  const series = JSON.parse((await chart.getAttribute('data-series')) ?? '[]') as string[]
+  expect(series).toHaveLength(1)
+  expect(series[0]).toMatch(/disponibilidad/i)
+  await expect(chart).toHaveAttribute('data-thresholds', '[90]')
+
+  // Sin «Abrir en Métricas» (es un cálculo de Vigía), pero se puede exportar.
+  await expect(panel.getByTestId('service-chart-open')).toHaveCount(0)
+  await expect(
+    panel.locator('[data-testid="export-menu"][data-export-target="service-slo-chart"]')
+  ).toBeVisible()
+
+  // El marcador «Tasa de error» enseña la disponibilidad del rango, en color de error y con texto.
+  const line = serviceMarker('error-rate').getByTestId('service-marker-availability')
+  await expect(line).toBeVisible()
+  await expect(line).toContainText(/Disponibilidad\s85,3\s?%/)
+  await expect(line).toHaveAttribute('data-critical', 'true')
+  await expect(line).toHaveClass(/text-danger/)
+  await expect(line).toContainText(/por debajo del 90\s?%/)
+})
+
+test('CA3 (0048): sin bajar del 90 %, la disponibilidad del marcador no va en color de error', async () => {
+  await openServicePage(SVC_BIG_ID)
+  const line = serviceMarker('error-rate').getByTestId('service-marker-availability')
+  await expect(line).toContainText(/Disponibilidad\s100,0\s?%/)
+  await expect(line).toHaveAttribute('data-critical', 'false')
+  await expect(line).not.toHaveClass(/text-danger/)
+  await expect(sloPanel()).toBeVisible()
+})
+
+test('CA4 (0048): en un servicio de solo actividad no salen el gráfico de disponibilidad ni la línea del marcador', async () => {
+  const servicePage = await openServicePage(SVC_SET_IDS.activity)
+  // Espera a que la página esté pintada con los datos (el gráfico de actividad, con su serie).
+  expect(await chartSeries('activity')).toHaveLength(1)
+  await expect(servicePage.getByTestId('service-slo-panel')).toHaveCount(0)
+  await expect(servicePage.getByTestId('service-slo-chart')).toHaveCount(0)
+  await expect(servicePage.getByTestId('service-marker-availability')).toHaveCount(0)
+})
+
+test('CA5 (0048): el tooltip del nombre del gráfico explica la fórmula, con ratón y con foco', async () => {
+  await openServicePage(SVC_SLO_ID)
+  const title = sloPanel().getByTestId('service-slo-title')
+  await expect(title).toBeVisible()
+  const tooltip = page.getByRole('tooltip')
+
+  // Con el ratón.
+  await hoverFresh(page, title)
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toContainText(/peticiones/i)
+  await expect(tooltip).toContainText(/errores/i)
+  await expect(tooltip).toContainText('Vigía')
+  await moveToNeutral(page)
+  await page.keyboard.press('Escape')
+  await expect(tooltip).toHaveCount(0)
+
+  // Con el foco, ya a la vista (Radix cierra el tooltip si su contenedor se desplaza).
+  await title.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+  await settledBox(title)
+  await title.focus()
+  await expect(title).toBeFocused()
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toContainText(/peticiones/i)
+  await page.keyboard.press('Escape')
+  await expect(tooltip).toHaveCount(0)
 })
 
 /**
