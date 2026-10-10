@@ -1,7 +1,7 @@
 ---
 id: '0054'
 titulo: 'APPLICATION (RUM): secciones «Usuarios y sesiones» y «Experiencia» (Core Web Vitals)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -149,6 +149,11 @@ defecto está apagado como en vivo.
 - No se prueban (no están en los criterios): el tooltip de las tarjetas abierto, las líneas
   discontinuas, el segundo eje de la duración y el de CLS, «Abrir en Métricas», exportar y los
   errores por panel de las secciones nuevas.
+
+### Verifier, 2026-10-10, commit `bedf03d`, rango `main..feat/0054-aplicacion-rum-usuarios-experiencia`: VERDE
+
+- check: 3228 tests en 180 ficheros, cobertura ok.
+- e2e completo (toca `lib` y `chart-time.ts`): 353/353, sin intermitentes.
 
 ## Resultado
 
