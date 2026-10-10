@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -66,7 +66,19 @@ día anterior. `src/main/export/file-name.ts` ya usa hora local: se exporta de a
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA3 con su test (más el complemento de 300 000 filas), con lo esperado sacado de `Intl` con
+zona explícita; sin tocarlos tras `7133a34`. Las dos adaptaciones de tests anteriores (`09d021f`,
+`527d9d5`) solo cambian la zona esperada por la decisión de Dani y siguen probando el mismo instante;
+el e2e del mini gráfico lee la zona del renderer y usa `wallTimeToEpoch`, así que vale en el CI (UTC)
+y en la VPS (Madrid). `toExcelLocal` parte de un instante real con los getters locales (la hora que
+no existe no puede salir; la repetida da la misma hora de pared). TXT sin spread de la tabla como
+argumentos. El CSV sigue en ISO UTC con `Z`, fuera de alcance y sin ambigüedad. Sin IPC, API,
+dependencias, esquema ni permisos; nada del tenant.
+
+Opcional: en el e2e, una exportación justo en la hora repetida de una zona con cambio de hora puede
+salirse una hora (no en el CI; en la VPS, una hora al año).
 
 ## Verificación
 
