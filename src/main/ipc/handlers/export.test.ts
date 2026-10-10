@@ -45,6 +45,33 @@ const rows = [
   { displayId: 'P-2', title: 'Año', count: -2, startTime: null }
 ]
 
+/**
+ * Hora de pared de `instant` en Madrid (la zona de los tests, `vitest.config.ts`) como instante UTC:
+ * lo que enseña Excel desde la ficha 0063, que escribe las fechas del XLSX en hora local. Se calcula
+ * con `Intl` y zona explícita, sin pasar por el código que se prueba.
+ */
+function madridWall(instant: number): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date(instant))
+  const part = (type: string): number => Number(parts.find((p) => p.type === type)?.value)
+  return Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second')
+  )
+}
+
 function build(exportDir: string | null): ReturnType<typeof createExportHandlers> {
   return createExportHandlers({
     repo: createTenantRepository(db),
@@ -178,8 +205,8 @@ describe('export:table con VIGIA_EXPORT_DIR', () => {
       Rango: 'now-2h',
       'Zona horaria': 'Europe/Madrid'
     })
-    expect((info['Hasta'] as Date).getTime()).toBe(NOW.getTime())
-    expect((info['Desde'] as Date).getTime()).toBe(NOW.getTime() - 2 * 3600_000)
+    expect((info['Hasta'] as Date).getTime()).toBe(madridWall(NOW.getTime()))
+    expect((info['Desde'] as Date).getTime()).toBe(madridWall(NOW.getTime() - 2 * 3600_000))
     expect(workbook.getWorksheet('Datos')?.getRow(2).getCell(4).value).toBeInstanceOf(Date)
   })
 
@@ -786,16 +813,16 @@ describe('AUD-14: loadedAt fija Desde y Hasta a cuando se cargaron los datos', (
   it('datos de hace 6 h con rango 2h: Desde = loadedAt − 2 h, Hasta = loadedAt; Exportado = ahora', async () => {
     const loadedAt = NOW.getTime() - 6 * HOUR
     const values = await info({ timeRange: '2h', loadedAt })
-    expect((values['Hasta'] as Date).getTime()).toBe(loadedAt)
-    expect((values['Desde'] as Date).getTime()).toBe(loadedAt - 2 * HOUR)
-    expect((values['Exportado'] as Date).getTime()).toBe(NOW.getTime())
+    expect((values['Hasta'] as Date).getTime()).toBe(madridWall(loadedAt))
+    expect((values['Desde'] as Date).getTime()).toBe(madridWall(loadedAt - 2 * HOUR))
+    expect((values['Exportado'] as Date).getTime()).toBe(madridWall(NOW.getTime()))
     expect(values['Rango']).toBe('now-2h')
   })
 
   it('sin loadedAt, como antes: relativas a la hora de exportar', async () => {
     const values = await info({ timeRange: '2h' })
-    expect((values['Hasta'] as Date).getTime()).toBe(NOW.getTime())
-    expect((values['Desde'] as Date).getTime()).toBe(NOW.getTime() - 2 * HOUR)
+    expect((values['Hasta'] as Date).getTime()).toBe(madridWall(NOW.getTime()))
+    expect((values['Desde'] as Date).getTime()).toBe(madridWall(NOW.getTime() - 2 * HOUR))
   })
 
   it('un rango personalizado no depende de loadedAt', async () => {
@@ -805,8 +832,8 @@ describe('AUD-14: loadedAt fija Desde y Hasta a cuando se cargaron los datos', (
       timeRange: { from: new Date(from).toISOString(), to: new Date(to).toISOString() },
       loadedAt: NOW.getTime() - 6 * HOUR
     })
-    expect((values['Desde'] as Date).getTime()).toBe(from)
-    expect((values['Hasta'] as Date).getTime()).toBe(to)
+    expect((values['Desde'] as Date).getTime()).toBe(madridWall(from))
+    expect((values['Hasta'] as Date).getTime()).toBe(madridWall(to))
   })
 
   it.each([
