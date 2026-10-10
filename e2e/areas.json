@@ -117,6 +117,7 @@
     },
     "views": {
       "globs": [
+        "e2e/views/**",
         "src/renderer/src/pages/**",
         "src/renderer/src/components/Chart.tsx",
         "src/renderer/src/components/chart-time.ts",
