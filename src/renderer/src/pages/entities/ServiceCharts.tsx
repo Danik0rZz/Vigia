@@ -13,6 +13,11 @@ import {
   serviceChartUnit,
   type ServiceChartKind
 } from './service-charts'
+import {
+  availabilityChartOption,
+  availabilityPoints,
+  hasAvailability
+} from './service-availability'
 import { NO_COLORS, type VisibleRange } from './entity-charts'
 import { EntityChartPanel } from './EntityChartPanel'
 
@@ -45,6 +50,10 @@ export function ServiceCharts({
       className="grid gap-3"
     >
       <h2 className="text-sm font-semibold">{t('entities.service.charts.title')}</h2>
+      {/* Ficha 0048: encima de la rejilla, a todo el ancho; Solo actividad no tiene errores. */}
+      {metrics.data !== undefined && hasAvailability(metrics.data) && (
+        <ServiceAvailabilityPanel metrics={metrics} />
+      )}
       <div className={kinds.length > 1 ? 'grid gap-4 lg:grid-cols-2' : 'grid gap-4'}>
         {kinds.map((kind) => (
           <ServiceChartPanel
@@ -105,6 +114,58 @@ function ServiceChartPanel({
       series={series}
       unit={serviceChartUnit(kind, t)}
       problemList={problemList}
+    />
+  )
+}
+
+/**
+ * Disponibilidad calculada por Vigía (ficha 0048), sobre el panel común: sin «Abrir en
+ * Métricas» (no es una métrica de Dynatrace), con exportación y la fórmula en el tooltip del
+ * título.
+ */
+function ServiceAvailabilityPanel({
+  metrics
+}: {
+  metrics: UseQueryResult<ServiceMetricsResult>
+}): JSX.Element {
+  const { t, i18n } = useTranslation()
+  const data = metrics.data
+
+  const buildOption = useCallback(
+    (loaded: ServiceMetricsResult, colors: ChartColors, range: VisibleRange) =>
+      availabilityChartOption(loaded, { colors, language: i18n.language, t, range }),
+    [i18n.language, t]
+  )
+
+  const series = useMemo(
+    () =>
+      data === undefined
+        ? []
+        : [
+            {
+              name: t('entities.service.availability.series'),
+              points: availabilityPoints(data.series.requests, data.series.errors)
+            }
+          ],
+    [data, t]
+  )
+
+  return (
+    <EntityChartPanel
+      testIdPrefix="service"
+      slug="availability"
+      title={t('entities.service.availability.title')}
+      titleHint={t('entities.service.availability.hint')}
+      testIds={{
+        panel: 'service-slo-panel',
+        chart: 'service-slo-chart',
+        title: 'service-slo-title'
+      }}
+      query={metrics}
+      buildOption={buildOption}
+      series={series}
+      unit="%"
+      problemList={null}
     />
   )
 }

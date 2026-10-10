@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { EChartsCoreOption } from 'echarts/core'
 import type { EntityProblemList } from '@shared/modules'
@@ -38,11 +39,21 @@ export interface PanelSeries {
   points: [number, number | null][]
 }
 
+/** Testids propios de un panel que no sigue el patrón `<prefijo>-chart-…` (ficha 0048). */
+export interface PanelTestIds {
+  panel: string
+  chart: string
+  /** Disparador del tooltip del título (con `titleHint`). */
+  title: string
+}
+
 /**
  * Un gráfico de una página de entidad con su título, «Abrir en Métricas» y la exportación
  * (ficha 0009, sacado del servicio para el host en la 0018); carga y falla por su lado. Con
  * `problemList`, la franja de problemas va encima del gráfico (ficha 0010). Los testids llevan
- * el prefijo del tipo: `service-chart-panel`, `host-chart-panel`…
+ * el prefijo del tipo: `service-chart-panel`, `host-chart-panel`… Sin `selector` no hay «Abrir en
+ * Métricas» (un cálculo de Vigía, como la disponibilidad del servicio, ficha 0048); con
+ * `titleHint`, el título abre un tooltip con el ratón y con el foco.
  */
 export function EntityChartPanel<T extends ChartData>({
   testIdPrefix,
@@ -53,14 +64,16 @@ export function EntityChartPanel<T extends ChartData>({
   buildOption,
   series,
   unit,
-  problemList
+  problemList,
+  titleHint,
+  testIds
 }: {
   testIdPrefix: BandTestIdPrefix
   /** Nombre del gráfico en `data-kind` y en los testids. */
   slug: string
   title: string
-  /** Consulta de Métricas de «Abrir en Métricas» y de la exportación. */
-  selector: string
+  /** Consulta de Métricas de «Abrir en Métricas» y de la exportación; sin ella, sin botón. */
+  selector?: string | undefined
   query: PanelQuery<T>
   /** Opción de ECharts con los datos ya cargados, los colores del tema y el rango visible. */
   buildOption: (data: T, colors: ChartColors, range: VisibleRange) => EChartsCoreOption
@@ -70,6 +83,10 @@ export function EntityChartPanel<T extends ChartData>({
   unit: string
   /** Problemas de la entidad (`entities:problems`); null sin franja. */
   problemList: UseQueryResult<EntityProblemList> | null
+  /** Explicación del título, en un tooltip. */
+  titleHint?: string | undefined
+  /** Testids propios; sin ellos, los del prefijo. */
+  testIds?: PanelTestIds | undefined
 }): JSX.Element {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -100,30 +117,40 @@ export function EntityChartPanel<T extends ChartData>({
     [series, unit]
   )
 
+  const chartTestId = testIds?.chart ?? `${testIdPrefix}-chart-${slug}`
+
   return (
     <section
-      data-testid={`${testIdPrefix}-chart-panel`}
+      data-testid={testIds?.panel ?? `${testIdPrefix}-chart-panel`}
       data-kind={slug}
       aria-label={title}
       className="glass grid min-w-0 content-start gap-2 rounded-xl p-4"
     >
       <div className="flex min-w-0 items-center gap-3">
-        <h3 className="mr-auto truncate text-sm font-semibold">{title}</h3>
-        <button
-          type="button"
-          data-testid={`${testIdPrefix}-chart-open`}
-          onClick={() => {
-            // Sin datos todavía (cargando o con error), el rango contado desde ahora.
-            const shown = loadedAt > 0 ? range : visibleRange(timeRange, Date.now())
-            void navigate(metricsRangeLink(selector, shown.from, shown.to))
-          }}
-          className="shrink-0 text-xs underline underline-offset-2"
-        >
-          {t('problems.openInMetrics')}
-        </button>
+        <h3 className="mr-auto truncate text-sm font-semibold">
+          {titleHint === undefined ? (
+            title
+          ) : (
+            <TitleWithHint title={title} hint={titleHint} testId={testIds?.title} />
+          )}
+        </h3>
+        {selector !== undefined && (
+          <button
+            type="button"
+            data-testid={`${testIdPrefix}-chart-open`}
+            onClick={() => {
+              // Sin datos todavía (cargando o con error), el rango contado desde ahora.
+              const shown = loadedAt > 0 ? range : visibleRange(timeRange, Date.now())
+              void navigate(metricsRangeLink(selector, shown.from, shown.to))
+            }}
+            className="shrink-0 text-xs underline underline-offset-2"
+          >
+            {t('problems.openInMetrics')}
+          </button>
+        )}
         {data !== undefined && !query.isError && (
           <ExportMenu
-            target={`${testIdPrefix}-chart-${slug}`}
+            target={chartTestId}
             module="metrics"
             image={() => chart.current?.toPngDataUrl() ?? null}
             table={{
@@ -170,7 +197,7 @@ export function EntityChartPanel<T extends ChartData>({
         <PanelBoundary>
           <Chart
             ref={chart}
-            testId={`${testIdPrefix}-chart-${slug}`}
+            testId={chartTestId}
             label={title}
             buildOption={option}
             seriesNames={names}
@@ -178,5 +205,38 @@ export function EntityChartPanel<T extends ChartData>({
         </PanelBoundary>
       )}
     </section>
+  )
+}
+
+/** Título del panel con su explicación en un tooltip que también se abre con el foco. */
+function TitleWithHint({
+  title,
+  hint,
+  testId
+}: {
+  title: string
+  hint: string
+  testId: string | undefined
+}): JSX.Element {
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <span
+          data-testid={testId}
+          tabIndex={0}
+          className="cursor-help underline decoration-dotted underline-offset-2"
+        >
+          {title}
+        </span>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          sideOffset={6}
+          className="glass z-50 max-w-80 rounded-md px-3 py-2 text-xs font-normal text-foreground"
+        >
+          {hint}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }

@@ -65,11 +65,15 @@ function readColors(): ChartColors {
   }
 }
 
-/** Rango del eje x (min y max, si los fija la opción) y cuántas líneas verticales hay. */
+/**
+ * Rango del eje x (min y max, si los fija la opción), cuántas líneas verticales hay y los valores
+ * de las horizontales (umbrales, como el 90 % de la disponibilidad del servicio, ficha 0048).
+ */
 function optionFacts(option: echarts.EChartsCoreOption): {
   from: string
   to: string
   markLines: number
+  thresholds: number[]
 } {
   const axis = (Array.isArray(option['xAxis']) ? option['xAxis'][0] : option['xAxis']) as
     { min?: unknown; max?: unknown } | undefined
@@ -81,10 +85,21 @@ function optionFacts(option: echarts.EChartsCoreOption): {
       (entry) => typeof entry === 'object' && entry !== null && 'xAxis' in entry
     )
   )
+  const thresholds = series.flatMap((item) =>
+    (item.markLine?.data ?? []).flatMap((entry) =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      'yAxis' in entry &&
+      typeof entry.yAxis === 'number'
+        ? [entry.yAxis]
+        : []
+    )
+  )
   return {
     from: typeof axis?.min === 'number' ? String(axis.min) : '',
     to: typeof axis?.max === 'number' ? String(axis.max) : '',
-    markLines: vertical.length
+    markLines: vertical.length,
+    thresholds
   }
 }
 
@@ -162,12 +177,15 @@ export const Chart = forwardRef<
     if (chart === null || element === null) return
     const option = buildOption(readColors())
     chart.setOption(option, { notMerge: true })
-    // El canvas no se puede leer: rango, líneas verticales y etiquetas del eje x
+    // El canvas no se puede leer: rango, líneas verticales, umbrales y etiquetas del eje x
     // van también en el DOM (para las pruebas y las herramientas de accesibilidad).
     const facts = optionFacts(option)
     element.dataset['rangeFrom'] = facts.from
     element.dataset['rangeTo'] = facts.to
     element.dataset['markLines'] = String(facts.markLines)
+    if (facts.thresholds.length > 0)
+      element.dataset['thresholds'] = JSON.stringify(facts.thresholds)
+    else delete element.dataset['thresholds']
     const onFinished = (): void => {
       element.dataset['xLabels'] = JSON.stringify(xAxisLabels(chart))
     }

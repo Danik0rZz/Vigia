@@ -7,6 +7,11 @@ import { cn } from '../../lib/cn'
 import { formatCount, formatDurationMs, formatErrorRate } from '../../lib/service-format'
 import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
 import { serviceMetricNote, type ServiceMetricNote } from './service-type'
+import {
+  AVAILABILITY_CRITICAL,
+  formatAvailability,
+  rangeAvailability
+} from './service-availability'
 
 /**
  * Fila de marcadores de la página de un SERVICE (ficha 0008): peticiones OK y
@@ -79,7 +84,10 @@ export function ServiceMarkers({
             >
               <QueryState {...metricState}>
                 {(data) => (
-                  <BigValue>{formatErrorRate(data?.totals.errorRate ?? null, lang)}</BigValue>
+                  <div className="grid gap-1">
+                    <BigValue>{formatErrorRate(data?.totals.errorRate ?? null, lang)}</BigValue>
+                    {data !== null && <AvailabilityLine data={data} />}
+                  </div>
                 )}
               </QueryState>
             </MarkerCard>
@@ -216,6 +224,29 @@ function BigValue({
       className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', danger && 'text-danger')}
     >
       {children}
+    </p>
+  )
+}
+
+/**
+ * Disponibilidad del rango bajo la tasa de error (ficha 0048). Por debajo del 90 %, en color de
+ * error y con texto (el color no es la única señal). Sin dato (sin peticiones), no sale.
+ */
+function AvailabilityLine({ data }: { data: ServiceMetricsResult }): JSX.Element | null {
+  const { t, i18n } = useTranslation()
+  const value = rangeAvailability(data)
+  if (value === null) return null
+  const critical = value < AVAILABILITY_CRITICAL
+  return (
+    <p
+      data-testid="service-marker-availability"
+      data-critical={critical ? 'true' : 'false'}
+      className={cn('text-sm tabular-nums', critical ? 'text-danger' : 'text-muted-foreground')}
+    >
+      {t('entities.service.availability.marker', {
+        value: formatAvailability(value, i18n.language)
+      })}
+      {critical && <> · {t('entities.service.availability.markerCritical')}</>}
     </p>
   )
 }

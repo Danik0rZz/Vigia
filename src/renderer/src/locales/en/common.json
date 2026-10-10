@@ -1273,6 +1273,14 @@
         "unifiedHint": "Times, requests and errors come from the Dynatrace unified metrics; the error rate is calculated from the failed requests and the total.",
         "fallback": "Default server metrics",
         "fallbackHint": "The type of this service could not be read (for example, the token lacks entities.read), so the server metrics are used."
+      },
+      "availability": {
+        "title": "Availability (calculated SLO)",
+        "hint": "Availability = (Requests − Errors) / Requests × 100, per point and for the range. Vigía calculates it from the requests and errors of this service: it is not an SLO configured in Dynatrace (those are on Home). Below 90% is critical.",
+        "critical": "Critical 90%",
+        "series": "Availability",
+        "marker": "Availability {{value}}",
+        "markerCritical": "below 90%"
       }
     },
     "tags": {
