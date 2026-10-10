@@ -1,7 +1,7 @@
 ---
 id: '0055'
 titulo: '`scan:tenant` falla cerrado: sin `.env.live.local` no da verde, y escanea lo que de verdad se sube'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -79,7 +79,33 @@ Un control de seguridad tiene que **fallar cerrado**: si no puede comprobar, par
 
 ## Verificación
 
-(pendiente)
+**Tests (test-writer, 2026-10-10):** commit `52b4de6`. Comprobado antes que el fallo sigue en
+`main` (`c5d715c`): `scan-tenant.mjs`, `notify-telegram.mjs` y `.githooks/pre-push` no han cambiado
+desde `e32e162`. 26 tests nuevos fallan por falta del código; los que ya había siguen pasando (el
+antiguo «sin .env termina en 0» se ha quitado: CA1 lo invierte). Todo con repositorios y `.env`
+inventados en carpetas temporales; el CI no tiene `.env.live.local` ni lanza `scan:tenant`, así que
+no se pone rojo por esto.
+
+| Criterio | Tests                                                                                                                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `scripts/scan-tenant.test.ts` › `CA1 (0055): …` (código 2 y mensaje con `.env.live.local`; con la variable a `1`, 0 y `AVISO` por stderr; con `0`, vacío o `true`, 2; también en `--pre-push`) |
+| CA2      | `scripts/scan-tenant.test.ts` › `CA2 (0055): …` (`scan` y CLI desde un worktree real de `git worktree add`) y `scripts/lib/env-file.test.ts` › `CA2 (0055): findLiveEnv …`                     |
+| CA3      | `scripts/scan-tenant.test.ts` › `CA3 (0055): …` (`prePushRanges`, CLI `--pre-push` con la entrada estándar y el hook)                                                                          |
+| CA4      | `scripts/notify-telegram.test.ts` › `CA4 (0055): …` (importa `findLiveEnv` de `./lib/env-file.mjs`, sin `git worktree list` propio) y los tests de la 0004, que siguen igual                   |
+| CA5      | `scripts/scan-tenant.test.ts` › `CA5 (0055): …` (worktree, `--pre-push` y error 2)                                                                                                             |
+
+**Decisiones del test-writer** (Dani las delegó; conservadoras y refinables):
+
+- API: `scripts/lib/env-file.mjs` › `findLiveEnv(cwd, { mainCheckout }?)`, que devuelve la ruta o
+  `undefined` y no lanza. `mainCheckout` es opcional y sustituye a git: hace falta para que los
+  tests de notify-telegram (que inyectan `deps.mainCheckout`) sigan pasando.
+- Pre-push: el hook llama a `node scripts/scan-tenant.mjs --pre-push`, y el script lee los pares
+  de la entrada estándar (formato de git: `<ref local> <sha local> <ref remota> <sha remota>`).
+  La lógica va en `prePushRanges(entrada)`, exportada: así CA3 es unitario sin ejecutar `sh`.
+- Solo `VIGIA_SCAN_TENANT_OPTIONAL=1` exacto lo hace opcional; cualquier otro valor sigue
+  fallando.
+- Sin fijar (la ficha no lo dice): qué hacer con una línea de borrado de rama (`sha local` a
+  ceros) y con una entrada vacía. Lo decide el developer y lo anota aquí.
 
 ## Resultado
 
