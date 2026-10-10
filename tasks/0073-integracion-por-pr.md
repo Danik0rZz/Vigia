@@ -1,7 +1,7 @@
 ---
 id: '0073'
 titulo: 'Integración por PR: un commit por ficha, ramas de integración, PR de 3 a 5 fichas y dist:win solo en main'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -155,7 +155,22 @@ Normal (`ligera: no`). Toca un servicio externo (GitHub) y la seguridad del repo
 
 ## Verificación
 
-(pendiente)
+Tests escritos en 256d5e4 (`test(ci): criterios de la ficha 0073 (#0073)`), en rojo antes del
+código:
+
+- CA1: `scripts/integrate.test.ts`, «CA1 (0073): mensaje del commit desde el front matter»
+  (`parseFrontMatter`, `buildCommitMessage(ficha, zona)` y `checkIntegration`). La zona del mensaje
+  no está en el front matter: la pasa el Orquestador como argumento.
+- CA2: `scripts/integrate.test.ts`, «CA2 (0073): groupForPrs agrupa la cola en PR».
+- CA3: `scripts/ci-workflow.test.ts`, «CA3 (0073): check en el push a main y en las PR; e2e solo
+  en las PR; dist:win solo en main».
+- CA4: `scripts/integrate.test.ts`, «CA4 (0073): campo exclusiones en la plantilla y valores
+  válidos».
+- CA5: `scripts/integration-docs.test.ts`, «CA5 (0073): documentos del flujo sin la integración de
+  antes» (más la comprobación de sus propias frases).
+
+El contrato (todo exportado desde `scripts/integrate.mjs`, también `EXCLUSIONES`) está en la
+cabecera de `scripts/integrate.test.ts`.
 
 ## Resultado
 
