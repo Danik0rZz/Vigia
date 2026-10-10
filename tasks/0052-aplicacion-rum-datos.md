@@ -1,7 +1,7 @@
 ---
 id: '0052'
 titulo: 'APPLICATION (RUM): datos de actividad por tipo de acción, errores por tipo, usuarios, sesiones y experiencia'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -205,6 +205,11 @@ menos del 1 % de la suma de la serie.
 - Un 400 o 404 lleva el `reason` de la 0033, `applicationMetricsRejected` (su texto, «la
   consulta de métricas de la aplicación», vale aquí; no hace falta clave nueva).
 - El simulador de los e2e da 400 con más de 10 expresiones por consulta, como la API.
+
+### Verifier, 2026-10-10, commit `857a4e2`, rango `main..feat/0052-aplicacion-rum-datos`: VERDE
+
+- check: 3196 tests en 175 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/ipc.ts`): 341/341, sin intermitentes.
 
 ## Resultado
 
