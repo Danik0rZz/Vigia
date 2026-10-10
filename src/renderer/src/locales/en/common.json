@@ -1082,30 +1082,44 @@
     },
     "application": {
       "invalidId": "This ID is not in the format of a Dynatrace web application (APPLICATION- and 16 hexadecimal characters): its data is not requested.",
+      "sections": {
+        "activity": "Activity",
+        "errors": "Errors",
+        "apdex": "Apdex",
+        "keyActions": "Key actions"
+      },
       "markers": {
         "label": "Application markers",
         "apdex": "Apdex",
-        "apdexCaption": "Average over the range",
+        "users": "Active users",
+        "usersEstimated": "estimated",
+        "usersEstimatedHint": "Dynatrace estimates the distinct users of the range from their sessions: it is an approximation, not an exact count.",
+        "sessions": "Sessions",
+        "sessionDuration": "Average duration",
+        "bounceRate": "Bounce",
         "actions": "Actions",
-        "actionsCaption": "User actions in the range",
-        "duration": "Duration",
-        "durationCaption": "Visually complete, average",
         "errors": "Errors",
-        "errorsCaption": "JavaScript and requests, in the range",
         "problems": "Problems"
       },
       "charts": {
-        "title": "Application metrics",
-        "label": "Charts of the application metrics",
         "apdex": "Apdex",
-        "actions": "Actions",
-        "duration": "Duration",
-        "errors": "Errors",
+        "actionsByType": "Actions by type",
+        "durationByType": "Duration by type",
+        "errorsByType": "Errors by type",
+        "affectedActions": "Actions affected by errors",
+        "errorsNotSeparated": "Dynatrace does not split these errors by type (JavaScript, HTTP…): they are shown together.",
         "series": {
           "apdex": "Apdex",
           "actions": "User actions",
           "duration": "Visually complete (average)",
-          "errors": "Errors"
+          "errors": "Errors",
+          "load": "Load",
+          "xhr": "XHR",
+          "custom": "Custom",
+          "javascript": "JavaScript",
+          "http": "HTTP",
+          "other": "Other",
+          "affectedActions": "Actions with errors"
         },
         "units": {
           "actions": "actions",
@@ -1120,7 +1134,7 @@
         "unacceptable": "Unacceptable"
       },
       "actions": {
-        "title": "User actions",
+        "title": "Key actions",
         "label": "User actions of the application, the ones with the most volume",
         "empty": "No user actions with data in the range (Dynatrace only reports key user actions).",
         "columns": {

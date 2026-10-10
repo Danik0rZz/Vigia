@@ -15,9 +15,9 @@ import {
 import { MarkerError, MarkerSkeleton } from './EntityMarkers'
 
 /*
- * Tabla «Acciones de usuario» de la página de una aplicación web (ficha 0034), debajo de los
- * gráficos: las 10 acciones de más volumen del rango (nombre, número de acciones y duración
- * media con barra), de más a menos acciones. Sale de la llamada de los marcadores
+ * Tabla de acciones de la página de una aplicación web (ficha 0034), en la sección «Acciones
+ * clave» (ficha 0053, que pone el título): las 10 acciones de más volumen del rango (nombre,
+ * número de acciones y duración media con barra), de más a menos acciones. Sale de la llamada de los marcadores
  * (`entities:applicationMetrics`, ficha 0033): si falla, enseña el aviso con Reintentar. En vivo
  * la lista suele llegar vacía (solo traen datos las acciones clave): entonces lo dice, sin aviso
  * de error.
@@ -72,7 +72,6 @@ export function ApplicationActions({
       aria-label={t('entities.application.actions.title')}
       className="glass grid min-w-0 content-start gap-3 rounded-xl p-4"
     >
-      <h2 className="text-sm font-semibold">{t('entities.application.actions.title')}</h2>
       {body}
     </section>
   )

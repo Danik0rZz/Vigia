@@ -1082,30 +1082,44 @@
     },
     "application": {
       "invalidId": "Este ID no tiene el formato de una aplicación web de Dynatrace (APPLICATION- y 16 caracteres hexadecimales): no se piden sus datos.",
+      "sections": {
+        "activity": "Actividad",
+        "errors": "Errores",
+        "apdex": "Apdex",
+        "keyActions": "Acciones clave"
+      },
       "markers": {
         "label": "Marcadores de la aplicación",
         "apdex": "Apdex",
-        "apdexCaption": "Media del rango",
+        "users": "Usuarios activos",
+        "usersEstimated": "estimado",
+        "usersEstimatedHint": "Dynatrace estima los usuarios distintos del rango a partir de sus sesiones: es una aproximación, no un recuento exacto.",
+        "sessions": "Sesiones",
+        "sessionDuration": "Duración media",
+        "bounceRate": "Rebote",
         "actions": "Acciones",
-        "actionsCaption": "Acciones de usuario en el rango",
-        "duration": "Duración",
-        "durationCaption": "Visually complete, media",
         "errors": "Errores",
-        "errorsCaption": "JavaScript y peticiones, en el rango",
         "problems": "Problemas"
       },
       "charts": {
-        "title": "Métricas de la aplicación",
-        "label": "Gráficos de las métricas de la aplicación",
         "apdex": "Apdex",
-        "actions": "Acciones",
-        "duration": "Duración",
-        "errors": "Errores",
+        "actionsByType": "Acciones por tipo",
+        "durationByType": "Duración por tipo",
+        "errorsByType": "Errores por tipo",
+        "affectedActions": "Acciones afectadas por errores",
+        "errorsNotSeparated": "Dynatrace no separa estos errores por tipo (JavaScript, HTTP…): salen juntos.",
         "series": {
           "apdex": "Apdex",
           "actions": "Acciones de usuario",
           "duration": "Visually complete (media)",
-          "errors": "Errores"
+          "errors": "Errores",
+          "load": "Carga",
+          "xhr": "XHR",
+          "custom": "Personalizadas",
+          "javascript": "JavaScript",
+          "http": "HTTP",
+          "other": "Otros",
+          "affectedActions": "Acciones con errores"
         },
         "units": {
           "actions": "acciones",
@@ -1120,7 +1134,7 @@
         "unacceptable": "Inaceptable"
       },
       "actions": {
-        "title": "Acciones de usuario",
+        "title": "Acciones clave",
         "label": "Acciones de usuario de la aplicación, las de más volumen",
         "empty": "Sin acciones de usuario con datos en el rango (Dynatrace solo las da de las acciones clave).",
         "columns": {

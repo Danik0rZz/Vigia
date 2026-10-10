@@ -4,6 +4,7 @@ import { applicationEntityIdSchema } from '@shared/modules'
 import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
   useApplicationMetrics,
+  useApplicationRum,
   useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
@@ -13,20 +14,22 @@ import {
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
 import { ApplicationActions } from './ApplicationActions'
-import { ApplicationCharts } from './ApplicationCharts'
+import { ApplicationApdexSection } from './ApplicationCharts'
 import { ApplicationInfo } from './ApplicationInfo'
 import { ApplicationMarkers } from './ApplicationMarkers'
+import { ApplicationRumSections } from './ApplicationRumCharts'
+import { ApplicationSection } from './ApplicationSection'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 
 /**
  * Página de análisis de una entidad APPLICATION, una aplicación web (ficha 0034), con el modelo
- * del servicio y el orden de las fichas 0036 y 0037: marcadores del rango global (Apdex,
- * acciones, duración, errores y problemas), los gráficos (Apdex con la franja de problemas,
- * acciones, duración y errores), la tabla «Acciones de usuario» y, al final, la tarjeta
- * «Información». Marcadores, gráficos y tabla salen de una llamada a
- * `entities:applicationMetrics` (0033). Solo pide datos con «Actualizar» o con un rango nuevo
- * (ADR-0004).
+ * del servicio y el orden de las fichas 0036 y 0037, con las secciones de la 0053: marcadores
+ * del rango global (Apdex, usuarios activos, sesiones, acciones, errores y problemas), las
+ * secciones «Actividad» y «Errores» (gráficos por tipo, de `entities:applicationRum`, 0052),
+ * «Apdex» (con la franja de problemas) y «Acciones clave» (la tabla), y, al final, la tarjeta
+ * «Información». El Apdex y la tabla salen de `entities:applicationMetrics` (0033). Solo pide
+ * datos con «Actualizar» o con un rango nuevo (ADR-0004).
  */
 export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
@@ -43,6 +46,7 @@ export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
   )
   const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
   const metrics = useApplicationMetrics(metricsEnv, applicationId)
+  const rum = useApplicationRum(metricsEnv, applicationId)
   const problems = useEntityProblemCounts(problemsEnv, applicationId)
   const problemList = useEntityProblems(problemsEnv, applicationId)
   const info = useEntityInfo(entitiesEnv, applicationId)
@@ -60,7 +64,11 @@ export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
           <RefreshButton
             onRefresh={refresh}
             busy={
-              metrics.isFetching || problems.isFetching || problemList.isFetching || info.isFetching
+              metrics.isFetching ||
+              rum.isFetching ||
+              problems.isFetching ||
+              problemList.isFetching ||
+              info.isFetching
             }
           />
         ) : undefined
@@ -79,6 +87,7 @@ export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
           markers={
             <ApplicationMarkers
               metrics={metrics}
+              rum={rum}
               problems={problems}
               metricsEnabled={metricsEnv !== null}
               problemsEnabled={problemsEnv !== null}
@@ -87,14 +96,31 @@ export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
           // Sin acceso a Métricas no hay datos que dibujar: los marcadores ya enseñan «—».
           charts={
             metricsEnv !== null && (
-              <ApplicationCharts
-                applicationId={applicationId}
-                metrics={metrics}
-                problemList={problemsEnv !== null ? problemList : null}
-              />
+              <>
+                <ApplicationRumSections
+                  applicationId={applicationId}
+                  rum={rum}
+                  problemList={problemsEnv !== null ? problemList : null}
+                />
+                <ApplicationApdexSection
+                  applicationId={applicationId}
+                  metrics={metrics}
+                  problemList={problemsEnv !== null ? problemList : null}
+                />
+              </>
             )
           }
-          cards={metricsEnv !== null && <ApplicationActions metrics={metrics} />}
+          cards={
+            metricsEnv !== null && (
+              <ApplicationSection
+                id="key-actions"
+                title={t('entities.application.sections.keyActions')}
+                columns={false}
+              >
+                <ApplicationActions metrics={metrics} />
+              </ApplicationSection>
+            )
+          }
           // Al final (0036): si falla, lo demás sigue.
           info={<ApplicationInfo access={entitiesAccess} info={info} />}
         />

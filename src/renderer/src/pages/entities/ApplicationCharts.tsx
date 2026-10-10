@@ -4,7 +4,6 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import type { ApplicationMetricsResult, EntityProblemList } from '@shared/modules'
 import type { ChartColors } from '../../components/Chart'
 import {
-  APPLICATION_CHART_KINDS,
   applicationChartOption,
   applicationChartSelector,
   applicationChartSeries,
@@ -12,18 +11,18 @@ import {
   roleHasData,
   type ApplicationChartKind
 } from './application-charts'
+import { ApplicationSection } from './ApplicationSection'
 import { NO_COLORS, type VisibleRange } from './entity-charts'
 import { EntityChartPanel } from './EntityChartPanel'
 
 /**
- * Sección de gráficos de la página de una aplicación web (ficha 0034): Apdex, acciones, duración
- * y errores, en una rejilla de 2×2 (una columna por debajo de 1024 px), de la llamada de los
- * marcadores (`entities:applicationMetrics`). Sobre el del Apdex va la franja de los problemas
- * de la aplicación (ficha 0010); si el Apdex no sale, sobre el primero que salga. Un papel que
- * llega sin datos no tiene gráfico (CA3); mientras carga, o si falla, salen los cuatro (cada uno
- * con su aviso).
+ * Sección «Apdex» de la página de una aplicación web (fichas 0034 y 0053), de la llamada del
+ * marcador del Apdex (`entities:applicationMetrics`), con la franja de los problemas de la
+ * aplicación encima (ficha 0010). Los gráficos de acciones, duración y errores totales de la 0034
+ * los sustituyen los de tipo de «Actividad» y «Errores» (ficha 0053). Sin datos de Apdex, la
+ * sección no sale (CA3 de la 0034); mientras carga, o si falla, sale con su aviso.
  */
-export function ApplicationCharts({
+export function ApplicationApdexSection({
   applicationId,
   metrics,
   problemList
@@ -36,30 +35,16 @@ export function ApplicationCharts({
 }): JSX.Element | null {
   const { t } = useTranslation()
   const data = metrics.isError ? undefined : metrics.data
-  const kinds = APPLICATION_CHART_KINDS.filter(
-    (kind) => data === undefined || roleHasData(data, kind)
-  )
-  // Ningún papel con datos: no hay nada que dibujar (los marcadores tampoco salen).
-  if (kinds.length === 0) return null
+  if (data !== undefined && !roleHasData(data, 'apdex')) return null
   return (
-    <section
-      data-testid="application-charts"
-      aria-label={t('entities.application.charts.label')}
-      className="grid gap-3"
-    >
-      <h2 className="text-sm font-semibold">{t('entities.application.charts.title')}</h2>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {kinds.map((kind) => (
-          <ApplicationChartPanel
-            key={kind}
-            kind={kind}
-            applicationId={applicationId}
-            metrics={metrics}
-            problemList={kind === kinds[0] ? problemList : null}
-          />
-        ))}
-      </div>
-    </section>
+    <ApplicationSection id="apdex" title={t('entities.application.sections.apdex')}>
+      <ApplicationChartPanel
+        kind="apdex"
+        applicationId={applicationId}
+        metrics={metrics}
+        problemList={problemList}
+      />
+    </ApplicationSection>
   )
 }
 
@@ -73,7 +58,7 @@ function ApplicationChartPanel({
   kind: ApplicationChartKind
   applicationId: string
   metrics: UseQueryResult<ApplicationMetricsResult>
-  /** Solo en el primero (el del Apdex): la franja de problemas encima del gráfico. */
+  /** La franja de problemas encima del gráfico. */
   problemList: UseQueryResult<EntityProblemList> | null
 }): JSX.Element {
   const { t, i18n } = useTranslation()
