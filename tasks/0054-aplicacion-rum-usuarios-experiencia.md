@@ -1,7 +1,7 @@
 ---
 id: '0054'
 titulo: 'APPLICATION (RUM): secciones «Usuarios y sesiones» y «Experiencia» (Core Web Vitals)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -80,7 +80,59 @@ Métricas», exportar y errores por panel, como el resto. Textos en es y en.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `ef36826` (`test(aplicacion): criterios de la ficha 0054 (#0054)`). Fallan porque
+el código aún no existe (`webVitalRating is not a function`, claves de `entities.application` sin
+definir, secciones `users` y `experience` no encontradas), no por el test: 15 unitarios de CA2, 4 de
+CA5, 4 e2e nuevos y 5 de la 0034 y la 0053 ajustados. Los de la 0052 siguen en verde con los valores
+nuevos del simulador.
+
+| Criterio | Test                                                                                                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CA1      | `e2e/views.spec.ts` › `CA1 (0054): la página de una aplicación enseña «Usuarios y sesiones» con sus dos gráficos y los tres datos pequeños bajo el de sesiones`                                        |
+| CA2      | `src/renderer/src/lib/application-vitals.test.ts` › `CA2 (0054): calificación de LCP, CLS e INP en los cortes (2,5 s y 4 s; 0,1 y 0,25; 200 ms y 500 ms), con texto además del color`                  |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0054): la sección «Experiencia» enseña las tarjetas de LCP, CLS e INP con su calificación y el gráfico con sus tres series y las líneas de umbral`                         |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0054): sin datos de experiencia (LCP, CLS e INP), la sección «Experiencia» no sale y el resto sí` y `CA4 (0054): sin rage clicks (lo habitual en vivo), su dato no sale …` |
+| CA5      | `src/renderer/src/locales/application-rum-experience.test.ts` › `CA5 (0054): textos nuevos de la página de la aplicación en es y en`                                                                   |
+
+**Tests de la 0034 y la 0053 ajustados** (la página gana dos secciones): CA1 (0034), nota del
+Orquestador (8 paneles de gráfico, no 5); CA3 (0034) y CA4 (0053) (la lista de gráficos incluye
+`activeUsers`, `sessions` y `vitals`; en CA4 (0053) sin `activeUsers`, que no trae datos); CA2
+(0053) y CA5 (0034) recorren las seis secciones.
+
+**Simulador** (`e2e/views.spec.ts`): totales de Core Web Vitals en las tres calificaciones (LCP
+2310 ms, CLS 0,18 e INP 640 ms); rage clicks (37) solo con `sim.applicationRumRageClicks`, que por
+defecto está apagado como en vivo.
+
+**Decisiones del test-writer (delegadas por Dani, refinables):**
+
+- **Orden de las secciones:** `activity`, `errors`, `users` («Usuarios y sesiones»), `experience`
+  («Experiencia»), `apdex` y `key-actions`. La ficha dice «después de Errores y antes de Acciones
+  clave»; se ponen justo tras «Errores», antes del Apdex.
+- **«`null` en el simulador» (CA4):** como en la 0053, el canal nunca da un papel `null`; es un
+  papel sin datos (serie vacía y total `null`). Experiencia sin datos: LCP, CLS e INP vacíos (con
+  `sim.applicationEmpty`); rage clicks sin datos: lo de por defecto.
+- **Gráficos** (`application-chart-panel` con `data-kind`): `activeUsers` (una serie, con la nota
+  de estimación `application-users-note` en el panel), `sessions` (iniciadas, terminadas y
+  duración media, en ese orden) y `vitals` (LCP, CLS e INP, con `data-thresholds` en 2500, 0,1 y
+  200). Ninguno lleva la franja de problemas: la ficha no la pide y CA4 (0034) sigue contando dos.
+- **Datos pequeños:** `application-session-stat` con `data-stat` (`actionsPerSession`,
+  `bounceRate` y `rageClicks`), dentro del panel de sesiones y debajo del gráfico, con el valor en
+  `application-session-stat-value`: «5,9», «28,4 %» y «37».
+- **Tarjetas:** `application-vital` con `data-vital` (`lcp`, `cls`, `inp`), valor en
+  `application-vital-value` (LCP e INP con `formatDurationMs`, CLS con dos decimales) y
+  calificación en `application-vital-rating` con `data-rating` (`good`, `needsImprovement`,
+  `poor`), `data-level` (`success`, `warning`, `error`) y el texto «Bueno», «Mejorable» o «Pobre».
+- **Calificación (CA2):** `webVitalRating(vital, valor)` y `webVitalLevel(vital, valor)` en
+  `lib/application-format.ts`, con el valor en la unidad del canal (ms y CLS sin unidad); los
+  cortes incluidos en el tramo mejor; sin dato, `null` y `normal`.
+- **Textos (CA5),** en `entities.application`: `sections.users` y `sections.experience`;
+  `charts.activeUsers`, `charts.sessions`, `charts.vitals` y, en `charts.series`,
+  `startedSessions`, `endedSessions`, `sessionDuration`, `lcp`, `cls` e `inp`; en
+  `sessionStats`, `actionsPerSession`, `bounceRate` y `rageClicks`; `vitals.{lcp,cls,inp}`,
+  `vitals.<vital>Hint` (el tooltip) y `vitals.rating.{good,needsImprovement,poor}`.
+- No se prueban (no están en los criterios): el tooltip de las tarjetas abierto, las líneas
+  discontinuas, el segundo eje de la duración y el de CLS, «Abrir en Métricas», exportar y los
+  errores por panel de las secciones nuevas.
 
 ## Resultado
 
