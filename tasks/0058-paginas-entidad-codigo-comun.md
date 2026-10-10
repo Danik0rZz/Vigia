@@ -1,7 +1,7 @@
 ---
 id: '0058'
 titulo: 'Páginas de entidad: un solo código para acceso, marcadores, niveles y tablas'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -76,7 +76,36 @@ el inventario de todas** y lo anota.
 
 ## Verificación
 
-(pendiente)
+Tests de los criterios en el commit `3c1dc19` (fallan hasta que exista el código):
+
+- CA1 → `src/renderer/src/pages/entities/entity-access.test.ts` (`CA1 (0058): …`).
+- CA2 → `src/shared/grid-sort.test.ts`, `describe` `CA2 (0058): compareNullable y byNumber…`.
+- CA3 → `src/renderer/src/pages/entities/entity-shared-pieces.test.ts` (`CA3 (0058): …`).
+- CA4 → los e2e existentes de las páginas de entidad, sin tocar.
+
+Inventario comprobado en `main` antes de los tests: siguen las copias del bloque de acceso en host,
+servicio, proceso, process group, monitores, disco y aplicación web; `LEVEL_CLASS`, `MarkerBody` y
+`BigValue` en los marcadores de host, proceso, process group, disco, monitores y aplicación
+(`BigValue` también en servicio y `LEVEL_CLASS` en `ApplicationUserSections.tsx`); `TableCard` en
+`HostTables.tsx` y `MonitorTables.tsx`; `compareNullable` en `host-tables.ts`, `monitor-tables.ts`,
+`process-group-instances.ts` y `application-actions.ts`.
+
+Decisiones del test-writer (Dani las delegó; refinables):
+
+- **CA1, lógica pura:** `resolveEntityPageAccess({ id, metrics, problems, entities, statusKnown })`
+  en `entity-access.ts` → `{ metricsEnv, problemsEnv, entitiesEnv, canFetch }` (el hook
+  `useEntityPageAccess(id, schema)` la usa). Siguiendo el criterio al pie de la letra, `canFetch`
+  es falso hasta conocer el estado aunque metrics o problems estén disponibles (hoy el botón
+  «Actualizar» sale antes); `entitiesEnv` sigue siendo `null` hasta entonces.
+- **CA2 contradice «sin cambiar nada visible»:** hoy `compareNullable` pone sin dato por debajo de
+  todo y `sortRows` invierte el comparador, así que `null` va al final en descendente y al
+  principio en ascendente. Hacerlo «al final en los dos sentidos» cambiaría el orden ascendente de
+  las tablas. Se fija el comportamiento de hoy (`compareNullable(a, b)` y `byNumber(value)`
+  exportados de `@shared/grid-sort`). Si Dani quiere `null` al final siempre, es otra ficha.
+- **CA3:** el guardia exige `export` de `LEVEL_CLASS`, `MarkerBody` y `BigValue` en
+  `EntityMarkers.tsx` y de `TableCard` en `EntityTables.tsx`, y que ningún otro `.ts`/`.tsx` de
+  `pages/entities/` los defina (incluidos servicio, aplicación y `ApplicationUserSections.tsx`). El
+  tipo `Level` común tiene que admitir `success` (Apdex).
 
 ## Resultado
 
