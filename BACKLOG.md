@@ -250,7 +250,6 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `usesClipboard` de `scripts/e2e-tags.cjs` cruza nombres sin mirar el ámbito: una variable local con el nombre de una auxiliar con portapapeles da un falso positivo (seguro: pide una etiqueta de más). (surgió en 0067)
 - `scripts/affected-e2e.cjs`: `-g` toma como patrón el siguiente argumento aunque empiece por `-` (`-g --no-build` filtra por «--no-build» y compila); rechazarlo con el mismo error de uso. (surgió en 0068)
 - `scripts/affected-e2e.cjs`: `--grep=<patrón>`, que Playwright acepta, sale como opción desconocida con código 2 (fallo seguro); admitirlo si se echa en falta. (surgió en 0068)
-
 - `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo en la 0070. (surgió en 0069)
 - El comentario de `e2e/views.spec.ts` (≈ línea 5472) dice «y sus problemas para los recuentos», que ahora viven en `e2e/views/fixtures.ts`: retocarlo en la 0070. (surgió en 0069)
 - Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069)
