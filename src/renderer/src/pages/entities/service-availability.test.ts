@@ -7,6 +7,7 @@ import es from '../../locales/es/common.json'
 import {
   AVAILABILITY_CRITICAL,
   availabilityChartOption,
+  availabilityLevel,
   availabilityOf,
   availabilityPoints
 } from './service-availability'
@@ -274,5 +275,28 @@ describe('CA2 (0048): opción de ECharts con el umbral del 90 % y los tramos por
     expect(tooltip?.trigger).toBe('axis')
     const xAxis = option['xAxis'] as { type?: unknown }
     expect(xAxis.type).toBe('time')
+  })
+})
+
+/**
+ * Ficha 0066: el marcador «SLO» colorea la disponibilidad del rango con `availabilityLevel`
+ * (un `Level` de `EntityMarkers.tsx`): error por debajo del 90 %, éxito del 90 % para arriba y
+ * sin color (`normal`) sin dato.
+ */
+describe('CA1 (0066): nivel de la disponibilidad del marcador', () => {
+  it('por debajo del 90 %, error', () => {
+    expect(availabilityLevel(89.9)).toBe('error')
+    expect(availabilityLevel(0)).toBe('error')
+    expect(availabilityLevel(AVAILABILITY_CRITICAL - 0.01)).toBe('error')
+  })
+
+  it('en el 90 % justo y por encima, éxito', () => {
+    expect(availabilityLevel(90)).toBe('success')
+    expect(availabilityLevel(95.5)).toBe('success')
+    expect(availabilityLevel(100)).toBe('success')
+  })
+
+  it('sin dato, sin color', () => {
+    expect(availabilityLevel(null)).toBe('normal')
   })
 })

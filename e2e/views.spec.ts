@@ -10045,8 +10045,8 @@ test('CA8 (0014): entities:get y entities:names por IPC con ids inventados: lo q
  * entidad» de un problema solo del detalle (P-791) o por URL.
  *
  * Nombres que fijan estos tests: la fila `service-markers`; cada marcador `service-marker-<id>`
- * (ok, ko, error-rate, response-time, problems); dentro, el valor en `service-marker-value`
- * (ok, ko y tasa), `service-marker-median`, `-p90` y `-p99` (tiempos) y `service-marker-open` y
+ * (availability, ok, ko, error-rate, response-time, problems; availability, la primera desde la
+ * ficha 0066); dentro, el valor en `service-marker-value` (availability, ok, ko y tasa), `service-marker-median`, `-p90` y `-p99` (tiempos) y `service-marker-open` y
  * `-closed` (problemas). El color de error es la clase `text-danger`.
  */
 function markerProblems(): FakeProblem[] {
@@ -10117,7 +10117,8 @@ detailOnly.push({
 })
 
 const serviceMarker = (id: string): Locator => page.getByTestId(`service-marker-${id}`)
-const METRIC_MARKERS = ['ok', 'ko', 'error-rate', 'response-time'] as const
+// Ficha 0066: la disponibilidad («SLO») es un marcador de métricas más.
+const METRIC_MARKERS = ['availability', 'ok', 'ko', 'error-rate', 'response-time'] as const
 
 /** Ficha 0008: el número suelto dentro del texto (no parte de otro número). */
 const loneNumber = (value: string): RegExp =>
@@ -10150,14 +10151,15 @@ async function expectErrorServiceValues(): Promise<void> {
   await expect(problems.getByTestId('service-marker-closed')).toHaveText(loneNumber('2'))
 }
 
-test('CA1 (0008): desde «Analizar entidad», la página del SERVICE enseña los cinco marcadores con los valores del simulador ya formateados, sin «Página en construcción»', async () => {
+test('CA1 (0008): desde «Analizar entidad», la página del SERVICE enseña los seis marcadores (con «SLO» desde la 0066) con los valores del simulador ya formateados, sin «Página en construcción»', async () => {
   const servicePage = await analyzeMarkersEvidence(MK_EV_BIG)
   expect(await currentRoute()).toBe(`/entities/SERVICE/${SVC_BIG_ID}`)
   const row = servicePage.getByTestId('service-markers')
   await expect(row).toBeVisible()
 
-  // Los cinco, con su nombre.
+  // Los seis, con su nombre (el de la disponibilidad, desde la ficha 0066).
   const labels = [
+    ['availability', 'SLO'],
     ['ok', 'Peticiones OK'],
     ['ko', 'Peticiones KO'],
     ['error-rate', 'Tasa de error'],
@@ -10171,6 +10173,9 @@ test('CA1 (0008): desde «Analizar entidad», la página del SERVICE enseña los
 
   // Valores: suma de la serie (45 000 peticiones, 0 errores), tasa con un decimal, tiempos en
   // ms o en s según el valor y los recuentos de problemas (0 abiertos, 3 cerrados).
+  await expect(serviceMarker('availability').getByTestId('service-marker-value')).toHaveText(
+    /^100,0\s?%$/
+  )
   await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^45\.000$/)
   await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveText(/^0$/)
   await expect(serviceMarker('error-rate').getByTestId('service-marker-value')).toHaveText(
@@ -10334,7 +10339,7 @@ test('CA6 (0008): un servicio sin datos enseña «—» en los marcadores de mé
   await expect.poll(() => sim.serviceMetricQueries.length).toBe(2)
   await expect.poll(() => sim.entityProblemQueries.length).toBe(2)
 
-  for (const id of ['ok', 'ko', 'error-rate'] as const) {
+  for (const id of ['availability', 'ok', 'ko', 'error-rate'] as const) {
     await expect(serviceMarker(id).getByTestId('service-marker-value'), id).toHaveText('—')
   }
   const times = serviceMarker('response-time')
@@ -10549,8 +10554,15 @@ async function openServicePage(id: string): Promise<Locator> {
   return servicePage
 }
 
-/** Ficha 0047: los marcadores completos de siempre (los de la 0008). */
-const FULL_MARKERS = ['ok', 'ko', 'error-rate', 'response-time', 'problems'] as const
+/** Ficha 0047: los marcadores completos de siempre (los de la 0008 y, desde la 0066, «SLO»). */
+const FULL_MARKERS = [
+  'availability',
+  'ok',
+  'ko',
+  'error-rate',
+  'response-time',
+  'problems'
+] as const
 
 test('CA1 (0047): un QUEUE_LISTENER_SERVICE enseña solo Peticiones y Problemas, el gráfico de actividad sin KO y la nota; no tiempos, errores ni tasa', async () => {
   const servicePage = await openServicePage(SVC_SET_IDS.activity)
@@ -10592,7 +10604,7 @@ test('CA2 (0047): un DATABASE_SERVICE enseña los marcadores y gráficos complet
   // Cabecera: el tipo de entidad y el del servicio.
   await expect(servicePage.getByTestId('entity-page-type')).toHaveText('Servicio · Base de datos')
 
-  // Los cinco marcadores, con los datos de Cliente (60 peticiones, 4 KO, mediana 210 ms).
+  // Los seis marcadores, con los datos de Cliente (60 peticiones, 4 KO, mediana 210 ms).
   for (const id of FULL_MARKERS) await expect(serviceMarker(id), id).toBeVisible()
   await expect(serviceMarker('requests')).toHaveCount(0)
   await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^56$/)
@@ -10662,8 +10674,9 @@ test('CA4 (0047): un WEB_SERVICE se ve como hoy: marcadores y gráficos completo
  * estos tests: el panel `service-slo-panel` (dentro de `service-charts`, encima de la rejilla de
  * los `service-chart-panel`), con su título en `service-slo-title` (disparador del tooltip, con
  * foco) y el `Chart` `service-slo-chart` con `data-series` y `data-thresholds` (los valores de
- * las líneas horizontales de la opción, en JSON); la línea `service-marker-availability` dentro
- * del marcador «Tasa de error», con `data-critical` («true» por debajo del 90 %).
+ * las líneas horizontales de la opción, en JSON). Desde la ficha 0066, la disponibilidad del rango
+ * no es una línea dentro de «Tasa de error» sino su propio marcador `service-marker-availability`
+ * («SLO»), con el valor en `service-marker-value` y su `data-level`.
  */
 const sloPanel = (): Locator => page.getByTestId('service-slo-panel')
 const sloChart = (): Locator => sloPanel().getByTestId('service-slo-chart')
@@ -10705,31 +10718,113 @@ test('CA3 (0048): con una caída por debajo del 90 %, el gráfico de disponibili
     panel.locator('[data-testid="export-menu"][data-export-target="service-slo-chart"]')
   ).toBeVisible()
 
-  // El marcador «Tasa de error» enseña la disponibilidad del rango, en color de error y con texto.
-  const line = serviceMarker('error-rate').getByTestId('service-marker-availability')
-  await expect(line).toBeVisible()
-  await expect(line).toContainText(/Disponibilidad\s85,3\s?%/)
-  await expect(line).toHaveAttribute('data-critical', 'true')
-  await expect(line).toHaveClass(/text-danger/)
-  await expect(line).toContainText(/por debajo del 90\s?%/)
+  // El marcador «SLO» (ficha 0066), con la disponibilidad del rango en color de error y con texto.
+  const marker = serviceMarker('availability')
+  const value = marker.getByTestId('service-marker-value')
+  await expect(value).toHaveText(/^85,3\s?%$/)
+  await expect(value).toHaveAttribute('data-level', 'error')
+  await expect(value).toHaveClass(/\btext-danger\b/)
+  await expect(marker).toContainText(/por debajo del 90\s?%/)
 })
 
 test('CA3 (0048): sin bajar del 90 %, la disponibilidad del marcador no va en color de error', async () => {
   await openServicePage(SVC_BIG_ID)
-  const line = serviceMarker('error-rate').getByTestId('service-marker-availability')
-  await expect(line).toContainText(/Disponibilidad\s100,0\s?%/)
-  await expect(line).toHaveAttribute('data-critical', 'false')
-  await expect(line).not.toHaveClass(/text-danger/)
+  // El marcador «SLO» (ficha 0066).
+  const value = serviceMarker('availability').getByTestId('service-marker-value')
+  await expect(value).toHaveText(/^100,0\s?%$/)
+  await expect(value).not.toHaveAttribute('data-level', 'error')
+  await expect(value).not.toHaveClass(/\btext-danger\b/)
   await expect(sloPanel()).toBeVisible()
 })
 
-test('CA4 (0048): en un servicio de solo actividad no salen el gráfico de disponibilidad ni la línea del marcador', async () => {
+test('CA4 (0048): en un servicio de solo actividad no salen el gráfico de disponibilidad ni su marcador', async () => {
   const servicePage = await openServicePage(SVC_SET_IDS.activity)
   // Espera a que la página esté pintada con los datos (el gráfico de actividad, con su serie).
   expect(await chartSeries('activity')).toHaveLength(1)
   await expect(servicePage.getByTestId('service-slo-panel')).toHaveCount(0)
   await expect(servicePage.getByTestId('service-slo-chart')).toHaveCount(0)
   await expect(servicePage.getByTestId('service-marker-availability')).toHaveCount(0)
+})
+
+/**
+ * Ficha 0066: la disponibilidad del rango tiene su propio marcador, `service-marker-availability`
+ * («SLO»), el primero de la fila de `service-markers`. El valor va en `service-marker-value` con
+ * `data-level` (`error` por debajo del 90 %, `success` del 90 % para arriba, `normal` sin dato) y
+ * la clase de color del nivel (`text-danger` o `text-status-closed`); por debajo del 90 %, el texto
+ * «por debajo del 90 %» bajo el valor (`service-marker-level`).
+ */
+test('CA2 (0066): la fila tiene seis marcadores y el primero, a la izquierda, es «SLO», seguido de «Peticiones OK»; «Tasa de error» ya no lleva la disponibilidad', async () => {
+  const servicePage = await openServicePage(SVC_ID)
+  await expectErrorServiceValues()
+  const row = servicePage.getByTestId('service-markers')
+  const cards = row.locator(':scope > [data-testid^="service-marker-"]')
+  await expect(cards).toHaveCount(6)
+
+  // En el DOM: primero «SLO», después «Peticiones OK».
+  await expect(cards.nth(0)).toHaveAttribute('data-testid', 'service-marker-availability')
+  await expect(cards.nth(1)).toHaveAttribute('data-testid', 'service-marker-ok')
+  const slo = serviceMarker('availability')
+  await expect(slo.getByRole('heading')).toHaveText('SLO')
+
+  // En pantalla: en la misma fila y a la izquierda de «Peticiones OK».
+  const sloBox = await slo.boundingBox()
+  const okBox = await serviceMarker('ok').boundingBox()
+  expect(sloBox).not.toBeNull()
+  expect(okBox).not.toBeNull()
+  expect(Math.abs((sloBox?.y ?? 0) - (okBox?.y ?? -100))).toBeLessThanOrEqual(2)
+  expect((sloBox?.x ?? 0) + (sloBox?.width ?? 0)).toBeLessThanOrEqual(okBox?.x ?? 0)
+
+  // «Tasa de error» se queda solo con su valor.
+  const errorRate = serviceMarker('error-rate')
+  await expect(errorRate.getByTestId('service-marker-value')).toHaveText(/^10,0\s?%$/)
+  await expect(errorRate.getByTestId('service-marker-availability')).toHaveCount(0)
+  await expect(errorRate).not.toContainText('Disponibilidad')
+  await expect(errorRate).not.toContainText(/90\s?%/)
+})
+
+test('CA3 (0066): con un 85,3 % el marcador «SLO» va en color de error y con «por debajo del 90 %»; con un 100,0 %, en color de éxito y sin ese texto', async () => {
+  await openServicePage(SVC_SLO_ID)
+  const critical = serviceMarker('availability')
+  const criticalValue = critical.getByTestId('service-marker-value')
+  await expect(criticalValue).toHaveText(/^85,3\s?%$/)
+  await expect(criticalValue).toHaveAttribute('data-level', 'error')
+  await expect(criticalValue).toHaveClass(/\btext-danger\b/)
+  const levelText = critical.getByTestId('service-marker-level')
+  await expect(levelText).toHaveText(/^por debajo del 90\s?%$/)
+  await expect(levelText).toHaveClass(/\btext-danger\b/)
+  // El color, el mismo que el de un valor en error de otro marcador (KO con errores).
+  const koValue = serviceMarker('ko').getByTestId('service-marker-value')
+  await expect(koValue).toHaveAttribute('data-level', 'error')
+  const colorOf = (locator: Locator): Promise<string> =>
+    locator.evaluate((element) => getComputedStyle(element).color)
+  expect(await colorOf(criticalValue)).toBe(await colorOf(koValue))
+
+  await openServicePage(SVC_BIG_ID)
+  const healthy = serviceMarker('availability')
+  const healthyValue = healthy.getByTestId('service-marker-value')
+  await expect(healthyValue).toHaveText(/^100,0\s?%$/)
+  await expect(healthyValue).toHaveAttribute('data-level', 'success')
+  await expect(healthyValue).toHaveClass(/\btext-status-closed\b/)
+  await expect(healthyValue).not.toHaveClass(/\btext-danger\b/)
+  await expect(healthy.getByTestId('service-marker-level')).toHaveCount(0)
+  await expect(healthy).not.toContainText(/por debajo/)
+  expect(await colorOf(healthyValue)).not.toBe(await colorOf(koValue))
+})
+
+test('CA4 (0066): en un servicio de solo actividad no sale el marcador «SLO»; sin peticiones en el rango, sale «—» sin color', async () => {
+  const activity = await openServicePage(SVC_SET_IDS.activity)
+  await expect(serviceMarker('requests').getByTestId('service-marker-value')).toHaveText(/^10$/)
+  await expect(activity.getByTestId('service-marker-availability')).toHaveCount(0)
+  await expect(activity.getByTestId('service-markers')).not.toContainText('SLO')
+
+  await openServicePage(SVC_EMPTY_ID)
+  const empty = serviceMarker('availability')
+  await expect(empty).toBeVisible()
+  const value = empty.getByTestId('service-marker-value')
+  await expect(value).toHaveText('—')
+  await expect(value).toHaveAttribute('data-level', 'normal')
+  await expect(value).not.toHaveClass(/\btext-(danger|status-closed)\b/)
+  await expect(empty.getByTestId('service-marker-level')).toHaveCount(0)
 })
 
 test('CA2 (0065) y CA5 (0048): el tooltip del nombre del gráfico explica la fórmula, con ratón y con foco', async () => {
@@ -11456,10 +11551,10 @@ function mainValue(id: string): Locator {
   return card.getByTestId('service-marker-value')
 }
 
-const ALL_MARKERS = ['ok', 'ko', 'error-rate', 'response-time', 'problems'] as const
+const ALL_MARKERS = ['availability', 'ok', 'ko', 'error-rate', 'response-time', 'problems'] as const
 
 for (const size of [FIXED_WINDOW, SMALL_WINDOW]) {
-  test(`CA2 (0012): en las cinco tarjetas, el título y el valor principal están centrados (${size.width}×${size.height})`, async () => {
+  test(`CA2 (0012): en las seis tarjetas (con «SLO», ficha 0066), el título y el valor principal están centrados (${size.width}×${size.height})`, async () => {
     await withContentSize(size, async () => {
       await goToRoute(`/entities/SERVICE/${SVC_ID}`)
       await expect(page.getByTestId('entity-page-service')).toBeVisible()

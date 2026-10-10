@@ -10,8 +10,10 @@ import es from './es/common.json'
  * - `hint`: el tooltip del nombre, con la fórmula y que lo calcula Vigía;
  * - `critical`: la etiqueta de la línea del umbral («Crítico 90 %»);
  * - `series`: el nombre de la serie;
- * - `marker`: la línea bajo «Tasa de error» («Disponibilidad {{value}}»);
- * - `markerCritical`: el texto que acompaña al color cuando baja del 90 %.
+ * - `markerCritical`: el texto que acompaña al color cuando baja del 90 % (bajo el valor del
+ *   marcador «SLO» desde la ficha 0066).
+ * La línea `marker` («Disponibilidad {{value}}») bajo «Tasa de error» desapareció con la ficha
+ * 0066: la disponibilidad tiene su propio marcador, titulado con `title`.
  * La paridad general ya la mira `locales.test.ts`; esto comprueba que existen en los dos idiomas.
  */
 type Messages = { [key: string]: string | Messages }
@@ -24,7 +26,7 @@ function at(messages: unknown, path: string): unknown {
   return node
 }
 
-const KEYS = ['title', 'hint', 'critical', 'series', 'marker', 'markerCritical'] as const
+const KEYS = ['title', 'hint', 'critical', 'series', 'markerCritical'] as const
 const base = 'entities.service.availability'
 
 describe('CA6 (0048): textos nuevos de la disponibilidad en es y en', () => {
@@ -44,7 +46,6 @@ describe('CA6 (0048): textos nuevos de la disponibilidad en es y en', () => {
 
   it('los textos que da la ficha, en español', () => {
     expect(at(es, `${base}.critical`)).toMatch(/^Crítico 90\s?%$/)
-    expect(at(es, `${base}.marker`)).toMatch(/^Disponibilidad \{\{value\}\}$/)
     expect(at(es, `${base}.markerCritical`)).toMatch(/por debajo del 90\s?%/)
   })
 
