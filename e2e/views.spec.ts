@@ -2691,9 +2691,52 @@ Object.assign(
   ])
 )
 
+/**
+ * Ficha 0050: dos process groups más (ids inventados), para las 20 de más CPU y la lista
+ * completa: uno de 30 instancias (CPU distintas, en un orden que no es el de CPU) y otro
+ * recortado (la API devuelve 25 instancias con dimensionCountRatio > 1, y /entities cuenta 600).
+ */
+const PROCESS_GROUP_MANY_ID = 'PROCESS_GROUP-00000000000E2E70'
+const PROCESS_GROUP_CUT_ID = 'PROCESS_GROUP-00000000000E2E80'
+/** Instancias que cuenta /entities en el grupo recortado (más que las que llegan). */
+const PROCESS_GROUP_CUT_TOTAL = 600
+/** Selector de las instancias de un grupo, el confirmado en vivo (0031). */
+const processGroupSelector = (groupId: string): string =>
+  `type("PROCESS_GROUP_INSTANCE"),fromRelationships.isInstanceOf(entityId("${groupId}"))`
+/** `n` instancias inventadas; CPU `(i·7) mod n` + 0,5 (una permutación: n no es múltiplo de 7). */
+function pgManyInstances(prefix: string, n: number): ProcessGroupInstanceFake[] {
+  return Array.from({ length: n }, (_, i) => {
+    const hex = (i + 1).toString(16).toUpperCase().padStart(2, '0')
+    return {
+      id: `PROCESS_GROUP_INSTANCE-0000000000${prefix}${hex}`,
+      name: `instancia-${prefix.toLowerCase()}-${i + 1}`,
+      hostId: `HOST-0000000000${prefix}${hex}`,
+      hostName: `host-${prefix.toLowerCase()}-${i + 1}`,
+      cpu: ((i * 7) % n) + 0.5,
+      memory: 1_000_000 * (i + 1)
+    }
+  })
+}
+const PROCESS_GROUP_MANY_INSTANCES = pgManyInstances('E2E7', 30)
+const PROCESS_GROUP_CUT_INSTANCES = pgManyInstances('E2E8', 25)
+/** De más a menos CPU media. */
+const byCpu = (list: ProcessGroupInstanceFake[]): ProcessGroupInstanceFake[] =>
+  list.slice().sort((a, b) => b.cpu - a.cpu)
+/** Como las da el canal (id, nombre, host, CPU y memoria). */
+const pgItem = (instance: ProcessGroupInstanceFake): Record<string, unknown> => ({
+  id: instance.id,
+  name: instance.name,
+  hostId: instance.hostId,
+  hostName: instance.hostName,
+  cpu: instance.cpu,
+  memory: instance.memory
+})
+
 /** Las instancias inventadas de cada process group, con su CPU y su memoria medias. */
 function processGroupInstances(groupId: string): ProcessGroupInstanceFake[] {
   if (groupId === PROCESS_GROUP_PAGE_ID) return PROCESS_GROUP_PAGE_INSTANCES
+  if (groupId === PROCESS_GROUP_MANY_ID) return PROCESS_GROUP_MANY_INSTANCES
+  if (groupId === PROCESS_GROUP_CUT_ID) return PROCESS_GROUP_CUT_INSTANCES
   return PROCESS_GROUP_INSTANCES.map((instance, i) => ({
     ...instance,
     cpu: PROCESS_GROUP_INSTANCE_VALUES[
@@ -2710,6 +2753,8 @@ function processGroupOf(query: URLSearchParams): string | null {
   const scope = query.get('entitySelector') ?? ''
   if (scope.includes(PROCESS_GROUP_PAGE_ID)) return PROCESS_GROUP_PAGE_ID
   if (scope.includes(PROCESS_GROUP_ID)) return PROCESS_GROUP_ID
+  if (scope.includes(PROCESS_GROUP_MANY_ID)) return PROCESS_GROUP_MANY_ID
+  if (scope.includes(PROCESS_GROUP_CUT_ID)) return PROCESS_GROUP_CUT_ID
   return null
 }
 
@@ -2747,9 +2792,7 @@ function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
   const groupId = processGroupOf(query) ?? PROCESS_GROUP_ID
   const instances = processGroupInstances(groupId)
   // Como en vivo: con entityId("<grupo>") estas métricas no traen nada.
-  const scoped =
-    query.get('entitySelector') ===
-    (groupId === PROCESS_GROUP_PAGE_ID ? PROCESS_GROUP_PAGE_SELECTOR : PROCESS_GROUP_SELECTOR)
+  const scoped = query.get('entitySelector') === processGroupSelector(groupId)
   const expressions = splitSelector(selector)
   const at = PROCESS_T0 + 1_800_000
   const byInstance = (expression: string): boolean =>
@@ -2777,10 +2820,21 @@ function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
   })
   const perInstanceData = (expression: string): unknown[] => {
     if (inf) {
-      // Con Inf, solo la expresión exacta de la 0031.
-      if (!expression.endsWith(PROCESS_GROUP_BY_INSTANCE)) return []
-      if (instanceValue(expression, instances[0]!) === null) return []
-      return instances.map((instance) => ({
+      // Con Inf, solo la expresión exacta de la 0031 y, desde la 0050, la misma seguida de
+      // `:sort(value(avg,descending))` (de más a menos) y, si acaso, `:limit(N)` (las N primeras),
+      // las probadas en vivo.
+      const sortLimit = /:sort\(value\(avg,descending\)\)(?::limit\((\d+)\))?$/.exec(expression)
+      const head = sortLimit === null ? expression : expression.slice(0, sortLimit.index)
+      if (!head.endsWith(PROCESS_GROUP_BY_INSTANCE)) return []
+      if (instanceValue(head, instances[0]!) === null) return []
+      let list = instances
+      if (sortLimit !== null) {
+        list = list
+          .slice()
+          .sort((a, b) => (instanceValue(head, b) ?? 0) - (instanceValue(head, a) ?? 0))
+        if (sortLimit[1] !== undefined) list = list.slice(0, Number(sortLimit[1]))
+      }
+      return list.map((instance) => ({
         dimensionMap: dimensionMapOf(expression, instance),
         dimensions: [instance.id, instance.hostId],
         timestamps: [at],
@@ -2825,7 +2879,9 @@ function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
                     values: total
                   }
                 ]
-        const truncated = perInstance && sim.processGroupTruncated
+        // 0050: el grupo recortado siempre llega recortado en las expresiones por instancia.
+        const truncated =
+          perInstance && (sim.processGroupTruncated || groupId === PROCESS_GROUP_CUT_ID)
         return {
           metricId: expression,
           dataPointCountRatio: 0.005,
@@ -4041,6 +4097,8 @@ const defaultSim = () => ({
   processMetricQueries: [] as URLSearchParams[],
   /** Ficha 0031: consultas de métricas del process group inventado (sus query). */
   processGroupMetricQueries: [] as URLSearchParams[],
+  /** Ficha 0050: consultas a /entities con el selector de las instancias de un grupo inventado. */
+  processGroupEntityQueries: [] as URLSearchParams[],
   /** Ficha 0033: consultas de métricas de la aplicación inventada (sus query). */
   applicationMetricQueries: [] as URLSearchParams[],
   /** Ficha 0034: las consultas de métricas de la aplicación inventada fallan con un 400. */
@@ -4555,6 +4613,29 @@ async function startServer(): Promise<void> {
           : send(404, { error: { code: 404, message: 'Entity not found' } })
       }
       if (req.method === 'GET' && url.pathname === '/api/v2/entities') {
+        // Ficha 0050: el total real de instancias de un grupo inventado (totalCount, con la
+        // primera página de pageSize), como en vivo con el selector de la 0031.
+        const group = processGroupOf(url.searchParams)
+        if (
+          group !== null &&
+          url.searchParams.get('entitySelector') === processGroupSelector(group)
+        ) {
+          sim.processGroupEntityQueries.push(url.searchParams)
+          const all = processGroupInstances(group)
+          const totalCount = group === PROCESS_GROUP_CUT_ID ? PROCESS_GROUP_CUT_TOTAL : all.length
+          const pageSize = Number(url.searchParams.get('pageSize') ?? '50')
+          const entities = all.slice(0, pageSize).map((instance) => ({
+            entityId: instance.id,
+            displayName: instance.name,
+            type: 'PROCESS_GROUP_INSTANCE'
+          }))
+          return send(200, {
+            totalCount,
+            pageSize,
+            nextPageKey: totalCount > entities.length ? 'AQAAABQBAAAABQ==' : null,
+            entities
+          })
+        }
         // Ficha 0041: la consulta de logs del host no es de entities:names.
         const logs = hostLogsResponse(url.searchParams)
         if (logs !== null) return send(logs.status, logs.body)
@@ -9136,6 +9217,75 @@ test('CA6 (0031): entities:processGroupMetrics por IPC con ids inventados: dos c
     },
     warnings: [],
     partial: []
+  })
+})
+
+test('CA6 (0050): entities:processGroupMetrics de un grupo de 30 instancias: las 20 de más CPU y el total real', async () => {
+  const data = await invoke<{ instances: Record<string, unknown> }>(
+    'entities:processGroupMetrics',
+    { environmentId: env['Producción'], entityId: PROCESS_GROUP_MANY_ID, timeRange: '2h' }
+  )
+  // La CPU por instancia, ordenada y limitada a 20 en la consulta de marcadores (Inf).
+  const markers =
+    sim.processGroupMetricQueries
+      .find((q) => q.get('resolution') === 'Inf')
+      ?.get('metricSelector') ?? ''
+  expect(markers).toContain(
+    `builtin:tech.generic.cpu.usage${PROCESS_GROUP_BY_INSTANCE}:sort(value(avg,descending)):limit(20)`
+  )
+  // El total, de totalCount de /entities con el selector del grupo.
+  expect(sim.processGroupEntityQueries).toHaveLength(1)
+  expect(sim.processGroupEntityQueries[0]?.get('pageSize')).toBe('1')
+  expect(data.instances).toEqual({
+    items: byCpu(PROCESS_GROUP_MANY_INSTANCES).slice(0, 20).map(pgItem),
+    total: 30,
+    totalKnown: true
+  })
+})
+
+test('CA6 (0050): entities:processGroupMetrics de un grupo recortado: 20 instancias, total real y partial', async () => {
+  const data = await invoke<{ instances: Record<string, unknown>; partial: unknown[] }>(
+    'entities:processGroupMetrics',
+    { environmentId: env['Producción'], entityId: PROCESS_GROUP_CUT_ID, timeRange: '2h' }
+  )
+  expect(data.instances).toEqual({
+    items: byCpu(PROCESS_GROUP_CUT_INSTANCES).slice(0, 20).map(pgItem),
+    total: PROCESS_GROUP_CUT_TOTAL,
+    totalKnown: true
+  })
+  expect(data.partial.length).toBeGreaterThan(0)
+})
+
+test('CA6 (0050): entities:processGroupInstances del grupo de 30: la lista completa por CPU, sin recorte', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:processGroupInstances', {
+    environmentId: env['Producción'],
+    entityId: PROCESS_GROUP_MANY_ID,
+    timeRange: '2h'
+  })
+  // Una consulta de métricas con Inf, con el selector del grupo y el rango, y una a /entities.
+  expect(sim.processGroupMetricQueries).toHaveLength(1)
+  const query = sim.processGroupMetricQueries[0]
+  expect(query?.get('resolution')).toBe('Inf')
+  expect(query?.get('entitySelector')).toBe(processGroupSelector(PROCESS_GROUP_MANY_ID))
+  expect(query?.get('from')).toBe('now-2h')
+  expect(sim.processGroupEntityQueries).toHaveLength(1)
+  expect(data).toMatchObject({
+    items: byCpu(PROCESS_GROUP_MANY_INSTANCES).map(pgItem),
+    total: 30,
+    truncated: false
+  })
+})
+
+test('CA6 (0050): entities:processGroupInstances de un grupo recortado: truncated y el total real', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:processGroupInstances', {
+    environmentId: env['Producción'],
+    entityId: PROCESS_GROUP_CUT_ID,
+    timeRange: '2h'
+  })
+  expect(data).toMatchObject({
+    items: byCpu(PROCESS_GROUP_CUT_INSTANCES).map(pgItem),
+    total: PROCESS_GROUP_CUT_TOTAL,
+    truncated: true
   })
 })
 

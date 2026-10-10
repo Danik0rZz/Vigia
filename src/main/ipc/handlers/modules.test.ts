@@ -771,6 +771,13 @@ describe('todos los canales de módulos', () => {
       entityId: 'PROCESS_GROUP-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0050: lista completa de instancias del grupo (su comportamiento, en
+    // process-group-metrics.test).
+    await call('entities:processGroupInstances' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'PROCESS_GROUP-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     // Ficha 0033: métricas de una aplicación web (su comportamiento, en application-metrics.test).
     await call('entities:applicationMetrics' as IpcChannel, {
       environmentId: envId,

@@ -548,6 +548,73 @@ describe('CA2 (0031): entrada de entities:processGroupMetrics', () => {
   })
 })
 
+describe('CA4 (0050): contrato de entities:processGroupInstances y total de entities:processGroupMetrics', () => {
+  type Schema = { safeParse: (value: unknown) => { success: boolean } }
+  /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
+  const entry = (channel: string): { input: Schema; output: Schema } => {
+    const contract = ipcContract as unknown as Record<
+      string,
+      { input: Schema; output: Schema } | undefined
+    >
+    const found = contract[channel]
+    expect(found, `canal ${channel}`).toBeDefined()
+    return found!
+  }
+  const base = { environmentId: '00000000-0000-4000-8000-000000000001', timeRange: '2h' }
+  const GROUP_ID = 'PROCESS_GROUP-0123456789ABCDEF'
+  const item = {
+    id: 'PROCESS_GROUP_INSTANCE-0123456789ABCDEF',
+    name: 'Instancia',
+    hostId: 'HOST-0123456789ABCDEF',
+    hostName: 'Host',
+    cpu: 12.5,
+    memory: 1_000
+  }
+
+  it('la entrada es la de la 0031: entorno, un PROCESS_GROUP y el rango', () => {
+    const { input } = entry('entities:processGroupInstances')
+    expect(input.safeParse({ ...base, entityId: GROUP_ID }).success).toBe(true)
+    for (const entityId of [
+      'HOST-0123456789ABCDEF',
+      'PROCESS_GROUP_INSTANCE-0123456789ABCDEF',
+      'PROCESS_GROUP-0123456789ABCDEF"),type("HOST'
+    ]) {
+      expect(input.safeParse({ ...base, entityId }).success, entityId).toBe(false)
+    }
+  })
+
+  it('la salida trae items, total y truncated', () => {
+    const { output } = entry('entities:processGroupInstances')
+    expect(output.safeParse({ items: [item], total: 640, truncated: true }).success).toBe(true)
+    expect(output.safeParse({ items: [item], total: 1 }).success, 'sin truncated').toBe(false)
+    expect(output.safeParse({ items: [item], truncated: false }).success, 'sin total').toBe(false)
+  })
+
+  it('las instancias de entities:processGroupMetrics llevan totalKnown', () => {
+    const { output } = entry('entities:processGroupMetrics')
+    const empty = { timestamps: [], values: [] }
+    const result = {
+      resolution: '10m',
+      series: { cpu: empty, memory: empty, network: { in: empty, out: empty } },
+      totals: {
+        cpu: { avg: null, max: null },
+        memory: { avg: null },
+        network: { in: null, out: null }
+      },
+      warnings: [],
+      partial: []
+    }
+    expect(
+      output.safeParse({ ...result, instances: { items: [item], total: 640, totalKnown: true } })
+        .success
+    ).toBe(true)
+    expect(
+      output.safeParse({ ...result, instances: { items: [item], total: 1 } }).success,
+      'sin totalKnown'
+    ).toBe(false)
+  })
+})
+
 describe('CA2 (0033): entrada de entities:applicationMetrics', () => {
   /** El canal aún puede no existir: se busca sin tipos para que el test falle, no la compilación. */
   const input = (): { safeParse: (value: unknown) => { success: boolean } } => {
