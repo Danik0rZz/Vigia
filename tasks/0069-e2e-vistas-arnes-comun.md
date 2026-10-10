@@ -1,7 +1,7 @@
 ---
 id: '0069'
 titulo: 'e2e: sacar el simulador y los ayudantes de views.spec.ts a un arnés común'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -86,7 +86,11 @@ Normal (`ligera: no`).
 
 ## Verificación
 
-(pendiente)
+Tests (test-writer): commit 5bee504, `scripts/e2e-views-harness.test.ts`.
+
+- CA1: sin test nuevo. Lo cubre el e2e de `views` (`npm run test:e2e -- e2e/views.spec.ts`) más la revisión del diff de `e2e/views.spec.ts` (solo quita código que no es un `test(...)` y cambia los `import`). No se deja una guarda permanente contra la versión anterior porque la 0070 moverá los tests a otros specs.
+- CA2: «checkHarnessUse (la propia comprobación)», con specs de ejemplo: acepta la llamada única en el nivel superior (también con alias) e ignora los specs que no importan el arnés; falla sin llamada (también si solo importa otro módulo del arnés), con dos llamadas, dentro de un `describe`, de un test o de un gancho, dentro de un `if`, y si el spec lanza la app con su propio `beforeAll`. Sobre el repositorio, «arnés de vistas en el repositorio»: un único módulo de `e2e/` (no spec ni test) exporta `setupViewsApp`; `views.spec.ts` importa el arnés; cada `e2e/*.spec.ts` lo usa bien; el arnés lanza la app y llama a `useCiWindow` justo después; cada módulo del arnés está en los globs de `views` y `decide` lanza `e2e/views.spec.ts`. El arnés se localiza sin suponer su nombre: el módulo que exporta `setupViewsApp` y, si está en una subcarpeta de `e2e/`, sus vecinos.
+- CA3: sin test nuevo; lo cubre la guarda de la 0067 (`scripts/e2e-tags.test.ts`), que debe seguir en verde.
 
 ## Resultado
 
