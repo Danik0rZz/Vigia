@@ -1,7 +1,7 @@
 ---
 id: '0058'
 titulo: 'Páginas de entidad: un solo código para acceso, marcadores, niveles y tablas'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -68,7 +68,13 @@ el inventario de todas** y lo anota.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `UsageLevel` (`lib/host-format.ts`), `AvailabilityLevel` (`lib/monitor-format.ts`) y
+  `ApdexLevel` (`lib/application-format.ts`) siguen en `lib/`: las páginas ya usan `Level` de
+  `EntityMarkers.tsx`, pero unificar los de `lib/` (transversal en `e2e/areas.json`) dispara el e2e
+  completo sin cambiar nada; queda para otra ficha pequeña.
+- (developer) `ApplicationActions.tsx` y la tabla de instancias del process group pintan su propio
+  estado de carga y error: podrían pasar a `TableCard` (con cuidado con sus `data-testid`).
+- (developer) `usageBar` (`lib/host-format.ts`) calcula el ancho igual que `barWidth`.
 
 ## Notas del revisor
 
@@ -109,4 +115,36 @@ Decisiones del test-writer (Dani las delegó; refinables):
 
 ## Resultado
 
-(pendiente)
+Commits del developer: `c349ff1` (comparadores a `@shared/grid-sort`), `e91a399`
+(`useEntityPageAccess`), `55a93cf` (marcadores), `c27ca1a` (tablas) y el de la documentación.
+
+Inventario (developer, al empezar): el del test-writer en «Verificación», más `NUMBER_CELL` en
+`ProcessGroupInstancesTable.tsx` y `ApplicationActions.tsx`. Las páginas de entorno, genérica,
+aplicación cloud y los envoltorios de browser y HTTP monitor (usan `MonitorEntityPage`) no tenían
+copia.
+
+Decisiones del developer (Dani las delegó; refinables):
+
+- **«Actualizar» no depende de `canFetch`.** `resolveEntityPageAccess` da además `canRefresh`, la
+  condición de antes (id válido y metrics, problems o entities —este, ya con el estado— con acceso),
+  y las páginas enseñan el botón con él: sale igual que antes. `canFetch` queda como pide CA1
+  (estado de la conexión conocido) y por ahora ninguna página lo usa.
+- **El estado de la conexión se espera con el entorno de cualquier módulo con acceso** (entities y,
+  si no, metrics o problems): con entities sin scope, `useConnectionStatusKnown(null)` sería
+  siempre falso y `canFetch` no llegaría a verdadero. Es la misma consulta `connection:status`
+  (misma clave): no hay peticiones nuevas.
+- **Host:** los eventos (0042) entran como `extraEnvs` del hook, para «Actualizar» y su entorno,
+  como antes.
+- **Monitores:** el esquema de cada tipo es `monitorEntityIdSchema.refine(prefijo)`, en
+  `MonitorEntityPage.tsx`.
+- **Marcadores:** un solo `MarkerBody` con `caption` (opcional, con `captionTestId`: en la
+  aplicación la línea bajo el valor era `application-marker-secondary` y se conserva), `levelText` +
+  `level`, `secondary` con `secondaryLevel` opcional (solo monitores, que siguen llevando
+  `data-level` en todas sus líneas secundarias) y `extra`. El HTML es el de antes salvo
+  `service-marker-value`, que ahora lleva `data-level` (`normal` o `error`); color y texto, iguales.
+- **`LEVEL_CLASS`, `BAR_CLASS` y `barWidth`** se exportan desde los `.tsx`, como piden la ficha y
+  el test de guardia, con `react-refresh/only-export-components` desactivado en esa línea y su
+  motivo. El color del texto de las tablas es `LEVEL_CLASS` (el `LEVEL_TEXT_CLASS` de antes tenía
+  los mismos valores).
+- **`e2e/areas.json` no cambia:** `src/renderer/src/pages/**` (área `views`) ya cubre
+  `entity-access.ts` y `EntityTables.tsx`, y `src/shared/grid-sort.ts` ya estaba.
