@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -78,7 +78,21 @@ el inventario de todas** y lo anota.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA3 con su test (`3c1dc19`), y fallan sin el código; ningún `*.test.ts(x)` cambia después y
+`e2e/` queda intacto (CA4). CA2 fija el orden de antes; `compareNullable` y `byNumber` son el mismo
+código que se quitó. `canRefresh` reproduce página por página la condición de antes (host con
+`extraEnvs` para los eventos; monitores con `refine` equivalente), sin peticiones nuevas. El HTML de
+los marcadores es el mismo salvo `data-level` en `service-marker-value`, que no se ve ni rompe el
+e2e. Sin IPC, API, dependencias ni esquema; `src/renderer/CLAUDE.md` al día.
+
+Sugerencias, no bloquean:
+
+1. `canFetch` no lo usa ninguna página todavía: decirlo en el comentario de `EntityPageEnvs` para que
+   nadie lo tome por la condición de «Actualizar».
+2. Los tres `eslint-disable react-refresh` son los primeros del repo; `BAR_CLASS` y `barWidth`
+   podrían ir a un `entity-tables.ts`, como `host-tables.ts` (a "Ideas surgidas").
 
 ## Verificación
 
