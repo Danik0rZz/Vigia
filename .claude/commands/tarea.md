@@ -55,17 +55,23 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
 - **Traer `main`** (`docs/flujo.md`, "Git"; el Planificador commitea las fichas aprobadas en
   `main` local, sin push): al empezar cada ficha (paso 2), antes de abrir una PR (paso 9) y tras
   fusionar una (paso 10):
-  1. `git fetch origin` y `git -C <checkout principal> merge --no-edit origin/main` (la ruta, de
-     `git worktree list`). Si `main` local lleva documentos del Planificador, queda un merge en
-     `main` local, sin push.
+  1. `git fetch origin` y, en el checkout principal (la ruta sale de `git worktree list`),
+     `git merge -m "chore(git): trae origin/main" origin/main` con `git -C <checkout principal>`.
+     Si `main` local lleva documentos del Planificador, queda un merge en `main` local, sin push.
+     Si `git -C <checkout principal> status --porcelain` no está vacío (cambios sin commitear del
+     Planificador), no lo empiezas; si el merge da conflicto,
+     `git -C <checkout principal> merge --abort`. En los dos casos paras la cola y avisas a Dani
+     (y al Planificador) con el **Aviso** de `parada`: nunca resuelvas conflictos en el checkout
+     de otra sesión.
   2. Si hay una `integra/…` en curso y `git log --oneline integra/…..main` no está vacío, en ella
-     `git merge --no-edit main`. Si no hay ninguna, la siguiente sale de `main` (o se le hace ese
-     merge, si sale de la anterior) y los lleva. Antes de abrir una PR se repite, por si el
-     Planificador ha commiteado entretanto.
+     `git merge -m "chore(git): trae main" main`. Si no hay ninguna, la siguiente sale de `main`
+     (o se le hace ese merge, si sale de la anterior) y los lleva. Antes de abrir una PR se
+     repite, por si el Planificador ha commiteado entretanto.
 - Al acabar la cola: abre la PR del grupo en curso con las que haya (paso 9). Si no queda ninguna
-  `integra/…` en curso y `git log --oneline origin/main..main` no está vacío, abre una PR solo de
-  documentos (`integra/AAAAMMDD-N` desde `main`, push, PR y fusión con «CI ok» en verde). Después,
-  un resumen para Dani (hechas, en espera con su pregunta, bloqueadas con el motivo, saltadas por
+  `integra/…` en curso y `git log --oneline main --not origin/main <integra/… con PR abierta>` (lo
+  que no va en ninguna PR abierta) no está vacío, abre una PR solo de documentos
+  (`integra/AAAAMMDD-N` desde `main`, push, PR y fusión con «CI ok» en verde). Después, un resumen
+  para Dani (hechas, en espera con su pregunta, bloqueadas con el motivo, saltadas por
   dependencias, y las PR con su enlace y quién las fusiona) y el **Aviso** de la cola.
 
 **Por cada ficha:**

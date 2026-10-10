@@ -9,8 +9,12 @@ Eres el Orquestador. Sigue "Cerrar una versión" de `docs/flujo.md`.
    CHANGELOG tiene contenido. Si no, para y avisa.
 2. Versión: `$ARGUMENTS` si viene; si no, menor si hay algo en `Añadido`, parche si solo hay
    `Corregido`. Antes, "Traer `main`" (`docs/flujo.md`, "Git": `git fetch origin`,
-   `git -C <checkout principal> merge --no-edit origin/main` y, si hay una `integra/…` en curso,
-   `git merge --no-edit main` en ella). Rama `release/x.y.z` desde `main` en tu worktree.
+   `git merge -m "chore(git): trae origin/main" origin/main` con `git -C <checkout principal>` y,
+   si hay una `integra/…` en curso, `git merge -m "chore(git): trae main" main` en ella; si el
+   checkout principal tiene cambios sin commitear, no lo empiezas, y si el merge da conflicto,
+   `git -C <checkout principal> merge --abort`: en los dos casos paras y avisas a Dani, sin
+   resolver conflictos en el checkout de otra sesión). Rama `release/x.y.z` desde `main` en tu
+   worktree.
 3. **verifier** en modo `cierre` (rango desde la versión anterior: el commit que subió su número en
    `package.json`). Si es ROJO, para y avisa: el arreglo es una ficha nueva.
 4. Con VERDE:

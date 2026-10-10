@@ -157,14 +157,19 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
 - **Traer `main`** (lo hace el Orquestador al empezar cada ficha, antes de abrir una PR y tras
   fusionar una): el Planificador commitea las fichas aprobadas en `main` local, sin push, así que
   `main` local puede llevar commits que no están en `origin/main`. El camino es uno:
-  1. `git fetch origin` y `git -C <checkout principal> merge --no-edit origin/main` (la ruta sale
-     de `git worktree list`). Si `main` local no lleva nada propio, avanza sin más; si lleva
-     documentos del Planificador, deja un merge en `main` local, sin push.
+  1. `git fetch origin` y, en el checkout principal (la ruta sale de `git worktree list`),
+     `git merge -m "chore(git): trae origin/main" origin/main` con `git -C <checkout principal>`.
+     Si `main` local no lleva nada propio, avanza sin más; si lleva documentos del Planificador,
+     deja un merge en `main` local, sin push. Si `git -C <checkout principal> status --porcelain`
+     no está vacío (cambios sin commitear del Planificador), no se empieza; si el merge da
+     conflicto, `git -C <checkout principal> merge --abort`. En los dos casos se para la cola y se
+     avisa a Dani (y al Planificador): nunca se resuelven conflictos en el checkout de otra sesión.
   2. Si hay una `integra/…` en curso y `git log --oneline integra/…..main` no está vacío, en ella
-     `git merge --no-edit main`. Si no hay ninguna, la siguiente `integra/…` sale de `main` (o se
-     le hace ese mismo merge, si sale de la anterior) y los lleva; antes de abrir una PR se repite,
-     por si el Planificador ha commiteado entretanto. Si la cola acaba sin ninguna en curso y
-     `git log --oneline origin/main..main` no está vacío, se abre una PR solo de documentos:
+     `git merge -m "chore(git): trae main" main`. Si no hay ninguna, la siguiente `integra/…` sale
+     de `main` (o se le hace ese mismo merge, si sale de la anterior) y los lleva; antes de abrir
+     una PR se repite, por si el Planificador ha commiteado entretanto. Si la cola acaba sin
+     ninguna en curso y `git log --oneline main --not origin/main <integra/… con PR abierta>` (lo
+     que no va en ninguna PR abierta) no está vacío, se abre una PR solo de documentos:
      `integra/AAAAMMDD-N` desde `main`, push, PR y fusión con «CI ok» en verde.
 
   Así `main` local siempre está contenido en lo que acaba en `origin/main`, y el paso 1 nunca
