@@ -8,8 +8,10 @@
 // tiempo de ejecución y NUNCA imprime sus valores: solo el tipo de coincidencia y
 // fichero:línea (o el hash del commit). Busca en las líneas añadidas del diff y en los
 // mensajes de commit del rango. Sale con 1 si encuentra algo, con 0 si no y con 2 si no puede
-// comprobar: un error de git o la falta del .env (falla cerrado, ficha 0055), salvo con
-// VIGIA_SCAN_TENANT_OPTIONAL=1, que lo convierte en un aviso y sale con 0.
+// comprobar: un error de git o la falta del .env, o un .env sin valores reconocibles (falla
+// cerrado, ficha 0055), salvo con VIGIA_SCAN_TENANT_OPTIONAL=1 para lo del .env, que lo
+// convierte en un aviso y sale con 0. Con --pre-push y la entrada vacía (git no sube ningún
+// ref) sale con 0.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -156,26 +158,48 @@ function prePushInput() {
   } catch (error) {
     return { error: error.message }
   }
-  // Entrada vacía: git no ha dicho qué se sube. No se da por bueno sin mirar.
-  if (input.trim() === '')
-    return { error: 'la entrada estándar está vacía: git no ha indicado qué se sube.' }
-  return { ranges }
+  return { ranges, empty: input.trim() === '' }
+}
+
+/**
+ * Sin .env (o con uno sin valores reconocibles) no se puede comprobar: 2, salvo con
+ * VIGIA_SCAN_TENANT_OPTIONAL=1, que sale con 0 y un AVISO. Devuelve el código, o
+ * undefined si hay valores que buscar.
+ */
+function checkLiveEnv(env) {
+  const envPath = findLiveEnv(process.cwd())
+  let problem
+  if (envPath === undefined) {
+    problem = `falta ${LIVE_ENV_FILE} (ni aquí ni en el checkout principal)`
+  } else {
+    let needles
+    try {
+      needles = extractNeedles(readFileSync(envPath, 'utf8'))
+    } catch (error) {
+      // El mensaje de Node solo lleva la ruta y el código del error, no el contenido.
+      problem = `no se ha podido leer ${LIVE_ENV_FILE} (${error.code ?? 'error'})`
+    }
+    // Vacío o solo con comentarios y claves sin valor: no se revisaría nada.
+    if (needles !== undefined && needles.length === 0)
+      problem = `${LIVE_ENV_FILE} está vacío o sin valores reconocibles`
+  }
+  if (problem === undefined) return undefined
+  if (env[OPTIONAL_VAR] === '1') {
+    console.warn(
+      `AVISO: scan:tenant: ${problem} y ${OPTIONAL_VAR}=1: la revisión del tenant NO está activa.`
+    )
+    return 0
+  }
+  console.error(
+    `scan:tenant: ${problem}: no se puede comprobar y no se da por bueno. En un clon sin tenant de pruebas, ${OPTIONAL_VAR}=1 lo deja pasar con un aviso.`
+  )
+  return 2
 }
 
 export function main(argv, env = process.env) {
   const prePush = argv[0] === '--pre-push'
-  if (findLiveEnv(process.cwd()) === undefined) {
-    if (env[OPTIONAL_VAR] === '1') {
-      console.warn(
-        `AVISO: scan:tenant sin ${LIVE_ENV_FILE} (ni aquí ni en el checkout principal) y con ${OPTIONAL_VAR}=1: la revisión del tenant NO está activa.`
-      )
-      return 0
-    }
-    console.error(
-      `scan:tenant: falta ${LIVE_ENV_FILE} (ni aquí ni en el checkout principal): no se puede comprobar y no se da por bueno. En un clon sin tenant de pruebas, ${OPTIONAL_VAR}=1 lo deja pasar con un aviso.`
-    )
-    return 2
-  }
+  const envCode = checkLiveEnv(env)
+  if (envCode !== undefined) return envCode
 
   let ranges
   if (prePush) {
@@ -185,6 +209,14 @@ export function main(argv, env = process.env) {
       return 2
     }
     ranges = parsed.ranges
+    if (parsed.empty) {
+      // Git lanza el hook aunque no haya nada que subir y omite los refs al día y los
+      // rechazados (non-fast-forward…): con 0, el aviso que se ve es el de git.
+      console.log(
+        'scan:tenant: git no indica ningún ref que subir: todo al día o rechazado por git.'
+      )
+      return 0
+    }
     if (ranges.length === 0) {
       // Solo borrados de ramas remotas: no se sube contenido nuevo.
       console.log('scan:tenant: solo se borran ramas remotas; no se sube nada que revisar.')
@@ -205,15 +237,10 @@ export function main(argv, env = process.env) {
     )
     return 2
   }
-  if (!result.envFound) {
-    // Ha desaparecido entre la comprobación y la lectura.
-    console.error(`scan:tenant: falta ${LIVE_ENV_FILE}: no se puede comprobar.`)
+  if (!result.envFound || result.count === 0) {
+    // Ha desaparecido o se ha vaciado entre la comprobación y la lectura.
+    console.error(`scan:tenant: ${LIVE_ENV_FILE} sin valores que buscar: no se puede comprobar.`)
     return 2
-  }
-  if (result.count === 0) {
-    // Existe pero sin valores: no se ha revisado nada y no debe parecer que sí.
-    console.warn('AVISO: .env.live.local está vacío; la revisión del tenant NO está activa.')
-    return 0
   }
   console.log(
     `scan:tenant: rango ${range}; valores buscados: ${result.count} (${result.kinds.join(', ') || 'ninguno'})`
