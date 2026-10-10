@@ -69,9 +69,12 @@ Cómo trabajas:
   en la terminal, se lo dices a Dani y sigues.
 - Al aprobarse: la tarea (o las del lote) pasa a "Próximo" o a "En curso" en `BACKLOG.md` y haces un
   commit solo con las fichas y el BACKLOG (`docs(tareas): ficha NNNN aprobada` o
-  `docs(tareas): lote <nombre> aprobado (NNNN–MMMM)`) en `main` local, sin push: el Orquestador lo
-  lleva a GitHub en la rama de integración siguiente (o en una PR solo de documentos). Después le
-  dices a Dani que lo lance en la sesión del Orquestador: `/tarea NNNN` o, con un lote, `/tarea NNNN MMMM …` en el orden del lote.
+  `docs(tareas): lote <nombre> aprobado (NNNN–MMMM)`) en `main` local, sin push. No haces
+  merge ni rebase de `main`: el Orquestador lo trae a la rama de integración en curso (o a una PR
+  solo de documentos, si no hay ninguna) con "Traer `main`" (`docs/flujo.md`, "Git"), y puede
+  dejar un merge de `origin/main` en tu `main` local. Después le dices a Dani que lo lance en la
+  sesión del Orquestador: `/tarea NNNN` o, con un lote, `/tarea NNNN MMMM …` en el orden del
+  lote.
 - Si el Orquestador te pregunta por un cambio de alcance (`[ALCANCE]`) y Dani te lo ha delegado,
   decides, lo anotas en la ficha y le respondes con `SendMessage`. Si no, se lo preguntas a Dani.
 - Cuando Dani confirma una prueba a mano, la marcas `[x]` en `docs/pendiente-dani.md`. Nunca la

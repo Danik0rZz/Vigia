@@ -77,8 +77,9 @@ Para ir más rápido sin perder las puertas (ADR-0010):
   pequeñas: un fallo solo para la suya, el reviewer ve diffs que puede revisar bien y cada una se
   deshace sola.
 - **Colas.** `/tarea 0006 0007 0008` las hace en ese orden sin esperar a Dani entre una y otra,
-  cada una desde la rama de integración en curso (o desde `main` si no hay ninguna) y con su aviso. Si una espera a Dani o se bloquea,
-  se avisa y la cola sigue con las que no dependen de ella. Al final, un aviso con el resumen.
+  cada una desde la rama de integración en curso (o desde `main` si no hay ninguna) y con su
+  aviso. Si una espera a Dani o se bloquea, se avisa y la cola sigue con las que no dependen de
+  ella. Al final, un aviso con el resumen.
 - **Carril rápido o fichas ligeras** (`ligera: sí`, la marca el Planificador; ADR-0013): solo para
   fichas S que no tocan canales IPC, la API de Dynatrace, dependencias, el esquema, la seguridad ni
   servicios externos, y que además cumplen **todos** estos puntos:
@@ -137,11 +138,38 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
 
 - **Rama de la ficha:** `feat/NNNN-slug` (o `fix/NNNN-ci`, con el campo `rama` de la ficha
   cambiado), local y sin publicar, creada en el worktree del Orquestador desde la rama de
-  integración en curso, o desde `main` si no hay ninguna o si la ficha va sola. Los rangos de la
-  ficha (reviewer, verifier y e2e afectados) son `<base>..<rama>`, con la base de la que salió.
+  integración en curso (si no hay ninguna, se crea antes), o desde `main` si la ficha va sola. Los
+  rangos de la ficha (reviewer, verifier y e2e afectados) son `<base>..<rama>`, con la base de la
+  que salió.
 - **Rama de integración:** `integra/AAAAMMDD-N` (N empieza en 1 cada día), creada desde `main` o
   desde la rama de integración anterior si su PR aún no se ha fusionado. Se publica con
   `git push origin integra/AAAAMMDD-N`; el push no lanza el CI (solo lo lanzan las PR y `main`).
+- **Ciclo de vida de una `integra/…`:** está **en curso** mientras no tiene PR, y solo ella recibe
+  fichas y documentos. En cuanto se abre su PR, deja de estar en curso: ya solo recibe el commit
+  `fix(…)` de una `fix/NNNN-ci` (ver "El CI, sin esperarlo") y el merge de `origin/main` si hay
+  conflictos; las fichas siguientes van a una `integra/…` nueva, que sale de esta mientras su PR
+  no se fusione. La de una ficha sola nunca está en curso: sale de `main`, lleva solo esa ficha y
+  abre su PR enseguida. Si GitHub dice que la PR tiene conflictos con `main` (lo normal, en
+  `CHANGELOG.md` o `BACKLOG.md`): en la `integra/…`, `git fetch origin` y
+  `git merge --no-edit origin/main`, se resuelven, se commitea el merge y, si la resolución toca
+  algo más que documentos, se repite el verifier sobre la `integra/…` antes de
+  `git push origin integra/…`. Nunca rebase ni force push de una `integra/…` publicada.
+- **Traer `main`** (lo hace el Orquestador al empezar cada ficha, antes de abrir una PR y tras
+  fusionar una): el Planificador commitea las fichas aprobadas en `main` local, sin push, así que
+  `main` local puede llevar commits que no están en `origin/main`. El camino es uno:
+  1. `git fetch origin` y `git -C <checkout principal> merge --no-edit origin/main` (la ruta sale
+     de `git worktree list`). Si `main` local no lleva nada propio, avanza sin más; si lleva
+     documentos del Planificador, deja un merge en `main` local, sin push.
+  2. Si hay una `integra/…` en curso y `git log --oneline integra/…..main` no está vacío, en ella
+     `git merge --no-edit main`. Si no hay ninguna, la siguiente `integra/…` sale de `main` (o se
+     le hace ese mismo merge, si sale de la anterior) y los lleva; antes de abrir una PR se repite,
+     por si el Planificador ha commiteado entretanto. Si la cola acaba sin ninguna en curso y
+     `git log --oneline origin/main..main` no está vacío, se abre una PR solo de documentos:
+     `integra/AAAAMMDD-N` desde `main`, push, PR y fusión con «CI ok» en verde.
+
+  Así `main` local siempre está contenido en lo que acaba en `origin/main`, y el paso 1 nunca
+  necesita reescribir nada.
+
 - **Un commit por ficha.** Con el doc-writer hecho (la ficha queda `verificada`), en la rama de la
   ficha: `node scripts/integrate.mjs tasks/NNNN-slug.md <zona>` comprueba que la ficha está
   `verificada`, que el árbol está limpio y que la rama es la suya, y escribe el mensaje
@@ -152,11 +180,13 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
   ese commit. La rama de la ficha se borra en local con `git branch -D` (el squash no la marca como
   fusionada).
 - **Qué va en cada PR** (`groupForPrs` de `scripts/integrate.mjs`, que el Orquestador usa para
-  decidir con `node scripts/integrate.mjs --agrupar <fichas en el orden de la cola>`): una ficha con alguna `exclusiones` (`ipc`, `api`, `dependencias`, `esquema`,
-  `seguridad` o `externos`), o sin el campo (las de antes de la 0073), va sola y **la fusiona
-  Dani**. Las demás, rápidas o normales, se juntan en el orden de la cola de 3 a 5: la PR se abre al
-  llegar a 5, al llegar a 3 si no quedan más agrupables en la cola, o al acabar la cola con las que
-  haya. Una ficha sola en medio no corta el grupo en curso.
+  decidir con `node scripts/integrate.mjs --agrupar <fichas en el orden de la cola>`): una ficha
+  con alguna `exclusiones` (`ipc`, `api`, `dependencias`, `esquema`, `seguridad` o `externos`), o
+  sin el campo (las de antes de la 0073), va sola y **la fusiona Dani**. Si el campo no es una
+  lista (`exclusiones:` vacío o `exclusiones: ipc`), el script sale con 1 y se corrige la ficha.
+  Las demás, rápidas o normales, se juntan en el orden de la cola de 3 a 5: la PR se abre al llegar
+  a 5, al llegar a 3 si no quedan más agrupables en la cola, o al acabar la cola con las que haya.
+  Una ficha sola en medio no corta el grupo en curso.
 - **PR agrupada:** `gh pr create --base main --head integra/…`, con título «Fichas NNNN, MMMM…» y
   en el cuerpo la lista de fichas con su título y el enlace a su fichero, sin nada del tenant. No se
   espera al CI (ADR-0013): se sondea en segundo plano (`gh pr checks`) y, con «CI ok» en verde, se
@@ -169,15 +199,16 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
   dependen quedan `en_espera` hasta que Dani la fusione.
 - **Documentos sin código** (la ficha aprobada que commitea el Planificador en `main` local, la
   medición del CI que llega después): van en la rama de integración en curso; si no hay ninguna, en
-  una PR solo de documentos, que «CI ok» deja pasar en segundos.
-- **Tras fusionar una PR:** `git fetch origin` y `git -C <checkout principal> merge --ff-only
-origin/main` (la ruta sale de `git worktree list`), para que la rama siguiente salga del `main`
-  de GitHub.
-- **Push:** `git push origin integra/<nombre>` (solo ramas con ese prefijo) y, mientras no esté
-  activa la protección de `main`, `git push origin main` con el reviewer en APROBADO y el verifier
-  en verde. Con la protección activa (`main` solo admite PR con «CI ok», también para
-  administradores), el push a `main` deja de usarse. Nunca `--force` ni `--force-with-lease`.
-  Sin tags, releases ni subir el zip a GitHub.
+  una PR solo de documentos, que «CI ok» deja pasar en segundos. Los del Planificador llegan con
+  "Traer `main`"; la medición la commitea el doc-writer de la ficha siguiente o, si no hay, el
+  Orquestador en la `integra/…` en curso (o en la PR solo de documentos).
+- **Tras fusionar una PR:** "Traer `main`", para que la rama siguiente salga del `main` de GitHub.
+- **Push:** `git push origin integra/<nombre>` (solo ramas con ese prefijo). `git push origin main`
+  solo integró esta ficha (0073, el paso 1 de su puesta en marcha); desde la ficha siguiente no es
+  una vía para integrar fichas, aunque la protección de `main` aún no esté activa, y nunca lo fue
+  para una ficha con exclusiones. Si `gh` no está disponible, se para y se avisa a Dani. Con la
+  protección activa (`main` solo admite PR con «CI ok», también para administradores), GitHub lo
+  rechaza. Nunca `--force` ni `--force-with-lease`. Sin tags, releases ni subir el zip a GitHub.
 - **`gh`** usa un token fine-grained de este repositorio (Contents y Pull requests de lectura y
   escritura, sin administración) que configuró Dani; los agentes nunca lo ven, escriben ni guardan.
   Si `gh pr checks` o `gh run view` no pueden leer el CI con esos permisos, se le dice a Dani y él
@@ -207,27 +238,30 @@ se para la cola** (con la PR, o la fusión en `main`, como run):
    (ADR-0013, ficha B). La cola sigue.
 4. Si vuelve a fallar, se reabre la ficha culpable: `en_desarrollo`, rama `fix/NNNN-ci` (también en
    su campo `rama`) desde la rama de integración de la PR que falló (o desde `main`, si ya estaba
-   fusionada). Developer con el fallo, reviewer y verifier; el doc-writer lo añade a su «Resultado» y
-   se integra con su commit `fix(…)` en esa misma rama, que actualiza la PR. Si el arreglo se sale del alcance de la ficha, se para y se pregunta. Con dos intentos
-   sin verde, `bloqueada` y su aviso.
+   fusionada). Developer con el fallo, reviewer y verifier; el doc-writer lo añade a su
+   «Resultado» y se integra con su commit `fix(…)` en esa misma rama, que actualiza la PR. Si el
+   arreglo se sale del alcance de la ficha, se para y se pregunta. Con dos intentos sin verde,
+   `bloqueada` y su aviso.
 5. Con el CI en verde, la cola sigue. La ficha que esperaba se rebasa sobre su base al día y, si el
    rebase toca algo más que documentos, se repite su verifier.
 
 ## Niveles de prueba
 
+- **Base de los rangos:** `<base>` es la rama de la que salió la ficha (la `integra/…` en curso
+  o `main`), y se la pasa el Orquestador a cada subagente; sin ella, `main`.
 - **Durante el desarrollo (developer, ADR-0013):** solo los e2e de su ficha. Compila una vez
-  (`npm run build`) y lanza `npm run test:e2e:affected -- main..HEAD --no-build -g "(NNNN)"` (o
+  (`npm run build`) y lanza `npm run test:e2e:affected -- <base>..HEAD --no-build -g "(NNNN)"` (o
   `npm run test:e2e:nobuild -- <spec> -g "(NNNN)"` si sabe el spec). `--no-build` no comprueba si
   `out/` está al día. Vuelve a compilar solo si cambia algo fuera de `e2e/`, porque los e2e corren
   sobre `out/`. Tras un arreglo, solo lo que falló (`--last-failed`), y nunca repite una tanda si
   el código no ha cambiado. Mientras itera con los unitarios, `vitest related <ficheros>` o
   `--changed`. Termina con `npm run check` y, una sola vez, los specs de las zonas cuyo código
-  fuente ha modificado, según `e2e/areas.json` (`npm run test:e2e:affected -- main..HEAD`). No
+  fuente ha modificado, según `e2e/areas.json` (`npm run test:e2e:affected -- <base>..HEAD`). No
   basta con los specs cuyos tests ha tocado: una regresión sale en el spec que no se ve venir, como
   el centrado de la 0012 en la 0066. Si aun así se escapa algo, lo encuentra el verifier.
 - El e2e local ya corre con la ventana del CI (1024×720): los specs la fijan al arrancar la app.
 - **Por ficha (verifier):** en un worktree propio en su scratchpad, `npm run check` y un único
-  pase de `npm run test:e2e:affected -- main..feat/NNNN-slug`. No repite lo que ya está en verde
+  pase de `npm run test:e2e:affected -- <base>..<rama>`. No repite lo que ya está en verde
   para el mismo commit. Los tests ya llevan su etiqueta de zona (ficha 0067), pero hasta la 0071
   los afectados siguen saliendo de las áreas de `e2e/areas.json`.
 - **Etiquetas de zona (ficha 0067):** cada test de `e2e/*.spec.ts` lleva exactamente una zona de
@@ -275,8 +309,8 @@ Las reglas:
   solo toca `tasks/`, `docs/` o Markdown, y el push a `main` lo ignora (`paths-ignore`).
 - Como el CI no se espera, sus horas llegan cuando la ficha ya está integrada. No llevan rama
   propia. El Orquestador se las pasa al doc-writer de la ficha siguiente, que las añade a la ficha
-  medida en su commit de cierre, con los totales. Si no queda ninguna ficha detrás, van en la rama de
-  integración en curso o, si no hay, en una PR solo de documentos ("Git").
+  medida en su commit de cierre, con los totales. Si no queda ninguna ficha detrás, van en la rama
+  de integración en curso o, si no hay, en una PR solo de documentos ("Git").
 - Los totales van en «Resultado»: reloj de la petición al CI en verde, tiempo por agente, esperas,
   número de ejecuciones y tests.
 
@@ -357,11 +391,12 @@ informe local). Nunca van al CI.
   juntas. El check «CI ok» existe siempre (job `ci-ok`) y es el único que exige la protección de
   `main`; en una PR solo de documentos pasa en segundos (`scripts/ci-changes.mjs`). El push a
   `main` no se lanza si solo toca Markdown, `docs/`, `tasks/` o `.claude/` (`paths-ignore`), y
-  el push a las ramas `integra/` no lo lanza nunca. Sin `test:live` ni secretos: los logs del CI son públicos. Además: `npm audit`
-  (producción `high` bloquea; desarrollo `critical` solo avisa); acciones fijadas por SHA de 40
-  hexadecimales con la versión en un comentario (lo exige `scripts/ci-workflow.test.ts`); en
-  `main`, runs encolados, sin cancelar (en una PR, el push nuevo cancela el run anterior); caché de Electron con su versión en la
-  clave (al subir Electron, cambiarla); y `test-results/` como artefacto 7 días si fallan los e2e.
+  el push a las ramas `integra/` no lo lanza nunca. Sin `test:live` ni secretos: los logs del CI
+  son públicos. Además: `npm audit` (producción `high` bloquea; desarrollo `critical` solo
+  avisa); acciones fijadas por SHA de 40 hexadecimales con la versión en un comentario (lo exige
+  `scripts/ci-workflow.test.ts`); en `main`, runs encolados, sin cancelar (en una PR, el push
+  nuevo cancela el run anterior); caché de Electron con su versión en la clave (al subir Electron,
+  cambiarla); y `test-results/` como artefacto 7 días si fallan los e2e.
   `audit.yml` repite el audit cada lunes y a mano.
 - **Permisos de Claude Code** (`.claude/settings.json`): niegan force push, tags y releases, y leer
   `.env*`.

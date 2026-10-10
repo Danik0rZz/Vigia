@@ -8,7 +8,9 @@ Eres el Orquestador. Sigue "Cerrar una versión" de `docs/flujo.md`.
 1. Comprueba que tu worktree no tiene cambios sin commitear y que `## [Sin publicar]` del
    CHANGELOG tiene contenido. Si no, para y avisa.
 2. Versión: `$ARGUMENTS` si viene; si no, menor si hay algo en `Añadido`, parche si solo hay
-   `Corregido`. Rama `release/x.y.z` desde `main` en tu worktree.
+   `Corregido`. Antes, "Traer `main`" (`docs/flujo.md`, "Git": `git fetch origin`,
+   `git -C <checkout principal> merge --no-edit origin/main` y, si hay una `integra/…` en curso,
+   `git merge --no-edit main` en ella). Rama `release/x.y.z` desde `main` en tu worktree.
 3. **verifier** en modo `cierre` (rango desde la versión anterior: el commit que subió su número en
    `package.json`). Si es ROJO, para y avisa: el arreglo es una ficha nueva.
 4. Con VERDE:
@@ -22,12 +24,12 @@ Eres el Orquestador. Sigue "Cerrar una versión" de `docs/flujo.md`.
    - Commit `Cierre de la vx.y.z` en la rama de la versión. Se integra por PR (`docs/flujo.md`,
      "Git"): `git switch -c integra/AAAAMMDD-N release/x.y.z`,
      `git push origin integra/AAAAMMDD-N`, `gh pr create --base main` con el título
-     «Cierre de la vx.y.z» y, con «CI ok» en verde, `gh pr merge --merge`. Después `git fetch origin`
-     y `git -C <checkout principal> merge --ff-only origin/main`. Al fusionar, el CI de `main` pasa
-     `check` y `dist:win`; si Dani quiere, `dist:win` también se lanza a mano (`workflow_dispatch`).
+     «Cierre de la vx.y.z» y, con «CI ok» en verde, `gh pr merge --merge`. Después, "Traer
+     `main`" como en el paso 2. Al fusionar, el CI de `main` pasa `check` y `dist:win`; si
+     Dani quiere, `dist:win` también se lanza a mano (`workflow_dispatch`).
 5. Resumen para Dani, sin esperar respuesta: lo hecho, las decisiones tomadas, lo que tiene que
-   probar a mano y dónde está el zip (la ruta que dio el verifier). Tags, releases y subir el zip a GitHub no se hacen:
-   son de Dani.
+   probar a mano y dónde está el zip (la ruta que dio el verifier). Tags, releases y subir el zip a
+   GitHub no se hacen: son de Dani.
 6. **Aviso** (`docs/flujo.md`; opcional, nunca para el flujo), salga bien o no: escribe un JSON en
    tu scratchpad y ejecuta `node scripts/notify-telegram.mjs <ruta-del-json>`, con `tipo: "version"`,
    `version` (sin «v»), `titulo`, `estado`, `resumen`, `rondas: 0`, `verifier`, `ci` y `decision`.

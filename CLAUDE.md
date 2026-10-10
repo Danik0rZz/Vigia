@@ -70,8 +70,10 @@ móvil con Remote Control). Las versiones se cierran con `/cerrar-version`. Los 
 - Push: `git push origin integra/<nombre>` (solo ramas con ese prefijo), PR a `main` con
   `gh pr create` y fusión de las PR agrupadas con `gh pr merge --merge` cuando «CI ok» está en
   verde, con el reviewer en APROBADO y el verifier en verde en cada ficha. `git push origin main`
-  solo mientras no esté activa la protección de `main`. Nunca `--force`, `--force-with-lease` ni
-  `--no-verify`; los agentes no borran ramas remotas (las borra GitHub al fusionar).
+  solo integró la 0073: desde la ficha siguiente no es una vía para integrar fichas, aunque la
+  protección de `main` aún no esté activa, y nunca para una con exclusiones (sin `gh`, se para y
+  se avisa a Dani). Nunca `--force`, `--force-with-lease` ni `--no-verify`; los agentes no borran
+  ramas remotas (las borra GitHub al fusionar).
 - Nunca escribir secretos, cabeceras `Authorization` ni cookies en logs, ficheros de configuración,
   mensajes de error ni en el repositorio.
 - Nada del tenant de pruebas (nombres, IDs, URLs, valores) ni nombres de clientes en el repositorio,
