@@ -1,7 +1,7 @@
 ---
 id: '0064'
 titulo: '«Reintentar» de un panel solo vuelve a pedir lo suyo (y arreglos pequeños de la interfaz)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-interfaz
@@ -86,7 +86,44 @@ cliente en contra del ADR-0004, justo cuando algo falla.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en c680e67 (fallan con el código de main, por el motivo esperado). Antes se comprobó
+en main: `PanelBoundary` y `RouteError` siguen con `refetchQueries({ type: 'active' })`, el efecto de
+`SecretRow` va sin limpieza, `main.tsx` sin tiempo máximo y el `requestAnimationFrame` de `DataGrid`
+sin cancelar al desmontar. C-14 no lo resolvieron ni la 0038 ni la 0043: los títulos siguen saliendo
+como `h1`…`h6`.
+
+| Criterio       | Test                                                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1            | `e2e/views.spec.ts`, `CA1 (0064)`: en P-780, con dos mini gráficos pintados, se rompe el panel de la tabla de evidencias (sin `onRetry`); tras «Reintentar», ninguna `GET /api/v2/metrics/query` ni ninguna otra petición |
+| CA1 (Espec. 1) | `e2e/views.spec.ts`, `Espec. 1 (0064)`: se rompe el mini gráfico de una evidencia; «Reintentar» pide solo su selector, una vez; el otro gráfico y el detalle, nada                                                        |
+| CA2            | `e2e/views.spec.ts`, `CA2 (0064)`: en el host se rompe el gráfico de memoria; «Reintentar» hace una llamada más a `entities:hostMetrics` (sus consultas) y ninguna a los demás canales                                    |
+| CA3            | `e2e/tenants.spec.ts`, `CA3 (0064)`                                                                                                                                                                                       |
+| CA4            | `src/renderer/src/data/tenants-mutation-cache.test.ts` y `src/renderer/src/settings/SecretsPanel.test.ts`, `CA4 (0064)`                                                                                                   |
+| CA5            | `src/renderer/src/main.test.ts`, `CA5 (0064)`                                                                                                                                                                             |
+| CA6            | `src/renderer/src/components/MarkdownText.test.ts`, `CA6 (0064)`                                                                                                                                                          |
+
+Decisiones del test-writer (la cola está delegada; se pueden afinar):
+
+- **Cómo se rompe un panel en e2e:** sin tocar la app, se hace fallar una vez una llamada del DOM
+  que el panel hace dentro de un efecto: `ResizeObserver.observe` del contenedor del gráfico
+  (`Chart`) o `scrollIntoView` de la tabla de evidencias al desplegar una fila (helpers
+  `failChartMountOnce` y `failEvidenceGridOnce`). Si `Chart` o `DataGrid` dejan de usar esas
+  llamadas, se cambia el helper, no la app.
+- **CA1:** en un problema, el panel con el comportamiento por defecto es la tabla de evidencias
+  (según la especificación, el mini gráfico pasa su `refetch`). Con el código de antes tampoco salía
+  ninguna métrica, porque los mini gráficos ya están desmontados al reintentar, así que el test exige
+  además que no salga ninguna petición: por defecto «solo limpia el error y vuelve a pintar con la
+  caché». El caso del mini gráfico va aparte (Espec. 1) y cuenta las peticiones de los dos lados:
+  las suyas suben y las de los demás no.
+- **CA2:** «cuyo canal falló» se lee como «cuyo panel falló». Cuando el canal devuelve error, el
+  aviso es `MarkerError` con su `query.refetch()`, que ya pedía solo ese canal: no habría nada que
+  probar.
+- **CA4:** `useTenantMutation(channel, { gcTime })` (las opciones van en un segundo argumento) y la
+  fila del secreto pasa `{ gcTime: 0 }` a `secrets:set`.
+- **CA6:** los tests antiguos que contaban un `h1` (`CA6 (0001)` y, en `CA3 (0043)`, «todo junto»)
+  cuentan ahora el `p` con `role="heading"`.
+- **Aviso para el developer (CA3):** `requestClose` de `EnvironmentForm` lee `dirtySecrets` del render
+  en el que se pulsó Guardar. Si ese valor se queda viejo, la limpieza del efecto puede no bastar.
 
 ## Resultado
 
