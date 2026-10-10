@@ -1,7 +1,7 @@
 ---
 id: '0050'
 titulo: 'PROCESS_GROUP: las 20 instancias de más CPU con :sort/:limit, el total real y la lista completa a demanda'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -95,7 +95,67 @@ responde, también con un grupo recortado.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `27cbfe6` (`test(entidades): criterios de la ficha 0050 (#0050)`).
+
+**Paso 0 en vivo (solo lectura, `now-24h`)**, en
+`src/main/modules/process-group-top-instances-explore.live.test.ts` (informe en
+`live-reports/process-group-top-instances-explore.json`, ignorado). Tres grupos de 51 a 150
+instancias, elegidos entre las primeras 500 instancias del tenant por su `isInstanceOf`:
+
+- `<CPU>:parents:splitBy("dt.entity.process_group_instance","dt.entity.host"):avg:names:sort(value(avg,descending)):limit(20)`
+  con `resolution=Inf`: 200, `metricId` igual a la expresión, 20 series de más a menos CPU, las
+  mismas y en el mismo orden que ordenar en main la lista completa, con nombre y host en
+  `dimensionMap`. También vale con `:names` detrás de `:limit`. Con `:limit(2)` da las 2 de más CPU;
+  `:limit` sin `:sort` da unas cualesquiera; `ascending` invierte el orden. La lista sin `:sort` no
+  viene ordenada.
+- Memoria de las 20: (a) la memoria de todas en la misma consulta (totales + CPU de las 20 +
+  memoria, 6 expresiones) trae la de las 20, casada por id; (b) una consulta aparte con
+  `:filter(or(eq("dt.entity.process_group_instance","<id>"),…))` también funciona y da los mismos
+  valores. **Decisión del test-writer (delegada, refinable): (a)**, una petición menos. Con el tope
+  de 1000 series, (a) cabe hasta unas 976 instancias (4 + 20 + N).
+- `GET /entities` con el selector del grupo y `pageSize=1`: 200 con `totalCount`, igual al número
+  de instancias de la lista y al de series de CPU (sin recorte).
+- Tope: `dimensionCountRatio` da un máximo deducido de 100000 por métrica, que no es el de 1000
+  series de la respuesta. Con grupos de 150 instancias como mucho **no se pudo comprobar en vivo**
+  dónde corta la lista completa (por cálculo, 2·N ≤ 1000: unas 500 instancias) ni si `:limit(20)`
+  elige las de más CPU entre todas cuando el grupo pasa del tope.
+- Lo observado queda aquí; falta pasarlo a `docs/notas-api-v2.md` (el test-writer no escribe docs).
+
+**Decisiones del test-writer (delegadas, refinables):**
+
+- La consulta de marcadores de `entities:processGroupMetrics` lleva los 4 totales, la CPU por
+  instancia con `:sort(value(avg,descending)):limit(20)` y la memoria por instancia de todas (sin
+  `:sort`). Si hay menos de 20 instancias con CPU, las que solo traen memoria van al final (como en
+  la 0031).
+- `GET /entities` lleva el selector del grupo, `pageSize=1` y el mismo `from`/`to` que las métricas.
+- Sin `totalCount` (403, 500…), `total` es el número de instancias distintas recibidas (con CPU o
+  con memoria), no solo las 20.
+- `entities:processGroupInstances`: una consulta con `resolution=Inf` con exactamente
+  `<CPU por instancia>:sort(value(avg,descending))` y `<memoria por instancia>` (sin totales), y la
+  de `/entities`; salida `{ items, total, truncated }`, con `items` de la forma de los de
+  `processGroupMetrics` (id, name, hostId, hostName, cpu, memory). Sin `totalCount` no se fija qué
+  hace (la ficha no lo dice).
+- CA5 se prueba con el 400/404 en `/metrics/query`; un fallo solo de `/entities` es el caso de CA3.
+- Los tests de la 0031 se adaptan al contrato nuevo (tres peticiones, `totalKnown`, la expresión
+  con `:sort`/`:limit`).
+
+**Criterio → test:**
+
+| CA  | Test                                                                                                                                                                                   |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1 | `src/main/modules/process-group-top-instances-explore.live.test.ts`, `CA1 (0050): el informe no contiene ningún id ni nombre observado` (pasa en vivo; se salta sin `.env.live.local`) |
+| CA2 | `src/main/ipc/handlers/process-group-metrics.test.ts`, `describe CA2 (0050)` (3 tests)                                                                                                 |
+| CA3 | mismo fichero, `describe CA3 (0050)` (totalCount; 403 y 500 en `/entities`)                                                                                                            |
+| CA4 | mismo fichero, `describe CA4 (0050)` (consultas, lista ordenada, recorte por ratio y por total, entrada); `src/shared/ipc.test.ts`, `CA4 (0050): contrato…`                            |
+| CA5 | mismo fichero, `describe CA5 (0050)` (los dos canales con 400 y 404)                                                                                                                   |
+| CA6 | `e2e/views.spec.ts`, los cuatro `CA6 (0050): …` (grupo de 30 y grupo recortado, en los dos canales)                                                                                    |
+
+Además, el canal nuevo en `channel-coverage.test.ts` y en `modules.test.ts` (sin secretos).
+
+Ejecución antes del código: unitarios, 21 fallan por lo que falta (canal desconocido, sin
+`:sort`/`:limit`, sin `/entities`, sin `totalKnown`); e2e, los 4 de la 0050 fallan (sin
+`:sort`/`:limit`, 30 en vez de 20, `UNKNOWN_CHANNEL`) y los de la 0031 y la 0032 siguen en verde con
+el simulador ampliado.
 
 ## Resultado
 
