@@ -1,5 +1,6 @@
-import type { MonitorKind, MonitorMetricsResult, MonitorSeries } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import type { MonitorKind, MonitorMetricsResult } from '@shared/modules'
+import { mergeMeta, seriesAt, singleValue } from './metric-series'
+import type { MetricData } from './metrics'
 
 /**
  * Métricas de un browser monitor (SYNTHETIC_TEST) o de un HTTP monitor
@@ -98,20 +99,6 @@ export function monitorMarkerSelector(kind: MonitorKind): string {
   return MARKERS[kind].join(',')
 }
 
-const EMPTY: MonitorSeries = { timestamps: [], values: [] }
-
-/** La serie del resultado en la posición `index` (la única: el selector deja un monitor). */
-function seriesAt(data: MetricData, index: number): MonitorSeries {
-  const series = data.result[index]?.data[0]
-  return series === undefined ? EMPTY : { timestamps: series.timestamps, values: series.values }
-}
-
-/** Único valor de la serie de un punto (consulta con `resolution=Inf`). */
-function single(data: MetricData, index: number): number | null {
-  const value = seriesAt(data, index).values[0]
-  return value === undefined ? null : value
-}
-
 /** Junta las dos respuestas en series y totales por papel para la interfaz. */
 export function toMonitorMetrics(
   kind: MonitorKind,
@@ -145,16 +132,15 @@ export function toMonitorMetrics(
           : null
     },
     totals: {
-      availability: single(markers, 0),
+      availability: singleValue(markers, 0),
       duration: {
-        avg: single(markers, 1),
+        avg: singleValue(markers, 1),
         // HTTP no tiene mediana (paso 0): se queda en null.
-        median: kind === 'browser' ? single(markers, 4) : null
+        median: kind === 'browser' ? singleValue(markers, 4) : null
       },
       // Sin dato, 0 (como los recuentos del servicio).
-      executions: { ok: single(markers, 2) ?? 0, failed: single(markers, 3) ?? 0 }
+      executions: { ok: singleValue(markers, 2) ?? 0, failed: singleValue(markers, 3) ?? 0 }
     },
-    warnings: [...new Set([...(series.warnings ?? []), ...(markers.warnings ?? [])])],
-    partial: [...truncatedResults(series), ...truncatedResults(markers)]
+    ...mergeMeta([series, markers])
   }
 }

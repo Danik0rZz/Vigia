@@ -1,5 +1,6 @@
 import type { ServiceMetricSet, ServiceMetricsResult, ServiceSeries } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import { mergeMeta, seriesAt, singleValue } from './metric-series'
+import type { MetricData } from './metrics'
 
 /**
  * Métricas de una entidad SERVICE (fichas 0006 y 0046, canal `entities:serviceMetrics`).
@@ -102,14 +103,6 @@ export function markerSelector(set: ServiceMetricSet, entityId: string): string 
   return key === null ? null : responseTimeExpressions(key, entityId).join(',')
 }
 
-const EMPTY: ServiceSeries = { timestamps: [], values: [] }
-
-/** La serie del resultado en la posición `index` (la única: el filtro deja un servicio). */
-function seriesAt(data: MetricData, index: number): ServiceSeries {
-  const series = data.result[index]?.data[0]
-  return series === undefined ? EMPTY : { timestamps: series.timestamps, values: series.values }
-}
-
 const scaled = (series: ServiceSeries, factor: number): ServiceSeries => ({
   timestamps: series.timestamps,
   values: series.values.map((value) => (value === null ? null : value / factor))
@@ -144,14 +137,12 @@ const okSeries = (requests: ServiceSeries, errors: ServiceSeries): ServiceSeries
   perPoint(requests, errors, (total, failed) => Math.max(0, total - failed))
 
 /** Tasa punto a punto (Unificadas): fallidas / total × 100; null sin peticiones. */
+/** Un tiempo a milisegundos, con el divisor del conjunto (`TIME_DIVISOR`). */
+const inMs = (value: number | null, divisor: number): number | null =>
+  value === null ? null : value / divisor
+
 const rateSeries = (requests: ServiceSeries, errors: ServiceSeries): ServiceSeries =>
   perPoint(requests, errors, (total, failed) => (total > 0 ? (failed * 100) / total : null))
-
-/** Único valor de la serie de un punto (consulta con `resolution=Inf`), en ms. */
-function single(data: MetricData, index: number, divisor: number): number | null {
-  const value = seriesAt(data, index).values[0]
-  return value === undefined || value === null ? null : value / divisor
-}
 
 /** Lo que main sabe de la entidad al elegir el conjunto. */
 export interface ServiceMetricContext {
@@ -168,16 +159,14 @@ export function toServiceMetrics(
   markers: MetricData | null
 ): ServiceMetricsResult {
   const { set } = context
-  const responses = markers === null ? [series] : [series, markers]
+  const meta = mergeMeta(markers === null ? [series] : [series, markers])
   const common = {
     resolution: series.resolution,
     serviceType: context.serviceType,
     metricSet: set,
     metricKeys: { ...SERVICE_METRIC_KEYS[set] },
-    warnings: [
-      ...new Set([...context.warnings, ...responses.flatMap((data) => data.warnings ?? [])])
-    ],
-    partial: responses.flatMap((data) => truncatedResults(data))
+    warnings: [...new Set([...context.warnings, ...meta.warnings])],
+    partial: meta.partial
   }
 
   if (set === 'activity' || markers === null) {
@@ -221,9 +210,9 @@ export function toServiceMetrics(
       // En este orden, para no arrastrar decimales (15 / 150 → 10, no 10,000…2).
       errorRate: totalRequests > 0 ? (totalErrors * 100) / totalRequests : null,
       responseTime: {
-        median: single(markers, 0, divisor),
-        p90: single(markers, 1, divisor),
-        p99: single(markers, 2, divisor)
+        median: inMs(singleValue(markers, 0), divisor),
+        p90: inMs(singleValue(markers, 1), divisor),
+        p99: inMs(singleValue(markers, 2), divisor)
       }
     }
   }

@@ -4,7 +4,16 @@ import type {
   MonitorLocation,
   MonitorStep
 } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import {
+  ascending,
+  descending,
+  firstValue,
+  mergeMeta,
+  namesOf,
+  seriesByDimension,
+  type DimensionEntry
+} from './metric-series'
+import type { MetricData } from './metrics'
 import { monitorEntitySelector } from './monitor-metrics'
 
 /**
@@ -91,51 +100,7 @@ export function monitorBreakdownQueries(kind: MonitorKind, entityId: string): Br
   ]
 }
 
-interface Entry {
-  name: string | null
-  value: number | null
-}
-
-/** Las series de un resultado, por id de la dimensión; una serie sin el id se descarta. */
-function byEntity(data: MetricData, index: number, dimension: string): Map<string, Entry> {
-  const entries = new Map<string, Entry>()
-  for (const series of data.result[index]?.data ?? []) {
-    const id = series.dimensionMap[dimension]
-    if (id === undefined || id === '') continue
-    entries.set(id, {
-      name: series.dimensionMap[`${dimension}.name`] ?? null,
-      value: series.values[0] ?? null
-    })
-  }
-  return entries
-}
-
-/** Ids de todas las series, en el orden en que aparecen, con su nombre (o el id). */
-function entitiesOf(maps: Map<string, Entry>[]): Map<string, string> {
-  const names = new Map<string, string | null>()
-  for (const map of maps) {
-    for (const [id, entry] of map) {
-      if (!names.has(id) || names.get(id) === null) names.set(id, entry.name)
-    }
-  }
-  return new Map([...names].map(([id, name]) => [id, name ?? id]))
-}
-
-/** De menor a mayor; los null, al final. `sort` es estable. */
-function ascending(a: number | null, b: number | null): number {
-  if (a === null) return b === null ? 0 : 1
-  if (b === null) return -1
-  return a - b
-}
-
-/** De mayor a menor; los null, al final. */
-function descending(a: number | null, b: number | null): number {
-  if (a === null) return b === null ? 0 : 1
-  if (b === null) return -1
-  return b - a
-}
-
-const EMPTY = new Map<string, Entry>()
+const EMPTY = new Map<string, DimensionEntry>()
 
 /**
  * Junta las respuestas (una por consulta de `monitorBreakdownQueries`, en el mismo
@@ -146,11 +111,14 @@ export function toMonitorBreakdown(
   queries: BreakdownQuery[],
   responses: MetricData[]
 ): MonitorBreakdownResult {
-  const role = (name: BreakdownQuery['roles'][number], dimension: string): Map<string, Entry> => {
+  const role = (
+    name: BreakdownQuery['roles'][number],
+    dimension: string
+  ): Map<string, DimensionEntry> => {
     for (const [q, query] of queries.entries()) {
       const index = query.roles.indexOf(name)
       const data = responses[q]
-      if (index !== -1 && data !== undefined) return byEntity(data, index, dimension)
+      if (index !== -1 && data !== undefined) return seriesByDimension(data, index, dimension)
     }
     return EMPTY
   }
@@ -160,21 +128,24 @@ export function toMonitorBreakdown(
   const hasFailed = queries.some((query) => query.roles.includes('failed'))
   const failed = role('failed', LOCATION_DIM)
 
-  const locations: MonitorLocation[] = [...entitiesOf([availability, duration, failed])].map(
+  const locations: MonitorLocation[] = [...namesOf([availability, duration, failed])].map(
     ([id, name]) => ({
       id,
       name,
-      availability: availability.get(id)?.value ?? null,
-      duration: duration.get(id)?.value ?? null,
-      failed: hasFailed ? (failed.get(id)?.value ?? 0) : null
+      availability: firstValue(availability.get(id)?.values),
+      duration: firstValue(duration.get(id)?.values),
+      failed: hasFailed ? (firstValue(failed.get(id)?.values) ?? 0) : null
     })
   )
   locations.sort((a, b) => ascending(a.availability, b.availability))
 
   const stepMap = role('steps', STEP_DIM[kind])
-  const total = [...stepMap.values()].reduce((sum, entry) => sum + (entry.value ?? 0), 0)
-  const steps: MonitorStep[] = [...entitiesOf([stepMap])].map(([id, name]) => {
-    const value = stepMap.get(id)?.value ?? null
+  const total = [...stepMap.values()].reduce(
+    (sum, entry) => sum + (firstValue(entry.values) ?? 0),
+    0
+  )
+  const steps: MonitorStep[] = [...namesOf([stepMap])].map(([id, name]) => {
+    const value = firstValue(stepMap.get(id)?.values)
     return {
       id,
       name,
@@ -187,7 +158,6 @@ export function toMonitorBreakdown(
   return {
     locations,
     steps,
-    warnings: [...new Set(responses.flatMap((data) => data.warnings ?? []))],
-    partial: responses.flatMap(truncatedResults)
+    ...mergeMeta(responses)
   }
 }

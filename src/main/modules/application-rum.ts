@@ -1,5 +1,6 @@
 import type { ApplicationRumResult, ProcessSeries } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import { firstValue, mergeMeta } from './metric-series'
+import type { MetricData } from './metrics'
 
 /**
  * Datos de RUM de una aplicación web, entidad APPLICATION (ficha 0052, canal
@@ -89,7 +90,7 @@ function seriesOf(items: Item[]): ProcessSeries {
 }
 
 function totalOf(items: Item[]): number | null {
-  return items[0]?.values[0] ?? null
+  return firstValue(items[0]?.values)
 }
 
 /** Suma intervalo a intervalo; null solo si todos los sumandos de ese intervalo lo son. */
@@ -183,12 +184,10 @@ interface ApplicationRumRoles<T> {
  * `RUM_SELECTORS`) en series y totales por papel para la interfaz.
  */
 export function toApplicationRum(series: MetricData[], totals: MetricData[]): ApplicationRumResult {
-  const all = [...series, ...totals]
   return {
     resolution: series[0]?.resolution ?? '',
     series: byRole(itemsByKey(series), seriesOf, sumSeries),
     totals: byRole(itemsByKey(totals), totalOf, sumTotals),
-    warnings: [...new Set(all.flatMap((data) => data.warnings ?? []))],
-    partial: all.flatMap((data) => truncatedResults(data))
+    ...mergeMeta([...series, ...totals])
   }
 }
