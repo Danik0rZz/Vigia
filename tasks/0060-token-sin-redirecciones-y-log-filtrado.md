@@ -1,7 +1,7 @@
 ---
 id: '0060'
 titulo: 'El token nunca sigue una redirección, y el log tiene un filtro final de secretos'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -68,7 +68,8 @@ de una librería con un token en el mensaje iría al fichero sin filtro.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) CA1 (0014) en vivo falla con los datos actuales del tenant: revisar si la guarda del
+  informe de exploración confunde un valor observado corto con una clave de la API.
 
 ## Notas del revisor
 
@@ -107,6 +108,26 @@ Decisiones del test-writer (Dani delegó; conservadoras y refinables):
 - `npm run test:live`: no hace falta un test en vivo nuevo; `src/test/live-client.ts` ya fuerza
   `redirect: 'error'`, así que la pasada de solo lectura de la suite actual falla si alguna llamada
   real pasa por una 3xx. La lanza el verifier antes de cerrar.
+
+Decisiones del developer (Dani delegó; conservadoras y refinables):
+
+- La redirección se reconoce por el texto del rechazo (`isRedirectRefusal` en
+  `src/main/dynatrace/client.ts`: `redirect policy was 'error'` de Electron o `unexpected redirect`
+  de Node), comprobado antes que el certificado y la red genérica. El `DtError` de `redirectRefused`
+  no lleva detalle ni parámetros: así no puede repetir la URL ni el `Location`.
+- En el SSO se deja `ssoUnreachable` con el detalle del rechazo: el texto de `redirectRefused`
+  habla de «la URL del entorno», y la URL del SSO es otra.
+- `maskLogMessage` copia el `Error` con su prototipo y sus propiedades propias (`name`, `cause`…),
+  y enmascara solo el primer nivel de los objetos planos (lo que pide la ficha). El hook se registra
+  una vez aunque `initLogging` se llame dos veces.
+- `src/main/log-mask.ts` va en `transversal` de `e2e/areas.json`, junto a `logging.ts`.
+
+Pasada de `npm run test:live` (una, solo lectura, 2026-10-10): 154 pasados y 1 fallido de 155;
+ninguna llamada real rechazada por redirección (ninguna mención de redirección en la salida). El
+fallo es CA1 (0014) de `src/main/modules/entity-detail-explore.live.test.ts`, la guarda de que el
+informe de exploración no contiene ningún valor observado: depende de los datos del tenant y no
+de esta ficha (no toca `live-client.ts`, que ya usaba `redirect: 'error'`, ni ese módulo). Lo mira
+el Orquestador.
 
 ## Resultado
 
