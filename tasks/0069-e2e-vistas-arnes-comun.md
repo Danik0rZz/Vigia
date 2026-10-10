@@ -1,7 +1,7 @@
 ---
 id: '0069'
 titulo: 'e2e: sacar el simulador y los ayudantes de views.spec.ts a un arnés común'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -78,7 +78,13 @@ Normal (`ligera: no`).
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Solo se ha movido el bloque de arriba de `views.spec.ts` (y `markerProblems`, que el
+  simulador usa). Los ayudantes y datos intercalados entre los tests (`withContentWidth`,
+  `clipboardText`, `detailOnly.push(...)` de cada zona…) siguen junto a sus tests: en la 0070, los
+  que use más de una zona pasarán al arnés.
+- (developer) El arnés es un estado por worker: si un worker ejecuta dos specs de vistas, el segundo
+  relanza la app y vuelve a crear los entornos (`env` se sobrescribe), pero los datos que cada spec
+  añade al cargarse (`detailOnly.push`) se acumulan. Para la 0070, comprobar que no chocan los IDs.
 
 ## Notas del revisor
 
