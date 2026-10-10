@@ -489,3 +489,43 @@ describe('CA5 (0055): ninguna salida contiene un valor del .env de prueba', () =
     expectNoSecrets(output)
   })
 })
+
+// Decisiones del developer (ficha 0055, lo que los criterios no fijaban): una línea de borrado
+// (sha local a ceros) no sube nada y no se escanea; una entrada vacía o mal formada no da verde.
+describe('0055 (developer): borrados y entrada vacía en --pre-push', () => {
+  const LOCAL = 'a'.repeat(40)
+
+  it('prePushRanges omite las líneas de borrado de rama remota', () => {
+    expect(
+      prePushRanges(
+        `(delete) ${ZEROS} refs/heads/vieja ${'b'.repeat(40)}\nrefs/heads/x ${LOCAL} refs/heads/x ${ZEROS}\n`
+      )
+    ).toEqual([`origin/main..${LOCAL}`])
+  })
+
+  it('prePushRanges lanza con una línea de formato inesperado', () => {
+    expect(() => prePushRanges('refs/heads/x noesunsha refs/heads/x\n')).toThrow()
+  })
+
+  it('--pre-push con solo borrados termina en 0 y lo dice', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    const { status, output } = cliWith(['--pre-push'], {
+      input: `(delete) ${ZEROS} refs/heads/vieja ${sha()}\n`
+    })
+    expect(status).toBe(0)
+    expect(output).toContain('borran')
+  })
+
+  it('--pre-push con la entrada estándar vacía termina en 2', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    const { status, output } = cliWith(['--pre-push'], { input: '' })
+    expect(status).toBe(2)
+    expect(output).toContain('vacía')
+  })
+
+  it('--pre-push con una línea mal formada termina en 2', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    const { status } = cliWith(['--pre-push'], { input: 'basura\n' })
+    expect(status).toBe(2)
+  })
+})
