@@ -161,6 +161,16 @@ let handlers: ReturnType<typeof createModuleHandlers>
 const fakeFetch = vi.fn(async (input: unknown) => {
   const url = new URL(String(input instanceof Request ? input.url : input))
   requests.push(url)
+  // Ficha 0046: main pide antes la entidad para elegir las métricas; un WEB_SERVICE usa las
+  // de Servidor (las de esta ficha).
+  if (decodeURIComponent(url.pathname) === `/api/v2/entities/${SERVICE_ID}`) {
+    return json(200, {
+      entityId: SERVICE_ID,
+      displayName: 'servicio-prueba',
+      type: 'SERVICE',
+      properties: { serviceType: 'WEB_SERVICE' }
+    })
+  }
   if (url.pathname === '/api/v2/metrics/query') return metricsResponse(url.searchParams)
   return json(404, { error: { code: 404, message: 'No existe' } })
 })
@@ -271,8 +281,8 @@ describe('CA3 (0006): dos consultas a /metrics/query con el id y el rango pedido
     const result = await call({ environmentId: envId, entityId: SERVICE_ID, timeRange })
     expect(result.ok, JSON.stringify(result.error)).toBe(true)
 
-    // Exactamente dos peticiones, y las dos a /metrics/query.
-    expect(requests).toHaveLength(2)
+    // Exactamente dos peticiones a /metrics/query (más la de la entidad, ficha 0046).
+    expect(requests).toHaveLength(3)
     expect(metricQueries()).toHaveLength(2)
     const series = seriesQuery()
     const markers = markerQuery()

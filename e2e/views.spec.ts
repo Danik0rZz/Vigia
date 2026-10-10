@@ -1648,6 +1648,102 @@ const SVC_DATA: Record<
   }
 }
 
+/**
+ * Ficha 0046: un servicio inventado de cada conjunto de métricas. Cada uno solo tiene datos en
+ * las métricas de su conjunto (las demás, `data: []`, como en vivo). Tiempos de Servidor y
+ * Cliente en µs; los de las unificadas, en ms. Solo actividad: el recuento de
+ * `response.server:count`, sin tiempos ni errores.
+ */
+const SVC_UNIFIED_KEYS = {
+  time: 'builtin:service.request.response_time_service_aggregation',
+  errors: 'builtin:service.request.failure_count_service_aggregation',
+  requests: 'builtin:service.request.count_service_aggregation'
+}
+type SvcSet = 'server' | 'client' | 'unified' | 'activity'
+const SVC_SET_IDS: Record<SvcSet, string> = {
+  server: 'SERVICE-00000000000E2E46',
+  client: 'SERVICE-00000000000E2E47',
+  unified: 'SERVICE-00000000000E2E48',
+  activity: 'SERVICE-00000000000E2E49'
+}
+/** serviceType y propiedades de cada uno (solo tipos estándar; valores inventados). */
+const SVC_SET_ENTITY: Record<SvcSet, { serviceType: string; properties: Record<string, string> }> =
+  {
+    server: { serviceType: 'WEB_REQUEST_SERVICE', properties: { webServerName: 'web-e2e' } },
+    client: { serviceType: 'RPC_SERVICE', properties: { remoteServiceName: 'remoto-e2e' } },
+    unified: { serviceType: 'UNIFIED', properties: {} },
+    activity: { serviceType: 'QUEUE_LISTENER_SERVICE', properties: {} }
+  }
+type SvcSetKind = SvcKind | 'count'
+const SVC_SET_DATA: Record<
+  string,
+  {
+    family: 'server' | 'client' | 'unified'
+    series: Partial<Record<SvcSetKind, (number | null)[]>>
+    markers: Partial<Record<SvcSetKind, number | null>>
+  }
+> = {
+  [SVC_SET_IDS.server]: { family: 'server', series: SVC_SERIES, markers: SVC_MARKERS },
+  [SVC_SET_IDS.client]: {
+    family: 'client',
+    series: {
+      median: [200_000, 210_000, null, 220_000],
+      p90: [400_000, 410_000, null, 420_000],
+      p99: [700_000, 710_000, null, 720_000],
+      requests: [30, 20, null, 10],
+      errors: [3, 0, null, 1],
+      rate: [10, 0, null, 10]
+    },
+    markers: { median: 210_000, p90: 410_000, p99: 710_000, requests: 60, errors: 4, rate: 6.7 }
+  },
+  [SVC_SET_IDS.unified]: {
+    family: 'unified',
+    series: {
+      median: [150, 160, null, 170],
+      p90: [250, 260, null, 270],
+      p99: [450, 460, null, 470],
+      requests: [40, 10, null, 50],
+      errors: [4, 0, null, 5]
+    },
+    markers: { median: 160, p90: 260, p99: 460, requests: 100, errors: 9 }
+  },
+  // Solo actividad: requestCount.server, errores y tiempos no tienen datos.
+  [SVC_SET_IDS.activity]: {
+    family: 'server',
+    series: { count: [7, 0, null, 3] },
+    markers: { count: 10 }
+  }
+}
+
+/**
+ * Ficha 0046: lo que devuelve /entities/{id} a entities:serviceMetrics (con
+ * `+properties.serviceType`). Los servicios de las fichas anteriores son WEB_SERVICE (Servidor,
+ * las métricas de siempre), aunque su tarjeta de entities:get diga otro tipo; el resto, 404.
+ */
+function serviceTypeBodies(): Record<string, Record<string, unknown>> {
+  const body = (
+    id: string,
+    serviceType: string,
+    properties: Record<string, string> = {}
+  ): Record<string, unknown> => ({
+    entityId: id,
+    displayName: 'servicio-e2e',
+    type: 'SERVICE',
+    properties: { serviceType, ...properties }
+  })
+  return {
+    ...Object.fromEntries(
+      [...Object.keys(SVC_DATA), SVC_EMPTY_ID].map((id) => [id, body(id, 'WEB_SERVICE')])
+    ),
+    ...Object.fromEntries(
+      (Object.keys(SVC_SET_IDS) as SvcSet[]).map((set) => [
+        SVC_SET_IDS[set],
+        body(SVC_SET_IDS[set], SVC_SET_ENTITY[set].serviceType, SVC_SET_ENTITY[set].properties)
+      ])
+    )
+  }
+}
+
 const BAND_OPEN = {
   problemId: 'pd-band-open',
   displayId: 'P-E2E41',
@@ -1925,15 +2021,50 @@ function splitSelector(selector: string): string[] {
   return parts
 }
 
-function serviceKind(expression: string): SvcKind | null {
-  if (expression.startsWith('builtin:service.requestCount.server')) return 'requests'
-  if (expression.startsWith('builtin:service.errors.server.count')) return 'errors'
-  if (expression.startsWith('builtin:service.errors.server.rate')) return 'rate'
-  if (!expression.startsWith('builtin:service.response.server')) return null
-  if (/:median\b/.test(expression)) return 'median'
-  if (/:percentile\(90(\.0+)?\)/.test(expression)) return 'p90'
-  if (/:percentile\(99(\.0+)?\)/.test(expression)) return 'p99'
+/** Ficha 0046: clave de métrica de una expresión (antes del primer «:» tras «builtin:»). */
+function serviceMetricKey(expression: string): string {
+  return `builtin:${expression.replace(/^builtin:/, '').split(':')[0] ?? ''}`
+}
+
+/**
+ * Ficha 0046: conjunto y papel de una expresión de métricas de servicio. `count` es el
+ * recuento de `response.server` (Solo actividad). Null si no es de ningún conjunto.
+ */
+function serviceFamilyKind(
+  expression: string
+): { family: 'server' | 'client' | 'unified'; kind: SvcKind | 'count' } | null {
+  const key = serviceMetricKey(expression)
+  const time = (): SvcKind | 'count' | null =>
+    /:median\b/.test(expression)
+      ? 'median'
+      : /:percentile\(90(\.0+)?\)/.test(expression)
+        ? 'p90'
+        : /:percentile\(99(\.0+)?\)/.test(expression)
+          ? 'p99'
+          : /:count\b/.test(expression)
+            ? 'count'
+            : null
+  for (const family of ['server', 'client'] as const) {
+    if (key === `builtin:service.requestCount.${family}`) return { family, kind: 'requests' }
+    if (key === `builtin:service.errors.${family}.count`) return { family, kind: 'errors' }
+    if (key === `builtin:service.errors.${family}.rate`) return { family, kind: 'rate' }
+    if (key === `builtin:service.response.${family}`) {
+      const kind = time()
+      return kind === null ? null : { family, kind }
+    }
+  }
+  if (key === SVC_UNIFIED_KEYS.requests) return { family: 'unified', kind: 'requests' }
+  if (key === SVC_UNIFIED_KEYS.errors) return { family: 'unified', kind: 'errors' }
+  if (key === SVC_UNIFIED_KEYS.time) {
+    const kind = time()
+    return kind === null || kind === 'count' ? null : { family: 'unified', kind }
+  }
   return null
+}
+
+function serviceKind(expression: string): SvcKind | null {
+  const found = serviceFamilyKind(expression)
+  return found === null || found.family !== 'server' || found.kind === 'count' ? null : found.kind
 }
 
 /** ¿Es una consulta de métricas de servicio (la de series o la de marcadores)? */
@@ -1958,9 +2089,24 @@ function serviceMetricResponse(query: URLSearchParams): [number, unknown] {
   const entitySelector = query.get('entitySelector') ?? ''
   const expressions = splitSelector(selector)
   const serviceOf = (expression: string): string | undefined =>
-    Object.keys(SVC_DATA).find(
+    [...Object.keys(SVC_DATA), ...Object.keys(SVC_SET_DATA)].find(
       (id) => entitySelector.includes(`entityId("${id}")`) || expression.includes(id)
     )
+  /** Ficha 0046: datos de la expresión, solo si es del conjunto del servicio (como en vivo). */
+  const dataOf = (expression: string, id: string): (number | null)[] | undefined => {
+    const legacy = SVC_DATA[id]
+    if (legacy !== undefined) {
+      const kind = serviceKind(expression)
+      if (kind === null) return undefined
+      return marker ? [legacy.markers[kind]] : legacy.series[kind]
+    }
+    const known = SVC_SET_DATA[id]
+    const found = serviceFamilyKind(expression)
+    if (known === undefined || found === null || found.family !== known.family) return undefined
+    const values = marker ? known.markers[found.kind] : known.series[found.kind]
+    if (values === undefined) return undefined
+    return marker ? [values as number | null] : (values as (number | null)[])
+  }
   return [
     200,
     {
@@ -1968,19 +2114,18 @@ function serviceMetricResponse(query: URLSearchParams): [number, unknown] {
       nextPageKey: null,
       resolution: marker ? (inf ? 'Inf' : '1m') : '1m',
       result: expressions.map((expression) => {
-        const kind = serviceKind(expression)
         const id = serviceOf(expression)
-        const known = kind !== null && id !== undefined ? SVC_DATA[id] : undefined
+        const values = id === undefined ? undefined : dataOf(expression, id)
         return {
           metricId: id === undefined ? expression : expression.split(`"${id}"`).join(id),
           data:
-            known !== undefined && kind !== null && id !== undefined
+            values !== undefined && id !== undefined
               ? [
                   {
                     dimensionMap: { 'dt.entity.service': id },
                     dimensions: [id],
                     timestamps: marker ? [SVC_T0 + 240_000] : SVC_TIMESTAMPS,
-                    values: marker ? [known.markers[kind]] : known.series[kind]
+                    values
                   }
                 ]
               : []
@@ -3850,6 +3995,11 @@ const defaultSim = () => ({
   requests: [] as string[],
   /** Ficha 0006: consultas de métricas del servicio inventado (sus query). */
   serviceMetricQueries: [] as URLSearchParams[],
+  /**
+   * Ficha 0046: peticiones a /entities/{id} de entities:serviceMetrics (las que piden
+   * `+properties.serviceType`), aparte de las de entities:get, como «id fields».
+   */
+  serviceEntityQueries: [] as string[],
   /** Ficha 0016: consultas de métricas del host inventado (sus query). */
   hostMetricQueries: [] as URLSearchParams[],
   /** Ficha 0022: consultas de métricas de los monitores inventados (sus query). */
@@ -4339,6 +4489,28 @@ async function startServer(): Promise<void> {
       }
       // Ficha 0014: una entidad (entities:get) y los nombres de una lista de ids (entities:names).
       const entityPath = /^\/api\/v2\/entities\/([^/]+)$/.exec(url.pathname)
+      // Ficha 0046: la entidad que pide entities:serviceMetrics para elegir las métricas.
+      if (
+        req.method === 'GET' &&
+        entityPath !== null &&
+        (url.searchParams.get('fields') ?? '').includes('properties.serviceType')
+      ) {
+        const id = decodeURIComponent(entityPath[1] ?? '')
+        sim.serviceEntityQueries.push(`${id} ${url.searchParams.get('fields') ?? ''}`)
+        if (token === TOKEN_NO_ENTITIES) {
+          return send(403, {
+            error: {
+              code: 403,
+              message: 'Token is missing required scope',
+              details: { missingScopes: ['entities.read'] }
+            }
+          })
+        }
+        const body = serviceTypeBodies()[id]
+        return body !== undefined
+          ? send(200, body)
+          : send(404, { error: { code: 404, message: 'Entity not found' } })
+      }
       if (req.method === 'GET' && entityPath !== null) {
         sim.entityInfoQueries.push(url.searchParams)
         if (sim.entityInfoFail) {
@@ -8548,6 +8720,138 @@ test('CA7 (0006): entities:serviceMetrics por IPC con un id inventado: dos consu
     warnings: [],
     partial: []
   })
+})
+
+test('CA7 (0046): entities:serviceMetrics por IPC con un servicio de cada conjunto: entidad primero y las métricas de su conjunto', async () => {
+  const setKeys: Record<SvcSet, string[]> = {
+    server: [
+      'builtin:service.response.server',
+      'builtin:service.errors.server.count',
+      'builtin:service.errors.server.rate',
+      'builtin:service.requestCount.server'
+    ],
+    client: [
+      'builtin:service.response.client',
+      'builtin:service.errors.client.count',
+      'builtin:service.errors.client.rate',
+      'builtin:service.requestCount.client'
+    ],
+    unified: [SVC_UNIFIED_KEYS.time, SVC_UNIFIED_KEYS.errors, SVC_UNIFIED_KEYS.requests],
+    activity: ['builtin:service.response.server']
+  }
+  const series = (values: (number | null)[]): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: SVC_TIMESTAMPS,
+    values
+  })
+  const expected: Record<SvcSet, Record<string, unknown>> = {
+    server: {
+      series: { requests: series([50, 40, null, 60]), errors: series([5, 0, null, 10]) },
+      totals: { requests: 150, errors: 15, responseTime: { median: 105 } }
+    },
+    client: {
+      series: {
+        responseTime: { median: series([200, 210, null, 220]) },
+        requests: series([30, 20, null, 10]),
+        errorRate: series([10, 0, null, 10])
+      },
+      totals: { requests: 60, errors: 4, ok: 56, responseTime: { median: 210 } }
+    },
+    unified: {
+      series: {
+        // Ya en ms: sin dividir.
+        responseTime: { median: series([150, 160, null, 170]) },
+        requests: series([40, 10, null, 50]),
+        errors: series([4, 0, null, 5]),
+        ok: series([36, 10, null, 45]),
+        // Calculada en main: fallidas / total × 100.
+        errorRate: series([10, 0, null, 10])
+      },
+      totals: { requests: 100, errors: 9, ok: 91, errorRate: 9, responseTime: { median: 160 } }
+    },
+    activity: {
+      series: {
+        responseTime: null,
+        requests: series([7, 0, null, 3]),
+        errors: null,
+        ok: null,
+        errorRate: null
+      },
+      totals: { requests: 10, errors: null, ok: null, errorRate: null, responseTime: null }
+    }
+  }
+
+  for (const set of Object.keys(SVC_SET_IDS) as SvcSet[]) {
+    const id = SVC_SET_IDS[set]
+    const entityBefore = sim.serviceEntityQueries.length
+    const metricsBefore = sim.serviceMetricQueries.length
+    const requestsBefore = sim.requests.length
+    const data = await invoke<Record<string, unknown>>('entities:serviceMetrics', {
+      environmentId: env['Producción'],
+      entityId: id,
+      timeRange: '2h'
+    })
+
+    // Una petición a la entidad, con los fields de la ficha, antes de las métricas.
+    const entityQueries = sim.serviceEntityQueries.slice(entityBefore)
+    expect(entityQueries, set).toHaveLength(1)
+    const [entityId, fields] = (entityQueries[0] ?? '').split(' ')
+    expect(entityId, set).toBe(id)
+    for (const field of [
+      '+properties.serviceType',
+      '+properties.webServerName',
+      '+properties.remoteEndpoint',
+      '+properties.remoteServiceName'
+    ]) {
+      expect((fields ?? '').split(','), `${set}: ${field}`).toContain(field)
+    }
+    const calls = sim.requests.slice(requestsBefore)
+    expect(calls[0], `${set}: la primera petición es la entidad`).toBe(`GET /api/v2/entities/${id}`)
+
+    // Las consultas, solo con las métricas del conjunto (todas) y nunca más de 10 expresiones.
+    const queries = sim.serviceMetricQueries.slice(metricsBefore)
+    expect(queries.length, set).toBeGreaterThan(0)
+    const used = new Set<string>()
+    for (const query of queries) {
+      const expressions = splitSelector(query.get('metricSelector') ?? '')
+      expect(expressions.length, set).toBeLessThan(11)
+      for (const expression of expressions) used.add(serviceMetricKey(expression))
+    }
+    expect([...used].sort(), set).toEqual([...setKeys[set]].sort())
+
+    expect(data, set).toMatchObject({
+      serviceType: SVC_SET_ENTITY[set].serviceType,
+      metricSet: set,
+      warnings: [],
+      ...expected[set]
+    })
+  }
+})
+
+test('CA7 (0046): entities:serviceMetrics sin entities.read: entidad con 403, conjunto Servidor y aviso', async () => {
+  const tenants = await invoke<{ clients: { id: string; name: string }[] }>('tenants:list')
+  const clientId = tenants.clients.find((client) => client.name === 'Cliente A')?.id ?? ''
+  const noEntities = await createEnvironment(
+    clientId,
+    'Sin entidades 0046',
+    'other',
+    TOKEN_NO_ENTITIES
+  )
+  try {
+    await invoke('connection:test', { environmentId: noEntities })
+    const data = await invoke<Record<string, unknown>>('entities:serviceMetrics', {
+      environmentId: noEntities,
+      entityId: SVC_SET_IDS.server,
+      timeRange: '2h'
+    })
+    expect(data).toMatchObject({
+      serviceType: null,
+      metricSet: 'server',
+      series: { requests: { timestamps: SVC_TIMESTAMPS, values: [50, 40, null, 60] } }
+    })
+    expect((data['warnings'] as string[]).length).toBeGreaterThan(0)
+  } finally {
+    await invoke('environments:delete', { id: noEntities })
+  }
 })
 
 test('CA7 (0016): entities:hostMetrics por IPC con un id inventado: consultas, series y totales', async () => {
