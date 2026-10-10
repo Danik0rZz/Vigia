@@ -6,6 +6,7 @@ import type { ProcessGroupInstance } from '@shared/modules'
 import { entityPath, type EntityLocationState } from '../../app/entity-route'
 import { DataGrid, type DataGridColumn } from '../../components/DataGrid'
 import { formatBytes, formatUsagePct } from '../../lib/host-format'
+import { NUMBER_CELL } from './EntityTables'
 import {
   DEFAULT_INSTANCE_SORT,
   hostLabel,
@@ -23,7 +24,6 @@ import {
  */
 
 const GRID = 'grid grid-cols-[minmax(8rem,1fr)_minmax(7rem,12rem)_8.5rem_7rem]'
-const NUMBER_CELL = 'px-2 py-2 whitespace-nowrap tabular-nums'
 const LINK_CLASS =
   'rounded-sm underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-[var(--ring)]'
 

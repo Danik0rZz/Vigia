@@ -1,4 +1,4 @@
-import { useRef, useState, type JSX, type ReactNode } from 'react'
+import { useRef, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { sortRows, type GridSort } from '@shared/grid-sort'
@@ -12,13 +12,10 @@ import { DataGrid, type DataGridColumn } from '../../components/DataGrid'
 import { ApiWarnings } from '../../components/ModuleState'
 import { cn } from '../../lib/cn'
 import { formatUsagePct } from '../../lib/host-format'
-import {
-  availabilityLevel,
-  formatAvailabilityPct,
-  type AvailabilityLevel
-} from '../../lib/monitor-format'
+import { availabilityLevel, formatAvailabilityPct } from '../../lib/monitor-format'
 import { formatCount, formatDurationMs } from '../../lib/service-format'
-import { MarkerError, MarkerSkeleton } from './EntityMarkers'
+import { LEVEL_CLASS } from './EntityMarkers'
+import { BAR_CLASS, NUMBER_CELL, TableCard, barWidth } from './EntityTables'
 import { byId } from './host-tables'
 import {
   DEFAULT_LOCATION_SORT,
@@ -41,30 +38,12 @@ import {
 
 const LOCATION_GRID = 'grid grid-cols-[minmax(8rem,1fr)_12rem_6rem_5.5rem]'
 const STEP_GRID = 'grid grid-cols-[minmax(8rem,1fr)_6rem_9rem]'
-const NUMBER_CELL = 'px-2 py-2 whitespace-nowrap tabular-nums'
-
-/** Color de la barra y del texto según el nivel (el nivel lleva además su texto). */
-const BAR_CLASS: Record<AvailabilityLevel, string> = {
-  normal: 'bg-accent',
-  warning: 'bg-status-warning',
-  error: 'bg-danger'
-}
-const LEVEL_TEXT_CLASS: Record<AvailabilityLevel, string> = {
-  normal: '',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
 
 const locationId = (location: MonitorLocation): string => location.id
 const locationRowData = (location: MonitorLocation): Record<string, string> => ({
   'data-location-id': location.id
 })
 const stepId = (step: MonitorStep): string => step.id
-
-/** Ancho de una barra de 0 a 100; sin dato, vacía. */
-function barWidth(pct: number | null): number {
-  return pct === null || !Number.isFinite(pct) ? 0 : Math.min(100, Math.max(0, pct))
-}
 
 export function MonitorTables({
   monitorKind,
@@ -84,51 +63,6 @@ export function MonitorTables({
   )
 }
 
-/** Tarjeta de una tabla: título, y carga, aviso de error, vacío o el contenido. */
-function TableCard({
-  testId,
-  title,
-  empty,
-  breakdown,
-  isEmpty,
-  children
-}: {
-  testId: string
-  title: string
-  empty: string
-  breakdown: UseQueryResult<MonitorBreakdownResult>
-  isEmpty: (data: MonitorBreakdownResult) => boolean
-  children: (data: MonitorBreakdownResult) => ReactNode
-}): JSX.Element {
-  const data = breakdown.data
-  let body: ReactNode
-  if (breakdown.isError) {
-    body = (
-      <MarkerError
-        error={breakdown.error}
-        busy={breakdown.isFetching}
-        onRetry={() => void breakdown.refetch()}
-      />
-    )
-  } else if (data === undefined) {
-    body = <MarkerSkeleton />
-  } else if (isEmpty(data)) {
-    body = <p className="text-sm text-muted-foreground">{empty}</p>
-  } else {
-    body = children(data)
-  }
-  return (
-    <section
-      data-testid={testId}
-      aria-label={title}
-      className="glass grid min-w-0 content-start gap-3 rounded-xl p-4"
-    >
-      <h2 className="text-sm font-semibold">{title}</h2>
-      {body}
-    </section>
-  )
-}
-
 function LocationsCard({
   breakdown
 }: {
@@ -140,7 +74,7 @@ function LocationsCard({
       testId="monitor-locations"
       title={t('entities.monitor.locations.title')}
       empty={t('entities.monitor.locations.empty')}
-      breakdown={breakdown}
+      query={breakdown}
       isEmpty={(data) => data.locations.length === 0}
     >
       {(data) => (
@@ -233,14 +167,14 @@ function AvailabilityCell({ pct }: { pct: number | null }): JSX.Element {
             style={{ width: `${barWidth(pct)}%` }}
           />
         </span>
-        <span className={cn('whitespace-nowrap tabular-nums font-medium', LEVEL_TEXT_CLASS[level])}>
+        <span className={cn('whitespace-nowrap tabular-nums font-medium', LEVEL_CLASS[level])}>
           {formatAvailabilityPct(pct, i18n.language)}
         </span>
       </span>
       {level !== 'normal' && (
         <span
           data-testid="monitor-location-level"
-          className={cn('text-xs font-semibold', LEVEL_TEXT_CLASS[level])}
+          className={cn('text-xs font-semibold', LEVEL_CLASS[level])}
         >
           {t(`entities.monitor.markers.levels.${level}`)}
         </span>
@@ -266,7 +200,7 @@ function StepsCard({
           : 'entities.monitor.steps.titleHttp'
       )}
       empty={t('entities.monitor.steps.empty')}
-      breakdown={breakdown}
+      query={breakdown}
       isEmpty={(data) => data.steps === null || data.steps.length === 0}
     >
       {(data) => <StepsTable monitorKind={monitorKind} steps={data.steps ?? []} />}

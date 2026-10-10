@@ -13,6 +13,7 @@ import {
   type ActionColumnId
 } from './application-actions'
 import { MarkerError, MarkerSkeleton } from './EntityMarkers'
+import { NUMBER_CELL } from './EntityTables'
 
 /*
  * Tabla de acciones de la página de una aplicación web (ficha 0034), en la sección «Acciones
@@ -24,7 +25,6 @@ import { MarkerError, MarkerSkeleton } from './EntityMarkers'
  */
 
 const GRID = 'grid grid-cols-[minmax(10rem,1fr)_7rem_9.5rem]'
-const NUMBER_CELL = 'px-2 py-2 whitespace-nowrap tabular-nums'
 
 const actionId = (action: ApplicationAction): string => action.id
 const rowData = (action: ApplicationAction): Record<string, string> => ({

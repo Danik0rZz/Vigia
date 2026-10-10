@@ -1,4 +1,4 @@
-import { useRef, useState, type JSX, type ReactNode } from 'react'
+import { useRef, useState, type JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 import type { UseQueryResult } from '@tanstack/react-query'
@@ -8,14 +8,9 @@ import { entityPath, type EntityLocationState } from '../../app/entity-route'
 import { DataGrid, type DataGridColumn } from '../../components/DataGrid'
 import { ApiWarnings } from '../../components/ModuleState'
 import { cn } from '../../lib/cn'
-import {
-  formatByteRate,
-  formatBytes,
-  formatUsagePct,
-  usageBar,
-  type UsageLevel
-} from '../../lib/host-format'
-import { MarkerError, MarkerSkeleton } from './EntityMarkers'
+import { formatByteRate, formatBytes, formatUsagePct, usageBar } from '../../lib/host-format'
+import { LEVEL_CLASS } from './EntityMarkers'
+import { BAR_CLASS, NUMBER_CELL, TableCard } from './EntityTables'
 import {
   DEFAULT_DISK_SORT,
   DEFAULT_PROCESS_SORT,
@@ -39,19 +34,6 @@ import {
 
 const DISK_GRID = 'grid grid-cols-[minmax(6rem,1fr)_9.5rem_10rem_5.5rem_6rem_6rem]'
 const PROCESS_GRID = 'grid grid-cols-[minmax(8rem,1fr)_8.5rem_5.5rem_7rem]'
-const NUMBER_CELL = 'px-2 py-2 whitespace-nowrap tabular-nums'
-
-/** Color de la barra según el nivel de uso (el nivel lleva además su texto en la celda). */
-const BAR_CLASS: Record<UsageLevel, string> = {
-  normal: 'bg-accent',
-  warning: 'bg-status-warning',
-  error: 'bg-danger'
-}
-const LEVEL_TEXT_CLASS: Record<UsageLevel, string> = {
-  normal: '',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
 
 const diskId = (disk: HostDisk): string => disk.id
 const diskRowData = (disk: HostDisk): Record<string, string> => ({ 'data-disk-id': disk.id })
@@ -74,51 +56,6 @@ export function HostTables({
   )
 }
 
-/** Tarjeta de una tabla: título, y carga, aviso de error, vacío o el contenido. */
-function TableCard({
-  testId,
-  title,
-  empty,
-  breakdown,
-  isEmpty,
-  children
-}: {
-  testId: string
-  title: string
-  empty: string
-  breakdown: UseQueryResult<HostBreakdownResult>
-  isEmpty: (data: HostBreakdownResult) => boolean
-  children: (data: HostBreakdownResult) => ReactNode
-}): JSX.Element {
-  const data = breakdown.data
-  let body: ReactNode
-  if (breakdown.isError) {
-    body = (
-      <MarkerError
-        error={breakdown.error}
-        busy={breakdown.isFetching}
-        onRetry={() => void breakdown.refetch()}
-      />
-    )
-  } else if (data === undefined) {
-    body = <MarkerSkeleton />
-  } else if (isEmpty(data)) {
-    body = <p className="text-sm text-muted-foreground">{empty}</p>
-  } else {
-    body = children(data)
-  }
-  return (
-    <section
-      data-testid={testId}
-      aria-label={title}
-      className="glass grid min-w-0 content-start gap-3 rounded-xl p-4"
-    >
-      <h2 className="text-sm font-semibold">{title}</h2>
-      {body}
-    </section>
-  )
-}
-
 function DisksCard({ breakdown }: { breakdown: UseQueryResult<HostBreakdownResult> }): JSX.Element {
   const { t } = useTranslation()
   return (
@@ -126,7 +63,7 @@ function DisksCard({ breakdown }: { breakdown: UseQueryResult<HostBreakdownResul
       testId="host-disks"
       title={t('entities.host.disks.title')}
       empty={t('entities.host.disks.empty')}
-      breakdown={breakdown}
+      query={breakdown}
       isEmpty={(data) => data.disks.length === 0}
     >
       {(data) => (
@@ -261,14 +198,12 @@ function UsageCell({ pct }: { pct: number | null }): JSX.Element {
             style={{ width: `${bar.width}%` }}
           />
         </span>
-        <span
-          className={cn('whitespace-nowrap tabular-nums font-medium', LEVEL_TEXT_CLASS[bar.level])}
-        >
+        <span className={cn('whitespace-nowrap tabular-nums font-medium', LEVEL_CLASS[bar.level])}>
           {bar.text}
         </span>
       </span>
       {bar.levelKey !== null && (
-        <span className={cn('text-xs font-semibold', LEVEL_TEXT_CLASS[bar.level])}>
+        <span className={cn('text-xs font-semibold', LEVEL_CLASS[bar.level])}>
           {t(bar.levelKey)}
         </span>
       )}
@@ -287,7 +222,7 @@ function ProcessesCard({
       testId="host-processes"
       title={t('entities.host.processes.title')}
       empty={t('entities.host.processes.empty')}
-      breakdown={breakdown}
+      query={breakdown}
       isEmpty={(data) => data.processes.items.length === 0}
     >
       {(data) => (
