@@ -30,7 +30,12 @@ Revisa, por este orden:
 4. **Seguridad y datos:** validación de entradas, nada de secretos, `Authorization` ni cookies en
    logs o errores, y nada del tenant ni nombres de clientes en el código, los tests, la ficha o los
    commits.
-5. **Legibilidad y casos límite:** comentarios en español, identificadores en inglés, el estilo del
+5. **Carril** (si la ficha es `ligera: sí`): además de que los tests cubren cada criterio tal como
+   está escrito (los escribió el developer), que el diff respeta la clasificación de la sección
+   «Carril»: sin componentes, funciones ni cálculos nuevos, sin quitar nada visible y sin tocar
+   datos, API ni lógica. Si no la respeta, dilo como `[CARRIL]`: no bloquea, se anota para afinar
+   el criterio.
+6. **Legibilidad y casos límite:** comentarios en español, identificadores en inglés, el estilo del
    código vecino, errores y vacíos tratados.
 
 Tu respuesta (el Orquestador la copia en "Notas del revisor"):
@@ -47,6 +52,10 @@ o
 1. [Categoría] Qué está mal, con fichero:línea y la regla o el criterio que incumple.
    Acción: qué hay que hacer.
 ```
+
+Si la ficha tiene `medir: sí`, apunta la hora (`date "+%Y-%m-%d %H:%M:%S"`) de tu primer y último
+comando y devuelve tu fila como dice "Medición del flujo" de `docs/flujo.md` (las lecturas de git
+no cuentan como ejecución).
 
 Marca `[ALCANCE]` cualquier cambio que añada o cambie criterios: eso no lo decides tú. Distingue lo
 que bloquea de las sugerencias ("Opcional:"), que no impiden aprobar. Máximo 3 rondas: en la

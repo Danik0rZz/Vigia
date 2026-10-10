@@ -38,7 +38,9 @@ que no está escrito, para los agentes no existe.
   procesos, monitores y aplicación web) y descripciones con Markdown y HTML seguro (ADR-0011). Dani
   dio por buenas sus pruebas a mano; queda arrancar el zip. Lo de cada versión, en `CHANGELOG.md`.
 - **Flujo con agentes desde el 2026-10-06** (ADR-0007): Planificador, Orquestador y subagentes;
-  hooks de git y CI en Windows.
+  hooks de git y CI en Windows. **Desde el 2026-10-10** (ADR-0013): carril rápido, menos
+  repeticiones de e2e y el CI no se espera; la parte 2 (herramientas, inestables y paralelismo) va
+  con fichas.
 - **Siguiente:** lo que diga "Próximo" del `BACKLOG.md`; nada se empieza sin ficha aprobada.
 - Monaco (fases 5 y 7) está aparcado: no se implementa ni se pregunta por él hasta que Dani lo
   retome.
@@ -50,9 +52,11 @@ Petición → **Planificador** (sesión 1, `claude --agent planner`) → ficha e
 de fichas pequeñas si la petición es grande → la aprueba Dani (o peticiones, si Dani lo delega) →
 **Orquestador** (sesión 2, `/tarea NNNN [MMMM …]`, en cola): test-writer → developer → reviewer
 (máximo 3 rondas) → verifier → doc-writer → merge fast-forward a `main` y push → CI. Las fichas
-ligeras se saltan el test-writer. Lo que espera a Dani se le avisa por Telegram y se contesta en la
-sesión (o desde el móvil con Remote Control). Las versiones se cierran con `/cerrar-version`. Los
-cambios de alcance (`[ALCANCE]`) los decide Dani. Detalle: `docs/flujo.md` y ADR-0007 y ADR-0010.
+del carril rápido (`ligera: sí`) se saltan el test-writer y pasan delante en la cola; el CI no se
+espera, y si falla se para la cola hasta arreglarlo. Lo que espera a Dani se le avisa por Telegram
+y se contesta en la sesión (o desde el móvil con Remote Control). Las versiones se cierran con
+`/cerrar-version`. Los cambios de alcance (`[ALCANCE]`) los decide Dani. Detalle: `docs/flujo.md`
+y ADR-0007, ADR-0010 y ADR-0013.
 
 ## Reglas que no se saltan
 

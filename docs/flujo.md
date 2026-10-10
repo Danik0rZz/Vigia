@@ -76,11 +76,26 @@ Para ir más rápido sin perder las puertas (ADR-0010):
 - **Colas.** `/tarea 0006 0007 0008` las hace en ese orden sin esperar a Dani entre una y otra,
   cada una desde el `main` que dejó la anterior y con su aviso. Si una espera a Dani o se bloquea,
   se avisa y la cola sigue con las que no dependen de ella. Al final, un aviso con el resumen.
-- **Fichas ligeras** (`ligera: sí`, la marca el Planificador): solo para fichas S que no tocan
-  canales IPC, la API de Dynatrace, dependencias, el esquema, la seguridad ni servicios externos.
+- **Carril rápido o fichas ligeras** (`ligera: sí`, la marca el Planificador; ADR-0013): solo para
+  fichas S que no tocan canales IPC, la API de Dynatrace, dependencias, el esquema, la seguridad ni
+  servicios externos, y que además cumplen **todos** estos puntos:
+  1. No añade componentes, funciones ni cálculos nuevos.
+  2. No elimina nada visible para el usuario.
+  3. No toca datos, API ni lógica.
+  4. No hay ninguna decisión que preguntar a Dani.
+
+  Si falla uno, va por el carril normal, y en la duda, `no`. El Planificador lo justifica punto por
+  punto en la sección «Carril» de la ficha. La 0066 es el ejemplo de lo que no entra: añadía una
+  función y un componente.
+
   No hay test-writer: el developer escribe primero los tests (commit solo de tests) y después el
-  código, y el reviewer comprueba además que los tests cubren cada criterio tal como está escrito.
-  El reviewer, el verifier, los hooks y el CI no cambian.
+  código. El reviewer comprueba además dos cosas: que los tests cubren cada criterio tal como está
+  escrito y que el diff respeta la clasificación. Si no la respeta, lo dice y se anota para afinar
+  el criterio; la ficha sigue. El verifier, los hooks y el CI no cambian.
+
+- **El carril rápido no espera detrás de las normales** que aún no han empezado: pasa delante en
+  cuanto acaba la ficha en curso, sin interrumpirla. Hacerla a la vez que otra necesita paralelismo
+  (ADR-0013, parte 2).
 
 ## Quién decide
 
@@ -126,21 +141,50 @@ Para ir más rápido sin perder las puertas (ADR-0010):
 - En PowerShell, `git commit -F -` con un here-string no lee el mensaje de la entrada: escribir el
   mensaje en un fichero y usar `git commit -F <fichero>`.
 
+### El CI, sin esperarlo (ADR-0013)
+
+El Orquestador no espera al CI para empezar la siguiente ficha. Lo sondea en segundo plano y manda
+el aviso de la ficha cuando acaba, con el enlace. **Si falla, se para la cola:**
+
+1. No se lanza ningún subagente más. El que esté trabajando acaba su paso (no se corta a medias) y
+   su ficha se queda en su rama, `en_espera`.
+2. Se localiza la ficha culpable. Hoy cada push es una ficha. Un run puede cubrir varias: GitHub
+   cancela el run en espera cuando llega un tercer push. En ese caso se busca por el test que falla
+   y el diff de cada ficha y, en la duda, el verifier pasa ese spec en el commit de cada una.
+3. Se relanza el job que falló, una sola vez. Si pasa, el spec queda anotado en «Mejoras anotadas»
+   del BACKLOG como sospechoso de inestable, con la fecha y el run. Son los datos de la cuarentena
+   (ADR-0013, ficha B). La cola sigue.
+4. Si vuelve a fallar, se reabre la ficha culpable: `en_desarrollo`, rama `fix/NNNN-ci` desde
+   `main`. Developer con el fallo, reviewer y verifier; el doc-writer lo añade a su «Resultado» y se
+   integra. Si el arreglo se sale del alcance de la ficha, se para y se pregunta. Con dos intentos
+   sin verde, `bloqueada` y su aviso.
+5. Con el CI en verde, la cola sigue. La ficha que esperaba se rebasa sobre `main` y, si el rebase
+   toca algo más que documentos, se repite su verifier.
+
 ## Niveles de prueba
 
-- **Durante el desarrollo (developer):** `npm run check` y `npm run test:e2e:affected` (mientras se
-  itera, `vitest related <ficheros>` o `--changed`).
+- **Durante el desarrollo (developer, ADR-0013):** solo los e2e de su ficha. Compila una vez
+  (`npm run build`) y lanza `npm run test:e2e:nobuild -- <spec> -g "(NNNN)"`. Vuelve a compilar
+  solo si cambia algo fuera de `e2e/`, porque los e2e corren sobre `out/`. Tras un arreglo, solo lo
+  que falló (`--last-failed`), y nunca repite una tanda si el código no ha cambiado. Mientras itera
+  con los unitarios, `vitest related <ficheros>` o `--changed`. Termina con `npm run check` y, una
+  sola vez, los specs de las zonas cuyo código fuente ha modificado, según `e2e/areas.json`
+  (`npm run test:e2e:affected -- main..HEAD`). No basta con los specs cuyos tests ha tocado: una
+  regresión sale en el spec que no se ve venir, como el centrado de la 0012 en la 0066. Si aun así
+  se escapa algo, lo encuentra el verifier.
 - El e2e local ya corre con la ventana del CI (1024×720): los specs la fijan al arrancar la app.
-- **Por ficha (verifier):** en un worktree propio en su scratchpad, `npm run check` y
-  `npm run test:e2e:affected -- main..feat/NNNN-slug`. No repite lo que ya está en verde si el rango
-  no cambió.
+- **Por ficha (verifier):** en un worktree propio en su scratchpad, `npm run check` y un único
+  pase de `npm run test:e2e:affected -- main..feat/NNNN-slug`. No repite lo que ya está en verde
+  para el mismo commit. Mientras no existan las etiquetas por zona (ADR-0013, parte 2), los
+  afectados son los de `e2e/areas.json`, como hasta ahora.
 - **Transversal** (lo decide `e2e/areas.json`): e2e completo. Los locales y `main.css` no son
   transversales: los cubren el test de paridad y el de contraste (los dos en `check`) y disparan el
   área shell, más la del módulo si el diff toca uno. `scripts/**` está en ignore porque solo
   contiene herramientas de desarrollo; un script que intervenga en el build o el empaquetado va a
   `build/` o se saca del ignore.
-- `--repeat-each 3` solo si se toca temporización (esperas, animaciones, virtualización,
-  navegación) o hubo un fallo intermitente, en ese spec. `views` va con `--workers=1`.
+- `--repeat-each 3` solo en specs concretos sospechosos de ser inestables: uno cuyo diff toca
+  temporización (esperas, animaciones, virtualización, navegación), uno que falló una vez o uno
+  anotado como inestable en el BACKLOG. Nunca la suite entera. `views` va con `--workers=1`.
 - **Al cerrar una versión:** e2e completo dos veces, `--repeat-each 3` en los specs cambiados desde
   la versión anterior y `npm run dist:win`.
 - **Clon limpio** (en el scratchpad, con la instalación del README, `npm run check`,
@@ -148,6 +192,36 @@ Para ir más rápido sin perder las puertas (ADR-0010):
   empaquetado o la instalación (`package*.json`, scripts de npm, electron-builder). Comprobarlo en
   el árbol de trabajo no basta: ahí ya está todo instalado.
 - Un criterio de aceptación manual no se da por cumplido; solo lo confirma Dani.
+
+## Medición del flujo
+
+Solo en las fichas con `medir: sí`, que decide Dani (ADR-0013; las 0065 y 0066 son el modelo). La
+ficha lleva una sección «Medición del flujo» con dos tablas:
+
+- **Pasos:** agente, ronda, inicio, fin, duración y notas.
+- **Ejecuciones:** quién, comando, inicio, fin, duración, resultado y tests (pasan, fallan y
+  saltados; unitarios y e2e por separado). Cada repetición va en su fila.
+
+Las reglas:
+
+- Las horas salen de `date "+%Y-%m-%d %H:%M:%S"`, nunca estimadas. Lo que no se puede medir se dice
+  tal cual.
+- El Orquestador pasa la instrucción a cada subagente. Los subagentes devuelven sus filas y el
+  Orquestador las copia, salvo el doc-writer, que escribe las suyas.
+- Se desglosa el tiempo del Orquestador y el **arranque de cada subagente**: la hora que toma el
+  Orquestador justo antes de lanzarlo frente a la del primer comando del subagente.
+- Las esperas de Dani y las de la cola van en su propia fila.
+- Los tiempos del CI se leen del propio CI (la API de GitHub o `gh run view`: inicio y fin de cada
+  job y de cada paso, sin copiar logs).
+- La medición va en el commit de documentación. Los commits que solo tocan `tasks/`, `docs/` o
+  Markdown no disparan el CI (`paths-ignore`), así que no provocan otro run. Si uno tuviera que ir
+  con código, lleva `[skip ci]`.
+- Como el CI no se espera, sus horas llegan cuando la ficha ya está en `main`. No llevan rama
+  propia. El Orquestador se las pasa al doc-writer de la ficha siguiente, que las añade a la ficha
+  medida en su commit de cierre, con los totales. Si no queda ninguna ficha detrás, van en un último
+  commit de documentación al acabar la cola.
+- Los totales van en «Resultado»: reloj de la petición al CI en verde, tiempo por agente, esperas,
+  número de ejecuciones y tests.
 
 ## Cerrar una versión
 
@@ -220,12 +294,13 @@ informe local). Nunca van al CI.
   aviso: para clones sin tenant de pruebas; en la VPS no se usa.
 - **CI** (`.github/workflows/ci.yml`): en cada push a `main` y a mano, en `windows-latest`,
   instalación del README, `npm run check`, `npm run test:e2e` y `npm run dist:win` (sin subir el
-  zip). Sin `test:live` ni secretos: los logs del CI son públicos. Además: `npm audit` (producción
-  `high` bloquea; desarrollo `critical` solo avisa); acciones fijadas por SHA de 40 hexadecimales con
-  la versión en un comentario (lo exige `scripts/ci-workflow.test.ts`); runs encolados, sin cancelar
-  (`cancel-in-progress: false`); caché de Electron con su versión en la clave (al subir Electron,
-  cambiarla); y `test-results/` como artefacto 7 días si fallan los e2e. `audit.yml` repite el audit
-  cada lunes y a mano.
+  zip). No se lanza si el push solo toca Markdown, `docs/`, `tasks/` o `.claude/`
+  (`paths-ignore`). Sin `test:live` ni secretos: los logs del CI son públicos. Además: `npm audit`
+  (producción `high` bloquea; desarrollo `critical` solo avisa); acciones fijadas por SHA de 40
+  hexadecimales con la versión en un comentario (lo exige `scripts/ci-workflow.test.ts`); runs
+  encolados, sin cancelar (`cancel-in-progress: false`); caché de Electron con su versión en la
+  clave (al subir Electron, cambiarla); y `test-results/` como artefacto 7 días si fallan los e2e.
+  `audit.yml` repite el audit cada lunes y a mano.
 - **Permisos de Claude Code** (`.claude/settings.json`): niegan force push, tags y releases, y leer
   `.env*`.
 - Ningún agente salta un hook (`--no-verify`) ni da por buenos unos tests en rojo.

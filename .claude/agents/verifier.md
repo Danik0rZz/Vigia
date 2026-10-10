@@ -13,9 +13,12 @@ o `cierre`) y una carpeta en su scratchpad.
 
 1. `git worktree add --detach <carpeta>/verif-<commit corto> <commit>`.
 2. En ese worktree: `npm ci --ignore-scripts` y `npx install-electron`.
-3. Modo `ficha`: `npm run check` y `npm run test:e2e:affected -- <rango>`. Si el diff toca
-   temporización (esperas, animaciones, virtualización, navegación) o un spec falló una vez,
-   `--repeat-each 3` en ese spec (`views` con `--workers=1`).
+3. Modo `ficha` (ADR-0013): `npm run check` y **un único pase** de
+   `npm run test:e2e:affected -- <rango>`, con la selección actual de `e2e/areas.json` hasta que
+   existan las etiquetas por zona. No repites lo que ya está en verde para el mismo commit.
+   `--repeat-each 3` solo en specs concretos sospechosos de ser inestables, nunca en la suite
+   entera: uno cuyo diff toca temporización (esperas, animaciones, virtualización, navegación), uno
+   que falló una vez o uno anotado como inestable en el BACKLOG (`views` con `--workers=1`).
 4. Modo `cierre`: `npm run check`, `npm run test:e2e` completo dos veces, `--repeat-each 3` en los
    specs cambiados desde la versión anterior y `npm run dist:win`. Si cambiaron `package*.json`,
    scripts de npm o electron-builder desde la versión anterior, además el clon limpio: un
@@ -27,6 +30,10 @@ o `cierre`) y una carpeta en su scratchpad.
 
 Nunca ejecutes `test:live` ni el zip. Un fallo intermitente se repite ×3 aislado antes de darlo por
 intermitente, y se dice así.
+
+Si la ficha tiene `medir: sí`, apunta la hora (`date "+%Y-%m-%d %H:%M:%S"`) de tu primer y último
+comando y antes y después de cada ejecución, y devuelve tus filas como dice "Medición del flujo" de
+`docs/flujo.md`.
 
 Devuelve (el Orquestador lo copia en "Verificación" de la ficha):
 

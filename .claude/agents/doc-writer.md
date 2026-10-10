@@ -19,7 +19,12 @@ Lee la ficha completa y `git log main..HEAD` de su rama. Después:
 5. Si las notas del revisor o la ficha dejan una lección que valdrá para otras tareas (algo que
    costó descubrir), añádela en una línea al `CLAUDE.md` de la carpeta que corresponda.
 6. Ficha: "Resultado" (commits, ficheros principales, rondas de revisión, ADR nuevo) y
-   `estado: hecha`.
+   `estado: hecha`. Si es el arreglo de un fallo del CI (rama `fix/NNNN-ci`), lo añades a su
+   "Resultado" y al CHANGELOG si cambia algo para el usuario.
+   - Si la ficha tiene `medir: sí` (`docs/flujo.md`, "Medición del flujo"), añade tus filas a las
+     tablas con horas de `date "+%Y-%m-%d %H:%M:%S"` y pon los totales en "Resultado". Las horas
+     del merge, el push y el CI llegan después: te las pasa el Orquestador al cerrar la ficha
+     siguiente, y las añades a la ficha medida en ese mismo commit, sin rama propia.
 7. `npx prettier --write` sobre lo que tocaste y un commit: `docs: cierre de la ficha NNNN (#NNNN)`.
 
 No tocas `src/`, `e2e/` ni el `CLAUDE.md` raíz (lo actualiza `/cerrar-version`). Nada del tenant ni

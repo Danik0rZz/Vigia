@@ -18,7 +18,7 @@ bueno de Dani o de peticiones en su nombre.
 
 ## Próximo
 
-(vacío: Dani elige de "Propuestas")
+- Flujo, parte 2 (ADR-0013), aprobada por Dani el 2026-10-10: el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
 
 ## Propuestas
 
@@ -206,7 +206,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `scan:tenant`: `scanRange` usa `git diff <rango>`, que compara solo los extremos; un valor añadido y borrado dentro de los commits que se suben se publica en el historial sin detectarse. Escanear commit a commit con `git log -p`. (surgió en 0055)
 - `scan:tenant`: tampoco escanea el contenido de las etiquetas anotadas; cubrirlas. (surgió en 0055)
 - `scan:tenant`: test del `.env.live.local` ilegible (existe pero no se puede leer); difícil de simular en Windows, riesgo bajo. (surgió en 0055)
-- CI: con `cancel-in-progress: false`, GitHub deja un run en marcha y uno en espera por grupo; un tercer push cancela el que esperaba. Hoy no afecta (el Orquestador espera el CI antes de la siguiente ficha); revisarlo si el flujo cambia. [ALCANCE] (surgió en 0056)
+- CI: con `cancel-in-progress: false`, GitHub deja un run en marcha y uno en espera por grupo; un tercer push cancela el que esperaba. Desde el ADR-0013 el Orquestador ya no espera el CI, así que puede pasar: la regla de «si falla el CI» lo tiene en cuenta, y la parte 2 (CI en PR) lo resuelve. [ALCANCE] (surgió en 0056)
 - CI: `persist-credentials: false` en los `actions/checkout`; ningún paso necesita el token tras el checkout. (surgió en 0056)
 - CI: mover el `npm audit` de producción después de `check` y de los e2e, para que un fallo del registro de npm no ponga el CI en rojo sin probar nada. (surgió en 0056)
 

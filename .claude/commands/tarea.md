@@ -10,7 +10,19 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
 **Cola** (si hay más de un número; con uno solo, es lo mismo con una ficha):
 
 - Las fichas se hacen una detrás de otra, en el orden dado, cada una entera (pasos 1 a 10) antes de
-  empezar la siguiente, y cada una desde el `main` que dejó la anterior.
+  empezar la siguiente, y cada una desde el `main` que dejó la anterior. El CI no se espera (paso
+  10).
+- Carril rápido (`ligera: sí`; ADR-0013): no espera detrás de las normales que aún no han empezado.
+  Pasa delante en cuanto acaba la ficha en curso, sin interrumpirla. Si te llega una ficha nueva
+  del carril rápido mientras trabajas, la pones la siguiente.
+- **Si falla el CI de un push, se para la cola** (`docs/flujo.md`, "El CI, sin esperarlo"): no
+  lanzas ningún subagente más y el que esté trabajando acaba su paso; su ficha queda `en_espera` en
+  su rama. Después localizas la ficha culpable y relanzas el job que falló una sola vez. Si pasa,
+  el spec queda en el BACKLOG como sospechoso de inestable (fecha y run, para la ficha B) y sigues.
+  Si vuelve a fallar, reabres la culpable (`en_desarrollo`, rama `fix/NNNN-ci` desde `main`) y la
+  llevas por developer, reviewer, verifier, doc-writer e integración antes de seguir. Si el arreglo se sale de su alcance, para y pregunta.
+  Con dos intentos sin verde, `bloqueada` y **Aviso**. Con el CI en verde, retomas la que esperaba:
+  rebase sobre `main` y, si toca algo más que documentos, repites su verifier.
 - Antes de empezar una, mira su `depende_de`: si alguna de esas fichas no está `hecha`, se salta y
   se dice en el resumen final.
 - Si una ficha se para esperando a Dani (`[ALCANCE]` no delegado o cualquier "para y pregunta"):
@@ -36,8 +48,9 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
    que un test es incorrecto: si es un error del test, vuelve al test-writer con esa nota (en una
    ligera, lo corrige el developer y lo explica); si cambia lo que se pide, es `[ALCANCE]` (paso 6).
 5. **reviewer**, con la ruta de la ficha y la ronda. En una ligera, dile que además compruebe que los
-   tests cubren cada criterio tal como está escrito (los escribió el developer). Copia su respuesta
-   en "Notas del revisor" y sube `rondas_revision`.
+   tests cubren cada criterio tal como está escrito (los escribió el developer) y que el diff respeta
+   la clasificación de la sección «Carril». Un `[CARRIL]` no bloquea: se anota en la ficha. Copia
+   su respuesta en "Notas del revisor" y sube `rondas_revision`.
 6. Si es CAMBIOS:
    - Si hay algún `[ALCANCE]`, pregúntaselo a Dani. Si Dani ha delegado en peticiones, envíaselo al
      Planificador con `SendMessage` (`ListAgents` para encontrar su sesión) y espera su respuesta.
@@ -56,9 +69,25 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
    no es fast-forward, `git rebase main` en la rama y, si el rebase tocó algo más que documentos,
    repite el verifier. Después `git -C <checkout principal> push origin main` (el pre-push pasa
    `scan:tenant`) y borra la rama local.
-10. Muestra a Dani el briefing del doc-writer, más las rondas, el resultado del verifier y el enlace
-    al CI del push (`gh run list --branch main --limit 1`, si `gh` está disponible), y manda el
-    **Aviso** con `estado: hecha`.
+10. Sondea el CI del push en segundo plano (`gh run list --branch main --limit 1`, si `gh` está
+    disponible; si no, la API de GitHub) y **no lo esperes**: empieza ya la siguiente ficha de la
+    cola. Cuando acabe el CI, muestra a Dani el briefing del doc-writer, más las rondas, el
+    resultado del verifier y el enlace al CI, y manda el **Aviso** con `estado: hecha`. Si falla,
+    ver "Si falla el CI" arriba. Un push que solo toca Markdown, `docs/`, `tasks/` o `.claude/` no
+    lanza CI (`paths-ignore`).
+
+**Medición** (solo si la ficha tiene `medir: sí`; `docs/flujo.md`, "Medición del flujo"):
+
+- Pásale a cada subagente la instrucción: horas de `date "+%Y-%m-%d %H:%M:%S"`, nunca estimadas, y
+  sus filas de «Pasos» y «Ejecuciones» en la respuesta (el doc-writer las escribe él).
+- Toma la hora justo antes de lanzar cada subagente y al recibir su respuesta, para el arranque y la
+  vuelta.
+- Copia las filas en la ficha, junto con las tuyas: commits con su hook, merge, push y esperas.
+- Los tiempos del CI salen del propio CI (jobs y pasos, sin logs). Sin rama propia: guárdalos y
+  pásaselos al doc-writer de la ficha siguiente, que los añade a la ficha medida en su commit de
+  cierre, con los totales. Si no queda ninguna detrás, un último commit de documentación al acabar
+  la cola.
+- Esa medición va en un commit de documentación, que no lanza otro CI.
 
 No saltes pasos ni hooks. Si algo no está escrito en el repositorio y hace falta decidirlo, para y
 pregunta (con el **Aviso** de `parada`).

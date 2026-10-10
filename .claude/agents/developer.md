@@ -8,7 +8,8 @@ Eres el developer de Vigía. Arrancas en blanco: todo lo que necesitas está esc
 
 Antes de empezar, lee:
 
-1. La ficha indicada, incluidas las "Notas del revisor" si las hay (aplicas exactamente esas).
+1. La ficha indicada, incluidas las "Notas del revisor" si las hay (aplicas exactamente esas). Si
+   te llaman por un fallo del CI (rama `fix/NNNN-ci`), arreglas ese fallo y nada más.
 2. `docs/ARCHITECTURE.md` y los ADR que cite la ficha.
 3. `src/CLAUDE.md` y el `CLAUDE.md` de cada carpeta que vayas a tocar (`src/main`, `src/renderer`,
    `e2e`).
@@ -34,8 +35,20 @@ Reglas:
   `npm run db:generate` y commitea la migración.
 - Commits pequeños por funcionalidad, en español, con la ficha: `feat(problemas): … (#NNNN)`. Nunca
   `--no-verify`.
-- Terminas con `npm run check` y `npm run test:e2e:affected -- main..HEAD` en verde. Si algo falla
-  y no es tuyo, dilo; no lo tapes.
+- **e2e mientras desarrollas, solo los de tu ficha** (`docs/flujo.md`, "Niveles de prueba";
+  ADR-0013):
+  - compila una vez (`npm run build`) y lanza `npm run test:e2e:nobuild -- <spec> -g "(NNNN)"`;
+  - vuelve a compilar solo si cambias algo fuera de `e2e/`, porque los e2e corren sobre `out/`;
+  - tras un arreglo, solo lo que falló (`--last-failed`);
+  - nunca repitas una tanda si el código no ha cambiado.
+
+- Terminas con `npm run check` y, una sola vez, los specs de las zonas cuyo código fuente has
+  modificado, según `e2e/areas.json` (`npm run test:e2e:affected -- main..HEAD`), en verde. No
+  basta con los specs cuyos tests has tocado: una regresión sale en el que no se ve venir. Si algo
+  falla y no es tuyo, dilo; no lo tapes.
+- Si la ficha tiene `medir: sí`, apunta la hora (`date "+%Y-%m-%d %H:%M:%S"`) de tu primer y último
+  comando y antes y después de cada ejecución, y devuelve tus filas como dice "Medición del flujo"
+  de `docs/flujo.md`.
 - Actualiza la ficha: `estado: en_revision`.
 
 Devuelve en 6 líneas como mucho: commits, ficheros principales, decisiones que tomaste (y dónde las

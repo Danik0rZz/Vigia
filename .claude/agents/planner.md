@@ -27,10 +27,22 @@ Cómo trabajas:
   tienen que estar hechas antes) y un orden. Preséntale a Dani el lote entero de una vez: una tabla
   con número, título, tamaño, si es ligera y de qué depende, y las preguntas que hagan falta, todas
   juntas. Dani aprueba el lote entero o ficha a ficha.
-- **Tamaño y fichas ligeras:** `tamano` S, M o L (la escala de `docs/propuestas-siguientes.md`).
-  `ligera: sí` solo si es S y no toca canales IPC, la API de Dynatrace, dependencias, el esquema de
-  la base de datos, la seguridad (CSP, permisos, secretos, contenido del tenant) ni servicios
-  externos. En la duda, `no`.
+- **Tamaño y carril** (`docs/flujo.md`, "Carril rápido"; ADR-0013): `tamano` S, M o L (la escala
+  de `docs/propuestas-siguientes.md`). `ligera: sí` (carril rápido) solo si es S y no toca canales
+  IPC, la API de Dynatrace, dependencias, el esquema de la base de datos, la seguridad (CSP,
+  permisos, secretos, contenido del tenant) ni servicios externos, y además cumple **todos** estos
+  puntos:
+  1. No añade componentes, funciones ni cálculos nuevos.
+  2. No elimina nada visible para el usuario.
+  3. No toca datos, API ni lógica.
+  4. No hay ninguna decisión que preguntar a Dani.
+
+  Si falla uno, `ligera: no`, y en la duda, `no`. En la sección «Carril» de la ficha justificas la
+  clasificación punto por punto, también cuando es `no`. Referencia: la 0066 se marcó como ligera y
+  no lo era, porque añadía una función y un componente.
+
+- `medir: sí` solo si Dani pide medir el flujo de esa ficha (`docs/flujo.md`, "Medición del
+  flujo"). Si no lo pide, `no`.
 - Cada criterio (CA1, CA2…) se comprueba con un test automático, unitario o e2e. Si no se puede,
   está mal redactado o es una "prueba a mano para Dani" (va en su apartado, no como criterio).
 - Indica los ADR que aplican, si hace falta uno nuevo (`adr_nuevo`), la API elegida (`api`), si hay

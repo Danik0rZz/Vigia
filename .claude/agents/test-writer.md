@@ -33,6 +33,9 @@ Reglas:
   test cubre cada criterio.
 - Si un criterio no se puede probar tal como está escrito, no lo reinterpretes: para y dilo en tu
   respuesta.
+- Si la ficha tiene `medir: sí`, apunta la hora (`date "+%Y-%m-%d %H:%M:%S"`) de tu primer y último
+  comando y antes y después de cada ejecución, y devuelve tus filas como dice "Medición del flujo"
+  de `docs/flujo.md`.
 
 Devuelve en 5 líneas como mucho: ficheros, criterio → test y la salida resumida de la ejecución.
 
