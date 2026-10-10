@@ -1,7 +1,7 @@
 ---
 id: '0053'
 titulo: 'APPLICATION (RUM): marcadores nuevos y secciones «Actividad» y «Errores»'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -157,6 +157,12 @@ datos) y `sim.applicationRumErrorsUntyped` (errores en una sola serie sin «Erro
   `charts.errorsNotSeparated` y `charts.series.{load,xhr,custom,javascript,http,other}`.
 - No se prueban (no están en los criterios): la geometría de los marcadores (centrados, dos filas en
   la ventana estrecha), los gráficos lado a lado, la leyenda y el texto del tooltip de «estimado».
+
+### Verifier, 2026-10-10, commit `6757059`, rango `main..feat/0053-aplicacion-rum-actividad-errores`: VERDE
+
+- check: 3205 tests en 177 ficheros, cobertura ok.
+- e2e afectados: 292/292, sin reintentos.
+- Los e2e de la 0053 ×3 con `--workers=1`: 24/24.
 
 ## Resultado
 
