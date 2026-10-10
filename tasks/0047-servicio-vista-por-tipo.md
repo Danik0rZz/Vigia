@@ -1,7 +1,7 @@
 ---
 id: '0047'
 titulo: 'SERVICE: la página se adapta al conjunto de métricas del serviceType'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -62,7 +62,10 @@ En la página del servicio (`ServiceMarkers.tsx`, `ServiceCharts.tsx` y `service
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) El texto de `warnings` de la 0046 sigue en español fijo y llega así a los metadatos de
+  «Exportar» con la interfaz en inglés. La nota de esta ficha ya no depende de él; quitarlo del
+  aviso o darle una `reason` traducible toca main y los tests de la 0046 (CA5), así que queda para
+  otra ficha.
 
 ## Notas del revisor
 
@@ -70,8 +73,47 @@ En la página del servicio (`ServiceMarkers.tsx`, `ServiceCharts.tsx` y `service
 
 ## Verificación
 
-(pendiente)
+Ficha ligera: tests escritos por el developer en `2dc0b18` (`test(servicio): criterios de la ficha
+0047`), antes del código. Fallaban por falta de código (`./service-type` no existía, textos sin
+claves, cabecera «Servicio» sola, selector `.server` fijo), no por el test.
+
+| Criterio | Test                                                                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `e2e/views.spec.ts` › `CA1 (0047): un QUEUE_LISTENER_SERVICE enseña solo Peticiones y Problemas…`; lógica de la nota en `src/renderer/src/pages/entities/service-type.test.ts` › `CA1 y CA2 (0047)…` |
+| CA2      | `e2e/views.spec.ts` › `CA2 (0047): un DATABASE_SERVICE enseña los marcadores y gráficos completos…`                                                                                                  |
+| CA3      | `e2e/views.spec.ts` › `CA3 (0047): «Abrir en Métricas» de los tiempos…` (DATABASE_SERVICE y UNIFIED)                                                                                                 |
+| CA4      | `e2e/views.spec.ts` › `CA4 (0047): un WEB_SERVICE se ve como hoy…` y los e2e del servicio de 0008, 0009, 0010 y 0046                                                                                 |
+| CA5      | `src/renderer/src/pages/entities/service-type.test.ts` › `CA5 (0047): nombres legibles…`                                                                                                             |
+| CA6      | `src/renderer/src/locales/service-type-view.test.ts` › `CA6 (0047): textos nuevos…`                                                                                                                  |
+
+En el simulador, un DATABASE_SERVICE nuevo (`SVC_DB_ID`, con los datos del de Cliente) aparte de
+`SVC_SET_IDS`, para no cambiar el recorrido de los cuatro conjuntos de la CA7 de la 0046.
 
 ## Resultado
 
-(pendiente)
+**Developer (2026-10-10):** commit `0452da5`. `service-type.ts` (nombres legibles y nota),
+`ServiceMarkers.tsx` (marcador «Peticiones» y nota con tooltip), `ServiceCharts.tsx` y
+`service-charts.ts` (gráficos por conjunto, serie única de peticiones y selector con
+`metricKeys`) y `ServiceEntityPage.tsx` (cabecera). Sin cambios en main, IPC ni esquema.
+
+Decisiones del developer (delegadas por Dani, refinables):
+
+- **Nota «por defecto»** (sugerencia de la revisión de la 0046): sale de los campos estructurados,
+  no de `warnings`. Servidor con `serviceType` `null` (la entidad falló, por ejemplo sin
+  `entities.read`) o con un tipo fuera de la tabla → «Métricas de servidor por defecto». No hizo
+  falta un campo nuevo (`metricSetFallback`) en el canal: `serviceType: null` ya lo dice, y la
+  ficha es ligera (sin IPC). El texto en español de `warnings` en «Exportar» queda anotado en
+  «Ideas surgidas».
+- **Nombres legibles:** Servicio web, Servicio personalizado, Actividad en segundo plano, Span,
+  Mensajería, Externo, Peticiones web, RPC, Base de datos, Unificado y Escucha de colas (en
+  inglés, los equivalentes). La lista vive en el renderer (`SERVICE_TYPE_NAMES`), igual que la
+  tabla de main.
+- **Cabecera:** «Servicio · <tipo>» cuando llega `entities:serviceMetrics`; mientras carga, sin
+  acceso a Métricas o si falla, «Servicio» solo.
+- **Mientras carga:** marcadores y gráficos de siempre y sin nota; al llegar Solo actividad, se
+  quedan Peticiones (suma del recuento) y Problemas, y el gráfico de actividad a todo el ancho con
+  una serie «Peticiones».
+- **«Abrir en Métricas»:** Solo actividad abre `response.server…:count`; en Unificadas, la tasa
+  (que no tiene métrica) abre las fallidas y el total con los que se calcula. Sin datos todavía,
+  las claves de Servidor de siempre.
+- La nota de Servidor con un tipo de la tabla no sale (CA4: se ve como hoy).
