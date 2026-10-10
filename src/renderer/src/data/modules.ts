@@ -497,6 +497,29 @@ export function useApplicationMetrics(
 }
 
 /**
+ * Datos de RUM de una aplicación web en el rango global (canal de la ficha 0052; marcadores de
+ * usuarios, sesiones, acciones y errores y secciones «Actividad» y «Errores» de la 0053, una sola
+ * llamada). Con `entityId` null (id que no es de una aplicación) no se pide nada.
+ */
+export function useApplicationRum(
+  envId: string | null,
+  entityId: string | null
+): UseQueryResult<IpcOutput<'entities:applicationRum'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { applicationRum: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:applicationRum', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
  * Métricas de un browser monitor o de un HTTP monitor en el rango global (canal de la ficha 0022;
  * marcadores y gráficos de la 0024, una sola llamada). Con `entityId` null (id que no es de un
  * monitor) no se pide nada.

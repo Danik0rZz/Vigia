@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type JSX } from 'react'
+import { useCallback, useMemo, useRef, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -66,7 +66,8 @@ export function EntityChartPanel<T extends ChartData>({
   unit,
   problemList,
   titleHint,
-  testIds
+  testIds,
+  note
 }: {
   testIdPrefix: BandTestIdPrefix
   /** Nombre del gráfico en `data-kind` y en los testids. */
@@ -87,6 +88,8 @@ export function EntityChartPanel<T extends ChartData>({
   titleHint?: string | undefined
   /** Testids propios; sin ellos, los del prefijo. */
   testIds?: PanelTestIds | undefined
+  /** Nota bajo el título (por ejemplo, errores sin separar por tipo, ficha 0053). */
+  note?: ReactNode
 }): JSX.Element {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -178,6 +181,7 @@ export function EntityChartPanel<T extends ChartData>({
           />
         )}
       </div>
+      {note}
       {problemList !== null && (
         <ProblemBand query={problemList} range={bandRange} testIdPrefix={testIdPrefix} />
       )}
