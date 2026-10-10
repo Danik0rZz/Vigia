@@ -20,7 +20,7 @@ bueno de Dani o de peticiones en su nombre.
 
 - Cola aprobada por Dani el 2026-10-10 (flujo, parte 2 del ADR-0013), en este orden: lote
   **flujo-herramientas** (A): [0067](tasks/0067-e2e-etiquetas-por-zona.md) (hecha),
-  [0068](tasks/0068-e2e-afectados-sin-compilar.md) (hecha), [0069](tasks/0069-e2e-vistas-arnes-comun.md),
+  [0068](tasks/0068-e2e-afectados-sin-compilar.md) (hecha), [0069](tasks/0069-e2e-vistas-arnes-comun.md) (hecha),
   [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md),
   [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md),
   [0073](tasks/0073-integracion-por-pr.md) y [0074](tasks/0074-medicion-automatica-ci.md); después,
@@ -251,6 +251,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `scripts/affected-e2e.cjs`: `-g` toma como patrón el siguiente argumento aunque empiece por `-` (`-g --no-build` filtra por «--no-build» y compila); rechazarlo con el mismo error de uso. (surgió en 0068)
 - `scripts/affected-e2e.cjs`: `--grep=<patrón>`, que Playwright acepta, sale como opción desconocida con código 2 (fallo seguro); admitirlo si se echa en falta. (surgió en 0068)
 
+- `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo en la 0070. (surgió en 0069)
+- El comentario de `e2e/views.spec.ts` (≈ línea 5472) dice «y sus problemas para los recuentos», que ahora viven en `e2e/views/fixtures.ts`: retocarlo en la 0070. (surgió en 0069)
+- Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069)
+
 ## Aparcado
 
 - Monaco (fases 5 y 7): no se implementa ni se pregunta por él hasta que Dani lo retome.
@@ -349,3 +353,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0066](tasks/0066-marcador-slo-servicio.md): la disponibilidad del servicio sale en su propio marcador «SLO», el primero de la fila (rojo por debajo del 90 % con su texto, verde desde el 90 %, «—» sin peticiones; no sale en servicios de solo actividad); «Tasa de error» se queda solo con su valor. La fila de seis marcadores va en una fila desde 1280 px (`lg:grid-cols-3 xl:grid-cols-6`). Sin migraciones.
 - [0067](tasks/0067-e2e-etiquetas-por-zona.md) (lote flujo-herramientas): cada test de `e2e/*.spec.ts` lleva una etiqueta de zona (16 en `e2e/areas.json`, clave `zones`) y `@portapapeles` si usa el portapapeles; la guarda `scripts/e2e-tags.cjs` (dentro de `npm run check`) falla si falta, sobra o es desconocida. Sin migraciones.
 - [0068](tasks/0068-e2e-afectados-sin-compilar.md) (lote flujo-herramientas): `npm run test:e2e:affected` con `--no-build`, `-g`/`--grep`, `--last-failed` y `--help` (`parseArgs` y `plan` puras en `scripts/affected-e2e.cjs`); una opción desconocida sale con 2 sin lanzar nada. Sin migraciones.
+- [0069](tasks/0069-e2e-vistas-arnes-comun.md) (lote flujo-herramientas): el simulador, los fixtures, los ayudantes y los ganchos de `e2e/views.spec.ts` viven en `e2e/views/` (`harness.ts`, `simulator.ts`, `fixtures.ts`, `sim-state.ts`) y se activan con `setupViewsApp()`; la guarda `scripts/e2e-views-harness.test.ts` (dentro de `npm run check`) exige una única llamada en el nivel superior. Sin migraciones.

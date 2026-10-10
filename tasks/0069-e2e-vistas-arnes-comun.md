@@ -1,7 +1,7 @@
 ---
 id: '0069'
 titulo: 'e2e: sacar el simulador y los ayudantes de views.spec.ts a un arnés común'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -131,4 +131,7 @@ Tests (test-writer): commit 5bee504, `scripts/e2e-views-harness.test.ts`.
 
 ## Resultado
 
-(pendiente)
+- Commits: `5bee504` (tests), `9b78be0` (arnés), `33a9aa1` (guardas anteriores miran el arnés), `3eabf4b` (reglas de `e2e/`), más los de ficha.
+- Ficheros principales: `e2e/views/harness.ts`, `e2e/views/simulator.ts`, `e2e/views/fixtures.ts`, `e2e/views/sim-state.ts`, `e2e/views.spec.ts`, `e2e/areas.json`, `scripts/e2e-views-harness.test.ts`, `scripts/e2e-tags.cjs`, `e2e/CLAUDE.md`.
+- Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Sin migraciones.
+- Los dos opcionales del reviewer y el sospechoso «CA1 (0036)» pasan a «Mejoras anotadas» del BACKLOG; las ideas del developer quedan para la 0070.
