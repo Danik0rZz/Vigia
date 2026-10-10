@@ -1,7 +1,7 @@
 ---
 id: '0072'
 titulo: 'CI en las PR a main con el e2e completo y un check «CI ok» que se ejecuta siempre'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -133,6 +133,12 @@ Tests (commit 275846b), que fallan hasta implementar:
 - CA5: `scripts/ci-workflow.test.ts`, «CA5 (0072): concurrencia que cancela en las PR y encola en main». El test de la 0056 «cancel-in-progress es false» pasa a «nunca es true sin condición».
 
 Comprobación en GitHub: (pendiente)
+
+Verificación 2026-10-11, commit 3f1ba3a, rango `main..feat/0072-ci-en-pull-request`: **VERDE**.
+
+- `npm run check`: 3575 tests (204 ficheros); cobertura: líneas 93,43 %, ramas 89,98 %, funciones 89,84 %, sentencias 92,68 %.
+- `npm run test:e2e:affected -- main..feat/0072-ci-en-pull-request`: «solo docs o tests unitarios; no hace falta ningún e2e» (cero e2e).
+- Comprobación en GitHub (dos PR de prueba): la hace el Orquestador tras integrar.
 
 ## Resultado
 
