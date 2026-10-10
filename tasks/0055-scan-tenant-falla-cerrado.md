@@ -1,7 +1,7 @@
 ---
 id: '0055'
 titulo: '`scan:tenant` falla cerrado: sin `.env.live.local` no da verde, y escanea lo que de verdad se sube'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -12,7 +12,7 @@ adrs: [7]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -75,7 +75,30 @@ Un control de seguridad tiene que **fallar cerrado**: si no puede comprobar, par
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Casos límite] `scripts/scan-tenant.mjs:160` (y el test propio `scan-tenant.test.ts:519`): con la
+   entrada vacía el hook sale con 2. Git lanza el pre-push aunque no haya nada que subir y omite de
+   la entrada los refs al día y los rechazados (non-fast-forward, stale…): si `origin/main` ha
+   avanzado, el Orquestador vería «no ha podido comprobar lo que se sube» en vez del aviso de git.
+   Con la entrada vacía en `--pre-push`, salir con 0 y un mensaje claro («git no indica ningún ref
+   que subir»); la comprobación del `.env` va antes y se mantiene. Las líneas mal formadas, en 2.
+
+Bien: CA1 a CA5 con tests que fallarían sin el código (CLI y worktree reales, `HEAD` desacoplado,
+valores inventados), sin tocar los de la ficha; no se imprime ningún valor del `.env`; rangos por
+ref (existente, nueva, borrado, varios) y sha remoto ausente en 2; el push del Orquestador desde el
+checkout principal sigue funcionando; CA4 sin cambiar los tests de la 0004.
+
+[ALCANCE] Un `.env.live.local` vacío o sin valores reconocibles sale con 0 y un AVISO, y ahora en un
+worktree tapa al del checkout principal: tratarlo como «no puede comprobar» (2, salvo con
+`VIGIA_SCAN_TENANT_OPTIONAL=1`). **Decisión del Orquestador (delegada por Dani, refinable),
+2026-10-10:** entra en esta ficha, porque es lo que pide su título (fallar cerrado) y es la opción
+más segura.
+
+Opcional, fuera de esta ficha (BACKLOG): `scanRange` usa `git diff <rango>`, que compara solo los
+extremos; un valor añadido y borrado dentro de los commits que se suben se publica en el historial y
+no se detecta (ya pasaba antes). `git log -p` por commit lo cubriría; tampoco se escanean las
+etiquetas anotadas. Documentar `VIGIA_SCAN_TENANT_OPTIONAL` en README y `docs/flujo.md` (doc-writer).
 
 ## Verificación
 
