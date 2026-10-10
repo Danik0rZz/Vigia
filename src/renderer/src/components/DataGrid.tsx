@@ -14,6 +14,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { GridSort } from '@shared/grid-sort'
 import { cn } from '../lib/cn'
+import { useRenderCount } from '../lib/render-count'
 
 /** A partir de estas filas, solo se pintan las visibles. */
 const VIRTUAL_FROM = 200
@@ -80,7 +81,8 @@ interface RowProps<T> {
   columns: readonly DataGridColumn<T>[]
   gridTemplate: string
   rowTestId: string
-  // Funciones (no sus resultados) para que `memo` compare referencias estables.
+  // Funciones (no sus resultados) para que `memo` compare referencias estables: las páginas las
+  // crean en su render, pero el React Compiler las memoiza (ficha 0059).
   rowData: ((item: T) => Record<string, string>) | undefined
   status: ((item: T) => RowStatus) | undefined
   selected: boolean
@@ -96,7 +98,9 @@ interface RowProps<T> {
 
 /**
  * Una fila. Con `memo`, una fila solo se vuelve a pintar si cambian sus datos,
- * su selección o si es la que tiene el foco.
+ * su selección o si es la que tiene el foco. Hace falta aunque esté el React
+ * Compiler: se salta DataGrid (useVirtualizer), así que nadie memoiza por él los
+ * elementos de las filas. En e2e, `data-render-count` cuenta sus renders.
  */
 const GridRow = memo(function GridRow<T>({
   item,
@@ -115,6 +119,7 @@ const GridRow = memo(function GridRow<T>({
   detailId
 }: RowProps<T>): JSX.Element {
   const rowStatus = status?.(item)
+  const countedRef = useRenderCount<HTMLDivElement>()
   return (
     <div
       role="row"
@@ -127,7 +132,10 @@ const GridRow = memo(function GridRow<T>({
       data-index={index}
       // Sin aria-selected: la marca del último abierto es solo visual.
       data-selected={selected ? 'true' : undefined}
-      ref={measure}
+      ref={(element) => {
+        countedRef.current = element
+        measure?.(element)
+      }}
       onClick={() => onActivate(item)}
       onFocus={() => onFocusRow(index)}
       style={{ minHeight: ROW_HEIGHT }}
@@ -232,8 +240,9 @@ export function DataGrid<T, K extends string = string>({
   className?: string | undefined
 }): JSX.Element {
   const virtual = items.length >= VIRTUAL_FROM
-  // El React Compiler no memoiza este componente (useVirtualizer devuelve funciones
-  // que cambian en cada render); es lo esperado con TanStack Virtual.
+  // El React Compiler se salta este componente (useVirtualizer devuelve funciones
+  // que cambian en cada render); es lo esperado con TanStack Virtual. Las filas
+  // (GridRow) sí se compilan y llevan `memo`.
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: items.length,

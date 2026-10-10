@@ -7,6 +7,7 @@ import { initI18n } from './app/i18n'
 import { initTheme } from './app/theme'
 import { setErrorLogVersion } from './lib/error-log'
 import { invoke } from './lib/ipc'
+import { enableRenderCount } from './lib/render-count'
 
 const container = document.getElementById('root')
 if (container === null) {
@@ -25,6 +26,7 @@ if (window.location.hash === '') {
 /**
  * Antes del primer render, main dice si el disparador de errores está
  * habilitado (solo en e2e) y la versión que acompaña a los errores en el log.
+ * El mismo modo e2e activa el contador de renders de las filas (ficha 0059).
  * Si el IPC falla, la app arranca igual, sin disparador.
  */
 async function start(root: HTMLElement): Promise<void> {
@@ -32,6 +34,7 @@ async function start(root: HTMLElement): Promise<void> {
   try {
     const info = await invoke('app:getInfo')
     errorTrigger = info.errorTrigger
+    if (errorTrigger) enableRenderCount()
     setErrorLogVersion(info.version)
   } catch {
     // Sin datos de main: valores por defecto.
