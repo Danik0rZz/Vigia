@@ -1,4 +1,4 @@
-import type { JSX, ReactNode } from 'react'
+import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type {
@@ -7,15 +7,21 @@ import type {
   MonitorKind,
   MonitorMetricsResult
 } from '@shared/modules'
-import { cn } from '../../lib/cn'
 import {
   availabilityLevel,
   formatAvailabilityPct,
-  locationsBelowFull,
-  type AvailabilityLevel
+  locationsBelowFull
 } from '../../lib/monitor-format'
 import { formatCount, formatDurationMs } from '../../lib/service-format'
-import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import {
+  BigValue,
+  MarkerBody,
+  MarkerCard,
+  MarkerCount,
+  QueryState,
+  RangeLine,
+  type Level
+} from './EntityMarkers'
 
 /**
  * Fila de marcadores de las páginas de browser monitor y HTTP monitor (ficha 0024), como la del
@@ -63,18 +69,17 @@ export function MonitorMarkers({
               const level = availabilityLevel(pct)
               return (
                 <MarkerBody
-                  value={<BigValue level={level}>{formatAvailabilityPct(pct, lang)}</BigValue>}
-                  caption={t('entities.monitor.markers.rangeAverage')}
-                  level={
-                    level === 'normal' ? null : (
-                      <p
-                        data-testid="monitor-marker-level"
-                        className={cn('text-xs font-semibold', LEVEL_CLASS[level])}
-                      >
-                        {t(`entities.monitor.markers.levels.${level}`)}
-                      </p>
-                    )
+                  testIdPrefix="monitor"
+                  value={
+                    <BigValue testIdPrefix="monitor" level={level}>
+                      {formatAvailabilityPct(pct, lang)}
+                    </BigValue>
                   }
+                  caption={t('entities.monitor.markers.rangeAverage')}
+                  levelText={
+                    level === 'normal' ? null : t(`entities.monitor.markers.levels.${level}`)
+                  }
+                  level={level}
                 />
               )
             }}
@@ -89,8 +94,11 @@ export function MonitorMarkers({
               const showMedian = monitorKind === 'browser'
               return (
                 <MarkerBody
+                  testIdPrefix="monitor"
                   value={
-                    <BigValue>{formatDurationMs(data?.totals.duration.avg ?? null, lang)}</BigValue>
+                    <BigValue testIdPrefix="monitor">
+                      {formatDurationMs(data?.totals.duration.avg ?? null, lang)}
+                    </BigValue>
                   }
                   caption={t('entities.monitor.markers.average')}
                   secondary={
@@ -100,6 +108,7 @@ export function MonitorMarkers({
                         })
                       : null
                   }
+                  secondaryLevel="normal"
                 />
               )
             }}
@@ -113,12 +122,14 @@ export function MonitorMarkers({
           <QueryState {...metricState}>
             {(data) => {
               const failed = data?.totals.executions.failed ?? null
-              const failedLevel: AvailabilityLevel =
-                failed !== null && failed > 0 ? 'error' : 'normal'
+              const failedLevel: Level = failed !== null && failed > 0 ? 'error' : 'normal'
               return (
                 <MarkerBody
+                  testIdPrefix="monitor"
                   value={
-                    <BigValue>{formatCount(data?.totals.executions.ok ?? null, lang)}</BigValue>
+                    <BigValue testIdPrefix="monitor">
+                      {formatCount(data?.totals.executions.ok ?? null, lang)}
+                    </BigValue>
                   }
                   caption={t('entities.monitor.markers.ok')}
                   secondary={t('entities.monitor.markers.failed', {
@@ -138,8 +149,9 @@ export function MonitorMarkers({
           <QueryState query={breakdown} enabled={metricsEnabled}>
             {(data) => (
               <MarkerBody
+                testIdPrefix="monitor"
                 value={
-                  <BigValue>
+                  <BigValue testIdPrefix="monitor">
                     {data === null
                       ? formatCount(null, lang)
                       : formatCount(data.locations.length, lang)}
@@ -152,6 +164,7 @@ export function MonitorMarkers({
                       ? formatCount(null, lang)
                       : formatCount(locationsBelowFull(data.locations), lang)
                 })}
+                secondaryLevel="normal"
               />
             )}
           </QueryState>
@@ -183,64 +196,5 @@ export function MonitorMarkers({
       </div>
       <RangeLine resolution={metrics.data?.resolution ?? null} testId="monitor-markers-range" />
     </div>
-  )
-}
-
-/** Color según el nivel; el nivel lleva además su texto (el color nunca va solo). */
-const LEVEL_CLASS: Record<AvailabilityLevel, string> = {
-  normal: '',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
-
-/** Valor principal con su nombre debajo, el nivel (si lo hay) y la línea secundaria (si la hay). */
-function MarkerBody({
-  value,
-  level = null,
-  caption,
-  secondary = null,
-  secondaryLevel = 'normal'
-}: {
-  value: ReactNode
-  level?: ReactNode
-  caption: string
-  secondary?: string | null
-  /** Las fallidas, en color de error si hay alguna (con su número en el texto). */
-  secondaryLevel?: AvailabilityLevel
-}): JSX.Element {
-  return (
-    <div className="grid justify-items-center gap-1">
-      {value}
-      <p className="text-xs text-muted-foreground">{caption}</p>
-      {level}
-      {secondary !== null && (
-        <p
-          data-testid="monitor-marker-secondary"
-          data-level={secondaryLevel}
-          className={cn('text-sm tabular-nums wrap-anywhere', LEVEL_CLASS[secondaryLevel])}
-        >
-          {secondary}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/** Valor principal del marcador, con el color de su nivel. */
-function BigValue({
-  level = 'normal',
-  children
-}: {
-  level?: AvailabilityLevel
-  children: string
-}): JSX.Element {
-  return (
-    <p
-      data-testid="monitor-marker-value"
-      data-level={level}
-      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
-    >
-      {children}
-    </p>
   )
 }

@@ -1,18 +1,19 @@
-import type { JSX, ReactNode } from 'react'
+import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { EntityProblemCounts, ProcessMetricsResult } from '@shared/modules'
 import { cn } from '../../lib/cn'
-import {
-  formatBitRate,
-  formatBytes,
-  formatUsagePct,
-  usageLevel,
-  type UsageLevel
-} from '../../lib/host-format'
+import { formatBitRate, formatBytes, formatUsagePct, usageLevel } from '../../lib/host-format'
 import { availabilityLevel, formatAvailabilityPct } from '../../lib/monitor-format'
 import { formatCount } from '../../lib/service-format'
-import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import {
+  BigValue,
+  MarkerBody,
+  MarkerCard,
+  MarkerCount,
+  QueryState,
+  RangeLine
+} from './EntityMarkers'
 import { processLayout, toBits } from './process-charts'
 
 /** Columnas de la fila en pantalla ancha según cuántos marcadores salen (de 3 a 5). */
@@ -63,9 +64,14 @@ export function ProcessMarkers({
               const level = usageLevel(pct)
               return (
                 <MarkerBody
-                  value={<BigValue level={level}>{formatUsagePct(pct, lang)}</BigValue>}
-                  level={level === 'normal' ? null : t(`entities.host.markers.levels.${level}`)}
-                  levelClass={LEVEL_CLASS[level]}
+                  testIdPrefix="process"
+                  value={
+                    <BigValue testIdPrefix="process" level={level}>
+                      {formatUsagePct(pct, lang)}
+                    </BigValue>
+                  }
+                  levelText={level === 'normal' ? null : t(`entities.host.markers.levels.${level}`)}
+                  level={level}
                   caption={t('entities.process.markers.average')}
                   secondary={t('entities.process.markers.max', {
                     value: formatUsagePct(cpu?.max ?? null, lang)
@@ -82,7 +88,12 @@ export function ProcessMarkers({
               const memory = data?.totals.memory
               return (
                 <MarkerBody
-                  value={<BigValue>{formatBytes(memory?.avg ?? null, lang)}</BigValue>}
+                  testIdPrefix="process"
+                  value={
+                    <BigValue testIdPrefix="process">
+                      {formatBytes(memory?.avg ?? null, lang)}
+                    </BigValue>
+                  }
                   caption={t('entities.process.markers.average')}
                   secondary={t('entities.process.markers.max', {
                     value: formatBytes(memory?.max ?? null, lang)
@@ -100,7 +111,12 @@ export function ProcessMarkers({
                 const network = data?.totals.network
                 return (
                   <MarkerBody
-                    value={<BigValue>{formatBitRate(toBits(network?.in ?? null), lang)}</BigValue>}
+                    testIdPrefix="process"
+                    value={
+                      <BigValue testIdPrefix="process">
+                        {formatBitRate(toBits(network?.in ?? null), lang)}
+                      </BigValue>
+                    }
                     caption={t('entities.process.markers.inAverage')}
                     secondary={t('entities.process.markers.outAverage', {
                       value: formatBitRate(toBits(network?.out ?? null), lang)
@@ -124,11 +140,16 @@ export function ProcessMarkers({
                 const level = availabilityLevel(pct)
                 return (
                   <MarkerBody
-                    value={<BigValue level={level}>{formatAvailabilityPct(pct, lang)}</BigValue>}
-                    level={
+                    testIdPrefix="process"
+                    value={
+                      <BigValue testIdPrefix="process" level={level}>
+                        {formatAvailabilityPct(pct, lang)}
+                      </BigValue>
+                    }
+                    levelText={
                       level === 'normal' ? null : t(`entities.monitor.markers.levels.${level}`)
                     }
-                    levelClass={LEVEL_CLASS[level]}
+                    level={level}
                     caption={t('entities.process.markers.average')}
                   />
                 )
@@ -146,8 +167,11 @@ export function ProcessMarkers({
               {(data) => (
                 // La métrica dice Percent: se enseña tal cual (decisión del Orquestador, 0028).
                 <MarkerBody
+                  testIdPrefix="process"
                   value={
-                    <BigValue>{formatUsagePct(data?.totals.resources ?? null, lang)}</BigValue>
+                    <BigValue testIdPrefix="process">
+                      {formatUsagePct(data?.totals.resources ?? null, lang)}
+                    </BigValue>
                   }
                   caption={t('entities.process.markers.resourcesCaption')}
                   secondary={t('entities.process.markers.rangeMax')}
@@ -183,63 +207,5 @@ export function ProcessMarkers({
       </div>
       <RangeLine resolution={metrics.data?.resolution ?? null} testId="process-markers-range" />
     </div>
-  )
-}
-
-/** Color del valor según su nivel; el nivel lleva además su texto (el color nunca va solo). */
-const LEVEL_CLASS: Record<UsageLevel, string> = {
-  normal: '',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
-
-/** Valor principal con su nombre debajo, el texto del nivel (si lo hay) y la línea secundaria. */
-function MarkerBody({
-  value,
-  level = null,
-  levelClass = '',
-  caption,
-  secondary = null
-}: {
-  value: ReactNode
-  level?: string | null
-  levelClass?: string
-  caption: string
-  secondary?: string | null
-}): JSX.Element {
-  return (
-    <div className="grid justify-items-center gap-1">
-      {value}
-      <p className="text-xs text-muted-foreground">{caption}</p>
-      {level !== null && (
-        <p data-testid="process-marker-level" className={cn('text-xs font-semibold', levelClass)}>
-          {level}
-        </p>
-      )}
-      {secondary !== null && (
-        <p data-testid="process-marker-secondary" className="text-sm tabular-nums wrap-anywhere">
-          {secondary}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/** Valor principal del marcador, con el color de su nivel. */
-function BigValue({
-  level = 'normal',
-  children
-}: {
-  level?: UsageLevel
-  children: string
-}): JSX.Element {
-  return (
-    <p
-      data-testid="process-marker-value"
-      data-level={level}
-      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
-    >
-      {children}
-    </p>
   )
 }

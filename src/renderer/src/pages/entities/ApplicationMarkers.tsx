@@ -7,12 +7,7 @@ import type {
   ApplicationRumResult,
   EntityProblemCounts
 } from '@shared/modules'
-import {
-  apdexCategory,
-  apdexLevel,
-  formatApdex,
-  type ApdexLevel
-} from '../../lib/application-format'
+import { apdexCategory, apdexLevel, formatApdex } from '../../lib/application-format'
 import { cn } from '../../lib/cn'
 import { formatCount, formatDurationMs, formatErrorRate } from '../../lib/service-format'
 import { roleHasData } from './application-charts'
@@ -25,7 +20,14 @@ import {
   hasData,
   sumTotals
 } from './application-rum-charts'
-import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import {
+  BigValue,
+  MarkerBody,
+  MarkerCard,
+  MarkerCount,
+  QueryState,
+  RangeLine
+} from './EntityMarkers'
 
 /** Los marcadores de RUM (ficha 0053), entre el del Apdex y el de problemas. */
 type RumMarker = 'users' | 'sessions' | 'actions' | 'errors'
@@ -99,9 +101,14 @@ export function ApplicationMarkers({
     const level = apdexLevel(value)
     return (
       <MarkerBody
-        value={<BigValue level={level}>{formatApdex(value, lang)}</BigValue>}
-        level={category === null ? null : t(`entities.application.apdex.${category}`)}
-        levelClass={LEVEL_CLASS[level]}
+        testIdPrefix="application"
+        value={
+          <BigValue testIdPrefix="application" level={level}>
+            {formatApdex(value, lang)}
+          </BigValue>
+        }
+        levelText={category === null ? null : t(`entities.application.apdex.${category}`)}
+        level={level}
       />
     )
   }
@@ -111,8 +118,14 @@ export function ApplicationMarkers({
       case 'users':
         return (
           <MarkerBody
-            value={<BigValue>{formatCount(loaded?.totals.activeUsers ?? null, lang)}</BigValue>}
-            secondary={
+            testIdPrefix="application"
+            value={
+              <BigValue testIdPrefix="application">
+                {formatCount(loaded?.totals.activeUsers ?? null, lang)}
+              </BigValue>
+            }
+            captionTestId="application-marker-secondary"
+            caption={
               <EstimatedHint label={text('usersEstimated')} hint={text('usersEstimatedHint')} />
             }
           />
@@ -129,10 +142,14 @@ export function ApplicationMarkers({
         ]
         return (
           <MarkerBody
+            testIdPrefix="application"
             value={
-              <BigValue>{formatCount(loaded?.totals.sessions.started ?? null, lang)}</BigValue>
+              <BigValue testIdPrefix="application">
+                {formatCount(loaded?.totals.sessions.started ?? null, lang)}
+              </BigValue>
             }
-            secondary={joinParts(parts)}
+            captionTestId="application-marker-secondary"
+            caption={joinParts(parts)}
           />
         )
       }
@@ -141,15 +158,17 @@ export function ApplicationMarkers({
         const types = loaded === null ? [] : actionTypesWithData(loaded, 'actionsByType')
         return (
           <MarkerBody
+            testIdPrefix="application"
             value={
-              <BigValue>
+              <BigValue testIdPrefix="application">
                 {formatCount(
                   totals === undefined ? null : sumTotals(ACTION_TYPES.map((type) => totals[type])),
                   lang
                 )}
               </BigValue>
             }
-            secondary={joinParts(
+            captionTestId="application-marker-secondary"
+            caption={joinParts(
               types.map((type) => `${series(type)} ${formatCount(totals?.[type] ?? null, lang)}`)
             )}
           />
@@ -163,12 +182,17 @@ export function ApplicationMarkers({
         const types = loaded === null || !errorsSeparated(loaded) ? [] : errorTypesWithData(loaded)
         return (
           <MarkerBody
+            testIdPrefix="application"
             value={
-              <BigValue level={total !== null && total > 0 ? 'error' : 'normal'}>
+              <BigValue
+                testIdPrefix="application"
+                level={total !== null && total > 0 ? 'error' : 'normal'}
+              >
                 {formatCount(total, lang)}
               </BigValue>
             }
-            secondary={joinParts(
+            captionTestId="application-marker-secondary"
+            caption={joinParts(
               types.map((type) => `${series(type)} ${formatCount(totals?.[type] ?? null, lang)}`)
             )}
           />
@@ -236,46 +260,6 @@ function joinParts(parts: readonly (string | null)[]): string | null {
   return known.length === 0 ? null : known.join(' · ')
 }
 
-/** Color del valor según su nivel; el del Apdex lleva además su texto (el color nunca va solo). */
-const LEVEL_CLASS: Record<ApdexLevel, string> = {
-  normal: '',
-  success: 'text-status-closed',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
-
-/** Valor principal, la línea de debajo (si la hay) y el texto del nivel (si lo hay). */
-function MarkerBody({
-  value,
-  secondary = null,
-  level = null,
-  levelClass = ''
-}: {
-  value: ReactNode
-  secondary?: ReactNode
-  level?: string | null
-  levelClass?: string
-}): JSX.Element {
-  return (
-    <div className="grid justify-items-center gap-1">
-      {value}
-      {secondary !== null && (
-        <p data-testid="application-marker-secondary" className="text-xs text-muted-foreground">
-          {secondary}
-        </p>
-      )}
-      {level !== null && (
-        <p
-          data-testid="application-marker-level"
-          className={cn('text-xs font-semibold', levelClass)}
-        >
-          {level}
-        </p>
-      )}
-    </div>
-  )
-}
-
 /** «estimado», con la explicación en un tooltip que también se abre con el foco. */
 function EstimatedHint({ label, hint }: { label: string; hint: string }): JSX.Element {
   return (
@@ -298,24 +282,5 @@ function EstimatedHint({ label, hint }: { label: string; hint: string }): JSX.El
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
-  )
-}
-
-/** Valor principal del marcador, con el color de su nivel. */
-function BigValue({
-  level = 'normal',
-  children
-}: {
-  level?: ApdexLevel
-  children: string
-}): JSX.Element {
-  return (
-    <p
-      data-testid="application-marker-value"
-      data-level={level}
-      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
-    >
-      {children}
-    </p>
   )
 }

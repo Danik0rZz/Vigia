@@ -4,16 +4,16 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { CircleHelp } from 'lucide-react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { EntityProblemCounts, HostMetricsResult } from '@shared/modules'
-import { cn } from '../../lib/cn'
-import {
-  formatBitRate,
-  formatGigabytes,
-  formatUsagePct,
-  usageLevel,
-  type UsageLevel
-} from '../../lib/host-format'
+import { formatBitRate, formatGigabytes, formatUsagePct, usageLevel } from '../../lib/host-format'
 import { formatCount } from '../../lib/service-format'
-import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import {
+  BigValue,
+  MarkerBody,
+  MarkerCard,
+  MarkerCount,
+  QueryState,
+  RangeLine
+} from './EntityMarkers'
 
 /**
  * Fila de marcadores de la página de un HOST (ficha 0018), como la del servicio: CPU, memoria,
@@ -88,7 +88,12 @@ export function HostMarkers({
               const network = data?.totals.network
               return (
                 <MarkerBody
-                  value={<BigValue>{formatBitRate(network?.in ?? null, lang)}</BigValue>}
+                  testIdPrefix="host"
+                  value={
+                    <BigValue testIdPrefix="host">
+                      {formatBitRate(network?.in ?? null, lang)}
+                    </BigValue>
+                  }
                   caption={t('entities.host.markers.inAverage')}
                   secondary={t('entities.host.markers.outAverage', {
                     value: formatBitRate(network?.out ?? null, lang)
@@ -141,13 +146,6 @@ export function HostMarkers({
   )
 }
 
-/** Color del valor según su nivel; el nivel lleva además su texto (el color nunca va solo). */
-const LEVEL_CLASS: Record<UsageLevel, string> = {
-  normal: '',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
-
 /**
  * Un uso en % (CPU, memoria o disco) con su nivel: aviso por encima del 80 % y error por
  * encima del 90 % (`usageLevel`), en `data-level`, en el color y con el texto del nivel debajo.
@@ -168,17 +166,14 @@ function UsageValue({
   const level = usageLevel(pct)
   return (
     <MarkerBody
-      value={<BigValue level={level}>{formatUsagePct(pct, i18n.language)}</BigValue>}
-      level={
-        level === 'normal' ? null : (
-          <p
-            data-testid="host-marker-level"
-            className={cn('text-xs font-semibold', LEVEL_CLASS[level])}
-          >
-            {t(`entities.host.markers.levels.${level}`)}
-          </p>
-        )
+      testIdPrefix="host"
+      value={
+        <BigValue testIdPrefix="host" level={level}>
+          {formatUsagePct(pct, i18n.language)}
+        </BigValue>
       }
+      levelText={level === 'normal' ? null : t(`entities.host.markers.levels.${level}`)}
+      level={level}
       caption={caption}
       secondary={secondary}
       extra={extra}
@@ -220,52 +215,6 @@ function Reclaimable({ value }: { value: string }): JSX.Element {
         </Tooltip.Portal>
       </Tooltip.Root>
       <span className="font-medium text-foreground tabular-nums">{value}</span>
-    </p>
-  )
-}
-
-/** Valor principal con su nombre debajo, el nivel (si lo hay) y la línea secundaria. */
-function MarkerBody({
-  value,
-  level = null,
-  caption,
-  secondary,
-  extra = null
-}: {
-  value: ReactNode
-  level?: ReactNode
-  caption: string
-  secondary: string
-  extra?: ReactNode
-}): JSX.Element {
-  return (
-    <div className="grid justify-items-center gap-1">
-      {value}
-      <p className="text-xs text-muted-foreground">{caption}</p>
-      {level}
-      <p data-testid="host-marker-secondary" className="text-sm tabular-nums wrap-anywhere">
-        {secondary}
-      </p>
-      {extra}
-    </div>
-  )
-}
-
-/** Valor principal del marcador, con el color de su nivel. */
-function BigValue({
-  level = 'normal',
-  children
-}: {
-  level?: UsageLevel
-  children: string
-}): JSX.Element {
-  return (
-    <p
-      data-testid="host-marker-value"
-      data-level={level}
-      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
-    >
-      {children}
     </p>
   )
 }

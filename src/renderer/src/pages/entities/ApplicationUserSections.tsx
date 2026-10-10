@@ -8,7 +8,6 @@ import {
   formatCls,
   webVitalLevel,
   webVitalRating,
-  type ApdexLevel,
   type WebVital
 } from '../../lib/application-format'
 import { cn } from '../../lib/cn'
@@ -27,6 +26,7 @@ import {
 import { ApplicationSection } from './ApplicationSection'
 import { NO_COLORS, type VisibleRange } from './entity-charts'
 import { EntityChartPanel } from './EntityChartPanel'
+import { LEVEL_CLASS } from './EntityMarkers'
 
 /**
  * Secciones «Usuarios y sesiones» (usuarios activos y sesiones, con los datos pequeños del rango
@@ -172,14 +172,6 @@ function SessionStats({ data }: { data: ApplicationRumResult }): JSX.Element | n
       ))}
     </dl>
   )
-}
-
-/** Color de la calificación; siempre va con su texto (el color nunca va solo). */
-const LEVEL_CLASS: Record<ApdexLevel, string> = {
-  normal: '',
-  success: 'text-status-closed',
-  warning: 'text-status-warning',
-  error: 'text-danger'
 }
 
 /** Las tarjetas de LCP, CLS e INP (las que tienen datos), con el valor del rango y su calificación. */

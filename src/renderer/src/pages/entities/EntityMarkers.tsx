@@ -182,3 +182,103 @@ export function RangeLine({
     </p>
   )
 }
+
+/**
+ * Nivel de un valor de marcador o de tabla (ficha 0058): el uso de host, proceso o disco y la
+ * disponibilidad de monitores (`normal`, `warning`, `error`) y el Apdex y las Core Web Vitals,
+ * que añaden `success`.
+ */
+export type Level = 'normal' | 'success' | 'warning' | 'error'
+
+/** Color del valor según su nivel; el nivel lleva además su texto (el color nunca va solo). */
+// Junto a MarkerBody y BigValue, que lo usan: el test de guardia de la ficha 0058 lo busca aquí.
+// eslint-disable-next-line react-refresh/only-export-components
+export const LEVEL_CLASS: Record<Level, string> = {
+  normal: '',
+  success: 'text-status-closed',
+  warning: 'text-status-warning',
+  error: 'text-danger'
+}
+
+/**
+ * Cuerpo de un marcador: el valor principal; debajo, su nombre (si lo hay), el texto del nivel
+ * (si lo hay, con el color de `level`), la línea secundaria (si la hay) y una línea más (`extra`).
+ * Los `data-testid` llevan el prefijo del tipo: `host-marker-level`, `process-marker-secondary`…
+ */
+export function MarkerBody({
+  testIdPrefix,
+  value,
+  caption = null,
+  captionTestId,
+  levelText = null,
+  level = 'normal',
+  secondary = null,
+  secondaryLevel,
+  extra = null
+}: {
+  /** `host`, `process`, `monitor`…: el de los `data-testid` (`host-marker-level`). */
+  testIdPrefix: string
+  value: ReactNode
+  caption?: ReactNode
+  /** `data-testid` del nombre, si lo necesita (la aplicación lo tiene como `…-marker-secondary`). */
+  captionTestId?: string
+  levelText?: string | null
+  level?: Level
+  secondary?: ReactNode
+  /** Nivel de la línea secundaria, en su color y en `data-level` (las fallidas de un monitor). */
+  secondaryLevel?: Level
+  extra?: ReactNode
+}): JSX.Element {
+  return (
+    <div className="grid justify-items-center gap-1">
+      {value}
+      {caption !== null && (
+        <p data-testid={captionTestId} className="text-xs text-muted-foreground">
+          {caption}
+        </p>
+      )}
+      {levelText !== null && (
+        <p
+          data-testid={`${testIdPrefix}-marker-level`}
+          className={cn('text-xs font-semibold', LEVEL_CLASS[level])}
+        >
+          {levelText}
+        </p>
+      )}
+      {secondary !== null && (
+        <p
+          data-testid={`${testIdPrefix}-marker-secondary`}
+          data-level={secondaryLevel}
+          className={cn(
+            'text-sm tabular-nums wrap-anywhere',
+            secondaryLevel !== undefined && LEVEL_CLASS[secondaryLevel]
+          )}
+        >
+          {secondary}
+        </p>
+      )}
+      {extra}
+    </div>
+  )
+}
+
+/** Valor principal del marcador, con el color de su nivel (`data-level`). */
+export function BigValue({
+  testIdPrefix,
+  level = 'normal',
+  children
+}: {
+  testIdPrefix: string
+  level?: Level
+  children: string
+}): JSX.Element {
+  return (
+    <p
+      data-testid={`${testIdPrefix}-marker-value`}
+      data-level={level}
+      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
+    >
+      {children}
+    </p>
+  )
+}

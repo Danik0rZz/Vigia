@@ -5,7 +5,7 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import type { EntityProblemCounts, ServiceMetricsResult } from '@shared/modules'
 import { cn } from '../../lib/cn'
 import { formatCount, formatDurationMs, formatErrorRate } from '../../lib/service-format'
-import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import { BigValue, MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
 import { serviceMetricNote, type ServiceMetricNote } from './service-type'
 import {
   AVAILABILITY_CRITICAL,
@@ -54,14 +54,18 @@ export function ServiceMarkers({
             title={t('entities.service.markers.requests')}
           >
             <QueryState {...metricState}>
-              {(loaded) => <BigValue>{formatCount(requestsOf(loaded), lang)}</BigValue>}
+              {(loaded) => (
+                <BigValue testIdPrefix="service">{formatCount(requestsOf(loaded), lang)}</BigValue>
+              )}
             </QueryState>
           </MarkerCard>
         ) : (
           <>
             <MarkerCard testId="service-marker-ok" title={t('entities.service.markers.ok')}>
               <QueryState {...metricState}>
-                {(data) => <BigValue>{formatCount(okOf(data), lang)}</BigValue>}
+                {(data) => (
+                  <BigValue testIdPrefix="service">{formatCount(okOf(data), lang)}</BigValue>
+                )}
               </QueryState>
             </MarkerCard>
 
@@ -70,7 +74,10 @@ export function ServiceMarkers({
                 {(data) => {
                   const errors = errorsOf(data)
                   return (
-                    <BigValue danger={errors !== null && errors > 0}>
+                    <BigValue
+                      testIdPrefix="service"
+                      level={errors !== null && errors > 0 ? 'error' : 'normal'}
+                    >
                       {formatCount(errors, lang)}
                     </BigValue>
                   )
@@ -85,7 +92,9 @@ export function ServiceMarkers({
               <QueryState {...metricState}>
                 {(data) => (
                   <div className="grid gap-1">
-                    <BigValue>{formatErrorRate(data?.totals.errorRate ?? null, lang)}</BigValue>
+                    <BigValue testIdPrefix="service">
+                      {formatErrorRate(data?.totals.errorRate ?? null, lang)}
+                    </BigValue>
                     {data !== null && <AvailabilityLine data={data} />}
                   </div>
                 )}
@@ -209,24 +218,6 @@ const okOf = (data: ServiceMetricsResult | null): number | null =>
 
 const errorsOf = (data: ServiceMetricsResult | null): number | null =>
   data !== null && hasRequestData(data) ? data.totals.errors : null
-
-/** Valor principal del marcador; en rojo si hay que llamar la atención (el número es el texto). */
-function BigValue({
-  danger = false,
-  children
-}: {
-  danger?: boolean
-  children: string
-}): JSX.Element {
-  return (
-    <p
-      data-testid="service-marker-value"
-      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', danger && 'text-danger')}
-    >
-      {children}
-    </p>
-  )
-}
 
 /**
  * Disponibilidad del rango bajo la tasa de error (ficha 0048). Por debajo del 90 %, en color de

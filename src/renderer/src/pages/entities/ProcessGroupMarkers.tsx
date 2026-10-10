@@ -1,17 +1,17 @@
-import type { JSX, ReactNode } from 'react'
+import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { EntityProblemCounts, ProcessGroupMetricsResult } from '@shared/modules'
-import { cn } from '../../lib/cn'
-import {
-  formatBitRate,
-  formatBytes,
-  formatUsagePct,
-  usageLevel,
-  type UsageLevel
-} from '../../lib/host-format'
+import { formatBitRate, formatBytes, formatUsagePct, usageLevel } from '../../lib/host-format'
 import { formatCount } from '../../lib/service-format'
-import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import {
+  BigValue,
+  MarkerBody,
+  MarkerCard,
+  MarkerCount,
+  QueryState,
+  RangeLine
+} from './EntityMarkers'
 import { toBits } from './process-charts'
 import { instancesAtLeast } from './process-group-instances'
 
@@ -58,8 +58,11 @@ export function ProcessGroupMarkers({
               const count = formatCount(total, lang)
               return (
                 <MarkerBody
+                  testIdPrefix="process-group"
                   value={
-                    <BigValue>{truncated ? text('atLeast', { value: count }) : count}</BigValue>
+                    <BigValue testIdPrefix="process-group">
+                      {truncated ? text('atLeast', { value: count }) : count}
+                    </BigValue>
                   }
                   caption={text('instancesCaption')}
                   secondary={truncated ? text('instancesPartial') : null}
@@ -79,9 +82,14 @@ export function ProcessGroupMarkers({
               const level = usageLevel(pct)
               return (
                 <MarkerBody
-                  value={<BigValue level={level}>{formatUsagePct(pct, lang)}</BigValue>}
-                  level={level === 'normal' ? null : t(`entities.host.markers.levels.${level}`)}
-                  levelClass={LEVEL_CLASS[level]}
+                  testIdPrefix="process-group"
+                  value={
+                    <BigValue testIdPrefix="process-group" level={level}>
+                      {formatUsagePct(pct, lang)}
+                    </BigValue>
+                  }
+                  levelText={level === 'normal' ? null : t(`entities.host.markers.levels.${level}`)}
+                  level={level}
                   caption={text('cpuCaption')}
                   secondary={text('max', { value: formatUsagePct(cpu?.max ?? null, lang) })}
                 />
@@ -94,7 +102,12 @@ export function ProcessGroupMarkers({
           <QueryState {...metricState}>
             {(data) => (
               <MarkerBody
-                value={<BigValue>{formatBytes(data?.totals.memory.avg ?? null, lang)}</BigValue>}
+                testIdPrefix="process-group"
+                value={
+                  <BigValue testIdPrefix="process-group">
+                    {formatBytes(data?.totals.memory.avg ?? null, lang)}
+                  </BigValue>
+                }
                 caption={text('memoryCaption')}
               />
             )}
@@ -107,7 +120,12 @@ export function ProcessGroupMarkers({
               const network = data?.totals.network
               return (
                 <MarkerBody
-                  value={<BigValue>{formatBitRate(toBits(network?.in ?? null), lang)}</BigValue>}
+                  testIdPrefix="process-group"
+                  value={
+                    <BigValue testIdPrefix="process-group">
+                      {formatBitRate(toBits(network?.in ?? null), lang)}
+                    </BigValue>
+                  }
                   caption={text('inAverage')}
                   secondary={text('outAverage', {
                     value: formatBitRate(toBits(network?.out ?? null), lang)
@@ -147,69 +165,5 @@ export function ProcessGroupMarkers({
         testId="process-group-markers-range"
       />
     </div>
-  )
-}
-
-/** Color del valor según su nivel; el nivel lleva además su texto (el color nunca va solo). */
-const LEVEL_CLASS: Record<UsageLevel, string> = {
-  normal: '',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
-
-/** Valor principal con su nombre debajo, el texto del nivel (si lo hay) y la línea secundaria. */
-function MarkerBody({
-  value,
-  level = null,
-  levelClass = '',
-  caption,
-  secondary = null
-}: {
-  value: ReactNode
-  level?: string | null
-  levelClass?: string
-  caption: string
-  secondary?: string | null
-}): JSX.Element {
-  return (
-    <div className="grid justify-items-center gap-1">
-      {value}
-      <p className="text-xs text-muted-foreground">{caption}</p>
-      {level !== null && (
-        <p
-          data-testid="process-group-marker-level"
-          className={cn('text-xs font-semibold', levelClass)}
-        >
-          {level}
-        </p>
-      )}
-      {secondary !== null && (
-        <p
-          data-testid="process-group-marker-secondary"
-          className="text-sm tabular-nums wrap-anywhere"
-        >
-          {secondary}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/** Valor principal del marcador, con el color de su nivel. */
-function BigValue({
-  level = 'normal',
-  children
-}: {
-  level?: UsageLevel
-  children: string
-}): JSX.Element {
-  return (
-    <p
-      data-testid="process-group-marker-value"
-      data-level={level}
-      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
-    >
-      {children}
-    </p>
   )
 }

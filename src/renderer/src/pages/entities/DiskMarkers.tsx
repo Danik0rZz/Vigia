@@ -1,17 +1,18 @@
-import type { JSX, ReactNode } from 'react'
+import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { DiskMetricsResult, EntityProblemCounts } from '@shared/modules'
 import { cn } from '../../lib/cn'
-import {
-  formatByteRate,
-  formatGigabytes,
-  formatUsagePct,
-  usageLevel,
-  type UsageLevel
-} from '../../lib/host-format'
+import { formatByteRate, formatGigabytes, formatUsagePct, usageLevel } from '../../lib/host-format'
 import { formatCount, formatDurationMs } from '../../lib/service-format'
-import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import {
+  BigValue,
+  MarkerBody,
+  MarkerCard,
+  MarkerCount,
+  QueryState,
+  RangeLine
+} from './EntityMarkers'
 import { diskLayout, formatQueueLength } from './disk-charts'
 
 /** Columnas de la fila en pantalla ancha según cuántos marcadores salen (5 o 6). */
@@ -61,9 +62,14 @@ export function DiskMarkers({
               const level = usageLevel(pct)
               return (
                 <MarkerBody
-                  value={<BigValue level={level}>{formatUsagePct(pct, lang)}</BigValue>}
-                  level={level === 'normal' ? null : t(`entities.host.markers.levels.${level}`)}
-                  levelClass={LEVEL_CLASS[level]}
+                  testIdPrefix="disk"
+                  value={
+                    <BigValue testIdPrefix="disk" level={level}>
+                      {formatUsagePct(pct, lang)}
+                    </BigValue>
+                  }
+                  levelText={level === 'normal' ? null : t(`entities.host.markers.levels.${level}`)}
+                  level={level}
                   caption={t('entities.disk.markers.usageCaption')}
                 />
               )
@@ -75,7 +81,12 @@ export function DiskMarkers({
           <QueryState {...metricState}>
             {(data) => (
               <MarkerBody
-                value={<BigValue>{formatGigabytes(data?.totals.free ?? null, lang)}</BigValue>}
+                testIdPrefix="disk"
+                value={
+                  <BigValue testIdPrefix="disk">
+                    {formatGigabytes(data?.totals.free ?? null, lang)}
+                  </BigValue>
+                }
                 caption={t('entities.disk.markers.freeCaption')}
               />
             )}
@@ -86,8 +97,11 @@ export function DiskMarkers({
           <QueryState {...metricState}>
             {(data) => (
               <MarkerBody
+                testIdPrefix="disk"
                 value={
-                  <BigValue>{formatByteRate(data?.totals.throughput.read ?? null, lang)}</BigValue>
+                  <BigValue testIdPrefix="disk">
+                    {formatByteRate(data?.totals.throughput.read ?? null, lang)}
+                  </BigValue>
                 }
                 caption={t('entities.disk.markers.average')}
               />
@@ -99,8 +113,11 @@ export function DiskMarkers({
           <QueryState {...metricState}>
             {(data) => (
               <MarkerBody
+                testIdPrefix="disk"
                 value={
-                  <BigValue>{formatByteRate(data?.totals.throughput.write ?? null, lang)}</BigValue>
+                  <BigValue testIdPrefix="disk">
+                    {formatByteRate(data?.totals.throughput.write ?? null, lang)}
+                  </BigValue>
                 }
                 caption={t('entities.disk.markers.average')}
               />
@@ -115,7 +132,12 @@ export function DiskMarkers({
                 const latency = data?.totals.latency ?? null
                 return (
                   <MarkerBody
-                    value={<BigValue>{formatDurationMs(latency?.read ?? null, lang)}</BigValue>}
+                    testIdPrefix="disk"
+                    value={
+                      <BigValue testIdPrefix="disk">
+                        {formatDurationMs(latency?.read ?? null, lang)}
+                      </BigValue>
+                    }
                     caption={t('entities.disk.markers.latencyCaption')}
                     secondary={t('entities.disk.markers.latencyWrite', {
                       value: formatDurationMs(latency?.write ?? null, lang)
@@ -132,7 +154,12 @@ export function DiskMarkers({
             <QueryState {...metricState}>
               {(data) => (
                 <MarkerBody
-                  value={<BigValue>{formatQueueLength(data?.totals.queue ?? null, lang)}</BigValue>}
+                  testIdPrefix="disk"
+                  value={
+                    <BigValue testIdPrefix="disk">
+                      {formatQueueLength(data?.totals.queue ?? null, lang)}
+                    </BigValue>
+                  }
                   caption={t('entities.disk.markers.queueCaption')}
                 />
               )}
@@ -166,63 +193,5 @@ export function DiskMarkers({
       </div>
       <RangeLine resolution={metrics.data?.resolution ?? null} testId="disk-markers-range" />
     </div>
-  )
-}
-
-/** Color del valor según su nivel; el nivel lleva además su texto (el color nunca va solo). */
-const LEVEL_CLASS: Record<UsageLevel, string> = {
-  normal: '',
-  warning: 'text-status-warning',
-  error: 'text-danger'
-}
-
-/** Valor principal con su nombre debajo, el texto del nivel (si lo hay) y la línea secundaria. */
-function MarkerBody({
-  value,
-  level = null,
-  levelClass = '',
-  caption,
-  secondary = null
-}: {
-  value: ReactNode
-  level?: string | null
-  levelClass?: string
-  caption: string
-  secondary?: string | null
-}): JSX.Element {
-  return (
-    <div className="grid justify-items-center gap-1">
-      {value}
-      <p className="text-xs text-muted-foreground">{caption}</p>
-      {level !== null && (
-        <p data-testid="disk-marker-level" className={cn('text-xs font-semibold', levelClass)}>
-          {level}
-        </p>
-      )}
-      {secondary !== null && (
-        <p data-testid="disk-marker-secondary" className="text-sm tabular-nums wrap-anywhere">
-          {secondary}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/** Valor principal del marcador, con el color de su nivel. */
-function BigValue({
-  level = 'normal',
-  children
-}: {
-  level?: UsageLevel
-  children: string
-}): JSX.Element {
-  return (
-    <p
-      data-testid="disk-marker-value"
-      data-level={level}
-      className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
-    >
-      {children}
-    </p>
   )
 }
