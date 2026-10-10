@@ -1,7 +1,7 @@
 ---
 id: '0059'
 titulo: 'Instalar el React Compiler para que las tablas no se vuelvan a pintar enteras'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -73,7 +73,32 @@ se vuelven a pintar todas las filas.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en el commit 4d499eb (`test(renderer): criterios de la ficha 0059 (#0059)`); fallan
+porque falta el código (CA3: no está la dependencia ni el plugin; CA1 y CA2: las filas no llevan
+`data-render-count`).
+
+- CA1 → `e2e/views.spec.ts`, `CA1 (0059): en Problemas con 300 filas, hacer scroll de diez filas no
+vuelve a pintar las que ya estaban montadas y no han cambiado` (con `sim.many`).
+- CA2 → `e2e/views.spec.ts`, `CA2 (0059): escribir en el buscador de evidencias solo vuelve a pintar
+las filas que cambian` (las 300 evidencias de P-778).
+- CA3 → `scripts/react-compiler.test.ts` (versión exacta en devDependencies; carga
+  `electron.vite.config.ts`, pasa un componente por el plugin de Babel del renderer como en un build
+  y exige `react/compiler-runtime` y `_c(`).
+- CA4 → verifier.
+
+Decisiones del test-writer (Dani delegó; refinables):
+
+- **Contrato del contador:** con `VIGIA_E2E`, cada fila principal del DataGrid (el elemento con
+  `rowTestId`) lleva `data-render-count` = veces que se ha pintado desde que se montó. Se eligió
+  el atributo frente al IPC de pruebas por ser lo más simple de leer desde el DOM.
+- Los e2e guardan el elemento de cada fila: una fila desmontada y vuelta a montar cuenta como
+  repintada (su contador vuelve a empezar y si no podría coincidir).
+- CA2 se prueba escribiendo letra a letra un texto que cumplen las 300 evidencias («Evidencia»):
+  ninguna fila cambia, así que ninguna se repinta. Los dos e2e comprueban además que una fila que sí
+  cambia (foco en Problemas, desplegar en evidencias) sube su contador, para que no pasen con un
+  contador congelado.
+- CA3 va en `scripts/` porque prueba la configuración de la raíz (`electron.vite.config.ts`,
+  `package.json`), como los demás tests de configuración.
 
 ## Resultado
 
