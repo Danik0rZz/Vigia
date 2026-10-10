@@ -1,7 +1,7 @@
 ---
 id: '0049'
 titulo: 'Etiquetas de entidad como cápsula de dos colores (clave | valor)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -107,6 +107,11 @@ Sugerencias, no bloquean:
 ## Verificación
 
 (pendiente)
+
+### Verifier, 2026-10-10, commit `f5e9e79`, rango `main..feat/0049-etiquetas-capsula`: VERDE
+
+- check: 3148 tests en 174 ficheros, cobertura ok.
+- e2e completo (toca `main.css`): 327/327, sin intermitentes.
 
 ## Resultado
 
