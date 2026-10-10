@@ -1,7 +1,7 @@
 ---
 id: '0062'
 titulo: 'Main limita las peticiones simultáneas a Dynatrace por entorno'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -60,7 +60,34 @@ reintento de 429 que ya existe no cambia.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `df6eb44` (`src/main/dynatrace/client.concurrency.test.ts`). Comprobado antes que
+el problema sigue en `main` (`createDtClient` no limita nada). Sin tiempo real: cada `fetch` es una
+promesa que el test resuelve o rechaza a mano.
+
+- CA1 → `describe('CA1 (0062) …')`: 10 simultáneas → 6 a `fetchFor`; al resolver una entra la 7.ª;
+  orden FIFO al liberar sitios en desorden; una que falla (`NETWORK`) libera su sitio; tras vaciarse
+  vuelve a admitir 6.
+- CA2 → `describe('CA2 (0062) …')`: 6 y 6 con A lleno; liberar en A no deja pasar a B ni al revés;
+  tres entornos con 6 cada uno.
+- CA3 → `describe('CA3 (0062) …')`: cancelada en cola no llega a `fetchFor` y la siguiente ocupa su
+  turno; cancelada antes de pedirla; cancelar una en vuelo libera su sitio; varias canceladas
+  mantienen el orden del resto.
+- CA4 → `describe('CA4 (0062) …')`: 6 + 20 en cola no registra; 6 + 21 registra `debug` sin el
+  token; la cola de un entorno no cuenta para el umbral de otro.
+- CA5 → sin test nuevo: lo cubren los e2e existentes de entidades y Problemas (los afectados).
+
+Decisiones tomadas en nombre de Dani (refinables):
+
+- **Cancelación:** `DtRequestOptions` no tenía forma de cancelar desde fuera. Los tests pasan
+  `signal?: AbortSignal` en las opciones de `dtRequest`: abortada en cola, se rechaza sin llegar a
+  `fetchFor`; abortada en vuelo, se aborta el `fetch` y libera su sitio. No se fija el código del
+  error de una cancelada.
+- **Log:** `DtClientDeps.logger` gana `debug(...)`. El test exige al menos una línea al pasar de 20
+  pendientes (no exactamente una) y que no lleve el token.
+- **Límite:** los tests usan el 6 por defecto, sin fijar el nombre de la dependencia inyectable.
+
+Ejecución tras escribirlos: 13 fallan y 2 pasan ya (orden FIFO y umbral por entorno: sin límite no
+pueden fallar, y vigilan que no se rompan cuando lo haya).
 
 ## Resultado
 
