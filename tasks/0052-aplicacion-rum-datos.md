@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics/{metricId}` y `GET /metrics/query` con métricas `builtin:apps.web.*` del catálogo observado en la 0033 (`docs/notas-api-v2.md`, "Métricas de una aplicación web"); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scope `metrics.read`.
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -106,7 +106,22 @@ Informe solo de comportamientos; tabla final en "Resultado" y en `docs/notas-api
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 con su test y sin tocarlos tras `63a79d3`: CA2 fija `/api/v2/metrics/query`, el
+`entitySelector`, el rango, ≤ 10 expresiones y sin `:fold`; CA3, `null`, totales de la consulta con
+`Inf`, tipos de error con el resto en `other` y casado por posición; CA4, 400 y 404 con `reason`; CA5,
+los dos e2e con el simulador que da 400 con más de 10. Las 18 expresiones son, carácter a carácter,
+las del paso 0 (p75 en los Core Web Vitals, `:splitBy()` en porcentajes y usuarios, `"Error type"`);
+solo API clásica, nada de Platform, Grail ni DQL. 2 bloques (10 y 8) × 2 resoluciones en paralelo.
+Zod de entrada y salida, con tests de id de otro tipo e inyección; `reason` de la 0033 reutilizado;
+sin CSP, permisos, dependencias ni esquema; nada del tenant.
+
+Sugerencias, no bloquean:
+
+- `seriesOf` y `totalOf` se quedan con la primera serie sin avisar: un aviso en `warnings` si llega
+  más de una (como pasó con `browser.duration` en la 0023).
+- `other` toma los timestamps del primer tipo: casarlos por timestamp si algún día difieren.
 
 ## Verificación
 
