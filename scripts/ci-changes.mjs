@@ -74,3 +74,5 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     stdout: (message) => process.stdout.write(`${message}\n`)
   })
 }
+
+// Prueba de la 0072: PR con un cambio de código inocuo. Se cierra sin fusionar.
