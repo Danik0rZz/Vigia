@@ -13,7 +13,7 @@ adrs: [6, 13] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -88,7 +88,24 @@ Normal (`ligera: no`).
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1 a CA5 con su `describe('CAn (0068)…')` en `scripts/affected-e2e.test.ts`; fallaban sin
+  `parseArgs`/`plan` y no se tocaron tras `080ad50`. El CA4 lanza el script real.
+- `parseArgs` y `plan` puras y exportadas; `main()` solo las encadena. Con «ninguno» se sale antes
+  del plan. `scripts/**` está en `ignore` de `e2e/areas.json`.
+- Documentación (cabecera, README, `docs/flujo.md` y la tabla de comandos de `CLAUDE.md`, que la
+  ficha pide expresamente).
+- Decisiones del developer, sin `[ALCANCE]`: el rango es el único posicional y un segundo sale con
+  2; `-g`/`--grep` sin patrón sale con 2; `--help` gana a cualquier otra opción; `--no-build` sin
+  `out/` sale con 2 (CA2); `parseArgs` va antes de leer git (CA4).
+
+Opcional:
+
+1. `-g` toma como patrón el siguiente argumento aunque empiece por `-` (`-g --no-build` filtra por
+   «--no-build» y compila): rechazarlo con el mismo `usageError`.
+2. `--grep=(0070)`, que Playwright acepta, sale como opción desconocida con 2: fallo seguro; si se
+   quiere admitir, ficha aparte.
 
 ## Verificación
 
