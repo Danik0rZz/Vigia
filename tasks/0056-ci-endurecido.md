@@ -158,5 +158,7 @@ Decisiones del developer (Dani delegó; refinables):
 - Ficheros principales: `.github/workflows/ci.yml`, `.github/workflows/audit.yml`,
   `scripts/ci-workflow.test.ts`.
 - Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones.
-- CA5 (CI del push en verde) queda pendiente: lo comprueba el Orquestador con el enlace tras el push.
+- CA5 (CI del push en verde): **cumplido** el 2026-10-10. El CI del push `c79d0fc`, ya con las
+  acciones fijadas por SHA, los audits y la caché, salió en verde
+  (https://github.com/Danik0rZz/Vigia/actions/runs/38026761992).
 - Prueba a mano de Dani: ver en Actions que el workflow semanal aparece y se puede lanzar.
