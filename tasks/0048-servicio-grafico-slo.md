@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa las series de peticiones y errores que ya trae `entities:serviceMetrics`)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -84,7 +84,19 @@ con un umbral crítico del 90 %.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+Ficha ligera: los tests del developer cubren cada CA tal como está escrito. CA1 y CA2 (cálculo con
+`null` y con más errores que peticiones, línea del 90 % discontinua con su texto en es y en,
+`markArea` solo bajo el 90 %, eje) fallarían sin el código; CA3 cuadra con las cifras del
+simulador (85,3 %) y tiene su control al 100 %. CA4 ya pasaba sin código, pero espera a la serie de
+actividad y fallaría si el gráfico saliera sin serie de errores: suficiente. Sin tocar tests tras
+`51962dc`. Sin IPC, API, dependencias, esquema ni consultas nuevas (ADR-0004). `Chart.tsx`
+(`data-thresholds` solo con `markLine` numérico) y `EntityChartPanel.tsx` (`selector`, `titleHint` y
+`testIds` opcionales) no cambian nada para los demás gráficos.
+
+Opcional: tests unitarios de `rangeAvailability` y `formatAvailability` (peticiones todas a `null` y
+`series.errors === null`).
 
 ## Verificación
 
