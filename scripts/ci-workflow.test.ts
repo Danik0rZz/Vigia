@@ -352,9 +352,10 @@ describe('CA4 (0056): runs encolados y caché de Electron', () => {
     JSON.parse(read('package.json')) as { devDependencies: Record<string, string> }
   ).devDependencies.electron
 
-  it('concurrency.cancel-in-progress es false', () => {
+  // Desde la 0072 las PR cancelan su run anterior; el push a main sigue encolando (CA5 de la 0072).
+  it('concurrency.cancel-in-progress nunca es true sin condición', () => {
     const concurrency = topBlock(workflow, 'concurrency') ?? ''
-    expect(concurrency).toMatch(/^\s+cancel-in-progress:\s*false\s*$/m)
+    expect(concurrency).toMatch(/^\s+cancel-in-progress:/m)
     expect(concurrency).not.toMatch(/cancel-in-progress:\s*true/)
   })
 
@@ -373,5 +374,186 @@ describe('CA4 (0056): runs encolados y caché de Electron', () => {
     const key = step?.with.key ?? ''
     expect(key).toContain('runner.os')
     expect(key).toContain(electronVersion)
+  })
+})
+
+/**
+ * Ficha 0072: CI en las PR a main. Jobs `cambios` (decide si hay código), `windows` (check y e2e
+ * completo, `dist:win` solo fuera de las PR) y `ci-ok` («CI ok», siempre presente).
+ */
+
+/** Bloque `name:` con la sangría dada dentro de `parent` (sus líneas con más sangría), o vacío. */
+function childBlock(parent: string, name: string, indent: number): string {
+  const lines = parent.split(/\r?\n/)
+  const start = lines.findIndex((line) => new RegExp(`^ {${indent}}['"]?${name}['"]?:`).test(line))
+  if (start === -1) return ''
+  const body: string[] = [lines[start] ?? '']
+  for (const line of lines.slice(start + 1)) {
+    if (!isBlank(line) && indentOf(line) <= indent) break
+    body.push(line)
+  }
+  return body.join('\n')
+}
+
+function jobBlock(workflow: string, name: string): string {
+  return childBlock(topBlock(workflow, 'jobs') ?? '', name, 2)
+}
+
+function onBlock(workflow: string, event: string): string {
+  return childBlock(topBlock(workflow, 'on') ?? '', event, 2)
+}
+
+/** Valor de una clave escalar directa del job (`if`, `name`, `runs-on`...), sin `${{ }}`. */
+function jobField(job: string, key: string): string {
+  const match = new RegExp(`^ {4}${key}:\\s*(.*)$`, 'm').exec(job)
+  return scalar(match?.[1] ?? '').replace(/^\$\{\{\s*(.*?)\s*\}\}$/, '$1')
+}
+
+/** Lista de `needs:` del job, en una línea (`[a, b]` o `a`) o como lista YAML. */
+function needsOf(job: string): string[] {
+  const inline = /^ {4}needs:\s*(\S.*)$/m.exec(job)
+  if (inline) {
+    return scalar(inline[1] ?? '')
+      .replace(/^\[|\]$/g, '')
+      .split(',')
+      .map((name) => scalar(name))
+      .filter(Boolean)
+  }
+  const block = childBlock(job, 'needs', 4)
+  return [...block.matchAll(/^\s+-\s*(.+)$/gm)].map((match) => scalar(match[1] ?? ''))
+}
+
+function stripExpression(value: string | undefined): string {
+  return (value ?? '').replace(/^\$\{\{\s*(.*?)\s*\}\}$/, '$1')
+}
+
+/** El `if` excluye los pull_request (o solo deja pasar el push). */
+function excludesPullRequest(condition: string): boolean {
+  return (
+    /github\.event_name\s*!=\s*'pull_request'/.test(condition) ||
+    /github\.event_name\s*==\s*'push'/.test(condition)
+  )
+}
+
+describe('CA2 (0072): pull_request a main sin paths-ignore; push a main lo conserva', () => {
+  const workflow = read(CI)
+  const pullRequest = onBlock(workflow, 'pull_request')
+  const push = onBlock(workflow, 'push')
+
+  it('se lanza en pull_request a main', () => {
+    expect(pullRequest, 'on.pull_request').not.toBe('')
+    expect(pullRequest).toMatch(
+      /branches:\s*\[\s*['"]?main['"]?\s*\]|branches:\s*\n\s+-\s*['"]?main/
+    )
+  })
+
+  it('pull_request no tiene paths-ignore ni paths', () => {
+    expect(pullRequest).not.toMatch(/paths-ignore:/)
+    expect(pullRequest).not.toMatch(/^\s+paths:/m)
+  })
+
+  it('push a main conserva su paths-ignore con los cuatro globs de hoy', () => {
+    expect(push).toMatch(/branches:\s*\[\s*['"]?main['"]?\s*\]/)
+    expect(push).toMatch(/paths-ignore:/)
+    for (const glob of ['**/*.md', 'docs/**', 'tasks/**', '.claude/**']) {
+      expect(push).toContain(`'${glob}'`)
+    }
+  })
+
+  it('sigue teniendo workflow_dispatch', () => {
+    expect(topBlock(workflow, 'on') ?? '').toMatch(/^\s{2}workflow_dispatch:/m)
+  })
+})
+
+describe('CA3 (0072): windows depende de cambios y en las PR no empaqueta', () => {
+  const workflow = read(CI)
+  const cambios = jobBlock(workflow, 'cambios')
+  const windows = jobBlock(workflow, 'windows')
+  const steps = stepsOf(windows)
+
+  it('cambios va en ubuntu-latest, usa scripts/ci-changes.mjs y expone la salida codigo', () => {
+    expect(cambios, 'job cambios').not.toBe('')
+    expect(jobField(cambios, 'runs-on')).toBe('ubuntu-latest')
+    expect(cambios).toMatch(/node\s+\.?\/?scripts\/ci-changes\.mjs/)
+    expect(childBlock(cambios, 'outputs', 4)).toMatch(/^\s+codigo:/m)
+  })
+
+  it('cambios no usa acciones de terceros (solo actions/*)', () => {
+    for (const { action } of usesOf(cambios)) expect(action).toMatch(/^actions\//)
+  })
+
+  it('windows necesita a cambios y se salta si no hay código', () => {
+    expect(needsOf(windows)).toContain('cambios')
+    expect(jobField(windows, 'if')).toContain('needs.cambios.outputs.codigo')
+  })
+
+  it('windows ejecuta npm run check y npm run test:e2e (completo) sin excluir las PR', () => {
+    for (const command of ['npm run check', 'npm run test:e2e']) {
+      const index = indexOfRun(steps, command)
+      expect(index, command).toBeGreaterThanOrEqual(0)
+      expect(excludesPullRequest(stripExpression(steps[index]?.fields.if))).toBe(false)
+    }
+  })
+
+  it('windows no usa los e2e afectados', () => {
+    expect(windows).not.toMatch(/test:e2e:affected/)
+  })
+
+  it('npm run dist:win no se ejecuta en pull_request (sí en el push a main)', () => {
+    const index = indexOfRun(steps, 'npm run dist:win')
+    expect(index, 'paso npm run dist:win').toBeGreaterThanOrEqual(0)
+    expect(excludesPullRequest(stripExpression(steps[index]?.fields.if))).toBe(true)
+  })
+})
+
+describe('CA4 (0072): ci-ok («CI ok») siempre se ejecuta y falla si algún job falló', () => {
+  const workflow = read(CI)
+  const ciOk = jobBlock(workflow, 'ci-ok')
+  const otherJobs = [
+    ...(topBlock(workflow, 'jobs') ?? '').matchAll(/^ {2}['"]?([\w-]+)['"]?:\s*$/gm)
+  ]
+    .map((match) => match[1] ?? '')
+    .filter((name) => name !== 'ci-ok')
+
+  it('existe con el nombre visible «CI ok»', () => {
+    expect(ciOk, 'job ci-ok').not.toBe('')
+    expect(jobField(ciOk, 'name')).toBe('CI ok')
+  })
+
+  it('tiene if: always()', () => {
+    expect(jobField(ciOk, 'if')).toBe('always()')
+  })
+
+  it('necesita a todos los demás jobs (cambios y windows)', () => {
+    expect(otherJobs).toEqual(expect.arrayContaining(['cambios', 'windows']))
+    expect([...needsOf(ciOk)].sort()).toEqual([...otherJobs].sort())
+  })
+
+  it('su comprobación mira el resultado de los needs y trata failure y cancelled como rojo', () => {
+    const check = stepsOf(ciOk)
+      .map((step) => `${step.fields.if ?? ''}\n${step.fields.run ?? ''}`)
+      .join('\n')
+    expect(check).toMatch(/needs/)
+    expect(check).toMatch(/failure/)
+    expect(check).toMatch(/cancelled/)
+  })
+})
+
+describe('CA5 (0072): concurrencia que cancela en las PR y encola en main', () => {
+  const concurrency = topBlock(read(CI), 'concurrency') ?? ''
+  const cancel = stripExpression(
+    scalar(/^\s+cancel-in-progress:\s*(.*)$/m.exec(concurrency)?.[1] ?? '')
+  )
+
+  it('el grupo es por PR o por rama', () => {
+    expect(concurrency).toMatch(
+      /group:.*(github\.ref|github\.head_ref|github\.event\.pull_request\.number)/
+    )
+  })
+
+  it('cancel-in-progress es verdadero solo en pull_request (en el push a main, false)', () => {
+    expect(cancel).toMatch(
+      /^github\.event_name\s*==\s*'pull_request'$|^github\.event_name\s*!=\s*'push'$/
+    )
   })
 })
