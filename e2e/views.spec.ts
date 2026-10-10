@@ -17661,3 +17661,184 @@ test('CA5 (0042): sin events.read, la tarjeta «Eventos» dice qué scope falta 
     await reloadUi()
   }
 })
+
+/**
+ * Ficha 0064 (C-03): «Reintentar» de un panel roto (PanelBoundary) ya no pide todas las consultas
+ * activas de la app. Por defecto solo limpia el error y vuelve a pintar con la caché; los paneles
+ * que deben recargar datos (gráfico de entidad, de Métricas, mini gráfico de evidencia, línea de
+ * tiempo y tabla de Problemas) pasan su `refetch`. Se cuentan las peticiones al simulador.
+ *
+ * Para romper un panel sin tocar la app, se hace fallar una vez una llamada del DOM que el panel
+ * hace en un efecto (los límites de error de React recogen los errores de los efectos):
+ * `ResizeObserver.observe` del contenedor de un gráfico (`Chart`) o `scrollIntoView` de la tabla
+ * de evidencias al desplegar una fila. El parche se quita solo tras fallar y `resetState` recarga.
+ */
+const PANEL_FAILURE = 'Fallo de prueba del panel (0064)'
+
+/** Ficha 0064: el siguiente `observe` del gráfico con ese testid (dentro de `scope`) lanza, una vez. */
+async function failChartMountOnce(testId: string, scope: string | null = null): Promise<void> {
+  await page.evaluate(
+    ({ id, within, message }) => {
+      const proto = ResizeObserver.prototype
+      const original = proto.observe
+      proto.observe = function (this: ResizeObserver, target, options) {
+        if (
+          target instanceof HTMLElement &&
+          target.dataset['testid'] === id &&
+          (within === null || target.closest(within) !== null)
+        ) {
+          proto.observe = original
+          throw new Error(message)
+        }
+        return original.call(this, target, options)
+      }
+    },
+    { id: testId, within: scope, message: PANEL_FAILURE }
+  )
+}
+
+/**
+ * Ficha 0064: el siguiente `scrollIntoView` de un elemento de la tabla de evidencias (fuera del
+ * detalle de una fila, que tiene su propio límite en el mini gráfico) lanza, una vez.
+ */
+async function failEvidenceGridOnce(): Promise<void> {
+  await page.evaluate((message) => {
+    const proto = Element.prototype
+    const original = proto.scrollIntoView
+    proto.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+      if (
+        this.closest('[data-testid="evidence-grid"], [data-testid="evidence-scroll"]') !== null &&
+        this.closest('[data-testid="evidence-detail"]') === null
+      ) {
+        proto.scrollIntoView = original
+        throw new Error(message)
+      }
+      return original.call(this, arg)
+    }
+  }, PANEL_FAILURE)
+}
+
+/** Ficha 0064: el error provocado lo escriben React y el log en consola: es el esperado y se quita. */
+function dropPanelFailureErrors(): void {
+  const others = consoleErrors.filter((line) => !line.includes(PANEL_FAILURE))
+  consoleErrors.splice(0, consoleErrors.length, ...others)
+}
+
+test('CA1 (0064): con varias evidencias con métrica, «Reintentar» de un panel roto no pide ninguna GET /api/v2/metrics/query (ni nada más): repinta con la caché', async () => {
+  await goToRoute(`/problems/${CHART_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-780')
+  for (const name of ['Respuesta lenta', 'Muchas series']) {
+    const chart = await openChart(name)
+    await chart.scrollIntoViewIfNeeded()
+    await expect(chart.getByTestId('evidence-metric'), name).toBeVisible()
+  }
+  expect(eventQueries(SEL_OK)).toHaveLength(1)
+  expect(eventQueries(SEL_MANY)).toHaveLength(1)
+
+  // Se rompe el panel de la tabla de evidencias (sin onRetry: comportamiento por defecto) al
+  // desplegar una fila sin gráfico.
+  await failEvidenceGridOnce()
+  await evidenceRow('Sin selector').click()
+  const panel = page.getByTestId('problem-page').getByTestId('panel-error')
+  await expect(panel).toBeVisible()
+  dropPanelFailureErrors()
+  await expect(evidenceRows()).toHaveCount(0)
+  const before = await settledRequests()
+
+  await panel.getByTestId('panel-retry').click()
+  await expect(panel).toHaveCount(0)
+  await expect(evidenceRows()).toHaveCount(7)
+  for (const name of ['Respuesta lenta', 'Muchas series']) {
+    await expect(metricChart(name).getByTestId('evidence-metric'), name).toBeVisible()
+  }
+  // Aserción negativa: un margen para que una petición, si la hubiera, saliera.
+  await page.waitForTimeout(800)
+  const after = sim.requests.slice(before)
+  expect(
+    after.filter((request) => request === 'GET /api/v2/metrics/query'),
+    'consultas de métricas tras Reintentar'
+  ).toEqual([])
+  // Por defecto, solo limpia el error y repinta con la caché: ni el detalle ni nada más.
+  expect(after, 'peticiones tras Reintentar').toEqual([])
+  dropPanelFailureErrors()
+})
+
+test('Espec. 1 (0064): «Reintentar» del mini gráfico roto de una evidencia pide solo su métrica, una vez; los demás gráficos y el detalle, nada', async () => {
+  await goToRoute(`/problems/${CHART_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-780')
+  const ok = await openChart('Respuesta lenta')
+  await ok.scrollIntoViewIfNeeded()
+  await expect(ok.getByTestId('evidence-metric')).toBeVisible()
+
+  // El gráfico de «Muchas series» falla al montarse (tras llegar su consulta).
+  await failChartMountOnce(
+    'evidence-metric',
+    `[data-testid="evidence-detail"][data-id="${chartEventId('Muchas series')}"]`
+  )
+  const detail = await expandRow('Muchas series')
+  const panel = detail.getByTestId('panel-error')
+  await expect(panel).toBeVisible()
+  dropPanelFailureErrors()
+  // El otro mini gráfico sigue.
+  await expect(ok.getByTestId('evidence-metric')).toBeVisible()
+  expect(eventQueries(SEL_MANY)).toHaveLength(1)
+  const before = await settledRequests()
+  const okBefore = eventQueries(SEL_OK).length
+
+  await panel.getByTestId('panel-retry').click()
+  // Sube la del panel reintentado: una consulta más de su selector.
+  await expect.poll(() => eventQueries(SEL_MANY).length).toBe(2)
+  await expect(metricChart('Muchas series').getByTestId('evidence-metric')).toBeVisible()
+  await page.waitForTimeout(800)
+  expect(eventQueries(SEL_MANY)).toHaveLength(2)
+  // Las de los demás, no: ni el otro gráfico ni el detalle del problema.
+  expect(eventQueries(SEL_OK)).toHaveLength(okBefore)
+  expect(sim.requests.slice(before), 'peticiones tras Reintentar').toEqual([
+    'GET /api/v2/metrics/query'
+  ])
+  dropPanelFailureErrors()
+})
+
+test('CA2 (0064): en un host, «Reintentar» del gráfico de memoria roto pide solo su canal (entities:hostMetrics), una vez; los demás canales, nada', async () => {
+  await openHostPage()
+  await hostChartSeries('memory')
+  await settledRequests()
+  // Una llamada al canal (una o más consultas de series y una de marcadores, ficha 0039).
+  expect(hostMetricCalls()).toBe(1)
+  const perCall = sim.hostMetricQueries.length
+
+  // Fuera y vuelta (desde la caché, sin peticiones): al volver a montarse, el gráfico de
+  // memoria falla.
+  await goTo('metrics')
+  await expect(page.getByTestId('entity-page-host')).toHaveCount(0)
+  await failChartMountOnce('host-chart-memory')
+  await openHostPage()
+  const panel = hostChartPanel('memory').getByTestId('panel-error')
+  await expect(panel).toBeVisible()
+  dropPanelFailureErrors()
+  await expect(hostChartPlot('cpu')).toBeVisible()
+  const before = await settledRequests()
+  const channels = (): Record<string, number> => ({
+    hostMetrics: hostMetricCalls(),
+    hostBreakdown: sim.hostBreakdownQueries.length,
+    problemCounts: sim.entityProblemQueries.length,
+    problemList: sim.entityProblemListQueries.length,
+    info: sim.entityInfoQueries.length,
+    logs: sim.hostLogsQueries.length,
+    events: sim.hostEventsQueries.length
+  })
+  const start = channels()
+
+  await panel.getByTestId('panel-retry').click()
+  // Sube el canal del panel reintentado: una llamada más.
+  await expect.poll(hostMetricCalls).toBe((start['hostMetrics'] ?? 0) + 1)
+  await expect(panel).toHaveCount(0)
+  expect((await hostChartSeries('memory')).length).toBeGreaterThan(0)
+  await page.waitForTimeout(800)
+  // Los demás canales, no; y el suyo, una sola vez.
+  expect(channels()).toEqual({ ...start, hostMetrics: (start['hostMetrics'] ?? 0) + 1 })
+  const after = sim.requests.slice(before)
+  expect(after, 'peticiones tras Reintentar').toHaveLength(perCall)
+  for (const request of after) expect(request).toBe('GET /api/v2/metrics/query')
+  dropPanelFailureErrors()
+})

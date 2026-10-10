@@ -47,7 +47,8 @@ describe('CA6 (0001), apoyo unitario: CommonMark + GFM como elementos', () => {
         '| 1 | 2 |'
       ].join('\n')
     )
-    expect(tags(html, 'h1')).toHaveLength(1)
+    // Desde la 0064 (C-14), el título sale como p con role=heading, no como h1.
+    expect(tags(html, 'p').filter((tag) => tag.includes('role="heading"'))).toHaveLength(1)
     expect(tags(html, 'li')).toHaveLength(2)
     expect(tags(html, 'strong')).toHaveLength(1)
     expect(tags(html, 'code')).toHaveLength(1)
@@ -181,5 +182,39 @@ describe('CA12 (0001): imágenes', () => {
     const linked = render('[![captura](https://ejemplo.test/c.png)](https://ejemplo.test/)')
     expect(tags(linked, 'img')).toHaveLength(0)
     expect(visibleText(linked)).toContain('captura')
+  })
+})
+
+/**
+ * Ficha 0064 (C-14): los títulos del Markdown del tenant no entran en la jerarquía de la página
+ * (lectores de pantalla): salen como `p` con `role="heading"` y `aria-level` de 5 o 6
+ * (`Math.min(6, 4 + nivel)`), nunca como `h1`…`h6`.
+ */
+describe('CA6 (0064): los títulos del Markdown salen con nivel 5 o 6 y sin h1…h6', () => {
+  const headings = (html: string): string[] =>
+    tags(html, 'p').filter((tag) => /\srole="heading"/.test(tag))
+  const level = (tag: string | undefined): string | undefined =>
+    /\saria-level="(\d+)"/.exec(tag ?? '')?.[1]
+
+  it('«# a» sale con nivel 5 y «###### b» con nivel 6', () => {
+    const html = render(['# a', '', '###### b'].join('\n'))
+    const found = headings(html)
+    expect(found).toHaveLength(2)
+    expect(level(found[0])).toBe('5')
+    expect(level(found[1])).toBe('6')
+    expect(visibleText(html)).toBe('ab')
+  })
+
+  it('los niveles intermedios se quedan en 6 (min(6, 4 + nivel))', () => {
+    const html = render(['## dos', '', '### tres', '', '#### cuatro', '', '##### cinco'].join('\n'))
+    expect(headings(html).map(level)).toEqual(['6', '6', '6', '6'])
+  })
+
+  it('ningún h1…h6 en el HTML, ni con títulos de todos los niveles', () => {
+    const html = render(['# 1', '## 2', '### 3', '#### 4', '##### 5', '###### 6'].join('\n\n'))
+    for (const name of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']) {
+      expect(tags(html, name), name).toEqual([])
+    }
+    expect(headings(html)).toHaveLength(6)
   })
 })

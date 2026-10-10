@@ -468,7 +468,8 @@ describe('CA3 (0043): lo que nunca crea elementos ni atributos en el DOM', () =>
     )
     expectSafe(tree, 'todo junto')
     expect(byTag(tree, 'b').map(textOf)).toEqual(['uno'])
-    expect(byTag(tree, 'h1')).toHaveLength(1)
+    // Desde la 0064 (C-14), el título sale como p con role=heading, no como h1.
+    expect(byTag(tree, 'p').filter((node) => node.attrs['role'] === 'heading')).toHaveLength(1)
     expect(textOf(tree)).toContain('Crítico')
     expect(textOf(tree)).toContain('dos')
   })

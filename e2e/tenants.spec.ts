@@ -429,6 +429,42 @@ test('AUD-18: pasar de SaaS a Managed con secretos de plataforma pide confirmaci
   expect(await page.content()).not.toContain('FALSOAUD18')
 })
 
+test('CA3 (0064): escribir en un secreto de plataforma, pasar a Managed, guardar y confirmar no pregunta por secretos sin guardar', async () => {
+  const form = page.getByTestId('environment-form')
+  const confirm = page.getByTestId('confirm-dialog')
+  const deployment = form.getByTestId('environment-deployment')
+  const openForm = async (): Promise<void> => {
+    await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+    await expect(form).toBeVisible()
+  }
+
+  // Producción en SaaS con un secreto de plataforma guardado (así pasar a Managed pide confirmar).
+  await openForm()
+  await form.getByTestId('secret-input-oauthClientSecret').fill('dt0s.FALSO0064.GUARDADO')
+  await form.getByTestId('secret-save-oauthClientSecret').click()
+  await expect(form.getByTestId('secret-status-oauthClientSecret')).toHaveText('Configurado')
+
+  // Se escribe en otro secreto de plataforma sin guardarlo, se pasa a Managed, se guarda y se
+  // confirma: su campo deja de existir y no puede quedar «sucio».
+  await form.getByTestId('secret-input-platformToken').fill('dt0s16.FALSO0064.SINGUARDAR')
+  await deployment.selectOption('managed')
+  await form.getByTestId('form-save').click()
+  await expect(confirm).toContainText('¿Pasar el entorno a Managed?')
+  await confirm.getByTestId('confirm-accept').click()
+
+  // Sin el aviso «¿Cerrar sin guardar la credencial?», el formulario se cierra.
+  await expect(form, 'el formulario sigue abierto (¿aviso de secretos sin guardar?)').toBeHidden()
+  await expect(page.getByText(es.secrets.unsavedTitle)).toHaveCount(0)
+  await expect(confirm).toHaveCount(0)
+
+  // Se deja en SaaS (sin secretos de plataforma) para las pruebas siguientes.
+  await openForm()
+  await deployment.selectOption('saas')
+  await form.getByTestId('form-save').click()
+  await expect(form).toBeHidden()
+  expect(await page.content()).not.toContain('FALSO0064')
+})
+
 test('AUD-03: un secreto escrito sin guardar pide confirmación al cerrar', async () => {
   const form = page.getByTestId('environment-form')
   const confirm = page.getByTestId('confirm-dialog')
