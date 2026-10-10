@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compareCodes, sortRows, type Comparator } from './grid-sort'
+import { byNumber, compareCodes, compareNullable, sortRows, type Comparator } from './grid-sort'
 
 interface Row {
   id: string
@@ -54,5 +54,60 @@ describe('sortRows', () => {
     expect(compareCodes('B', 'a')).toBe(-1)
     expect(compareCodes('a', 'a')).toBe(0)
     expect(compareCodes('b', 'a')).toBe(1)
+  })
+})
+
+/**
+ * Ficha 0058, CA2: los comparadores de números con hueco que repetían las tablas de host, monitores,
+ * process group y aplicación, en un solo sitio. Decisión del test-writer (delegada por Dani): la ficha
+ * pide `null` «al final en los dos sentidos», pero el arreglo no puede cambiar nada visible (CA4) y
+ * hoy `sortRows` invierte el comparador, así que sin dato va por debajo de todo: al final en el
+ * orden descendente (el de por defecto de todas esas tablas) y al principio en el ascendente. Se
+ * fija lo de hoy.
+ */
+describe('CA2 (0058): compareNullable y byNumber, con sin dato por debajo de todo', () => {
+  interface Item {
+    id: string
+    value: number | null
+  }
+  const items: Item[] = [
+    { id: 'a', value: 5 },
+    { id: 'b', value: null },
+    { id: 'c', value: -2 },
+    { id: 'd', value: 12.5 },
+    { id: 'e', value: null },
+    { id: 'f', value: 0 }
+  ]
+  const comparators: Record<'value', Comparator<Item>> = { value: byNumber((item) => item.value) }
+  const byId: Comparator<Item>[] = [(a, b) => compareCodes(a.id, b.id)]
+  const order = (direction: 'asc' | 'desc'): string[] =>
+    sortRows(items, { key: 'value', direction }, comparators, byId).map((item) => item.id)
+
+  it('CA2 (0058): compareNullable ordena los números de menor a mayor y pone null por debajo', () => {
+    expect(compareNullable(1, 2)).toBeLessThan(0)
+    expect(compareNullable(2, 1)).toBeGreaterThan(0)
+    expect(compareNullable(-3, 0)).toBeLessThan(0)
+    expect(compareNullable(4, 4)).toBe(0)
+    expect(compareNullable(null, null)).toBe(0)
+    expect(compareNullable(null, -1000)).toBeLessThan(0)
+    expect(compareNullable(0, null)).toBeGreaterThan(0)
+  })
+
+  it('CA2 (0058): en descendente, de mayor a menor y los null al final', () => {
+    expect(order('desc')).toEqual(['d', 'a', 'f', 'c', 'b', 'e'])
+  })
+
+  it('CA2 (0058): en ascendente, de menor a mayor con los null delante (como hoy en las tablas)', () => {
+    expect(order('asc')).toEqual(['b', 'e', 'c', 'f', 'a', 'd'])
+  })
+
+  it('CA2 (0058): el orden no depende de cómo llegan los datos', () => {
+    const reversed = sortRows(
+      [...items].reverse(),
+      { key: 'value', direction: 'desc' },
+      comparators,
+      byId
+    )
+    expect(reversed.map((item) => item.id)).toEqual(order('desc'))
   })
 })
