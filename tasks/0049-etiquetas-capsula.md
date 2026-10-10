@@ -1,7 +1,7 @@
 ---
 id: '0049'
 titulo: 'Etiquetas de entidad como cápsula de dos colores (clave | valor)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -62,6 +62,25 @@ En `EntityTags.tsx` (y sus estilos), cada etiqueta pasa a ser una **cápsula**:
 ## Fuera de alcance
 
 - Pulsar una etiqueta para filtrar o buscar.
+
+## Decisiones del developer (delegadas por Dani, refinables)
+
+- **Color de la clave:** `tagTone` (`entity-tags.ts`), hash FNV-1a de 32 bits de la clave **en
+  minúsculas** módulo 8: `Equipo` y `equipo` comparten color (misma familia).
+- **Paleta:** `--tag-0` a `--tag-7` en `main.css` (azul, violeta, verde azulado, verde, naranja,
+  granate, cian y fucsia), con texto blanco (`--tag-key-foreground`); los mismos en los dos temas
+  (con blanco encima no hacía falta otra serie para el oscuro). Valor: `--tag-value-bg` y
+  `--tag-value-foreground` por tema; borde `--tag-border` (oscuro en los dos).
+- **Contexto:** `AWS ·` dentro de la mitad de la clave, más pequeño, sin negrita y al 85 % de
+  opacidad; el test de contraste lo comprueba mezclado sobre cada tono.
+- **Volumen:** utilidad `capsule-gloss` (degradado de blanco 16 % arriba a negro 7 % abajo y un
+  brillo interior de 1 px arriba). Realce al pasar el ratón: `brightness-110` y sombra, sin
+  transición.
+- **Dos puntos:** ya no se ven (la división es el borde), pero quedan como `sr-only` entre las
+  mitades para los lectores de pantalla y el texto de la etiqueta.
+- **`data-testid` de las mitades:** `entity-tag-key-part` (con el contexto y `entity-tag-key`
+  dentro) y `entity-tag-value-part` (con `entity-tag-value` dentro); los de la 0037 no cambian.
+  Fixture del e2e: `TAGS_CAPSULE_ID` en `views.spec.ts`.
 
 ## Ideas surgidas (fuera de alcance)
 
