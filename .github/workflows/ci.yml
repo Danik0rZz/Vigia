@@ -1,5 +1,5 @@
-# Puerta sin IA (ADR-0007) en Windows. Sin test:live ni secretos: los logs de un repositorio público son públicos. El zip no se
-# sube (publicarlo lo decide Dani).
+# Puerta sin IA (ADR-0007) en Windows. Sin test:live ni secretos: los logs de un repositorio
+# público son públicos. El zip no se sube (publicarlo lo decide Dani).
 #
 # Ficha 0072: también corre en cada PR a main, sin filtro de rutas, para que el check «CI ok» exista
 # siempre (es el que exigirá la protección de main). Tres jobs: `cambios` decide con
@@ -34,8 +34,8 @@ permissions:
   contents: read
 
 # En main los runs se encolan, no se cancelan: la fusión de una PR no debe cancelar el CI de la
-# fusión anterior (cada una puede romper con lo que ya había). En una PR solo cuenta
-# el último push: el nuevo cancela el run anterior de esa misma PR (github.ref es refs/pull/N/merge).
+# fusión anterior (cada una puede romper con lo que ya había). En una PR solo cuenta el último
+# push: el nuevo cancela el run anterior de esa misma PR (github.ref es refs/pull/N/merge).
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

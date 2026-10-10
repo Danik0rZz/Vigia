@@ -56,8 +56,9 @@ tenant de pruebas, `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional: sale con 0 y
 ## Flujo de trabajo
 
 Se trabaja con fichas (`tasks/`) y agentes de Claude Code (`.claude/agents/`): ver
-`docs/flujo.md` y el ADR-0007. Se integra por PR (ADR-0014). El CI (`.github/workflows/ci.yml`) pasa en
-Windows `check` y el e2e completo en cada PR a `main`, y `check` y `dist:win` al fusionarla.
+`docs/flujo.md` y el ADR-0007. Se integra por PR (ADR-0014). El CI
+(`.github/workflows/ci.yml`) pasa en Windows `check` y el e2e completo en cada PR a `main`, y
+`check` y `dist:win` al fusionarla.
 
 ### Aviso por Telegram (opcional)
 
