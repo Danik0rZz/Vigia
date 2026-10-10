@@ -57,8 +57,6 @@ async function start(root: HTMLElement): Promise<void> {
   } finally {
     clearTimeout(timer)
   }
-  // Si falla después del tiempo máximo, no queda una promesa rechazada sin recoger.
-  request.catch(() => undefined)
   createRoot(root).render(
     <StrictMode>
       <App errorTrigger={errorTrigger} />
