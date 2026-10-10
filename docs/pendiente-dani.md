@@ -11,6 +11,12 @@ cumplidos los criterios manuales de las fases 2, 3, 4 y 6. "Probar conexión con
 queda cubierto por las pruebas en vivo (`npm run test:live`, v0.7.0), y "XLSX y CSV en Excel" se
 revisa con las exportaciones reales de esas pruebas.
 
+## Sin publicar
+
+Ficha 0066 (marcador «SLO» del servicio). Se añadirá a la lista de la próxima versión.
+
+- [ ] **Seis marcadores del servicio (0066):** en la página de un servicio con todas las métricas, el marcador «SLO» sale el primero, a la izquierda de «Peticiones OK», en rojo y con «por debajo del 90 %» si baja del 90 % y en verde desde el 90 %; y el de «Tiempo de respuesta» (mediana, p90 y p99) se sigue leyendo bien en el ancho de tu pantalla. La fila de seis sale **desde 1280 px de ventana**; entre 1024 y 1279 px salen **dos filas de tres** (`lg:grid-cols-3 xl:grid-cols-6`: con seis a 1024 px y el menú abierto no cabían, y se rompía el centrado de la ficha 0012).
+
 ## v0.11.0
 
 Fichas 0001 a 0045. Pruebas a mano con los datos reales (el detalle de cada una, en su ficha). Dani las dio por cumplidas el 2026-10-10, con algunos cambios pedidos al Planificador; queda el zip:

@@ -20,6 +20,7 @@ Sin migraciones nuevas.
 
 ### Cambiado
 
+- **La disponibilidad del servicio, en su propio marcador «SLO».** En la página de un servicio, la línea «Disponibilidad» sale del marcador «Tasa de error» y pasa a un marcador propio, «SLO», el primero de la fila, a la izquierda de «Peticiones OK». Enseña la disponibilidad del rango en grande (por ejemplo «85,3 %»): en rojo y con el texto «por debajo del 90 %» si baja del 90 %, y en verde a partir del 90 %; sin peticiones en el rango, «—» sin color. En los servicios de solo actividad (colas) no sale. La fila pasa a seis marcadores: en una fila solo desde 1280 px de ventana; por debajo, dos filas de tres. «Tasa de error» se queda solo con su valor. Sin migraciones nuevas. (ficha 0066)
 - **El gráfico de disponibilidad del servicio se titula «SLO».** En la página de un servicio, el título del gráfico pasa de «Disponibilidad (SLO calculado)» a «SLO», en español e inglés. El tooltip con la fórmula (y la aclaración de que lo calcula Vigía), el nombre de la serie y el resto del gráfico no cambian. Sin migraciones nuevas. (ficha 0065)
 
 ### Corregido
