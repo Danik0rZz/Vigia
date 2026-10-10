@@ -431,8 +431,10 @@ export function useProcessGroupMetrics(
 
 /**
  * Lista completa de instancias de un process group en el rango global (canal de la ficha 0050),
- * para el modal «Ver todas» de la 0051. Solo se pide con `enabled` (al abrir el modal: lo pide el
- * usuario, ADR-0004); después queda en caché con la misma clave y volver a abrirlo no pide nada.
+ * para el modal «Ver todas» de la 0051. Solo se pide con `enabled` (con el modal abierto: lo pide
+ * el usuario, ADR-0004); queda en caché con la misma clave y volver a abrirlo no pide nada. Con el
+ * modal cerrado, ni un rango nuevo ni «Actualizar» la piden (ver
+ * `useInvalidateProcessGroupInstances`).
  */
 export function useProcessGroupInstances(
   envId: string | null,
@@ -451,6 +453,24 @@ export function useProcessGroupInstances(
     enabled: enabled && envId !== null && entityId !== null,
     ...MANUAL
   })
+}
+
+/**
+ * Para «Actualizar» de la página del process group (ficha 0051): marca como vieja la lista
+ * completa del grupo (todos los rangos) sin pedirla; se vuelve a pedir al abrir el modal.
+ */
+export function useInvalidateProcessGroupInstances(
+  envId: string | null,
+  entityId: string | null
+): () => void {
+  const client = useQueryClient()
+  return () => {
+    if (envId === null || entityId === null) return
+    void client.invalidateQueries({
+      queryKey: [envId, 'entities', { processGroupInstances: entityId }],
+      refetchType: 'none'
+    })
+  }
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   useEntityProblemCounts,
   useEntityProblems,
   useModuleAccess,
+  useInvalidateProcessGroupInstances,
   useModuleRefresh,
   useProcessGroupMetrics,
   useProcessMetricsList,
@@ -52,7 +53,14 @@ export function ProcessGroupEntityPage(props: EntityPageProps): JSX.Element {
   const problems = useEntityProblemCounts(problemsEnv, groupId)
   const problemList = useEntityProblems(problemsEnv, groupId)
   const info = useEntityInfo(entitiesEnv, groupId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  const refreshActive = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  // La lista completa del modal «Ver todas» (0051) no está activa con el modal cerrado: se marca
+  // como vieja y se vuelve a pedir al abrirlo.
+  const invalidateFullList = useInvalidateProcessGroupInstances(metricsEnv, groupId)
+  const refresh = (): void => {
+    invalidateFullList()
+    refreshActive()
+  }
   const canFetch =
     groupId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 

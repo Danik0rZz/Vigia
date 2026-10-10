@@ -1040,6 +1040,7 @@
         "label": "Instancias del Process group",
         "empty": "Sin instancias con datos en el rango",
         "partial": "Dynatrace ha recortado la consulta de instancias: la lista y el total pueden estar incompletos.",
+        "partialList": "Dynatrace ha recortado la consulta de instancias: la lista puede estar incompleta.",
         "moreOf": "{{shown}} de {{total}} instancias, las de más CPU",
         "moreUnknown": "{{shown}} instancias, las de más CPU; puede haber más",
         "viewAll": "Ver todas",

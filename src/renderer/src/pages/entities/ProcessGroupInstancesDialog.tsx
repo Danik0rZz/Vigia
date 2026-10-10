@@ -11,9 +11,9 @@ import { InstancesTable } from './ProcessGroupInstancesTable'
 /*
  * Modal «Ver todas» de la tabla «Instancias» del process group (ficha 0051): la lista completa
  * (`entities:processGroupInstances`, 0050) con las columnas y enlaces de la tabla de la página,
- * orden por columna y buscador por nombre o host. Los datos se piden la primera vez que se abre
- * (lo pide el usuario, ADR-0004) y la consulta sigue activa mientras la página está montada: volver
- * a abrir no pide nada, y «Actualizar» de la página la refresca con lo demás.
+ * orden por columna y buscador por nombre o host. Los datos se piden al abrirlo (lo pide el
+ * usuario, ADR-0004) y quedan en caché: volver a abrirlo no pide nada. Con el modal cerrado, ni un
+ * rango nuevo ni «Actualizar» los piden; «Actualizar» los marca como viejos y se piden al abrirlo.
  */
 
 const SKELETON_ROWS = 6
@@ -21,21 +21,18 @@ const SKELETON_ROWS = 6
 export function ProcessGroupInstancesDialog({
   open,
   onOpenChange,
-  requested,
   envId,
   groupId,
   groupName
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Ya se abrió alguna vez: la consulta se pide y queda activa. */
-  requested: boolean
   envId: string
   groupId: string
   groupName: string
 }): JSX.Element {
   const { t } = useTranslation()
-  const list = useProcessGroupInstances(envId, groupId, requested)
+  const list = useProcessGroupInstances(envId, groupId, open)
   const searchRef = useRef<HTMLInputElement | null>(null)
 
   return (

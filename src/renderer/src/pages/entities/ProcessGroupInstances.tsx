@@ -35,7 +35,6 @@ export function ProcessGroupInstances({
   // El nombre del grupo, como el título de la página: el del estado de navegación o el id.
   const groupName = state?.name !== undefined && state.name !== '' ? state.name : groupId
   const [open, setOpen] = useState(false)
-  const [requested, setRequested] = useState(false)
   const data = metrics.data
   let body: ReactNode
   if (metrics.isError) {
@@ -79,7 +78,6 @@ export function ProcessGroupInstances({
               type="button"
               data-testid="process-group-instances-all"
               onClick={() => {
-                setRequested(true)
                 setOpen(true)
               }}
               className={BUTTON_SECONDARY}
@@ -94,7 +92,12 @@ export function ProcessGroupInstances({
             role="status"
             className="text-xs text-status-warning"
           >
-            {t('entities.processGroup.instances.partial')}
+            {/* Con el total real, solo la lista puede estar incompleta (ronda 1 de la 0051). */}
+            {t(
+              data.instances.totalKnown
+                ? 'entities.processGroup.instances.partialList'
+                : 'entities.processGroup.instances.partial'
+            )}
           </p>
         )}
         <ApiWarnings warnings={data.warnings} />
@@ -112,7 +115,6 @@ export function ProcessGroupInstances({
       <ProcessGroupInstancesDialog
         open={open}
         onOpenChange={setOpen}
-        requested={requested}
         envId={envId}
         groupId={groupId}
         groupName={groupName}

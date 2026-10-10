@@ -59,13 +59,21 @@ export function hostLinkId(instance: ProcessGroupInstance): string | null {
 export const TOP_INSTANCES = 20
 
 /**
- * ¿Se presenta el número de instancias como mínimo y no como total? Solo si Dynatrace recortó las
- * expresiones por instancia (`partial`) y no se pudo saber el total real: con `totalKnown`, el
- * total sale de `totalCount` de `GET /entities` y es exacto aunque llegue `partial` (ficha 0051,
- * nota del revisor de la 0050).
+ * ¿Llegan recortadas las instancias? Por encima de unas 498 instancias, Dynatrace recorta las
+ * expresiones por instancia (tope de 1000 series) y main lo avisa en `partial` (ficha 0032): la
+ * lista de la tabla puede estar incompleta, se conozca o no el total real (ronda 1 de la 0051).
  */
 export function instancesTruncated(data: ProcessGroupMetricsResult): boolean {
-  return data.partial.length > 0 && !data.instances.totalKnown
+  return data.partial.length > 0
+}
+
+/**
+ * ¿Se da el número de instancias del marcador como mínimo («7+»)? Solo si llegó recortado y no
+ * se pudo saber el total real: con `totalKnown`, el total sale de `totalCount` de `GET /entities`
+ * y es exacto aunque llegue `partial` (nota del revisor de la 0050, ficha 0051).
+ */
+export function instancesAtLeast(data: ProcessGroupMetricsResult): boolean {
+  return instancesTruncated(data) && !data.instances.totalKnown
 }
 
 /** Aviso de que hay más instancias que las enseñadas: «N de total» o «N; puede haber más». */

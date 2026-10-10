@@ -1040,6 +1040,7 @@
         "label": "Process group instances",
         "empty": "No instances with data in the range",
         "partial": "Dynatrace truncated the instances query: the list and the total may be incomplete.",
+        "partialList": "Dynatrace truncated the instances query: the list may be incomplete.",
         "moreOf": "{{shown}} of {{total}} instances, the ones with the most CPU",
         "moreUnknown": "{{shown}} instances, the ones with the most CPU; there may be more",
         "viewAll": "View all",

@@ -13,7 +13,7 @@ import {
 import { formatCount } from '../../lib/service-format'
 import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
 import { toBits } from './process-charts'
-import { instancesTruncated } from './process-group-instances'
+import { instancesAtLeast } from './process-group-instances'
 
 /**
  * Fila de marcadores de la página de un PROCESS_GROUP (ficha 0032), como la del proceso:
@@ -21,7 +21,7 @@ import { instancesTruncated } from './process-group-instances'
  * y, debajo, salida) y problemas del rango global. Los de métricas salen de
  * `entities:processGroupMetrics` (0031, la misma llamada que los gráficos y la tabla) y el de
  * problemas, de `entities:problemCounts`: si uno falla, sus marcadores enseñan el aviso con
- * Reintentar y los demás siguen. Con las instancias recortadas (`partial`), el recuento no se da
+ * Reintentar y los demás siguen. Con las instancias recortadas (`partial`) y sin el total real (0051), el recuento no se da
  * por el total real del grupo (nota del Orquestador en la ficha).
  */
 export function ProcessGroupMarkers({
@@ -54,7 +54,7 @@ export function ProcessGroupMarkers({
           <QueryState {...metricState}>
             {(data) => {
               const total = data === null ? null : data.instances.total
-              const truncated = data !== null && instancesTruncated(data)
+              const truncated = data !== null && instancesAtLeast(data)
               const count = formatCount(total, lang)
               return (
                 <MarkerBody
