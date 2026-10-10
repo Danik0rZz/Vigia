@@ -675,6 +675,7 @@ export function createModuleHandlers(
         rethrowRejected(error, 'hostBreakdownRejected')
       }
     },
+
     'entities:hostLogs': async ({ environmentId, entityId, timeRange }) => {
       repo.requireEnvironment(environmentId)
       try {

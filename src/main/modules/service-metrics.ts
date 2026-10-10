@@ -137,12 +137,12 @@ const okSeries = (requests: ServiceSeries, errors: ServiceSeries): ServiceSeries
   perPoint(requests, errors, (total, failed) => Math.max(0, total - failed))
 
 /** Tasa punto a punto (Unificadas): fallidas / total × 100; null sin peticiones. */
+const rateSeries = (requests: ServiceSeries, errors: ServiceSeries): ServiceSeries =>
+  perPoint(requests, errors, (total, failed) => (total > 0 ? (failed * 100) / total : null))
+
 /** Un tiempo a milisegundos, con el divisor del conjunto (`TIME_DIVISOR`). */
 const inMs = (value: number | null, divisor: number): number | null =>
   value === null ? null : value / divisor
-
-const rateSeries = (requests: ServiceSeries, errors: ServiceSeries): ServiceSeries =>
-  perPoint(requests, errors, (total, failed) => (total > 0 ? (failed * 100) / total : null))
 
 /** Lo que main sabe de la entidad al elegir el conjunto. */
 export interface ServiceMetricContext {
