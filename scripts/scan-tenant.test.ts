@@ -184,24 +184,52 @@ describe('CLI', () => {
     expect(output).toContain('coincidencias: 0')
   })
 
-  it.each([
+  // Ficha 0055, decisión del Orquestador (ronda 1): un .env vacío o sin valores reconocibles ya
+  // no da 0 con AVISO, sino 2 («no puede comprobar»), salvo con VIGIA_SCAN_TENANT_OPTIONAL=1.
+  const EMPTY_ENVS = [
     ['vacío', ''],
     [
       'solo con claves vacías y comentarios',
       '# comentario\nVIGIA_LIVE_URL=\nVIGIA_LIVE_TOKEN=""\nCORTO=abc\n'
     ]
-  ])(
-    'con el .env %s avisa por stderr de que la revisión NO está activa y termina en 0',
+  ]
+
+  it.each(EMPTY_ENVS)(
+    'con el .env %s termina en 2 y dice que no se puede comprobar (0055)',
     (_case, content) => {
       writeFileSync(join(repo, '.env.live.local'), content)
       commit('a.txt', 'x\n', 'Algo')
-      const result = spawnSync(process.execPath, [SCRIPT, 'HEAD~1..HEAD'], {
-        cwd: repo,
-        encoding: 'utf8'
+      const { status, stderr } = cliWith(['HEAD~1..HEAD'])
+      expect(status).toBe(2)
+      expect(stderr).toContain('.env.live.local')
+      expect(stderr).toContain('no se puede comprobar')
+    }
+  )
+
+  it.each(EMPTY_ENVS)(
+    'con el .env %s y VIGIA_SCAN_TENANT_OPTIONAL=1 avisa de que la revisión NO está activa y termina en 0 (0055)',
+    (_case, content) => {
+      writeFileSync(join(repo, '.env.live.local'), content)
+      commit('a.txt', 'x\n', 'Algo')
+      const { status, stderr } = cliWith(['HEAD~1..HEAD'], {
+        env: { VIGIA_SCAN_TENANT_OPTIONAL: '1' }
       })
-      expect(result.status).toBe(0)
-      expect(result.stderr).toContain('AVISO')
-      expect(result.stderr).toContain('NO está activa')
+      expect(status).toBe(0)
+      expect(stderr).toContain('AVISO')
+      expect(stderr).toContain('NO está activa')
+    }
+  )
+
+  it.each(EMPTY_ENVS)(
+    'con el .env %s en --pre-push también termina en 2 (0055)',
+    (_case, content) => {
+      writeFileSync(join(repo, '.env.live.local'), content)
+      const remote = sha()
+      commit('a.txt', 'x\n', 'Algo')
+      const { status } = cliWith(['--pre-push'], {
+        input: `refs/heads/main ${sha()} refs/heads/main ${remote}\n`
+      })
+      expect(status).toBe(2)
     }
   )
 
@@ -491,7 +519,8 @@ describe('CA5 (0055): ninguna salida contiene un valor del .env de prueba', () =
 })
 
 // Decisiones del developer (ficha 0055, lo que los criterios no fijaban): una línea de borrado
-// (sha local a ceros) no sube nada y no se escanea; una entrada vacía o mal formada no da verde.
+// (sha local a ceros) no sube nada y no se escanea; una entrada vacía (git no sube ningún ref:
+// todo al día o rechazado) da 0 para no tapar el aviso de git (ronda 1); una mal formada, 2.
 describe('0055 (developer): borrados y entrada vacía en --pre-push', () => {
   const LOCAL = 'a'.repeat(40)
 
@@ -516,16 +545,55 @@ describe('0055 (developer): borrados y entrada vacía en --pre-push', () => {
     expect(output).toContain('borran')
   })
 
-  it('--pre-push con la entrada estándar vacía termina en 2', () => {
+  it('--pre-push con la entrada estándar vacía termina en 0 y dice que git no indica ningún ref', () => {
     writeFileSync(join(repo, '.env.live.local'), ENV)
     const { status, output } = cliWith(['--pre-push'], { input: '' })
+    expect(status).toBe(0)
+    expect(output).toContain('git no indica ningún ref que subir')
+  })
+
+  it('--pre-push con la entrada vacía y sin .env sigue terminando en 2 (el .env va antes)', () => {
+    const { status, output } = cliWith(['--pre-push'], { input: '' })
     expect(status).toBe(2)
-    expect(output).toContain('vacía')
+    expect(output).toContain('.env.live.local')
   })
 
   it('--pre-push con una línea mal formada termina en 2', () => {
     writeFileSync(join(repo, '.env.live.local'), ENV)
     const { status } = cliWith(['--pre-push'], { input: 'basura\n' })
     expect(status).toBe(2)
+  })
+})
+
+// Ficha 0055, decisión del Orquestador (ronda 1): el .env del worktree tiene prioridad, así que uno
+// vacío tapa al del checkout principal; eso no puede dar verde.
+describe('0055 (ronda 1): un .env vacío en el worktree tapa al del principal y falla cerrado', () => {
+  it.each([
+    ['vacío', ''],
+    ['solo con comentarios', '# comentario\n# otro\n']
+  ])('con el .env del worktree %s y uno válido en el principal, termina en 2', (_case, content) => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    const worktree = addWorktree()
+    writeFileSync(join(worktree, '.env.live.local'), content)
+    commitIn(worktree, 'fuga.ts', `${HOST}\n`, 'Fuga en el worktree')
+
+    const { status, output } = cliWith(['HEAD~1..HEAD'], { cwd: worktree })
+    expect(status).toBe(2)
+    expect(output).toContain('no se puede comprobar')
+    expectNoSecrets(output)
+  })
+
+  it('con el .env del worktree vacío y VIGIA_SCAN_TENANT_OPTIONAL=1, termina en 0 con AVISO', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    const worktree = addWorktree()
+    writeFileSync(join(worktree, '.env.live.local'), '')
+    commitIn(worktree, 'limpio.ts', 'const x = 1\n', 'Limpio')
+
+    const { status, stderr } = cliWith(['HEAD~1..HEAD'], {
+      cwd: worktree,
+      env: { VIGIA_SCAN_TENANT_OPTIONAL: '1' }
+    })
+    expect(status).toBe(0)
+    expect(stderr).toContain('AVISO')
   })
 })
