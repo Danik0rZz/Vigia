@@ -1341,7 +1341,6 @@
         "hint": "Availability = (Requests − Errors) / Requests × 100, per point and for the range. Vigía calculates it from the requests and errors of this service: it is not an SLO configured in Dynatrace (those are on Home). Below 90% is critical.",
         "critical": "Critical 90%",
         "series": "Availability",
-        "marker": "Availability {{value}}",
         "markerCritical": "below 90%"
       }
     },

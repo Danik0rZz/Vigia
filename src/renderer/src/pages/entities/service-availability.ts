@@ -4,6 +4,7 @@ import { resolutionMs } from '@shared/metric-points'
 import { formatNumber } from '@shared/format-number'
 import { axisTooltip, timeAxisLabel } from '../../components/chart-time'
 import type { ServiceChartContext } from './service-charts'
+import type { Level } from './EntityMarkers'
 
 /**
  * Disponibilidad de un SERVICE calculada por Vigía (ficha 0048), no un SLO configurado en
@@ -41,6 +42,15 @@ export function rangeAvailability(data: ServiceMetricsResult): number | null {
   if (data.series.errors === null) return null
   if (!data.series.requests.values.some((value) => value !== null)) return null
   return availabilityOf(data.totals.requests, data.totals.errors)
+}
+
+/**
+ * Nivel del marcador «SLO» (ficha 0066): por debajo del umbral crítico, error; del 90 % para
+ * arriba, éxito (sin franja intermedia, decidido por Dani); sin dato, sin color.
+ */
+export function availabilityLevel(value: number | null): Level {
+  if (value === null) return 'normal'
+  return value < AVAILABILITY_CRITICAL ? 'error' : 'success'
 }
 
 /** Si el servicio tiene disponibilidad que enseñar: hace falta la serie de errores. */

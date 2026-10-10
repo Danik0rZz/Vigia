@@ -1341,7 +1341,6 @@
         "hint": "Disponibilidad = (Peticiones − Errores) / Peticiones × 100, en cada punto y en el rango. La calcula Vigía con las peticiones y los errores de este servicio: no es un SLO configurado en Dynatrace (esos están en Inicio). Por debajo del 90 % es crítico.",
         "critical": "Crítico 90 %",
         "series": "Disponibilidad",
-        "marker": "Disponibilidad {{value}}",
         "markerCritical": "por debajo del 90 %"
       }
     },

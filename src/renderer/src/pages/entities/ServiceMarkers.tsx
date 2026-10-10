@@ -5,17 +5,20 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import type { EntityProblemCounts, ServiceMetricsResult } from '@shared/modules'
 import { cn } from '../../lib/cn'
 import { formatCount, formatDurationMs, formatErrorRate } from '../../lib/service-format'
-import { BigValue, MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
-import { serviceMetricNote, type ServiceMetricNote } from './service-type'
 import {
-  AVAILABILITY_CRITICAL,
-  formatAvailability,
-  rangeAvailability
-} from './service-availability'
+  BigValue,
+  MarkerBody,
+  MarkerCard,
+  MarkerCount,
+  QueryState,
+  RangeLine
+} from './EntityMarkers'
+import { serviceMetricNote, type ServiceMetricNote } from './service-type'
+import { availabilityLevel, formatAvailability, rangeAvailability } from './service-availability'
 
 /**
- * Fila de marcadores de la página de un SERVICE (ficha 0008): peticiones OK y
- * KO, tasa de error, tiempos (mediana, p90 y p99) y problemas abiertos y
+ * Fila de marcadores de la página de un SERVICE (ficha 0008): disponibilidad del rango («SLO», la
+ * primera desde la ficha 0066), peticiones OK y KO, tasa de error, tiempos (mediana, p90 y p99) y problemas abiertos y
  * cerrados del rango global. Cada canal se pinta por su lado: si uno falla, sus
  * marcadores enseñan el aviso con Reintentar y los demás siguen. Según el conjunto de métricas
  * (ficha 0047): Solo actividad deja Peticiones y Problemas, y una nota bajo los marcadores dice
@@ -46,7 +49,7 @@ export function ServiceMarkers({
         data-testid="service-markers"
         role="group"
         aria-label={t('entities.service.markers.label')}
-        className={cn('grid gap-4 sm:grid-cols-2', !activityOnly && 'lg:grid-cols-5')}
+        className={cn('grid gap-4 sm:grid-cols-2', !activityOnly && 'lg:grid-cols-6')}
       >
         {activityOnly ? (
           <MarkerCard
@@ -61,6 +64,15 @@ export function ServiceMarkers({
           </MarkerCard>
         ) : (
           <>
+            <MarkerCard
+              testId="service-marker-availability"
+              title={t('entities.service.availability.title')}
+            >
+              <QueryState {...metricState}>
+                {(data) => <AvailabilityValue data={data} />}
+              </QueryState>
+            </MarkerCard>
+
             <MarkerCard testId="service-marker-ok" title={t('entities.service.markers.ok')}>
               <QueryState {...metricState}>
                 {(data) => (
@@ -91,12 +103,9 @@ export function ServiceMarkers({
             >
               <QueryState {...metricState}>
                 {(data) => (
-                  <div className="grid gap-1">
-                    <BigValue testIdPrefix="service">
-                      {formatErrorRate(data?.totals.errorRate ?? null, lang)}
-                    </BigValue>
-                    {data !== null && <AvailabilityLine data={data} />}
-                  </div>
+                  <BigValue testIdPrefix="service">
+                    {formatErrorRate(data?.totals.errorRate ?? null, lang)}
+                  </BigValue>
                 )}
               </QueryState>
             </MarkerCard>
@@ -220,25 +229,25 @@ const errorsOf = (data: ServiceMetricsResult | null): number | null =>
   data !== null && hasRequestData(data) ? data.totals.errors : null
 
 /**
- * Disponibilidad del rango bajo la tasa de error (ficha 0048). Por debajo del 90 %, en color de
- * error y con texto (el color no es la única señal). Sin dato (sin peticiones), no sale.
+ * Valor del marcador «SLO» (ficha 0066): la disponibilidad del rango con un decimal, en color de
+ * error por debajo del 90 % (con su texto: el color no es la única señal) y de éxito del 90 % para
+ * arriba. Sin peticiones en el rango o sin acceso, «—» sin color.
  */
-function AvailabilityLine({ data }: { data: ServiceMetricsResult }): JSX.Element | null {
+function AvailabilityValue({ data }: { data: ServiceMetricsResult | null }): JSX.Element {
   const { t, i18n } = useTranslation()
-  const value = rangeAvailability(data)
-  if (value === null) return null
-  const critical = value < AVAILABILITY_CRITICAL
+  const value = data === null ? null : rangeAvailability(data)
+  const level = availabilityLevel(value)
   return (
-    <p
-      data-testid="service-marker-availability"
-      data-critical={critical ? 'true' : 'false'}
-      className={cn('text-sm tabular-nums', critical ? 'text-danger' : 'text-muted-foreground')}
-    >
-      {t('entities.service.availability.marker', {
-        value: formatAvailability(value, i18n.language)
-      })}
-      {critical && <> · {t('entities.service.availability.markerCritical')}</>}
-    </p>
+    <MarkerBody
+      testIdPrefix="service"
+      level={level}
+      levelText={level === 'error' ? t('entities.service.availability.markerCritical') : null}
+      value={
+        <BigValue testIdPrefix="service" level={level}>
+          {value === null ? '—' : formatAvailability(value, i18n.language)}
+        </BigValue>
+      }
+    />
   )
 }
 
