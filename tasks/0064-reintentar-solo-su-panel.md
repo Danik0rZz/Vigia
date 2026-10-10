@@ -1,7 +1,7 @@
 ---
 id: '0064'
 titulo: '«Reintentar» de un panel solo vuelve a pedir lo suyo (y arreglos pequeños de la interfaz)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-interfaz
@@ -186,6 +186,17 @@ Decisiones del developer (la cola está delegada; se pueden afinar):
   comprueba entonces que el título conserva su `id` (falla sin el arreglo) y que ningún
   `aria-describedby` que quede apunta a un `id` ausente. El opcional (el `catch` sobrante de
   `main.tsx`) va en ea23061.
+
+### Verifier, 2026-10-10, commit `ff2d973`, rango `main..feat/0064-reintentar-solo-su-panel`: VERDE
+
+- check: 3446 tests en 200 ficheros, cobertura ok.
+- e2e completo, dos pasadas: 359/359 las dos; el fallo suelto del developer no se repitió.
+- e2e «0064» de `views.spec.ts` ×3 con `--workers=1`: 9/9. El de `tenants.spec.ts` (CA3) depende
+  del estado de los tests anteriores del fichero (suite serial): aislado no vale; con el fichero
+  entero pasa 26/26 y 78/78 ×3.
+- Inestabilidad que ya está en `main` (no de esta ficha): `tenants.spec.ts` ×3 falla a veces en
+  AUD-03 (confirmación al cerrar con un secreto sin guardar) y AUD-21 (paleta por encima de un
+  diálogo); reproducido en `main` (35af419). Anotado en el BACKLOG.
 
 ## Resultado
 
