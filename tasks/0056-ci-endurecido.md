@@ -12,7 +12,7 @@ adrs: [7]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -77,7 +77,26 @@ Todo en `.github/workflows/` y su test (`scripts/ci-workflow.test.ts`):
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA4 con su test en `scripts/ci-workflow.test.ts`, sin tocarlo tras `4962bea`; habrían fallado
+en `main` (`@v7`, `cancel-in-progress: true`). CA5, tras el push. Los cuatro SHA comprobados con
+`git ls-remote` (checkout v7.0.1, setup-node v7.1.0, upload-artifact v7.0.2, cache v6.1.0; etiquetas
+ligeras). El artefacto solo sube `test-results/` (captura y final de `main.log` de e2e con simulador,
+tokens falsos, log redactado; el CI no tiene `.env.live.local`), 7 días. Los dos workflows con
+`permissions: contents: read`; `audit.yml` solo lee. Producción bloquea desde `high`, desarrollo con
+`critical` y `continue-on-error`. Caché de Electron en la ruta por defecto, clave con la versión.
+
+Sugerencias, no bloquean:
+
+1. [ALCANCE] Con `cancel-in-progress: false`, GitHub deja un run en marcha y uno en espera por
+   grupo; un tercer push cancela el que esperaba. Hoy no afecta (el Orquestador espera el CI antes
+   de integrar la siguiente ficha): al BACKLOG por si cambia el flujo.
+2. `persist-credentials: false` en los checkouts (ya en "Ideas surgidas"; riesgo bajo).
+3. El audit de producción va antes de `check` y de los e2e: un fallo del registro de npm pondría el
+   CI en rojo sin probar nada; valorar moverlo después.
+4. GitHub desactiva los workflows programados tras 60 días sin actividad: una línea en
+   `docs/ARCHITECTURE.md` (doc-writer).
 
 ## Verificación
 
