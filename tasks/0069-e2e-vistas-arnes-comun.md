@@ -13,7 +13,7 @@ adrs: [6, 13] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -88,7 +88,27 @@ Normal (`ligera: no`).
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1, comprobado sin fiarse del AST del developer: el diff de `views.spec.ts` tiene solo dos
+  bloques (fuera la cabecera, datos, ayudantes y ganchos, con los `import` y `setupViewsApp()`; y
+  fuera `markerProblems`, ahora en `e2e/views/fixtures.ts`). Ninguna línea quitada es un `test(`;
+  261 tests antes y después, y el resto del fichero, idéntico. Los ganchos de `main` y los de
+  `harness.ts` son idénticos y en el mismo orden.
+- Guardas de las fichas 0021, 0030 y 0067 (`33a9aa1`), no más laxas: `e2e-ci-window` y
+  `e2e-export-read` miran ahora todos los `.ts` de `e2e/` (más estrictas, con casos nuevos);
+  `e2e-tags` suma las funciones con portapapeles de los módulos importados. Sin tocarlas habrían
+  dejado de ver el arnés. La guarda de la ficha no se tocó tras `5bee504`.
+- Ganchos dentro de `setupViewsApp` (llamada en el nivel superior, se registran en la suite del
+  fichero) y `export let` como enlace vivo de solo lectura; `sim-state.ts` evita el ciclo.
+- `e2e/views/**` en el área `views`; sin `src/`, dependencias, IPC, API ni nada del tenant.
+
+Opcional:
+
+- `e2e-tags.cjs` y `e2e-export-read.test.ts` emparejan por nombre de importación: no ven
+  `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo en la 0070.
+- El comentario de `views.spec.ts` (≈5472) dice «y sus problemas para los recuentos», que ahora
+  viven en `fixtures.ts`: retocarlo en la 0070.
 
 ## Verificación
 
