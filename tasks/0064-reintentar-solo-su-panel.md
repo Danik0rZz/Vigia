@@ -1,7 +1,7 @@
 ---
 id: '0064'
 titulo: '«Reintentar» de un panel solo vuelve a pedir lo suyo (y arreglos pequeños de la interfaz)'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-interfaz
@@ -78,7 +78,10 @@ cliente en contra del ADR-0004, justo cuando algo falla.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Notas al pie del Markdown del tenant. Las referencias `[^1]` y la vuelta `↩` salen en
+  texto, porque sus enlaces internos no son http/https. El título oculto de la sección sale con el
+  texto por defecto de remark-rehype («Footnotes»), sin traducir. Se podrían admitir los anclajes
+  internos `#user-content-…` y poner el título en es y en.
 
 ## Notas del revisor
 
@@ -164,6 +167,13 @@ Decisiones del developer (la cola está delegada; se pueden afinar):
   volviera a salir como `h1` lo detecta ese mismo unitario.
 - **CA6:** el test exigía `'ab'` y react-markdown deja un `\n` entre bloques con cualquier
   implementación. Lo corrigió el test-writer en a73b351 (compara `['a', 'b']`).
+- **Ronda 1 (90d5423):** `MarkdownHeading` reenvía `id`, y el título de las notas al pie conserva
+  `id="footnote-label"`. Matiz del unitario: en Vigía la referencia `[^1]` no lleva
+  `aria-describedby`, porque apunta a `#user-content-fn-1`. Ese destino no es http/https, y el `a` de
+  `MarkdownText` (ficha 0001, ADR-0008) la deja en texto desde antes de esta ficha. El unitario
+  comprueba entonces que el título conserva su `id` (falla sin el arreglo) y que ningún
+  `aria-describedby` que quede apunta a un `id` ausente. El opcional (el `catch` sobrante de
+  `main.tsx`) va en ea23061.
 
 ## Resultado
 
