@@ -14,6 +14,7 @@ bueno de Dani o de peticiones en su nombre.
   **auditoria-codigo-comun** (0057, 0058 y 0059 hechas), **auditoria-robustez** (0060 hecha,
   0061 y 0062 hechas), **auditoria-exportacion** (0063 hecha) y
   [0064](tasks/0064-reintentar-solo-su-panel.md).
+- Después, [0065](tasks/0065-titulo-slo-servicio.md) (título «SLO» del servicio, ligera, con medición del flujo), aprobada por Dani el 2026-10-10.
 - Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
 
 ## Próximo

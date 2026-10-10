@@ -1,0 +1,116 @@
+---
+id: '0065'
+titulo: 'El gráfico de disponibilidad del servicio se titula «SLO» (con medición del flujo)'
+estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+tamano: S # S | M | L (docs/propuestas-siguientes.md)
+ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
+lote:
+depende_de: []
+aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
+rama: feat/0065-titulo-slo-servicio
+adrs: []
+adr_nuevo:
+api: ninguna
+migracion: no
+rondas_revision: 0
+---
+
+## Petición original
+
+«Vamos hacer un cambio al título del gráfico de SLO de la página de SERVICE. El título quiero que
+ponga SLO, con eso es suficiente. Como petición especial para esta tarea, quiero que se registre el
+tiempo de cada paso, Inicio y fin, por cada agente y las ejecuciones que realice para ver cuanto se
+tarda en este cambio, número de test ejecutados. Basicamente, medir el flujo completo con detalle
+para determinar el flujo con exactitud.»
+
+## Especificación
+
+**1. El cambio.** El panel de disponibilidad de la página de un SERVICE (ficha 0048,
+`ServiceAvailabilityPanel` en `pages/entities/ServiceCharts.tsx`, `data-testid="service-slo-title"`)
+se titula hoy «Disponibilidad (SLO calculado)» / «Availability (calculated SLO)». Pasa a **«SLO»** en
+los dos idiomas: la clave `entities.service.availability.title` de `locales/es/common.json` y
+`locales/en/common.json`.
+
+No cambia nada más: el tooltip del título (`availability.hint`, que explica la fórmula y que lo
+calcula Vigía, no Dynatrace) se queda igual, y también el nombre de la serie («Disponibilidad»), el
+marcador, el umbral y los `data-testid`. Los tests de la 0048 que fijan el título viejo
+(`locales/service-availability-view.test.ts` y el CA3 de la 0048 en `e2e/views.spec.ts`) se
+actualizan al nuevo.
+
+**2. Medición del flujo (petición especial de Dani, solo para esta ficha).** Dani quiere saber con
+exactitud cuánto tarda el flujo completo en un cambio pequeño. Cada paso se apunta en la sección
+«Medición del flujo» de esta ficha (abajo), con la hora sacada de `date "+%Y-%m-%d %H:%M:%S"` (no
+estimada):
+
+- **Por paso** (Planificador, Orquestador, developer, reviewer en cada ronda, verifier, doc-writer,
+  merge y push, CI): agente, ronda, hora de inicio, hora de fin y duración. El Orquestador apunta
+  también la hora a la que lanza cada subagente y a la que le devuelve el control, así se ve el
+  tiempo entre pasos.
+- **Por ejecución** (cada `npm run check`, `test:e2e`, `test:e2e:affected`, `test:e2e:nobuild`,
+  `build`, `lint`, un test suelto, `git commit` con su hook y `git push` con el suyo): quién la
+  lanza, el comando, el inicio, el fin, el resultado y el **número de tests** (pasados, fallidos y
+  saltados; unitarios y e2e por separado). Las repeticiones también cuentan, cada una en su fila.
+- **CI:** inicio, fin y resultado de cada job, con `gh run view` (sin copiar logs).
+- **Esperas de Dani** (aprobación, respuestas): en su propia fila, para no mezclarlas con el tiempo
+  de trabajo.
+- Al cerrar, el doc-writer suma en «Resultado»: tiempo total de reloj (de la petición al CI en
+  verde), tiempo por agente, tiempo en esperas, número de ejecuciones y total de tests ejecutados.
+
+Apuntarlo añade unos segundos a cada paso: se acepta. Lo que no se pueda medir (por ejemplo, lo que
+tarda en arrancar un subagente por dentro) se dice tal cual, sin inventar la cifra. En la tabla no
+va nada del tenant ni ningún secreto. **No cambia el flujo de las demás fichas**: si Dani quiere
+que la medición sea fija, será otra ficha.
+
+**Ligera:** es S y solo cambia un texto de la interfaz (sin IPC, API, dependencias, esquema ni
+seguridad). Sin test-writer: el developer actualiza primero los tests (commit solo de tests) y
+después el texto.
+
+## Criterios de aceptación
+
+- CA1 (unitario): `entities.service.availability.title` vale «SLO» en `es` y en `en`, y `hint` sigue
+  explicando la fórmula (menciona peticiones, errores y Vigía).
+- CA2 (e2e): en la página de un SERVICE del simulador, `service-slo-title` tiene exactamente el
+  texto «SLO» y su tooltip sigue mostrando la fórmula (CA5 de la 0048 sin cambios).
+
+## Pruebas a mano para Dani
+
+(ninguna: Dani lo verá al abrir un servicio)
+
+## Fuera de alcance
+
+- Cambiar el tooltip, el marcador de disponibilidad o el nombre de la serie.
+- Dejar la medición del flujo como norma para otras fichas.
+
+## Ideas surgidas (fuera de alcance)
+
+(ninguna)
+
+## Notas del revisor
+
+(sin revisar)
+
+## Verificación
+
+(pendiente)
+
+## Resultado
+
+(pendiente)
+
+## Medición del flujo
+
+Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
+
+### Pasos
+
+| Paso                                               | Agente       | Ronda | Inicio              | Fin                 | Duración   | Notas                                                                       |
+| -------------------------------------------------- | ------------ | ----- | ------------------- | ------------------- | ---------- | --------------------------------------------------------------------------- |
+| Redacción de la ficha                              | Planificador | —     | 2026-10-10 12:44:08 | 2026-10-10 12:44:50 | 0 min 42 s | Desde el primer comando; la llegada del mensaje no se puede medir           |
+| Espera de la aprobación de Dani                    | Dani         | —     | 2026-10-10 12:44:50 | 2026-10-10 12:48:24 | 3 min 34 s | Desde el aviso hasta su «1» (ligera)                                        |
+| Aprobación, BACKLOG, commit y envío al Orquestador | Planificador | —     | 2026-10-10 12:48:24 | 2026-10-10 12:48:32 | 0 min 8 s  | Hasta antes del commit; el commit y el SendMessage tardan unos segundos más |
+
+### Ejecuciones
+
+| Quién        | Comando                                | Inicio              | Fin                 | Duración | Resultado | Tests (pasan / fallan / saltados) |
+| ------------ | -------------------------------------- | ------------------- | ------------------- | -------- | --------- | --------------------------------- |
+| Planificador | npx prettier --write (ficha y BACKLOG) | 2026-10-10 12:48:32 | 2026-10-10 12:48:32 | < 1 s    | ok        | —                                 |
