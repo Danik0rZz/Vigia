@@ -1,7 +1,7 @@
 ---
 id: '0073'
 titulo: 'Integración por PR: un commit por ficha, ramas de integración, PR de 3 a 5 fichas y dist:win solo en main'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -13,7 +13,7 @@ adrs: [7, 10, 13] # ADR que aplican, por número
 adr_nuevo: 'ADR-0014 (lo abre la 0072): se completa con las decisiones de Dani de esta ficha' # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -155,7 +155,17 @@ Normal (`ligera: no`). Toca un servicio externo (GitHub) y la seguridad del repo
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+Bien: CA1–CA5 con su test (256d5e4), sin tocar tras el commit de tests; `ci.yml` con check y `dist:win` en el push a main y el e2e solo en las PR; solo `gh pr merge --merge` para fusionar (`--squash` solo dentro de `integra/…`); reglas de seguridad intactas; ningún documento deja al Orquestador proteger main ni borrar ramas remotas. El nuevo significado de `hecha` está dentro del alcance y es coherente.
+
+1. [Seguridad] `scripts/integrate.mjs`, `groupForPrs`: `exclusiones:` vacío da `''` y la ficha se agrupa como si no tuviera exclusiones; un escalar (`exclusiones: ipc`) se recorre letra a letra. Si no es `undefined` ni array: error claro o «va sola». Test en `integrate.main.test.ts`.
+2. [Flujo] La ficha aprobada del Planificador «en `main` local, sin push» (`planner.md`) choca con el `merge --ff-only origin/main` de `flujo.md`, `tarea.md` y `cerrar-version.md` (divergen), y no llega a la `integra/…` en curso. Un único camino en los cuatro documentos (p. ej., llevar a la `integra/…` en curso, con merge, los commits de `main` local que no están en `origin/main`). Si cambia la regla de la ficha, `[ALCANCE]`.
+3. [Flujo] Falta el ciclo de vida de `integra/…`: con la PR abierta solo recibe `fix/NNNN-ci`; las fichas siguientes van a una `integra/…` nueva; la de una ficha sola nunca está «en curso». Conflictos con `main` (CHANGELOG/BACKLOG): fusionar `origin/main` en la `integra/…` (sin rebase ni force push), repetir el verifier si toca código y volver a subir. En `flujo.md` («Git») y `tarea.md`.
+4. [Quién decide] `flujo.md` (bullet «Push») y `CLAUDE.md` permiten `git push origin main` «mientras no esté activa la protección»: decir que desde esta ficha no es vía para integrar fichas del flujo nuevo, y nunca para una con exclusiones.
+5. [Coherencia] Rangos fijos `main..HEAD` / `main..<rama>` en `flujo.md` y `verifier.md`: pasar a `<base>..HEAD`.
+
+Opcional: líneas de más de 100 columnas y código partido (`ci.yml` línea 1, `flujo.md`, `tarea.md`, `planner.md`); `/cerrar-version` podría pararse con PR de `integra/…` sin fusionar; comillas dobladas de YAML en `parseFrontMatter`; ficha propia para negar en los permisos `gh pr merge --squash`/`--rebase`/`--delete-branch` y `git push origin :<rama>`.
 
 ## Verificación
 
