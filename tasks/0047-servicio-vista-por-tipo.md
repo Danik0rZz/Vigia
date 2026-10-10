@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `serviceType`, `metricSet` y `metricKeys` que añade la 0046 a `entities:serviceMetrics`)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -69,7 +69,21 @@ En la página del servicio (`ServiceMarkers.tsx`, `ServiceCharts.tsx` y `service
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+Ficha ligera: los tests del developer cubren CA1 a CA6 tal como están escritos (Solo actividad con
+un panel y una serie; «Servicio · Base de datos» con sus cinco marcadores y cuatro gráficos y la nota
+de cliente; las claves de Cliente y Unificadas; nombres en es y en, y un tipo desconocido tal cual),
+y fallarían sin el código. Sin tocar tests tras `2dc0b18`. Solo renderer, textos y tests: nada de
+main, shared, preload, esquema ni `areas.json`; sin consultas nuevas (ADR-0004). «Abrir en Métricas»
+genera las mismas expresiones que main y el paso 0 de la 0046 (tasa de Unificadas con fallidas y
+total, con `splitBy`; Solo actividad con `:count`). La nota «por defecto» sale de `serviceType`, no
+de `warnings`; la deuda de `warnings` en «Exportar» queda anotada. Ids inventados.
+
+Sugerencias, no bloquean:
+
+- Un test de `serviceChartSelector` para la tasa de Unificadas y el `:count` de Solo actividad.
+- Un `expect` de la nota «Métricas de servidor por defecto» en el e2e «sin entities.read» de la 0046.
 
 ## Verificación
 
