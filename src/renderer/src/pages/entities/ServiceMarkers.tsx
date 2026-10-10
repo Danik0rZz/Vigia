@@ -49,7 +49,12 @@ export function ServiceMarkers({
         data-testid="service-markers"
         role="group"
         aria-label={t('entities.service.markers.label')}
-        className={cn('grid gap-4 sm:grid-cols-2', !activityOnly && 'lg:grid-cols-6')}
+        // Ficha 0066: con seis, los seis en una fila solo desde xl; en lg (1024 px con el menú
+        // abierto) no caben «105 ms» ni p90/p99 y van de tres en tres, como ApplicationMarkers.
+        className={cn(
+          'grid gap-4 sm:grid-cols-2',
+          !activityOnly && 'lg:grid-cols-3 xl:grid-cols-6'
+        )}
       >
         {activityOnly ? (
           <MarkerCard
