@@ -1,7 +1,7 @@
 ---
 id: '0073'
 titulo: 'Integración por PR: un commit por ficha, ramas de integración, PR de 3 a 5 fichas y dist:win solo en main'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -201,6 +201,11 @@ código:
 
 El contrato (todo exportado desde `scripts/integrate.mjs`, también `EXCLUSIONES`) está en la
 cabecera de `scripts/integrate.test.ts`.
+
+Verificación 2026-10-11, commit 4c3f0cc, rango `main..feat/0073-integracion-por-pr`: **VERDE**.
+
+- `npm run check`: 207 ficheros, 3626 tests; cobertura: sentencias 92,68 %, ramas 89,98 %, funciones 89,84 %, líneas 93,43 %. Incluye `scripts/integrate.test.ts`, `scripts/integrate.main.test.ts`, `scripts/integration-docs.test.ts` y `scripts/ci-workflow.test.ts` (96 tests, también lanzados aparte).
+- `npm run test:e2e:affected -- main..4c3f0cc`: «solo docs o tests unitarios; no hace falta ningún e2e» (cero e2e).
 
 ## Resultado
 

@@ -132,7 +132,10 @@ Tests (commit 275846b), que fallan hasta implementar:
 - CA4: `scripts/ci-workflow.test.ts`, «CA4 (0072): ci-ok («CI ok») siempre se ejecuta y falla si algún job falló» (sobre el texto de sus pasos: `needs`, `failure` y `cancelled`).
 - CA5: `scripts/ci-workflow.test.ts`, «CA5 (0072): concurrencia que cancela en las PR y encola en main». El test de la 0056 «cancel-in-progress es false» pasa a «nunca es true sin condición».
 
-Comprobación en GitHub: pendiente: lo añade el Orquestador tras integrar.
+Comprobación en GitHub (2026-10-11, tras integrar; PR cerradas sin fusionar):
+
+- PR solo de documentación, https://github.com/Danik0rZz/Vigia/pull/1 (run 38092549004): `cambios` verde (7 s), `windows` saltado, «CI ok» verde (3 s); run de 17 s.
+- PR con un cambio de código inocuo, https://github.com/Danik0rZz/Vigia/pull/2 (run 38092551432): `cambios` verde (4 s), `windows` verde (9 min 41 s, check y e2e completo, sin `dist:win`), «CI ok» verde (3 s) tras esperar al e2e; run de 9 min 58 s.
 
 Verificación 2026-10-11, commit 3f1ba3a, rango `main..feat/0072-ci-en-pull-request`: **VERDE**.
 
