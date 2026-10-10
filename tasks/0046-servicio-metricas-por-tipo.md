@@ -183,6 +183,12 @@ máximo 933 ms), token fuera del log. Informe en `live-reports/service-metric-se
 Cliente, pero la tabla de Dani lo pone en Servidor. Los tests siguen la tabla (CA2 lo exige); con
 ella, un EXTERNAL saldrá sin datos. Cambiarlo a Cliente es tocar la tabla.
 
+**Decisión del Orquestador (delegada por Dani, refinable), 2026-10-10:** `EXTERNAL` pasa a
+**Cliente**. La tabla de Dani se hizo a partir de un ejercicio, y lo visto en vivo es que sus
+servicios solo tienen datos de Cliente: con Servidor, la página saldría vacía para ellos, que es
+justo lo que la ficha quiere evitar. Es un cambio de una fila, fácil de deshacer si Dani lo quiere
+de otra forma; se lo cuento en el resumen. CA2 se lee con esta corrección.
+
 ## Resultado
 
 (pendiente)
