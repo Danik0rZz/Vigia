@@ -1,7 +1,7 @@
 ---
 id: '0052'
 titulo: 'APPLICATION (RUM): datos de actividad por tipo de acción, errores por tipo, usuarios, sesiones y experiencia'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -101,7 +101,8 @@ Informe solo de comportamientos; tabla final en "Resultado" y en `docs/notas-api
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `countOfErrors` también tiene `Error origin` (`First party`, `Third party`): un
+  desglose de errores propios frente a terceros podría servir en la vista; no se pide aquí.
 
 ## Notas del revisor
 
@@ -192,4 +193,21 @@ menos del 1 % de la suma de la serie.
 
 ## Resultado
 
-(pendiente)
+Canal `entities:applicationRum` (`src/shared/ipc.ts`, esquema `applicationRumResultSchema` en
+`src/shared/modules.ts`), lógica en `src/main/modules/application-rum.ts` y handler en
+`src/main/ipc/handlers/modules.ts`. Lo observado en vivo, en `docs/notas-api-v2.md` («RUM de una
+aplicación web»).
+
+**Decisiones del developer (delegadas, refinables):**
+
+- Las 18 expresiones van en dos bloques fijos (10 y 8) y cada bloque se pide dos veces (series y
+  `Inf`): 4 consultas en paralelo. El reparto sale de `METRIC_SELECTOR_MAX`, así que sumar una
+  expresión no rompe el límite.
+- La salida lleva también `warnings` y `partial` (recortes, `truncatedResults`), como el canal de
+  la 0033, para que la vista pueda avisar igual.
+- `other`, intervalo a intervalo, toma los timestamps del primer tipo «otro» (en vivo todos los
+  tipos traen los mismos); null solo si todos los sumandos de ese intervalo lo son.
+- `resolution` es la de la primera consulta de series (las dos usan el mismo rango).
+
+`npm run check` en verde (175 ficheros, 3196 tests) y `npm run test:e2e:affected -- main..HEAD`
+completo (toca `src/shared/ipc.ts`, transversal): 341 pasados.
