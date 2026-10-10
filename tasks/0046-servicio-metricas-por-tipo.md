@@ -1,7 +1,7 @@
 ---
 id: '0046'
 titulo: 'SERVICE: las métricas dependen del serviceType (servidor, cliente, unificadas o solo actividad)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -202,6 +202,11 @@ ella, un EXTERNAL saldrá sin datos. Cambiarlo a Cliente es tocar la tabla.
 servicios solo tienen datos de Cliente: con Servidor, la página saldría vacía para ellos, que es
 justo lo que la ficha quiere evitar. Es un cambio de una fila, fácil de deshacer si Dani lo quiere
 de otra forma; se lo cuento en el resumen. CA2 se lee con esta corrección.
+
+### Verifier, 2026-10-10, commit `5dabc83`, rango `main..feat/0046-servicio-metricas-por-tipo`: VERDE
+
+- check: 3088 tests en 170 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/modules.ts`): 318/318, sin intermitentes.
 
 ## Resultado
 
