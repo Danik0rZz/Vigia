@@ -1,0 +1,75 @@
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { describe, expect, it, vi } from 'vitest'
+
+/** Ficha 0073: la parte del script que lee la ficha y pregunta a git (el developer). */
+
+interface Deps {
+  argv: string[]
+  readFile: (path: string) => string
+  execFile: (cmd: string, args: string[], options: unknown) => string
+  stdout: (message: string) => void
+  stderr: (message: string) => void
+}
+
+const { main } = (await import(pathToFileURL(join(__dirname, 'integrate.mjs')).href)) as {
+  main: (deps: Deps) => number
+}
+
+const FICHA = [
+  '---',
+  "id: '0099'",
+  "titulo: 'Agrupa los avisos'",
+  'estado: verificada # comentario',
+  'rama: feat/0099-agrupa-avisos',
+  'exclusiones: []',
+  '---',
+  ''
+].join('\n')
+
+function deps(
+  argv: string[],
+  { status = '', branch = 'feat/0099-agrupa-avisos', ficha = FICHA } = {}
+): Deps & { out: string[]; err: string[] } {
+  const out: string[] = []
+  const err: string[] = []
+  return {
+    argv,
+    readFile: () => ficha,
+    execFile: vi.fn((_cmd: string, args: string[]) =>
+      args[0] === 'status' ? status : `${branch}\n`
+    ),
+    stdout: (message) => out.push(message),
+    stderr: (message) => err.push(message),
+    out,
+    err
+  }
+}
+
+describe('integrate.mjs: main', () => {
+  it('con todo en orden escribe el mensaje del commit y sale con 0', () => {
+    const d = deps(['tasks/0099-agrupa-avisos.md', 'avisos'])
+    expect(main(d)).toBe(0)
+    expect(d.out).toEqual(['feat(avisos): Agrupa los avisos (#0099)'])
+    expect(d.err).toEqual([])
+    expect(d.execFile).toHaveBeenCalledWith('git', ['status', '--porcelain'], expect.anything())
+    expect(d.execFile).toHaveBeenCalledWith('git', ['branch', '--show-current'], expect.anything())
+  })
+
+  it('con el árbol sucio y otra rama da los motivos y sale con 1, sin mensaje', () => {
+    const d = deps(['tasks/0099-agrupa-avisos.md', 'avisos'], {
+      status: ' M src/x.ts\n',
+      branch: 'main'
+    })
+    expect(main(d)).toBe(1)
+    expect(d.out).toEqual([])
+    expect(d.err).toHaveLength(2)
+  })
+
+  it('sin ficha o sin zona explica el uso y sale con 2', () => {
+    const d = deps(['tasks/0099-agrupa-avisos.md'])
+    expect(main(d)).toBe(2)
+    expect(d.err[0]).toMatch(/Uso:/)
+    expect(d.execFile).not.toHaveBeenCalled()
+  })
+})
