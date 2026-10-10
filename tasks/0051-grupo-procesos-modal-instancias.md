@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:processGroupMetrics` y `entities:processGroupInstances` de la 0050)
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -99,6 +99,20 @@ activada al pulsar (ADR-0004); nada del tenant.
 Opcional: la lista completa se vuelve a pedir al cambiar el rango con el modal cerrado (anotarlo o
 `enabled: requested && open`); `busy` de «Actualizar» no cuenta la consulta del modal; un e2e del
 error con Reintentar dentro del modal.
+
+### Ronda 2: APROBADO
+
+El CAMBIO de la ronda 1, resuelto: `instancesAtLeast` (`partial && !totalKnown`) para el «como
+mínimo» del marcador e `instancesTruncated` (`partial`) para el aviso de la tabla, con `partialList`
+en es y en cuando se sabe el total. El unitario de la 0032 queda más estricto que en `main` (aviso
+con `partial` con y sin total) y hay test de los cuatro casos de `instancesAtLeast`; e2e nuevo del
+grupo recortado con total real (aviso visible, marcador 600 exacto); el «7+» de la 0032 sigue. Sin
+tocar tests tras `309b9a0`. Opcionales aplicados conforme a ADR-0004: lista solo con el modal
+abierto y «Actualizar» con el modal cerrado solo la marca como vieja (e2e con el recuento de
+peticiones); e2e del error con Reintentar en el modal. El test de textos de CA6 ya exige cada clave.
+
+Opcional: partir a mano el comentario de `ProcessGroupMarkers.tsx` (~línea 24), que pasa de 100
+columnas.
 
 ## Verificación
 
