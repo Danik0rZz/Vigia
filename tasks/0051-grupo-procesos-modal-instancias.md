@@ -1,7 +1,7 @@
 ---
 id: '0051'
 titulo: 'PROCESS_GROUP: tabla con las 20 de más CPU, aviso y modal «Ver todas» con transición de entrada'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -70,7 +70,12 @@ En la tabla «Instancias» de la página del process group (0032):
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) El pie del marcador «Instancias» sigue diciendo «Con datos en el rango», pero desde
+  la 0050, con `totalKnown`, el número es `totalCount` de `GET /entities` (todas las instancias del
+  grupo, tengan datos o no). Cambiar el pie según `totalKnown`.
+- (developer) `entities:processGroupInstances` sigue sin `totalKnown` (idea de la 0050): el modal
+  no lo necesita (sin un total mayor que lo recibido dice «puede haber más»), así que no se ha
+  tocado el canal.
 
 ## Notas del revisor
 
@@ -78,7 +83,55 @@ En la tabla «Instancias» de la página del process group (0032):
 
 ## Verificación
 
-(pendiente)
+Ficha ligera: tests escritos por el developer en `afb7cf3` (`test(entidades): criterios de la
+ficha 0051 (#0051)`); código en `ef2fcb2`.
+
+| CA  | Test                                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1 | `e2e/views.spec.ts`, `CA1 (0051): …` (30 → las 20 de más CPU y «20 de 30»; con 12, ni aviso ni botón; sin `totalCount`, «puede haber más»); `process-group-instances.test.ts`, `describe CA1 (0051)` |
+| CA2 | `e2e/views.spec.ts`, `CA2 (0051): …` (la página no pide la lista; una petición al abrir; reabrir no pide)                                                                                            |
+| CA3 | `e2e/views.spec.ts`, `CA3 (0051): …` («25 de 600», 498, arriba de la tabla; marcador 600 exacto); `describe CA3 (0051)` del unitario                                                                 |
+| CA4 | `e2e/views.spec.ts`, `CA4 (0051): …` (buscador, orden, Escape y clic fuera, foco en «Ver todas», proceso y host); `describe CA4 (0051)` del unitario                                                 |
+| CA5 | `e2e/views.spec.ts`, `CA5 (0051): …` (fotogramas con scale, translate y opacity, entre 200 y 500 ms, `cubic-bezier` con rebote, fondo con `blur`; con `reduce`, solo opacidad y 200 ms como mucho)   |
+| CA6 | `src/renderer/src/locales/process-group-page.test.ts`, `CA6 (0051): …`                                                                                                                               |
+
+Antes del código: 10 unitarios y los 5 e2e de la 0051 fallaban por lo que faltaba; los de la 0032
+y la 0050, en verde. Con el código: `npm run check` en verde (3177 tests en 174 ficheros) y
+`npm run test:e2e:affected -- main..HEAD` 304/304; los e2e de la 0051 con `--repeat-each 3`
+(animación), 15/15.
+
+**Cambio en un test anterior (en el commit de tests):** el `CA1 (0032), nota del Orquestador`
+(recorte) pasa a simular `/entities` con 403 (`sim.processGroupEntitiesFail`, nuevo): con el total
+real, la nota del revisor de la 0050 pide que el marcador no diga «como mínimo», así que el caso
+del «7+» solo existe sin `totalCount`. El unitario de `instancesTruncated` (0032) gana
+`instances.totalKnown` por lo mismo.
+
+**Decisiones del developer (delegadas, refinables):**
+
+- `instancesTruncated` (marcador «como mínimo» y aviso de recorte de la tabla): solo con `partial`
+  y `totalKnown: false`. Con el total real, el marcador da el total exacto.
+- Aviso de la tabla (`instancesNotice`): con `totalKnown` y un `total` mayor que las enseñadas,
+  «N de total»; sin `totalKnown`, «N instancias…; puede haber más» si llegan 20 (el tope) o vino
+  `partial`. En los demás casos, ni aviso ni botón.
+- Aviso del modal (`fullListNotice`, nota del revisor sobre `truncated`): no afirma un recorte;
+  con un `total` mayor que lo recibido, «Se muestran N de M instancias. Dynatrace devuelve como
+  mucho unas 498 por consulta y no incluye las que no tienen datos en el rango.»; si no, «Se
+  muestran N instancias y puede haber más: …». Sin tocar el canal (no hizo falta `totalKnown`).
+- La consulta del modal se pide la primera vez que se abre y queda activa mientras la página está
+  montada: reabrir no pide y «Actualizar» de la página la refresca con lo demás.
+- Modal genérico `ShowcaseDialog` en `components/dialogs.tsx` (Radix Dialog): 1100 px o 94 vw, alto
+  máximo 92 vh con scroll; fondo `bg-overlay` con `backdrop-blur`; panel con `vigia-dialog-in`
+  (`main.css`: `translateY(14px) scale(0.92)` a 1, 320 ms, `cubic-bezier(0.34, 1.45, 0.64, 1)`) y
+  salida de 160 ms; con `prefers-reduced-motion: reduce`, un fundido de 120 ms (90 ms al cerrar),
+  con una regla más específica que la general, que lo dejaría en 0,01 ms.
+- Sin `Dialog.Trigger`, Radix no devuelve el foco al cerrar (enfoca su `triggerRef`, vacío):
+  `ShowcaseDialog` guarda el elemento enfocado al abrir y se lo devuelve.
+- La tabla pasa a `ProcessGroupInstancesTable.tsx` (la usan la tarjeta y el modal, con sus testids)
+  y el modal va en `ProcessGroupInstancesDialog.tsx`; los dos, en el área `views` (`pages/**`).
+- Al abrir con la lista en caché, el foco va al buscador; si aún carga, al botón de cerrar.
+- Testids: `process-group-instances-more`, `-all`, `-dialog`, `-dialog-overlay`, `-dialog-search`,
+  `-dialog-truncated`, `-dialog-grid`, `-dialog-scroll` y `-dialog-skeleton`; textos en
+  `entities.processGroup.instances` (`moreOf`, `moreUnknown`, `viewAll` y `dialog.*`).
 
 ## Resultado
 
