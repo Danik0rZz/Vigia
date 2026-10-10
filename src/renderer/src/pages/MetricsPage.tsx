@@ -146,6 +146,7 @@ export function MetricsPage(): JSX.Element {
             query={params?.metricSelector}
             timeRange={timeRange}
             loadedAt={query.dataUpdatedAt}
+            onRetry={params === null ? undefined : () => void query.refetch()}
           />
         </div>
 

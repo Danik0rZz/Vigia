@@ -208,7 +208,7 @@ export function EntityChartPanel<T extends ChartData>({
           className="h-60 rounded-lg bg-hover motion-safe:animate-pulse"
         />
       ) : (
-        <PanelBoundary>
+        <PanelBoundary onRetry={() => void query.refetch()}>
           <Chart
             ref={chart}
             testId={chartTestId}

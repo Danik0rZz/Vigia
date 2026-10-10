@@ -1,13 +1,17 @@
 import { Component, type ReactNode } from 'react'
-import { queryClient } from '../data/tenants'
 import { reportError } from '../lib/error-log'
 import { PanelError } from './ErrorScreen'
 
 /**
  * Error compacto para un panel (un gráfico o una tabla): si falla, lo demás de
- * la página sigue. Reintentar vuelve a pintarlo y pide de nuevo los datos.
+ * la página sigue. Reintentar limpia el error y lo vuelve a pintar con lo que
+ * hay en la caché, sin pedir nada (ADR-0004: cada petición gasta cuota). Quien
+ * deba recargar sus datos pasa `onRetry` con su `refetch` (ficha 0064).
  */
-export class PanelBoundary extends Component<{ children: ReactNode }, { error: unknown }> {
+export class PanelBoundary extends Component<
+  { children: ReactNode; onRetry?: () => void },
+  { error: unknown }
+> {
   override state: { error: unknown } = { error: null }
 
   static getDerivedStateFromError(error: unknown): { error: unknown } {
@@ -19,7 +23,7 @@ export class PanelBoundary extends Component<{ children: ReactNode }, { error: u
   }
 
   private readonly retry = (): void => {
-    void queryClient.refetchQueries({ type: 'active' })
+    this.props.onRetry?.()
     this.setState({ error: null })
   }
 

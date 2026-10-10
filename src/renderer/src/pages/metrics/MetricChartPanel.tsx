@@ -26,7 +26,8 @@ export function MetricChartPanel({
   isEmpty,
   query,
   timeRange,
-  loadedAt
+  loadedAt,
+  onRetry
 }: {
   title: string | undefined
   result: MetricResult | undefined
@@ -36,6 +37,8 @@ export function MetricChartPanel({
   timeRange: TimeRangeValue
   /** Cuándo llegaron los datos (dataUpdatedAt), para el rango de la hoja Info. */
   loadedAt: number
+  /** «Reintentar» del gráfico roto: vuelve a pedir su consulta (ficha 0064). */
+  onRetry?: () => void
 }): JSX.Element {
   const { t, i18n } = useTranslation()
   const chart = useRef<ChartHandle>(null)
@@ -110,7 +113,7 @@ export function MetricChartPanel({
           }}
         />
       </div>
-      <PanelBoundary>
+      <PanelBoundary onRetry={onRetry}>
         <Chart
           ref={chart}
           testId="metric-chart"

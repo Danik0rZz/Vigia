@@ -1,5 +1,4 @@
 import { useEffect, type JSX } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { isRouteErrorResponse, useLocation, useNavigate, useRouteError } from 'react-router'
 import { isChunkLoadError } from '@shared/error-report'
 import { ErrorScreen } from '../components/ErrorScreen'
@@ -74,7 +73,6 @@ export function RouteError(): JSX.Element {
   const error = useRouteError()
   const location = useLocation()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const route = `${location.pathname}${location.search}`
   const decision = decideOnce(error, route)
 
@@ -82,9 +80,9 @@ export function RouteError(): JSX.Element {
     if (decision.variant !== 'notFound') reportError(error, route)
   }, [error, route, decision.variant])
 
-  // Reintentar: datos de nuevo y una navegación a la misma ruta, que limpia el error.
+  // Reintentar: una navegación a la misma ruta, que limpia el error y vuelve a pintar con la
+  // caché. No pide datos (ADR-0004, ficha 0064): para eso está «Actualizar» de cada página.
   const retry = (): void => {
-    void queryClient.refetchQueries({ type: 'active' })
     void navigate(route, { replace: true })
   }
 

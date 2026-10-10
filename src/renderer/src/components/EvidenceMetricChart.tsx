@@ -25,6 +25,7 @@ import { axisTooltip, timeAxisLabel } from './chart-time'
 import type { ProblemContext } from './EvidenceSection'
 import { ExportMenu } from './ExportMenu'
 import { ApiWarnings } from './ModuleState'
+import { PanelBoundary } from './PanelBoundary'
 
 /** Series que se dibujan como mucho. */
 const MAX_SERIES = 10
@@ -304,14 +305,17 @@ export function EvidenceMetricChart({
         </div>
       )}
       {state === null && query.isSuccess ? (
-        <Chart
-          ref={chart}
-          testId="evidence-metric"
-          label={view.displayName}
-          buildOption={buildOption}
-          height={160}
-          seriesNames={names}
-        />
+        // Su propio límite: «Reintentar» vuelve a pedir solo esta métrica (ficha 0064).
+        <PanelBoundary onRetry={() => void query.refetch()}>
+          <Chart
+            ref={chart}
+            testId="evidence-metric"
+            label={view.displayName}
+            buildOption={buildOption}
+            height={160}
+            seriesNames={names}
+          />
+        </PanelBoundary>
       ) : state !== null ? (
         // En el hueco del gráfico: un error no rompe la página.
         <p

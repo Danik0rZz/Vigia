@@ -115,6 +115,8 @@ export function ProblemsPage(): JSX.Element {
   }
   const query = useProblems(envId, filters)
   const refresh = useModuleRefresh(envId, 'problems')
+  // «Reintentar» de un panel roto (línea de tiempo o tabla): solo la consulta de esta lista.
+  const retry = (): void => void query.refetch()
   const loaded = useMemo(() => query.data?.problems ?? [], [query.data])
 
   // Filtro de clúster LOCAL (problemSelector no lo admite): sobre lo cargado.
@@ -301,7 +303,7 @@ export function ProblemsPage(): JSX.Element {
               }}
             />
           </div>
-          <PanelBoundary>
+          <PanelBoundary onRetry={retry}>
             <Chart
               ref={chart}
               testId="problems-timeline"
@@ -342,7 +344,7 @@ export function ProblemsPage(): JSX.Element {
               filtered={filtered}
             />
           )}
-          <PanelBoundary>
+          <PanelBoundary onRetry={retry}>
             <ProblemsTable
               items={items}
               selected={lastOpened}
