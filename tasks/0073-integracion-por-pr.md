@@ -1,7 +1,7 @@
 ---
 id: '0073'
 titulo: 'Integración por PR: un commit por ficha, ramas de integración, PR de 3 a 5 fichas y dist:win solo en main'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -13,7 +13,7 @@ adrs: [7, 10, 13] # ADR que aplican, por número
 adr_nuevo: 'ADR-0014 (lo abre la 0072): se completa con las decisiones de Dani de esta ficha' # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -166,6 +166,15 @@ Bien: CA1–CA5 con su test (256d5e4), sin tocar tras el commit de tests; `ci.ym
 5. [Coherencia] Rangos fijos `main..HEAD` / `main..<rama>` en `flujo.md` y `verifier.md`: pasar a `<base>..HEAD`.
 
 Opcional: líneas de más de 100 columnas y código partido (`ci.yml` línea 1, `flujo.md`, `tarea.md`, `planner.md`); `/cerrar-version` podría pararse con PR de `integra/…` sin fusionar; comillas dobladas de YAML en `parseFrontMatter`; ficha propia para negar en los permisos `gh pr merge --squash`/`--rebase`/`--delete-branch` y `git push origin :<rama>`.
+
+### Ronda 2: CAMBIOS
+
+Resueltos de la ronda 1: puntos 1, 3, 4 y 5. Punto 2 («Traer `main`»): funciona con `main` protegida (sin push a `main`, sin rebase ni force) y `main` local queda contenido en lo que llega a `origin/main`. Los tests de los CA no han cambiado desde 256d5e4.
+
+1. [Flujo] `tarea.md:137-139` y `flujo.md:263-265`: la condición de la PR solo de documentos («ninguna `integra/…` en curso y `origin/main..main` no vacío») se cumple casi siempre, porque la PR del grupo recién abierta ya lleva los commits del Planificador y `origin/main` aún no los tiene. Contar solo lo que no va en ninguna PR abierta (p. ej. `git log --oneline main --not origin/main <integra/… con PR abierta>`), con el mismo texto en los dos documentos.
+2. [Flujo] `flujo.md:260-262` y `tarea.md:58-60`: falta qué hacer si el `merge --no-edit origin/main` del checkout principal no sale limpio (conflicto o cambios sin commitear del Planificador). `git merge --abort` (o no empezarlo si hay cambios), parar la cola y avisar a Dani o al Planificador; no resolver conflictos en el checkout de otra sesión.
+
+Opcional: mensaje de los merges en español (`-m "chore(git): trae origin/main"`); `/cerrar-version` usa «Traer `main`»: que su texto siga igual que el de `tarea.md`.
 
 ## Verificación
 
