@@ -58,7 +58,11 @@ function handlers(): ReturnType<typeof createModuleHandlers> {
       },
       delete: () => undefined
     },
-    repo: { getEnvironment: () => ({ id: LIVE_ENV_ID }) }
+    repo: {
+      getEnvironment: () => ({ id: LIVE_ENV_ID }),
+      // Ficha 0057: los canales comprueban el entorno con requireEnvironment.
+      requireEnvironment: () => undefined
+    }
   } as unknown as Parameters<typeof createModuleHandlers>[0])
 }
 
