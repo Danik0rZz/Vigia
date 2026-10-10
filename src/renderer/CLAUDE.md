@@ -12,6 +12,10 @@
 - `useVirtualizer` de TanStack Virtual hace que el React Compiler se salte el componente (aviso
   `react-hooks/incompatible-library`): es lo esperado y se desactiva el aviso en esa línea con su
   motivo.
+- El React Compiler está activo en el build (ficha 0059). Una función en línea pasada a una tabla
+  dentro de una rama condicional del JSX la memoiza junto con los datos de esa rama: sácala a una
+  constante antes del `return` (`toggleRow` de `EvidenceSection.tsx`). Con `VIGIA_E2E`, las filas
+  del DataGrid llevan `data-render-count` (`lib/render-count.ts`) para comprobarlo en e2e.
 - Sin definición cerrada no se implementan: Service flows avanzados, Vista de negocio,
   notificaciones, Favoritos y variación de los KPI.
 - Contenido del tenant con formato (Markdown): solo con `MarkdownText`, nunca

@@ -1,7 +1,7 @@
 ---
 id: '0059'
 titulo: 'Instalar el React Compiler para que las tablas no se vuelvan a pintar enteras'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -65,7 +65,9 @@ se vuelven a pintar todas las filas.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) El compilador se salta, sin romperlos, `ExportMenu`, `EnvironmentForm`,
+  `TenantsSection` (valores condicionales dentro de un `try/catch`) y `SecretsPanel` (`try` con
+  `finally`). Funcionan igual que antes; si algún día pesan, sacar la lógica del `try` a una función.
 
 ## Notas del revisor
 
@@ -99,6 +101,31 @@ Decisiones del test-writer (Dani delegó; refinables):
   contador congelado.
 - CA3 va en `scripts/` porque prueba la configuración de la raíz (`electron.vite.config.ts`,
   `package.json`), como los demás tests de configuración.
+
+Decisiones del developer (Dani delegó; refinables):
+
+- **Versión y licencia:** `babel-plugin-react-compiler` 1.0.0 (la `latest` de npm el 2026-10-10;
+  las demás etiquetas son beta, rc o experimental), en `devDependencies` con versión exacta.
+  Licencia **MIT** (la de su `package.json`), compatible; solo trae `@babel/types` (MIT), que ya
+  estaba por Babel. Va solo en el build: el runtime es `react/compiler-runtime`, de React 19.
+- **Contador solo en e2e:** `src/renderer/src/lib/render-count.ts` (`useRenderCount`). Lo activa
+  `main.tsx` con el mismo dato que el disparador de errores (`errorTrigger` de `app:getInfo`, que
+  main da solo sin empaquetar y con `VIGIA_E2E=1`), así que no se toca el contrato IPC. El
+  atributo se escribe en un efecto (no en el render, para cumplir las reglas de React); en la app
+  empaquetada el efecto sale en su primera línea y el atributo no existe. Un solo build sirve para
+  los dos casos (los e2e corren sobre `out/`, ADR-0006), por eso es un interruptor en tiempo de
+  ejecución y no una constante de compilación.
+- **Sin `"use no memo"`:** ningún componente se ha roto. `DataGrid` el compilador se lo salta solo
+  (useVirtualizer, como ya decía el lint); `GridRow` sí se compila y conserva su `memo` (hace falta:
+  como DataGrid no se compila, nadie memoiza por él los elementos de las filas). `Chart` se compila
+  sin errores. Las salidas del compilador las comprobé con su `logger` sobre todo el renderer
+  (las que se salta, en «Ideas surgidas»).
+- **Arreglo en `EvidenceSection`:** el `onActivate` en línea dentro de la rama condicional de la
+  tabla, el compilador lo memoizaba junto con `rows` y cambiaba con cada letra del buscador (CA2
+  fallaba con 1 → 10 renders). Se sacó a `toggleRow`, antes del JSX. En `ProblemsTable` el mismo
+  patrón sí queda memoizado aparte (sin rama), así que no se tocó.
+- Los `useMemo` y `useCallback` existentes se dejan: no estorban al compilador y quitarlos no lo
+  pide ningún criterio.
 
 ## Resultado
 
