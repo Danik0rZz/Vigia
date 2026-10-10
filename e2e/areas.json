@@ -34,6 +34,7 @@
     "src/main/user-data.ts",
     "src/main/local-data.ts",
     "src/main/logging.ts",
+    "src/main/log-mask.ts",
     "src/main/errors.ts",
     "src/main/db/**",
     "src/renderer/index.html",
