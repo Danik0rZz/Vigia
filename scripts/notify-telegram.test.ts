@@ -795,3 +795,19 @@ describe('CA13 (0004): lectura del registro con reg.exe por ruta absoluta', () =
     ).toBeUndefined()
   })
 })
+
+describe('CA4 (0055): notify-telegram usa la función común para encontrar el .env', () => {
+  const IMPORT = /import\s*\{[^}]*\bfindLiveEnv\b[^}]*\}\s*from\s*['"]\.\/lib\/env-file\.mjs['"]/
+
+  it('CA4 (0055): notify-telegram.mjs importa findLiveEnv de ./lib/env-file.mjs', () => {
+    expect(readFileSync(SCRIPT, 'utf8')).toMatch(IMPORT)
+  })
+
+  it('CA4 (0055): notify-telegram.mjs ya no consulta git worktree por su cuenta', () => {
+    expect(readFileSync(SCRIPT, 'utf8')).not.toMatch(/['"]worktree['"]\s*,\s*['"]list['"]/)
+  })
+
+  it('CA4 (0055): scan-tenant.mjs importa la misma función', () => {
+    expect(readFileSync(join(__dirname, 'scan-tenant.mjs'), 'utf8')).toMatch(IMPORT)
+  })
+})
