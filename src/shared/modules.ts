@@ -719,6 +719,78 @@ export const applicationMetricsResultSchema = z.object({
 })
 export type ApplicationMetricsResult = z.output<typeof applicationMetricsResultSchema>
 
+const rumTotal = z.number().nullable()
+
+/** Series de RUM por papel de una aplicación web (ficha 0052). */
+const applicationRumSeriesSchema = z.object({
+  /** Número de acciones por tipo. */
+  actionsByType: z.object({
+    load: serviceSeriesSchema,
+    xhr: serviceSeriesSchema,
+    custom: serviceSeriesSchema
+  }),
+  /** Duración media de las acciones por tipo, en ms. */
+  durationByType: z.object({
+    load: serviceSeriesSchema,
+    xhr: serviceSeriesSchema,
+    custom: serviceSeriesSchema
+  }),
+  /** Errores por «Error type»: JavaScript, Request (HTTP) y el resto sumado. */
+  errorsByType: z.object({
+    javascript: serviceSeriesSchema,
+    http: serviceSeriesSchema,
+    other: serviceSeriesSchema
+  }),
+  /** Acciones afectadas por errores, en tanto por ciento (0 a 100). */
+  affectedActionsPct: serviceSeriesSchema,
+  /** Usuarios activos: estimación de Dynatrace (en el total, de usuarios distintos del rango). */
+  activeUsers: serviceSeriesSchema,
+  sessions: z.object({ started: serviceSeriesSchema, ended: serviceSeriesSchema }),
+  /** Duración media de sesión, en microsegundos (sin convertir). */
+  sessionDuration: serviceSeriesSchema,
+  actionsPerSession: serviceSeriesSchema,
+  /** Tasa de rebote, en tanto por ciento (0 a 100). */
+  bounceRate: serviceSeriesSchema,
+  /** Core Web Vitals, percentil 75: LCP e INP en ms, CLS sin unidad. */
+  vitals: z.object({
+    lcp: serviceSeriesSchema,
+    cls: serviceSeriesSchema,
+    inp: serviceSeriesSchema
+  }),
+  rageClicks: serviceSeriesSchema
+})
+
+/** Totales del rango por papel, con los mismos papeles y unidades que las series. */
+const applicationRumTotalsSchema = z.object({
+  actionsByType: z.object({ load: rumTotal, xhr: rumTotal, custom: rumTotal }),
+  durationByType: z.object({ load: rumTotal, xhr: rumTotal, custom: rumTotal }),
+  errorsByType: z.object({ javascript: rumTotal, http: rumTotal, other: rumTotal }),
+  affectedActionsPct: rumTotal,
+  activeUsers: rumTotal,
+  sessions: z.object({ started: rumTotal, ended: rumTotal }),
+  sessionDuration: rumTotal,
+  actionsPerSession: rumTotal,
+  bounceRate: rumTotal,
+  vitals: z.object({ lcp: rumTotal, cls: rumTotal, inp: rumTotal }),
+  rageClicks: rumTotal
+})
+
+/**
+ * Datos de RUM de una aplicación web en el rango (canal `entities:applicationRum`, ficha
+ * 0052). Solo métricas clásicas `builtin:apps.web.*`. Todos los papeles tienen métrica:
+ * sin datos, series vacías y totales a null. Unidades sin convertir.
+ */
+export const applicationRumResultSchema = z.object({
+  /** Resolución que devolvió la API para las series (por ejemplo, 10m o 1h). */
+  resolution: z.string(),
+  series: applicationRumSeriesSchema,
+  /** Valores del rango completo (resolution=Inf); null sin dato. */
+  totals: applicationRumTotalsSchema,
+  warnings: z.array(z.string()),
+  partial: metricResultSchema.shape.partial
+})
+export type ApplicationRumResult = z.output<typeof applicationRumResultSchema>
+
 /**
  * Id de una entidad DISK de Dynatrace (ficha 0040). Main lo mete dentro del filtro
  * `:filter(eq("dt.entity.disk","<id>"))`: el formato estricto (tipo y 16 hexadecimales)

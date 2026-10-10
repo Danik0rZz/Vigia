@@ -38,6 +38,7 @@ import {
   processGroupEntityIdSchema,
   applicationEntityIdSchema,
   applicationMetricsResultSchema,
+  applicationRumResultSchema,
   diskEntityIdSchema,
   diskMetricsResultSchema,
   processGroupInstancesResultSchema,
@@ -465,6 +466,20 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: applicationMetricsResultSchema
+  },
+  /**
+   * Datos de RUM de una aplicación web (APPLICATION) en el rango (ficha 0052): series y
+   * totales por papel (acciones y duración por tipo, errores por tipo, acciones afectadas,
+   * usuarios, sesiones, rebote, Core Web Vitals y rage clicks). Solo métricas clásicas
+   * `builtin:apps.web.*`. La interfaz manda el id y main construye los selectores.
+   */
+  'entities:applicationRum': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: applicationEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: applicationRumResultSchema
   },
   /**
    * Métricas de una entidad DISK en el rango (ficha 0040): series y marcadores por papel

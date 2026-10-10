@@ -78,6 +78,7 @@ import {
   applicationEntitySelector,
   toApplicationMetrics
 } from '../../modules/application-metrics'
+import { RUM_SELECTORS, toApplicationRum } from '../../modules/application-rum'
 import { diskMarkerSelector, diskSeriesSelector, toDiskMetrics } from '../../modules/disk-metrics'
 import {
   HOST_LOGS_FIELDS,
@@ -129,6 +130,7 @@ type ModuleChannels =
   | 'entities:processGroupMetrics'
   | 'entities:processGroupInstances'
   | 'entities:applicationMetrics'
+  | 'entities:applicationRum'
   | 'entities:diskMetrics'
   | 'slos:list'
   | 'savedQueries:list'
@@ -685,6 +687,41 @@ export function createModuleHandlers(
         ])
         return toApplicationMetrics(series, totals, actions)
       } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'applicationMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:applicationRum': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const entitySelector = applicationEntitySelector(entityId)
+      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
+        client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          path: '/metrics/query',
+          query: { metricSelector, entitySelector, resolution, ...range },
+          schema: metricDataSchema
+        })
+      try {
+        // Todas en paralelo, de 10 en 10 (límite de la API): series con la resolución que
+        // elija la API y totales con Inf (sin fold: mezclarlos da 400).
+        const [series, totals] = await Promise.all([
+          Promise.all(RUM_SELECTORS.map((selector) => query(selector))),
+          Promise.all(RUM_SELECTORS.map((selector) => query(selector, 'Inf')))
+        ])
+        return toApplicationRum(series, totals)
+      } catch (error) {
+        // El texto de la 0033 («la consulta de métricas de la aplicación») vale aquí.
         if (
           error instanceof DtError &&
           (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
