@@ -1,7 +1,7 @@
 ---
 id: '0064'
 titulo: '«Reintentar» de un panel solo vuelve a pedir lo suyo (y arreglos pequeños de la interfaz)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-interfaz
@@ -200,4 +200,8 @@ Decisiones del developer (la cola está delegada; se pueden afinar):
 
 ## Resultado
 
-(pendiente)
+- Commits: 17 en la rama (`c680e67` a `5819b67`): tests, `PanelBoundary` con `onRetry`, secretos (C-08 y C-09), `app:getInfo` con tiempo máximo (C-10), `DataGrid` (C-13), `MarkdownHeading` (C-14) y la corrección de la ronda 1.
+- Ficheros principales: `components/PanelBoundary.tsx`, `EvidenceMetricChart.tsx`, `MarkdownText.tsx`, `DataGrid.tsx`, `app/RouteError.tsx`, `settings/SecretsPanel.tsx`, `settings/EnvironmentForm.tsx`, `data/tenants.ts`, `main.tsx`, `Sidebar.tsx`, `main.css`, y los e2e de `views.spec.ts` y `tenants.spec.ts`.
+- Rondas de revisión: 2 (CAMBIOS: `MarkdownHeading` perdía el `id` de las notas al pie; APROBADO).
+- ADR nuevo: ninguno. Sin migraciones.
+- Ideas pasadas al BACKLOG: notas al pie del Markdown e inestabilidad de `tenants.spec.ts`.

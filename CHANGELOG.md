@@ -20,6 +20,11 @@ Sin migraciones nuevas.
 
 ### Corregido
 
+- **«Reintentar» de un panel solo vuelve a pedir lo suyo.** Antes, un clic en «Reintentar» en un panel que había fallado volvía a pedir todas las consultas activas de la pantalla (con quince evidencias con métrica, quince consultas más), gastando cuota justo cuando algo falla. Ahora el gráfico de entidad, el de Métricas, el mini gráfico de cada evidencia, la línea de tiempo y la tabla de Problemas repiten solo su consulta; el resto de paneles solo vuelven a pintarse con lo que ya había. (ficha 0064)
+- **Sin el aviso de cerrar con secretos sin guardar por un campo que ya no existe.** Al escribir en un secreto de plataforma, pasar el entorno a Managed y guardar, ya no sale «Hay secretos sin guardar». (ficha 0064)
+- **El token guardado no se queda en la caché.** Tras guardar un secreto, su valor ya no permanece unos minutos en la memoria de consultas de la interfaz. (ficha 0064)
+- **La información de la app tiene tiempo máximo al arrancar.** Si `app:getInfo` no responde, la primera pantalla sale a los 2 s con valores por defecto, en lugar de quedarse esperando. (ficha 0064)
+- **Los títulos del Markdown del tenant ya no desordenan la página.** Los `#` de las descripciones salen con el mismo aspecto, pero como títulos de nivel 5 o 6 y no como `h1`…`h6`, para no alterar la jerarquía que oyen los lectores de pantalla. (ficha 0064)
 - **Las fechas del XLSX exportado salen en hora local.** Antes Excel enseñaba la hora UTC, así que las celdas de fecha y las filas «Exportado», «Desde» y «Hasta» de la hoja Info salían desplazadas una o dos horas respecto a la zona que dice esa misma hoja. Ahora cuadran con la zona del equipo. **El CSV no cambia:** sigue en ISO UTC con `Z`, sin ambigüedad. Sin migraciones nuevas. (ficha 0063)
 - **El TXT aguanta tablas grandes.** Exportar a TXT una tabla de muchas filas (el máximo es 100 000) podía fallar con un error interno al calcular el ancho de las columnas; ahora se calcula sin ese límite. Sin migraciones nuevas. (ficha 0063)
 - **El fichero de configuración exportado lleva la fecha local.** Entre las 00:00 y las 02:00 (hora peninsular) el nombre llevaba la fecha del día anterior; ahora usa la del día local, como el resto de exportaciones. Sin migraciones nuevas. (ficha 0063)

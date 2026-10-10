@@ -13,7 +13,7 @@ bueno de Dani o de peticiones en su nombre.
   **auditoria-publicacion** (0055 y 0056 hechas),
   **auditoria-codigo-comun** (0057, 0058 y 0059 hechas), **auditoria-robustez** (0060 hecha,
   0061 y 0062 hechas), **auditoria-exportacion** (0063 hecha) y
-  [0064](tasks/0064-reintentar-solo-su-panel.md).
+  **auditoria-interfaz** (0064 hecha).
 - Después, [0065](tasks/0065-titulo-slo-servicio.md) (título «SLO» del servicio, ligera, con medición del flujo), aprobada por Dani el 2026-10-10.
 - Después, [0066](tasks/0066-marcador-slo-servicio.md) (marcador «SLO» propio en el servicio, ligera, con medición del flujo; depende de la 0065), aprobada por Dani el 2026-10-10.
 - Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
@@ -231,6 +231,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Cancelar el cuerpo del 401 de OAuth antes de reintentar, como ya se hace con el 429. (surgió en 0062)
 - `csv.ts` construye las líneas con spread en literales de array (`[header, ...lines]`): no es el fallo del TXT (un spread en un literal no tiene el límite de argumentos), pero por coherencia podría pasar a `concat`. (surgió en 0063)
 - Test e2e de la exportación del mini gráfico: una exportación justo en la hora repetida de una zona con cambio de hora puede salirse una hora (no en el CI, que va en UTC; en la VPS, una hora al año). (surgió en 0063)
+- Notas al pie del Markdown del tenant: las referencias `[^1]` y la vuelta `↩` salen en texto, porque sus enlaces internos no son http/https; se podrían admitir los anclajes internos `#user-content-…`. Además el título oculto sale con el texto por defecto de remark-rehype («Footnotes»), sin traducir: ponerlo en es y en. (surgió en 0064)
+- `e2e/tenants.spec.ts` es inestable a veces: AUD-03 (confirmación al cerrar con un secreto sin guardar) y AUD-21 (paleta por encima de un diálogo) fallan con `--repeat-each 3`; ya pasaba en `main`. (surgió en 0064)
 
 ## Aparcado
 
@@ -325,3 +327,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md) (lote auditoria-robustez): la ventana se recarga si la interfaz cae o la matan (`crash-policy.ts`, con límite de una recarga por minuto) y avisa si se cuelga; copia de `vigia.db` en `%APPDATA%\vigia\backups` antes de migrar (3 copias). Sin migraciones.
 - [0062](tasks/0062-limite-peticiones-simultaneas.md) (lote auditoria-robustez): main limita a 6 las peticiones simultáneas a Dynatrace por entorno (`dynatrace/concurrency.ts`), con cola en orden, cancelación y aviso `debug` al pasar de 20 pendientes. Sin migraciones.
 - [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) (lote auditoria-exportacion): las fechas del XLSX van en hora local (`toExcelLocal`), el TXT calcula los anchos con un bucle (aguanta tablas grandes) y el fichero de configuración lleva la fecha local (`localDateStamp`). Sin migraciones.
+- [0064](tasks/0064-reintentar-solo-su-panel.md) (lote auditoria-interfaz): «Reintentar» de un panel solo repite su consulta (`onRetry` de `PanelBoundary`), sin aviso de secretos por campos que ya no existen, token fuera de la caché de mutaciones (`gcTime: 0`), `app:getInfo` con tiempo máximo de 2 s, `DataGrid` cancela su fotograma y los títulos del Markdown del tenant son `p[role="heading"]` (`MarkdownHeading`). Sin migraciones.
