@@ -2,6 +2,13 @@
 # Windows. Sin test:live ni secretos: los logs de un repositorio público son públicos. El zip no se
 # sube (publicarlo lo decide Dani).
 #
+# Ficha 0072: también corre en cada PR a main, sin filtro de rutas, para que el check «CI ok» exista
+# siempre (es el que exigirá la protección de main). Tres jobs: `cambios` decide con
+# scripts/ci-changes.mjs si la PR trae algo más que documentos (la lista de lo que no cuenta vive
+# en ese script; el paths-ignore del push tiene que coincidir con ella), `windows` pasa check y el
+# e2e completo solo si hay código (el zip solo fuera de las PR) y `ci-ok` da verde si nada falló
+# ni se canceló. Hasta la ficha 0073, el push a main sigue igual que antes.
+#
 # Ficha 0056: cada acción va fijada por SHA de commit, con su versión en el comentario (una etiqueta
 # la puede mover su dueño o quien le robe la cuenta). Al subir una acción se cambia aquí, en
 # audit.yml y en la tabla PINNED de scripts/ci-workflow.test.ts.
@@ -15,19 +22,41 @@ on:
       - 'docs/**'
       - 'tasks/**'
       - '.claude/**'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Los runs se encolan, no se cancelan: en una cola de fichas, el push de la siguiente no debe
-# cancelar el CI de la anterior (el aviso de Telegram enlaza a ese run).
+# En main los runs se encolan, no se cancelan: en una cola de fichas, el push de la siguiente no
+# debe cancelar el CI de la anterior (el aviso de Telegram enlaza a ese run). En una PR solo cuenta
+# el último push: el nuevo cancela el run anterior de esa misma PR (github.ref es refs/pull/N/merge).
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  cambios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      codigo: ${{ steps.cambios.outputs.codigo }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # El commit de fusión de la PR y su primer padre (main).
+          fetch-depth: 2
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: ¿Trae código?
+        id: cambios
+        run: node scripts/ci-changes.mjs
+
   windows:
+    needs: [cambios]
+    if: needs.cambios.outputs.codigo == 'true'
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -69,4 +98,20 @@ jobs:
           path: test-results/
           retention-days: 7
           if-no-files-found: ignore
-      - run: npm run dist:win
+      # El zip solo en el push a main (y a mano), no en las PR.
+      - if: github.event_name != 'pull_request'
+        run: npm run dist:win
+
+  # El único check que exigirá la protección de main: siempre se ejecuta, también si windows se
+  # saltó porque la PR solo trae documentos. Rojo si algún job falló o se canceló.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs: [cambios, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Algún job falló o se canceló
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - run: echo "cambios ${{ needs.cambios.result }}, windows ${{ needs.windows.result }}"
