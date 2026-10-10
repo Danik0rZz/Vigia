@@ -2791,6 +2791,15 @@ function processGroupMetricResponse(query: URLSearchParams): [number, unknown] {
       { error: { code: 400, message: 'Métricas del process group no disponibles (simulado)' } }
     ]
   }
+  // Ficha 0051: solo la consulta de la lista completa (CPU con :sort y sin :limit) falla.
+  if (
+    sim.processGroupInstancesFail &&
+    inf &&
+    selector.includes(':sort(value(avg,descending))') &&
+    !selector.includes(':limit(')
+  ) {
+    return [400, { error: { code: 400, message: 'Lista de instancias no disponible (simulado)' } }]
+  }
   if (inf && selector.includes(':fold(')) {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
   }
@@ -4121,6 +4130,8 @@ const defaultSim = () => ({
   processGroupTruncated: false,
   /** Ficha 0051: /entities de las instancias de un grupo responde 403 (total no conocido). */
   processGroupEntitiesFail: false,
+  /** Ficha 0051: la consulta de la lista completa del modal «Ver todas» falla con un 400. */
+  processGroupInstancesFail: false,
   /** Ficha 0028: las consultas de métricas de los procesos inventados fallan con un 400. */
   processMetricsFail: false,
   /** Ficha 0028: métricas (sin agregación) que llegan sin series a los procesos inventados. */
@@ -15504,6 +15515,72 @@ test('CA3 (0051): con un grupo recortado, el modal avisa arriba del recorte con 
   const noticeBox = await settledBox(notice)
   const gridBox = await settledBox(dialog.getByTestId('process-group-instances-dialog-grid'))
   expect(noticeBox.y + noticeBox.height).toBeLessThanOrEqual(gridBox.y + 1)
+})
+
+test('CA3 (0051), revisión ronda 1: con el grupo recortado y el total real, la tabla avisa de que la lista puede estar incompleta y el marcador da 600 exacto', async () => {
+  await openPgGroup(PROCESS_GROUP_CUT_ID)
+  // El marcador, exacto: el total sale de /entities aunque llegue `partial`.
+  const marker = pgMarker('instances')
+  await expect(marker.getByTestId('process-group-marker-value')).toHaveText(/^\s*600\s*$/)
+  await expect(marker).not.toContainText(/\+|mínimo|al menos/i)
+  // La tabla sí avisa del recorte: la lista puede estar incompleta, el total no.
+  const notice = pgInstances().getByTestId('process-group-instances-partial')
+  await expect(notice).toBeVisible()
+  await expect(notice).toContainText(/recort/i)
+  await expect(notice).toContainText(/lista puede estar incompleta/)
+  await expect(notice).not.toContainText(/total/i)
+})
+
+test('CA2 (0051), revisión ronda 1: con el modal cerrado, ni un rango nuevo ni «Actualizar» piden la lista completa; al volver a abrirlo, sí', async () => {
+  await openPgGroup(PROCESS_GROUP_MANY_ID)
+  await openPgDialog()
+  await settledRequests()
+  expect(pgFullListQueries()).toHaveLength(1)
+  await page.keyboard.press('Escape')
+  await expect(pgDialog()).toHaveCount(0)
+
+  // Rango nuevo con el modal cerrado: la página pide lo suyo, la lista completa no.
+  const groupQueries = sim.processGroupMetricQueries.length
+  await page.getByTestId('time-range-24h').click()
+  await expect.poll(() => sim.processGroupMetricQueries.length).toBeGreaterThan(groupQueries)
+  await settledRequests()
+  expect(pgFullListQueries()).toHaveLength(1)
+  // Al abrir, la del rango nuevo.
+  await openPgDialog()
+  await settledRequests()
+  expect(pgFullListQueries()).toHaveLength(2)
+  expect(pgFullListQueries()[1]?.get('from')).toBe('now-24h')
+  await page.keyboard.press('Escape')
+  await expect(pgDialog()).toHaveCount(0)
+
+  // «Actualizar» con el modal cerrado: no la pide; al abrir, ya no vale la de antes.
+  const beforeRefresh = sim.processGroupMetricQueries.length
+  await clickInPlace(pgPage().getByTestId('module-refresh'), { scroll: true })
+  await expect.poll(() => sim.processGroupMetricQueries.length).toBeGreaterThan(beforeRefresh)
+  await settledRequests()
+  expect(pgFullListQueries()).toHaveLength(2)
+  await openPgDialog()
+  await settledRequests()
+  expect(pgFullListQueries()).toHaveLength(3)
+})
+
+test('Especificación (0051): si falla la lista completa, el modal enseña el aviso con Reintentar, y Reintentar la carga', async () => {
+  sim.processGroupInstancesFail = true
+  await openPgGroup(PROCESS_GROUP_MANY_ID)
+  await clickInPlace(pgViewAll(), { scroll: true })
+  const dialog = pgDialog()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('alert').first()).toBeVisible()
+  const retry = dialog.getByRole('button', { name: 'Reintentar' })
+  await expect(retry).toBeVisible()
+  await expect(pgDialogRows()).toHaveCount(0)
+  // La tabla de la página sigue con sus 20.
+  await expect(pgInstances().getByTestId('process-group-instance-row')).toHaveCount(20)
+
+  sim.processGroupInstancesFail = false
+  await clickInPlace(retry)
+  await expect(pgDialogRows()).toHaveCount(30)
+  await expect(dialog.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
 })
 
 test('CA4 (0051): en el modal, el buscador filtra por nombre o host, el orden por columna funciona, Escape y clic fuera cierran con el foco en «Ver todas», y pulsar un proceso abre su página', async () => {

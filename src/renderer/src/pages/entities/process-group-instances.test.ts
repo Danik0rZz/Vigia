@@ -13,6 +13,7 @@ import {
   hostLinkId,
   instanceComparators,
   instanceLinkId,
+  instancesAtLeast,
   instancesNotice,
   instancesTruncated
 } from './process-group-instances'
@@ -68,25 +69,37 @@ describe('tabla «Instancias» (0032)', () => {
     expect(hostLinkId(instance({ hostId: null }))).toBeNull()
   })
 
-  // Ficha 0051 (nota del revisor de la 0050): solo sin el total real; con él, el total es exacto.
-  it('recortada si main avisa en partial y no se conoce el total real', () => {
+  // La lista de la tabla puede estar incompleta con `partial`, se sepa o no el total real.
+  it('recortada si main avisa en partial, se conozca o no el total real', () => {
     const data = {
       partial: [],
       instances: { items: [], total: 0, totalKnown: false }
     } as unknown as ProcessGroupMetricsResult
     expect(instancesTruncated(data)).toBe(false)
-    expect(
-      instancesTruncated({
-        partial: [{ metricId: 'x', dataPointCountRatio: 0, dimensionCountRatio: 1.5 }],
-        instances: { items: [], total: 7, totalKnown: false }
+    for (const totalKnown of [false, true]) {
+      expect(
+        instancesTruncated({
+          partial: [{ metricId: 'x', dataPointCountRatio: 0, dimensionCountRatio: 1.5 }],
+          instances: { items: [], total: 600, totalKnown }
+        } as unknown as ProcessGroupMetricsResult),
+        `totalKnown: ${totalKnown}`
+      ).toBe(true)
+    }
+  })
+
+  // Ficha 0051 (nota del revisor de la 0050 y ronda 1 de la 0051): el «como mínimo» del marcador,
+  // solo con partial y sin el total real; con él, el total es exacto.
+  it('el marcador da el número como mínimo solo con partial y sin el total real', () => {
+    const cut = [{ metricId: 'x', dataPointCountRatio: 0, dimensionCountRatio: 1.5 }]
+    const atLeast = (partial: unknown[], totalKnown: boolean): boolean =>
+      instancesAtLeast({
+        partial,
+        instances: { items: [], total: 7, totalKnown }
       } as unknown as ProcessGroupMetricsResult)
-    ).toBe(true)
-    expect(
-      instancesTruncated({
-        partial: [{ metricId: 'x', dataPointCountRatio: 0, dimensionCountRatio: 1.5 }],
-        instances: { items: [], total: 600, totalKnown: true }
-      } as unknown as ProcessGroupMetricsResult)
-    ).toBe(false)
+    expect(atLeast(cut, false)).toBe(true)
+    expect(atLeast(cut, true)).toBe(false)
+    expect(atLeast([], false)).toBe(false)
+    expect(atLeast([], true)).toBe(false)
   })
 })
 

@@ -93,6 +93,8 @@ describe('CA7 (0032): textos de la página del process group en es y en', () => 
       'instances.moreOf': /\{\{shown\}\}.*\{\{total\}\}/,
       'instances.moreUnknown': /\{\{shown\}\}/,
       'instances.viewAll': /\S/,
+      // Ronda 1 de la 0051: el aviso de recorte de la tabla con el total real conocido.
+      'instances.partialList': /\S/,
       'instances.dialog.title': /\{\{name\}\}/,
       'instances.dialog.search': /\S/,
       'instances.dialog.truncatedOf': /\{\{shown\}\}.*\{\{total\}\}/,
@@ -105,6 +107,8 @@ describe('CA7 (0032): textos de la página del process group en es y en', () => 
         ['es', esGroup],
         ['en', enGroup]
       ] as const) {
+        // Sin `typeof`, una clave que falta pasaría: String(undefined) es «undefined».
+        expect(typeof messages[key], `entities.processGroup.${key} (${lang})`).toBe('string')
         expect(String(messages[key]), `entities.processGroup.${key} (${lang})`).toMatch(pattern)
       }
     }
