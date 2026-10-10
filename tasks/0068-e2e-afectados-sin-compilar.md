@@ -1,7 +1,7 @@
 ---
 id: '0068'
 titulo: 'test:e2e:affected: opción de no compilar y de pasar -g y --last-failed a Playwright'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -92,7 +92,17 @@ Normal (`ligera: no`).
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `080ad50` (`scripts/affected-e2e.test.ts`), fallan porque `parseArgs` y `plan`
+aún no existen. Contrato que fijan: `parseArgs(argv)` devuelve las opciones con `range`, o
+`{ exit, message }` para `--help` (0) y opciones desconocidas (2); `plan(decision, options,
+{ outExists })` devuelve `{ commands: [{ command: 'npx', args }], exit?, message? }`.
+
+- CA1 → `describe('CA1 (0068): sin opciones, el plan es el de hoy')`.
+- CA2 → `describe('CA2 (0068): --no-build')`.
+- CA3 → `describe('CA3 (0068): -g, --grep y --last-failed llegan a Playwright después de los specs')`.
+- CA4 → `describe('CA4 (0068): opción desconocida y --help')` (incluye lanzar el script con
+  `--no-buidl`: código 2 y el uso).
+- CA5 → `describe('CA5 (0068): con la decisión «ninguno», el plan está vacío')`.
 
 ## Resultado
 
