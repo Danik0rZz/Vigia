@@ -49,8 +49,11 @@ migración que "acaba bien" y deja datos mal solo se ve después.
 ## Criterios de aceptación
 
 - CA1 (unitario): la política recarga en la primera caída, muestra el diálogo y cierra en la segunda
-  antes de un minuto, y vuelve a recargar si pasa más de un minuto; no hace nada con `clean-exit` ni
-  `killed`.
+  antes de un minuto, y vuelve a recargar si pasa más de un minuto; `killed` se trata como una caída
+  más (mismo límite); no hace nada con `clean-exit`. **Ajustado por decisión del Planificador
+  (2026-10-10, Dani dormido, revisable por Dani):** en Windows «Finalizar tarea» o un antivirus llegan
+  como `killed`, y sin recarga la ventana se quedaría en blanco, que es lo que la ficha quiere evitar;
+  el límite impide el bucle. La prueba a mano se mantiene.
 - CA2 (unitario): con una base en un fichero temporal y una migración pendiente, se crea la copia y
   la base sigue funcionando; sin migraciones pendientes no se crea nada.
 - CA3 (unitario): con cuatro copias se borra la más antigua.
