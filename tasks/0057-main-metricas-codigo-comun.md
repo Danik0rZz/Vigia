@@ -12,7 +12,7 @@ adrs: [2, 5]
 adr_nuevo:
 api: ninguna nueva (los mismos endpoints y expresiones de métrica ya probados en vivo)
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -90,6 +90,13 @@ equivalentes (`?? null`, `firstValue`, comparadores). Tras `7080d03` solo cambia
 
 Opcional: recuperar la línea en blanco entre `entities:hostBreakdown` y `entities:hostLogs` en
 `handlers/modules.ts`.
+
+### Ronda 2: APROBADO
+
+El CAMBIO de la ronda 1, resuelto en `71287b5`: `rateSeries` vuelve a tener su comentario e `inMs`
+va debajo con el suyo, sin cambiar el código. Recuperada la línea en blanco entre
+`entities:hostBreakdown` y `entities:hostLogs`. Nada más cambia salvo el estado de la ficha; sigue
+valiendo lo comprobado en la ronda 1.
 
 ## Verificación
 
