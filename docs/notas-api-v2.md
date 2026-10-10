@@ -424,6 +424,34 @@ Muestra: 3 servicios con problemas en los últimos 7 días, con `now-2h` y `now-
   descriptor del resultado): **recortado es un ratio mayor que 1**, y 1 / ratio es la parte que
   llegó. Un ratio < 1 es lo normal. (La app usaba «< 1» y avisaba en falso.)
 
+### Métricas de un servicio según su `serviceType` (ficha 0046, observado en vivo, solo lectura)
+
+Muestra: censo de `type("SERVICE")` en `now-24h` y 2 servicios por tipo con
+`entitySelector=type("SERVICE"),serviceType("…")` (el selector filtra bien).
+
+- **`GET /entities/{id}`** con `fields=+properties.serviceType,+properties.webServerName,+properties.remoteEndpoint,+properties.remoteServiceName`:
+  200 y `properties.serviceType` siempre; una propiedad que el servicio no tiene **no llega** (la
+  clave falta, no viene a `null`).
+- **Tipos vistos:** `WEB_SERVICE`, `CUSTOM_SERVICE`, `SPAN`, `EXTERNAL`, `WEB_REQUEST_SERVICE`,
+  `RPC_SERVICE`, `DATABASE_SERVICE`, `UNIFIED` y `QUEUE_LISTENER_SERVICE` (no
+  `BACKGROUND_ACTIVITY` ni `MESSAGING_SERVICE`).
+- **Qué conjunto tiene datos:** Servidor (`*.server`) en WEB_SERVICE, CUSTOM_SERVICE, SPAN,
+  WEB_REQUEST_SERVICE con `webServerName` y RPC_SERVICE sin `remote*`. Cliente (`*.client`) en
+  WEB_REQUEST_SERVICE sin `webServerName`, DATABASE_SERVICE y **EXTERNAL** (sin datos de
+  Servidor); el RPC_SERVICE con `remote*` tiene datos en los dos. QUEUE_LISTENER_SERVICE: solo
+  `response.server` (tiempos y `:count`); `requestCount.server` y los errores, sin datos.
+- **Cliente** tiene las mismas unidades que Servidor (tiempos en `MicroSecond`, recuentos `Count`,
+  tasa `Percent`).
+- **Unificadas** (`builtin:service.request.*_service_aggregation`): `response_time_…` en
+  **`MilliSecond`** (con `median` y `percentile`), `failure_count_…` y `count_…` en `Count`.
+  `response_time_…` y `count_…` tienen la dimensión `failed` (`"true"`/`"false"`): sin
+  `:splitBy("dt.entity.service")` llegan dos series. Con él, el total es la suma de las dos, y
+  `failure_count_…` = `count_…` con `failed=true`. **No hay métrica de tasa**: se calcula como
+  fallidas / total × 100.
+- Todas las expresiones del canal (con `:filter(eq("dt.entity.service",…)):splitBy("dt.entity.service")`
+  tras la clave) dan 200, una serie cada una y en el orden pedido, sin `resolution` y con
+  `resolution=Inf`.
+
 ### Métricas de un host (ficha 0016, observado en vivo, solo lectura)
 
 Muestra: 3 hosts, con `now-2h` y `now-7d`. Las 11 candidatas existen. Todas con

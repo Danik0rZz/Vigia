@@ -1,7 +1,7 @@
 ---
 id: '0046'
 titulo: 'SERVICE: las métricas dependen del serviceType (servidor, cliente, unificadas o solo actividad)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -91,7 +91,7 @@ comportamientos, nunca ids ni nombres. Resultado en "Resultado" y en `docs/notas
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Que la 0047 detecte el «por defecto» por un campo estructurado (por ejemplo, `metricSetFallback: true`) en vez de por los textos de `warnings`, que son de diagnóstico y en español.
 
 ## Notas del revisor
 
@@ -191,4 +191,27 @@ de otra forma; se lo cuento en el resumen. CA2 se lee con esta corrección.
 
 ## Resultado
 
-(pendiente)
+**Developer (2026-10-10):** `serviceMetricSet` en `src/main/modules/service-metric-set.ts`
+(con `SERVICE_TYPE_FIELDS` y la lista de tipos de la tabla, EXTERNAL en Cliente); el canal
+(`src/main/ipc/handlers/modules.ts`) pide la entidad, elige el conjunto y construye las consultas
+con `src/main/modules/service-metrics.ts` (claves por conjunto en `SERVICE_METRIC_KEYS`). Lo
+observado en vivo, en `docs/notas-api-v2.md` («Métricas de un servicio según su serviceType»).
+
+Decisiones del developer (refinables):
+
+- **Consultas por conjunto:** Servidor y Cliente, 6 expresiones de series y 3 de marcadores
+  (`Inf`), como en la 0006; Unificadas, 5 de series (sin tasa) y 3 de marcadores; Solo actividad,
+  **una sola consulta** (`response.server…:count`) y ninguna de marcadores, porque no mide
+  tiempos. Ninguna pasa de 10 expresiones.
+- **La entidad va antes y en serie** (no en paralelo con las métricas): las consultas dependen
+  del conjunto. Cualquier `DtError` al leerla (403, 404, 400, red…) da Servidor y un aviso; si el
+  fallo es del token entero, las métricas fallan después con su error, como antes.
+- **Textos de `warnings` propios en español** y solo con el estado HTTP (nunca el texto de
+  Dynatrace ni el id): son diagnóstico, como los de Dynatrace, que ya llegan sin traducir. La
+  nota visible de la 0047 debe salir de `serviceType`/`metricSet`, no de estos textos (ver
+  «Ideas surgidas»).
+- **Esquema compartido:** `series.responseTime`, `series.errors`, `series.ok`, `series.errorRate`,
+  `totals.errors`, `totals.ok` y `totals.responseTime` pasan a admitir `null` (Solo actividad).
+  En el renderer, solo lo mínimo para compilar: `service-charts.ts` pinta una serie `null` sin
+  puntos y el fixture de `service-charts.test.ts` gana los tres campos nuevos (sin tocar sus
+  aserciones). La vista por tipo es de la 0047.
