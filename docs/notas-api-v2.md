@@ -633,6 +633,27 @@ confirmaron con 200, `metricId` igual a la expresión y ratios < 0,01.
   unas 498 instancias la respuesta llega recortada (el canal lo avisa en `partial`).
 - Dos de los tres grupos no traían red: sin series en esas métricas.
 
+### Las instancias de más CPU de un process group (ficha 0050, observado en vivo, solo lectura)
+
+3 grupos de 51 a 150 instancias, `now-24h`.
+
+- `<CPU por instancia>:sort(value(avg,descending)):limit(20)` (la expresión por instancia de la
+  0031 seguida de `:sort` y `:limit`) funciona con `resolution=Inf`: 200, `metricId` igual a la
+  expresión y las 20 de más CPU de más a menos, las mismas y en el mismo orden que ordenar la lista
+  completa. También vale con `:names` detrás de `:limit`. `:limit` sin `:sort` da unas cualesquiera
+  (la lista sin `:sort` no viene ordenada) y `ascending` invierte el orden.
+- La memoria de esas 20 no sale de una expresión ordenada por CPU: se pide la memoria de todas en la
+  misma consulta (4 totales + CPU de las 20 + memoria, 6 expresiones) y se casa por id. Filtrarla
+  aparte con `:filter(or(eq("dt.entity.process_group_instance","<id>"),…))` da los mismos valores,
+  pero es una petición más. Así, la consulta de marcadores da 4 + 20 + N series: cabe hasta unas
+  976 instancias.
+- `GET /entities` con el selector de las instancias del grupo y `pageSize=1` da `totalCount`, igual
+  al número de instancias de la lista y al de series de CPU cuando no hay recorte.
+- Tope: `dimensionCountRatio` deduce un máximo de 100000 por métrica, que no es el de 1000 series de
+  la respuesta. Con grupos de 150 instancias como mucho no se pudo comprobar dónde corta la lista
+  completa (por cálculo, 2·N ≤ 1000: unas 500 instancias) ni si `:limit(20)` elige las de más CPU
+  entre todas cuando el grupo pasa del tope.
+
 ### Métricas de una aplicación web (ficha 0033, observado en vivo, solo lectura)
 
 3 aplicaciones, `now-24h`. Catálogo `builtin:apps.web.*`: 89 métricas. Las de la aplicación tienen la

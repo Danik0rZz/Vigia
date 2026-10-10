@@ -1,7 +1,7 @@
 ---
 id: '0050'
 titulo: 'PROCESS_GROUP: las 20 instancias de más CPU con :sort/:limit, el total real y la lista completa a demanda'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -87,7 +87,9 @@ responde, también con un grupo recortado.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `entities:processGroupInstances` no dice si su `total` es el real: sin `totalCount`
+  (403 o error en `/entities`) es el número recibido y `truncated` solo refleja el recorte de la
+  API. Si el modal de la 0051 necesita distinguirlo, añadir `totalKnown` también a este canal.
 
 ## Notas del revisor
 
@@ -156,6 +158,22 @@ Ejecución antes del código: unitarios, 21 fallan por lo que falta (canal desco
 `:sort`/`:limit`, sin `/entities`, sin `totalKnown`); e2e, los 4 de la 0050 fallan (sin
 `:sort`/`:limit`, 30 en vez de 20, `UNKNOWN_CHANNEL`) y los de la 0031 y la 0032 siguen en verde con
 el simulador ampliado.
+
+**Decisiones del developer (delegadas, refinables):**
+
+- `entities:processGroupInstances` sin `totalCount`: `total` es el número de instancias recibidas
+  y `truncated` solo es `true` si la API recortó (ratio > 1). La salida se queda en
+  `{ items, total, truncated }`, como fija el test de contrato (sin `totalKnown`; ver "Ideas").
+- Un fallo de `/entities` solo se absorbe si es un `DtError` (403, 500, red, respuesta no
+  válida): cualquier otro error sigue subiendo. La consulta a `/entities` va en paralelo con las de
+  métricas.
+- `entities:processGroupInstances` reutiliza el motivo `processGroupMetricsRejected` en el 400/404
+  (es la misma consulta de métricas del grupo, más larga): sin textos nuevos.
+- Las dos consultas quedan dentro del límite de 10 expresiones por `metricSelector` (6 y 2).
+- `process-group-charts.test.ts` (renderer) construía `instances` sin `totalKnown`: se le añade
+  `totalKnown: true` para que compile con el contrato nuevo (no cambia lo que comprueba).
+- Lo observado en el paso 0 está en `docs/notas-api-v2.md`, "Las instancias de más CPU de un
+  process group (ficha 0050)".
 
 ## Resultado
 
