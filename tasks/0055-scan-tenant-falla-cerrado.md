@@ -1,7 +1,7 @@
 ---
 id: '0055'
 titulo: '`scan:tenant` falla cerrado: sin `.env.live.local` no da verde, y escanea lo que de verdad se sube'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -172,6 +172,15 @@ no se pone rojo por esto.
   `cbc98bf`).
   Probado también a mano con un push real a un remoto temporal, con datos inventados: fuga, limpio,
   rama nueva, borrado, nada que subir y un worktree sin `.env`.
+
+### Verifier, 2026-10-10, commit `edbdead`, rango `main..feat/0055-scan-tenant-falla-cerrado`: VERDE
+
+- check: 3268 tests en 181 ficheros, cobertura ok.
+- e2e afectados: ninguno (solo `scripts/` y `.githooks/pre-push`).
+- A mano: en un worktree sin `.env.live.local` propio, `scan-tenant` usa el del checkout principal
+  (CA2) y da 0 coincidencias sin imprimir valores; en un clon aislado sin `.env.live.local` en
+  ningún sitio, sale con 2 («no se puede comprobar») y, con `VIGIA_SCAN_TENANT_OPTIONAL=1`, con 0 y
+  el aviso.
 
 ## Resultado
 
