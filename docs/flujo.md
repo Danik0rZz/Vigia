@@ -175,8 +175,13 @@ el aviso de la ficha cuando acaba, con el enlace. **Si falla, se para la cola:**
 - El e2e local ya corre con la ventana del CI (1024×720): los specs la fijan al arrancar la app.
 - **Por ficha (verifier):** en un worktree propio en su scratchpad, `npm run check` y un único
   pase de `npm run test:e2e:affected -- main..feat/NNNN-slug`. No repite lo que ya está en verde
-  para el mismo commit. Mientras no existan las etiquetas por zona (ADR-0013, parte 2), los
-  afectados son los de `e2e/areas.json`, como hasta ahora.
+  para el mismo commit. Los tests ya llevan su etiqueta de zona (ficha 0067), pero hasta la 0071
+  los afectados siguen saliendo de las áreas de `e2e/areas.json`.
+- **Etiquetas de zona (ficha 0067):** cada test de `e2e/*.spec.ts` lleva exactamente una zona de
+  `zones` (`e2e/areas.json`), propia o de su `test.describe`, y `@portapapeles` si usa el
+  portapapeles del sistema. Una zona se lanza con `npm run test:e2e:nobuild -- --grep @zona`. La
+  guarda `scripts/e2e-tags.test.ts` (en `check`) falla si un test no tiene zona, tiene dos, usa
+  una etiqueta desconocida o el portapapeles sin `@portapapeles`, o si una zona no tiene tests.
 - **Transversal** (lo decide `e2e/areas.json`): e2e completo. Los locales y `main.css` no son
   transversales: los cubren el test de paridad y el de contraste (los dos en `check`) y disparan el
   área shell, más la del módulo si el diff toca uno. `scripts/**` está en ignore porque solo

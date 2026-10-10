@@ -1,7 +1,7 @@
 ---
 id: '0067'
 titulo: 'e2e: una etiqueta de zona en cada test, con una guarda que falla si falta'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -114,6 +114,25 @@ Normal (`ligera: no`). Es M, ya no cumple el requisito de tamaño.
 ## Ideas surgidas (fuera de alcance)
 
 (ninguna)
+
+## Notas del developer
+
+- Zonas: las 16 de la tabla, sin partir ninguna. Casos que cruzan, por la regla de la pantalla
+  donde se comprueba: «Copiar detalles» de la pantalla de error (en `views.spec.ts`) va a
+  `@errors`; los «Abrir en Métricas» que comprueban Métricas, a `@metricas`; `capture:region`,
+  «sin auto-refresco», AUD-08, BAD_REQUEST y AUD-10 (datos descartados al guardar un secreto), a
+  `@vistas-comun`; el separador de miles de los comentarios (0012), a `@problema-detalle`; las
+  páginas en construcción (CA7 0008) y «las tarjetas del servicio y del host siguen igual»
+  (CA4 0026), a `@entidad`; CA5 (0020), que mira la tarjeta del servicio, a `@servicio`.
+- Portapapeles: la guarda lo detecta por un identificador `clipboard` en el cuerpo del test o en
+  una función de nivel superior del spec que el test llame, directa o indirectamente (como
+  `clipboardText`); los hooks no cuentan. Un test que solo pulsa un «Copiar» sin leer el
+  portapapeles no se detecta: CA15 (0001) se ha etiquetado a mano (anotado en `e2e/CLAUDE.md`).
+- Una etiqueta desconocida en un `describe` se avisa una vez, con el título del describe.
+- Al añadir la opción `tag`, Prettier ya no aplica a esos tests el formato de «llamada de test» y
+  reparte en varias líneas los que no caben: el diff es grande, pero quitando las etiquetas los
+  tokens de los seis specs son idénticos a los de antes (comprobado con el compilador de
+  TypeScript).
 
 ## Notas del revisor
 

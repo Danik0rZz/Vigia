@@ -5,6 +5,13 @@
   `test.only`.
 - Cada test lleva en su nombre el criterio de su ficha: `CA3 (0012): ...`. Si no imaginas cómo
   podría fallar un test, ese test no prueba nada.
+- Cada test lleva exactamente una etiqueta de zona (`{ tag: '@problemas' }`, propia o de su
+  `test.describe`), de la lista `zones` de `areas.json`; la zona es la de la pantalla donde está lo
+  que se comprueba, y un canal por IPC va a la de su entidad. Si usa el portapapeles del sistema,
+  además `@portapapeles` (`resourceTags`). Una zona nueva se añade a `zones` con su descripción.
+  `scripts/e2e-tags.test.ts` lo vigila: detecta el portapapeles por `clipboard` en el cuerpo o en
+  una función del spec que el test llame, así que un test que solo pulsa un botón «Copiar» sin
+  leerlo se etiqueta a mano. Una zona se lanza con `npm run test:e2e:nobuild -- --grep @zona`.
 - Cada e2e usa su propia carpeta de datos (`VIGIA_USER_DATA_DIR`): el bloqueo de instancia única va
   por carpeta, así que no chocan con un `npm run dev` abierto. Con `VIGIA_E2E` las ventanas no
   toman el foco del sistema.
