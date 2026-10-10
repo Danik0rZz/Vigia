@@ -56,6 +56,27 @@
     "build/**",
     "e2e/areas.json"
   ],
+  "zones": {
+    "@smoke": "smoke.spec.ts: arranque, protocolo, preload, CSP e instancia única",
+    "@shell": "shell.spec.ts: menú, barra superior, tema, idioma y paleta",
+    "@tenants": "tenants.spec.ts: clientes, entornos y secretos",
+    "@tls": "tls.spec.ts: certificados y conexión",
+    "@errors": "pantallas de error (errors.spec.ts y «Copiar detalles»)",
+    "@vistas-comun": "lo común a las vistas: sin entorno, cambiar de entorno, rango personalizado, errores de Dynatrace, capturas y ventana",
+    "@inicio": "Inicio: problemas abiertos, SLOs y salud de servicios",
+    "@problemas": "la lista de Problemas: tabla, filtros, línea de tiempo y exportación de la lista",
+    "@problema-detalle": "el detalle del problema: evidencias, descripción, comentarios y mini gráficos",
+    "@metricas": "Métricas: consulta, gráfico, consultas guardadas y captura",
+    "@entidad": "lo común a las páginas de entidad: «Analizar entidad», página genérica, orden de secciones y etiquetas",
+    "@servicio": "página del servicio y sus canales por IPC",
+    "@host": "página del host y del disco, y sus canales",
+    "@proceso": "página del proceso y del process group, y sus canales",
+    "@monitor": "páginas de browser y HTTP monitor, y sus canales",
+    "@aplicacion": "página de la aplicación web, y sus canales"
+  },
+  "resourceTags": {
+    "@portapapeles": "lee o escribe el portapapeles del sistema"
+  },
   "areas": {
     "smoke": {
       "globs": ["src/main/ipc/handlers/app.ts"],

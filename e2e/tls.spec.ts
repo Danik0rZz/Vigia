@@ -265,116 +265,139 @@ test.afterAll(async () => {
 })
 
 /** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
-test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
-  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
-  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
-    true
-  )
-})
+test(
+  'CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)',
+  { tag: '@tls' },
+  async () => {
+    const size = await page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight
+    }))
+    expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+      true
+    )
+  }
+)
 
-test('nivel system: certificado no confiable, con su host y su huella', async () => {
-  const report = await testConnection()
-  expect(report.mechanisms).toEqual([
-    expect.objectContaining({
-      id: 'classic',
-      state: 'disconnected',
-      error: expect.objectContaining({ code: 'TLS_UNTRUSTED' })
-    })
-  ])
-  expect(report.untrustedCertificates).toEqual([
-    { host, fingerprint: fingerprints[0], reason: 'untrusted', previousFingerprint: null }
-  ])
-  expect(await invoke('certificates:list', { environmentId })).toEqual([])
-})
+test(
+  'nivel system: certificado no confiable, con su host y su huella',
+  { tag: '@tls' },
+  async () => {
+    const report = await testConnection()
+    expect(report.mechanisms).toEqual([
+      expect.objectContaining({
+        id: 'classic',
+        state: 'disconnected',
+        error: expect.objectContaining({ code: 'TLS_UNTRUSTED' })
+      })
+    ])
+    expect(report.untrustedCertificates).toEqual([
+      { host, fingerprint: fingerprints[0], reason: 'untrusted', previousFingerprint: null }
+    ])
+    expect(await invoke('certificates:list', { environmentId })).toEqual([])
+  }
+)
 
-test('i18n (b): con la interfaz en inglés, el motivo del error de main sale en inglés', async () => {
-  // Botón de idioma de la barra superior (topbar.language en cada idioma).
-  await page.getByRole('button', { name: 'Cambiar a inglés' }).click()
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-  try {
+test(
+  'i18n (b): con la interfaz en inglés, el motivo del error de main sale en inglés',
+  { tag: '@tls' },
+  async () => {
+    // Botón de idioma de la barra superior (topbar.language en cada idioma).
+    await page.getByRole('button', { name: 'Cambiar a inglés' }).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    try {
+      await openEnvironmentForm()
+      const form = page.getByTestId('environment-form')
+      await form.getByTestId('connection-test').click()
+      const result = form.getByTestId('connection-result-classic')
+      // El motivo tlsUntrusted {host} traducido, con el host:puerto del servidor simulado.
+      await expect(result).toContainText(`The certificate of ${host} is not trusted.`)
+      await expect(result).not.toContainText('no es de confianza')
+      await closeEnvironmentForm()
+    } finally {
+      await page.getByRole('button', { name: 'Switch to Spanish' }).click()
+      await expect(page.locator('html')).toHaveAttribute('lang', 'es')
+    }
+
+    // En español, el mismo motivo en español.
     await openEnvironmentForm()
     const form = page.getByTestId('environment-form')
     await form.getByTestId('connection-test').click()
-    const result = form.getByTestId('connection-result-classic')
-    // El motivo tlsUntrusted {host} traducido, con el host:puerto del servidor simulado.
-    await expect(result).toContainText(`The certificate of ${host} is not trusted.`)
-    await expect(result).not.toContainText('no es de confianza')
+    await expect(form.getByTestId('connection-result-classic')).toContainText(
+      `El certificado de ${host} no es de confianza.`
+    )
     await closeEnvironmentForm()
-  } finally {
-    await page.getByRole('button', { name: 'Switch to Spanish' }).click()
-    await expect(page.locator('html')).toHaveAttribute('lang', 'es')
   }
+)
 
-  // En español, el mismo motivo en español.
-  await openEnvironmentForm()
-  const form = page.getByTestId('environment-form')
-  await form.getByTestId('connection-test').click()
-  await expect(form.getByTestId('connection-result-classic')).toContainText(
-    `El certificado de ${host} no es de confianza.`
-  )
-  await closeEnvironmentForm()
-})
+test(
+  'AUD-21 (P3-2): aceptar una huella que ya no ofrece la última prueba da error y no fija nada',
+  { tag: '@tls' },
+  async () => {
+    await openEnvironmentForm()
+    const form = page.getByTestId('environment-form')
+    await form.getByTestId('connection-test').click()
+    const block = form.getByTestId('certificate-untrusted')
+    await expect(block).toHaveCount(1)
+    await expect(block.getByTestId('certificate-new-fingerprint')).toHaveText(fingerprints[0] ?? '')
 
-test('AUD-21 (P3-2): aceptar una huella que ya no ofrece la última prueba da error y no fija nada', async () => {
-  await openEnvironmentForm()
-  const form = page.getByTestId('environment-form')
-  await form.getByTestId('connection-test').click()
-  const block = form.getByTestId('certificate-untrusted')
-  await expect(block).toHaveCount(1)
-  await expect(block.getByTestId('certificate-new-fingerprint')).toHaveText(fingerprints[0] ?? '')
+    // Por detrás (IPC directo: la interfaz no se entera), el entorno pasa a "ignorar" y
+    // se vuelve a probar. Esa prueba ya no ofrece ningún certificado.
+    const list = await invoke<{ environments: Record<string, unknown>[] }>('tenants:list')
+    const env = list.environments.find((e) => e['id'] === environmentId) ?? {}
+    const input: Record<string, unknown> = { ...env, certificateLevel: 'ignore' }
+    delete input['secrets']
+    delete input['unreadableSecrets']
+    await invoke('environments:update', input)
+    const report = await testConnection()
+    expect(report.untrustedCertificates).toEqual([])
 
-  // Por detrás (IPC directo: la interfaz no se entera), el entorno pasa a "ignorar" y
-  // se vuelve a probar. Esa prueba ya no ofrece ningún certificado.
-  const list = await invoke<{ environments: Record<string, unknown>[] }>('tenants:list')
-  const env = list.environments.find((e) => e['id'] === environmentId) ?? {}
-  const input: Record<string, unknown> = { ...env, certificateLevel: 'ignore' }
-  delete input['secrets']
-  delete input['unreadableSecrets']
-  await invoke('environments:update', input)
-  const report = await testConnection()
-  expect(report.untrustedCertificates).toEqual([])
+    // La interfaz todavía enseña el certificado de antes: aceptarlo falla.
+    await block.getByTestId('certificate-accept').click()
+    await expect(form.getByTestId('certificate-accept-error')).toHaveText(
+      'No se ha podido aceptar la huella. Vuelve a probar la conexión.'
+    )
+    expect(await invoke('certificates:list', { environmentId })).toEqual([])
 
-  // La interfaz todavía enseña el certificado de antes: aceptarlo falla.
-  await block.getByTestId('certificate-accept').click()
-  await expect(form.getByTestId('certificate-accept-error')).toHaveText(
-    'No se ha podido aceptar la huella. Vuelve a probar la conexión.'
-  )
-  expect(await invoke('certificates:list', { environmentId })).toEqual([])
+    // Se deja como estaba: nivel system, sin huellas y con la interfaz recargada.
+    await closeEnvironmentForm()
+    await setLevel('system')
+    const after = await invoke<{ environments: { id: string; certificateLevel: string }[] }>(
+      'tenants:list'
+    )
+    expect(after.environments.find((e) => e.id === environmentId)?.certificateLevel).toBe('system')
+    expect(await invoke('certificates:list', { environmentId })).toEqual([])
+  }
+)
 
-  // Se deja como estaba: nivel system, sin huellas y con la interfaz recargada.
-  await closeEnvironmentForm()
-  await setLevel('system')
-  const after = await invoke<{ environments: { id: string; certificateLevel: string }[] }>(
-    'tenants:list'
-  )
-  expect(after.environments.find((e) => e.id === environmentId)?.certificateLevel).toBe('system')
-  expect(await invoke('certificates:list', { environmentId })).toEqual([])
-})
+test(
+  'la interfaz muestra el fallo y el certificado; aceptarlo lo fija y pasa a pinned',
+  { tag: '@tls' },
+  async () => {
+    await openEnvironmentForm()
+    const form = page.getByTestId('environment-form')
+    await form.getByTestId('connection-test').click()
 
-test('la interfaz muestra el fallo y el certificado; aceptarlo lo fija y pasa a pinned', async () => {
-  await openEnvironmentForm()
-  const form = page.getByTestId('environment-form')
-  await form.getByTestId('connection-test').click()
+    await expect(form.getByTestId('connection-result-classic')).toContainText('Sin conexión')
+    const block = form.getByTestId('certificate-untrusted')
+    await expect(block).toHaveCount(1)
+    await expect(block).toContainText(host)
+    await expect(block.getByTestId('certificate-new-fingerprint')).toHaveText(fingerprints[0] ?? '')
+    await expect(block.getByTestId('certificate-previous-fingerprint')).toHaveCount(0)
+    await expect(page.getByTestId('env-status')).toContainText('Sin conexión')
 
-  await expect(form.getByTestId('connection-result-classic')).toContainText('Sin conexión')
-  const block = form.getByTestId('certificate-untrusted')
-  await expect(block).toHaveCount(1)
-  await expect(block).toContainText(host)
-  await expect(block.getByTestId('certificate-new-fingerprint')).toHaveText(fingerprints[0] ?? '')
-  await expect(block.getByTestId('certificate-previous-fingerprint')).toHaveCount(0)
-  await expect(page.getByTestId('env-status')).toContainText('Sin conexión')
+    await block.getByTestId('certificate-accept').click()
+    await expect
+      .poll(() => invoke('certificates:list', { environmentId }))
+      .toEqual([{ host, fingerprint: fingerprints[0] }])
+    const list = await invoke<{ environments: { id: string; certificateLevel: string }[] }>(
+      'tenants:list'
+    )
+    expect(list.environments.find((e) => e.id === environmentId)?.certificateLevel).toBe('pinned')
+  }
+)
 
-  await block.getByTestId('certificate-accept').click()
-  await expect
-    .poll(() => invoke('certificates:list', { environmentId }))
-    .toEqual([{ host, fingerprint: fingerprints[0] }])
-  const list = await invoke<{ environments: { id: string; certificateLevel: string }[] }>(
-    'tenants:list'
-  )
-  expect(list.environments.find((e) => e.id === environmentId)?.certificateLevel).toBe('pinned')
-})
-
-test('con la huella fijada conecta, sin scopes que falten', async () => {
+test('con la huella fijada conecta, sin scopes que falten', { tag: '@tls' }, async () => {
   const form = page.getByTestId('environment-form')
   await form.getByTestId('connection-test').click()
   await expect(form.getByTestId('connection-result-classic')).toContainText('Conectado')
@@ -418,280 +441,331 @@ test('con la huella fijada conecta, sin scopes que falten', async () => {
   expect(report.untrustedCertificates).toEqual([])
 })
 
-test('AUD-18: el resultado de «Probar conexión» se borra al cambiar las credenciales', async () => {
-  await openEnvironmentForm()
-  const form = page.getByTestId('environment-form')
-  const result = form.getByTestId('connection-result-classic')
-  const confirm = page.getByTestId('confirm-dialog')
+test(
+  'AUD-18: el resultado de «Probar conexión» se borra al cambiar las credenciales',
+  { tag: '@tls' },
+  async () => {
+    await openEnvironmentForm()
+    const form = page.getByTestId('environment-form')
+    const result = form.getByTestId('connection-result-classic')
+    const confirm = page.getByTestId('confirm-dialog')
 
-  // Un secreto de plataforma guardado y una prueba con resultado.
-  await form.getByTestId('secret-input-platformToken').fill('dt0s16.FALSOAUD18.RESET')
-  await form.getByTestId('secret-save-platformToken').click()
-  await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Configurado')
-  await form.getByTestId('connection-test').click()
-  await expect(result).toContainText('Conectado')
+    // Un secreto de plataforma guardado y una prueba con resultado.
+    await form.getByTestId('secret-input-platformToken').fill('dt0s16.FALSOAUD18.RESET')
+    await form.getByTestId('secret-save-platformToken').click()
+    await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Configurado')
+    await form.getByTestId('connection-test').click()
+    await expect(result).toContainText('Conectado')
 
-  // Borrar el secreto (confirmando): el resultado anterior ya no vale y desaparece.
-  await form.getByTestId('secret-delete-platformToken').click()
-  await confirm.getByTestId('confirm-accept').click()
-  await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Sin configurar')
-  await expect(result).toHaveCount(0)
+    // Borrar el secreto (confirmando): el resultado anterior ya no vale y desaparece.
+    await form.getByTestId('secret-delete-platformToken').click()
+    await confirm.getByTestId('confirm-accept').click()
+    await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Sin configurar')
+    await expect(result).toHaveCount(0)
 
-  // Guardar un secreto también lo reinicia.
-  await form.getByTestId('connection-test').click()
-  await expect(result).toContainText('Conectado')
-  await form.getByTestId('secret-input-classicToken').fill(TOKEN)
-  await form.getByTestId('secret-save-classicToken').click()
-  await expect(result).toHaveCount(0)
+    // Guardar un secreto también lo reinicia.
+    await form.getByTestId('connection-test').click()
+    await expect(result).toContainText('Conectado')
+    await form.getByTestId('secret-input-classicToken').fill(TOKEN)
+    await form.getByTestId('secret-save-classicToken').click()
+    await expect(result).toHaveCount(0)
 
-  // Cancelar la confirmación de borrado no lo reinicia.
-  await form.getByTestId('connection-test').click()
-  await expect(result).toContainText('Conectado')
-  await form.getByTestId('secret-delete-classicToken').click()
-  await confirm.getByTestId('confirm-cancel').click()
-  await expect(form.getByTestId('secret-status-classicToken')).toHaveText('Configurado')
-  await expect(result).toContainText('Conectado')
-  await closeEnvironmentForm()
-})
+    // Cancelar la confirmación de borrado no lo reinicia.
+    await form.getByTestId('connection-test').click()
+    await expect(result).toContainText('Conectado')
+    await form.getByTestId('secret-delete-classicToken').click()
+    await confirm.getByTestId('confirm-cancel').click()
+    await expect(form.getByTestId('secret-status-classicToken')).toHaveText('Configurado')
+    await expect(result).toContainText('Conectado')
+    await closeEnvironmentForm()
+  }
+)
 
-test('si el servidor cambia de certificado: TLS_PIN_MISMATCH y el pin NO cambia solo', async () => {
-  await startServer()
-  const report = await testConnection()
+test(
+  'si el servidor cambia de certificado: TLS_PIN_MISMATCH y el pin NO cambia solo',
+  { tag: '@tls' },
+  async () => {
+    await startServer()
+    const report = await testConnection()
 
-  expect(report.mechanisms[0]).toMatchObject({
-    id: 'classic',
-    state: 'disconnected',
-    error: { code: 'TLS_PIN_MISMATCH' }
-  })
-  expect(report.untrustedCertificates).toEqual([
-    { host, fingerprint: fingerprints[1], reason: 'mismatch', previousFingerprint: fingerprints[0] }
-  ])
-  expect(await invoke('certificates:list', { environmentId })).toEqual([
-    { host, fingerprint: fingerprints[0] }
-  ])
-  // Volver a probar no lo cambia tampoco.
-  await testConnection()
-  expect(await invoke('certificates:list', { environmentId })).toEqual([
-    { host, fingerprint: fingerprints[0] }
-  ])
-})
+    expect(report.mechanisms[0]).toMatchObject({
+      id: 'classic',
+      state: 'disconnected',
+      error: { code: 'TLS_PIN_MISMATCH' }
+    })
+    expect(report.untrustedCertificates).toEqual([
+      {
+        host,
+        fingerprint: fingerprints[1],
+        reason: 'mismatch',
+        previousFingerprint: fingerprints[0]
+      }
+    ])
+    expect(await invoke('certificates:list', { environmentId })).toEqual([
+      { host, fingerprint: fingerprints[0] }
+    ])
+    // Volver a probar no lo cambia tampoco.
+    await testConnection()
+    expect(await invoke('certificates:list', { environmentId })).toEqual([
+      { host, fingerprint: fingerprints[0] }
+    ])
+  }
+)
 
-test('la interfaz muestra la huella antigua y la nueva; aceptar fija la nueva y vuelve a conectar', async () => {
-  await openEnvironmentForm()
-  const form = page.getByTestId('environment-form')
-  await form.getByTestId('connection-test').click()
+test(
+  'la interfaz muestra la huella antigua y la nueva; aceptar fija la nueva y vuelve a conectar',
+  { tag: '@tls' },
+  async () => {
+    await openEnvironmentForm()
+    const form = page.getByTestId('environment-form')
+    await form.getByTestId('connection-test').click()
 
-  const block = form.getByTestId('certificate-untrusted')
-  await expect(block).toContainText(host)
-  await expect(block.getByTestId('certificate-previous-fingerprint')).toHaveText(
-    fingerprints[0] ?? ''
-  )
-  await expect(block.getByTestId('certificate-new-fingerprint')).toHaveText(fingerprints[1] ?? '')
-  await block.getByTestId('certificate-accept').click()
-
-  await expect
-    .poll(() => invoke('certificates:list', { environmentId }))
-    .toEqual([{ host, fingerprint: fingerprints[1] }])
-  await form.getByTestId('connection-test').click()
-  await expect(form.getByTestId('connection-result-classic')).toContainText('Conectado')
-  await closeEnvironmentForm()
-  expect((await testConnection()).mechanisms[0]).toMatchObject({ state: 'connected' })
-})
-
-test('nivel ignore: conecta con un certificado desconocido; avisa en la tarjeta y en el formulario, no en la barra', async () => {
-  await startServer() // tercer certificado, ni fijado ni confiable
-  await expect(page.getByTestId('env-status-certificates')).toHaveCount(0)
-
-  await setLevel('ignore')
-  const report = await testConnection()
-  expect(report.mechanisms[0]).toMatchObject({ id: 'classic', state: 'connected' })
-  expect(report.untrustedCertificates).toEqual([])
-
-  // Ya no hay aviso rojo en la barra superior: va a una línea de la tarjeta.
-  await expect(page.getByTestId('tls-ignore-warning')).toHaveCount(0)
-  await expect(page.getByTestId('env-status-certificates')).toContainText('Certificados: ignorados')
-
-  // En el formulario, el aviso acompaña al select y está asociado con aria-describedby.
-  await openEnvironmentForm()
-  const form = page.getByTestId('environment-form')
-  const level = form.getByTestId('environment-certificate-level')
-  const warning = form.getByTestId('certificate-ignore-warning')
-  await expect(level).toHaveValue('ignore')
-  await expect(warning).toBeVisible()
-  await expect(warning).toHaveAttribute('role', 'alert')
-  await expect(warning).toContainText('Cualquiera en la red podría hacerse pasar por este entorno')
-  const warningId = await warning.getAttribute('id')
-  expect(warningId).toBeTruthy()
-  expect((await level.getAttribute('aria-describedby'))?.split(/\s+/)).toContain(warningId)
-
-  // Con otro nivel en el select, el aviso desaparece (sin guardar).
-  await level.selectOption('pinned')
-  await expect(form.getByTestId('certificate-ignore-warning')).toHaveCount(0)
-  await closeEnvironmentForm()
-})
-
-test('nivel ignore NO vale para el SSO: un SSO ajeno autofirmado falla y no recibe el client_secret', async () => {
-  // SSO en 'localhost', un hostname distinto de los del entorno (127.0.0.1).
-  const { key, cert } = await newCertificate('localhost')
-  ssoServer = createServer({ key, cert }, (_req, res) => {
-    ssoRequests += 1
-    res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
-    res.end(JSON.stringify({ access_token: 'NOSEDEBEUSAR', expires_in: 300, token_type: 'Bearer' }))
-  })
-  await new Promise<void>((resolve) => ssoServer?.listen(0, '127.0.0.1', resolve))
-  const ssoPort = (ssoServer.address() as AddressInfo).port
-
-  await setLevel('ignore', {
-    oauthClientId: 'dt0s02.CLIENTEPUBLICO00000000000',
-    oauthScopes: ['platform-management:environments:read'],
-    ssoUrl: `https://localhost:${ssoPort}/sso/oauth2/token`
-  })
-  await invoke('secrets:set', { environmentId, kind: 'oauthClientSecret', value: CLIENT_SECRET })
-
-  const report = await testConnection()
-  expect(report.mechanisms.find((m) => m.id === 'classic')).toMatchObject({ state: 'connected' })
-  expect(report.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
-    state: 'disconnected',
-    error: { code: 'TLS_UNTRUSTED' }
-  })
-  expect(report.untrustedCertificates.filter((c) => c.host === host)).toEqual([])
-  // El handshake TLS falla antes de enviar nada: el SSO falso no ha recibido ninguna petición.
-  expect(ssoRequests).toBe(0)
-
-  // Se deja el entorno como estaba para los pasos siguientes.
-  await invoke('secrets:delete', { environmentId, kind: 'oauthClientSecret' })
-  await setLevel('ignore', { oauthClientId: null, oauthScopes: [], ssoUrl: null })
-})
-
-test('P3-7: el certificado del SSO se ofrece en «Probar conexión», se puede fijar y entonces OAuth conecta', async () => {
-  // SSO propio con certificado autofirmado en 'localhost' (distinto del host del entorno).
-  ssoServer?.closeAllConnections()
-  await new Promise<void>((resolve) => (ssoServer ? ssoServer.close(() => resolve()) : resolve()))
-  const { key, cert, fingerprint: ssoFingerprint } = await newCertificate('localhost')
-  ssoServer = createServer({ key, cert }, (_req, res) => {
-    ssoRequests += 1
-    res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
-    res.end(
-      JSON.stringify({
-        access_token: SSO_ACCESS_TOKEN,
-        expires_in: 300,
-        token_type: 'Bearer',
-        scope: 'platform-management:environments:read'
-      })
+    const block = form.getByTestId('certificate-untrusted')
+    await expect(block).toContainText(host)
+    await expect(block.getByTestId('certificate-previous-fingerprint')).toHaveText(
+      fingerprints[0] ?? ''
     )
-  })
-  await new Promise<void>((resolve) => ssoServer?.listen(0, '127.0.0.1', resolve))
-  const ssoHost = `localhost:${(ssoServer.address() as AddressInfo).port}`
-  const requestsBefore = ssoRequests
+    await expect(block.getByTestId('certificate-new-fingerprint')).toHaveText(fingerprints[1] ?? '')
+    await block.getByTestId('certificate-accept').click()
 
-  await setLevel('pinned', {
-    platformUrl: `https://${host}`,
-    oauthClientId: 'dt0s02.CLIENTEPUBLICO00000000000',
-    oauthScopes: ['platform-management:environments:read'],
-    ssoUrl: `https://${ssoHost}/sso/oauth2/token`
-  })
-  await invoke('secrets:set', { environmentId, kind: 'oauthClientSecret', value: CLIENT_SECRET })
-  try {
-    // 1) La prueba ofrece el certificado del SSO (y no le ha llegado nada: el TLS falla antes).
-    const first = await testConnection()
-    expect(first.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
+    await expect
+      .poll(() => invoke('certificates:list', { environmentId }))
+      .toEqual([{ host, fingerprint: fingerprints[1] }])
+    await form.getByTestId('connection-test').click()
+    await expect(form.getByTestId('connection-result-classic')).toContainText('Conectado')
+    await closeEnvironmentForm()
+    expect((await testConnection()).mechanisms[0]).toMatchObject({ state: 'connected' })
+  }
+)
+
+test(
+  'nivel ignore: conecta con un certificado desconocido; avisa en la tarjeta y en el formulario, no en la barra',
+  { tag: '@tls' },
+  async () => {
+    await startServer() // tercer certificado, ni fijado ni confiable
+    await expect(page.getByTestId('env-status-certificates')).toHaveCount(0)
+
+    await setLevel('ignore')
+    const report = await testConnection()
+    expect(report.mechanisms[0]).toMatchObject({ id: 'classic', state: 'connected' })
+    expect(report.untrustedCertificates).toEqual([])
+
+    // Ya no hay aviso rojo en la barra superior: va a una línea de la tarjeta.
+    await expect(page.getByTestId('tls-ignore-warning')).toHaveCount(0)
+    await expect(page.getByTestId('env-status-certificates')).toContainText(
+      'Certificados: ignorados'
+    )
+
+    // En el formulario, el aviso acompaña al select y está asociado con aria-describedby.
+    await openEnvironmentForm()
+    const form = page.getByTestId('environment-form')
+    const level = form.getByTestId('environment-certificate-level')
+    const warning = form.getByTestId('certificate-ignore-warning')
+    await expect(level).toHaveValue('ignore')
+    await expect(warning).toBeVisible()
+    await expect(warning).toHaveAttribute('role', 'alert')
+    await expect(warning).toContainText(
+      'Cualquiera en la red podría hacerse pasar por este entorno'
+    )
+    const warningId = await warning.getAttribute('id')
+    expect(warningId).toBeTruthy()
+    expect((await level.getAttribute('aria-describedby'))?.split(/\s+/)).toContain(warningId)
+
+    // Con otro nivel en el select, el aviso desaparece (sin guardar).
+    await level.selectOption('pinned')
+    await expect(form.getByTestId('certificate-ignore-warning')).toHaveCount(0)
+    await closeEnvironmentForm()
+  }
+)
+
+test(
+  'nivel ignore NO vale para el SSO: un SSO ajeno autofirmado falla y no recibe el client_secret',
+  { tag: '@tls' },
+  async () => {
+    // SSO en 'localhost', un hostname distinto de los del entorno (127.0.0.1).
+    const { key, cert } = await newCertificate('localhost')
+    ssoServer = createServer({ key, cert }, (_req, res) => {
+      ssoRequests += 1
+      res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
+      res.end(
+        JSON.stringify({ access_token: 'NOSEDEBEUSAR', expires_in: 300, token_type: 'Bearer' })
+      )
+    })
+    await new Promise<void>((resolve) => ssoServer?.listen(0, '127.0.0.1', resolve))
+    const ssoPort = (ssoServer.address() as AddressInfo).port
+
+    await setLevel('ignore', {
+      oauthClientId: 'dt0s02.CLIENTEPUBLICO00000000000',
+      oauthScopes: ['platform-management:environments:read'],
+      ssoUrl: `https://localhost:${ssoPort}/sso/oauth2/token`
+    })
+    await invoke('secrets:set', { environmentId, kind: 'oauthClientSecret', value: CLIENT_SECRET })
+
+    const report = await testConnection()
+    expect(report.mechanisms.find((m) => m.id === 'classic')).toMatchObject({ state: 'connected' })
+    expect(report.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
       state: 'disconnected',
       error: { code: 'TLS_UNTRUSTED' }
     })
-    const offeredSso = first.untrustedCertificates.find((c) => c.host === ssoHost)
-    expect(offeredSso).toEqual({
-      host: ssoHost,
-      fingerprint: ssoFingerprint,
-      reason: 'untrusted',
-      previousFingerprint: null
-    })
-    expect(ssoRequests).toBe(requestsBefore)
+    expect(report.untrustedCertificates.filter((c) => c.host === host)).toEqual([])
+    // El handshake TLS falla antes de enviar nada: el SSO falso no ha recibido ninguna petición.
+    expect(ssoRequests).toBe(0)
 
-    // 2) Se fija la huella del SSO (y la del host del entorno, que la prueba también ofrece).
-    for (const certificate of first.untrustedCertificates) {
-      await invoke('certificates:pin', {
-        environmentId,
-        host: certificate.host,
-        fingerprint: certificate.fingerprint
+    // Se deja el entorno como estaba para los pasos siguientes.
+    await invoke('secrets:delete', { environmentId, kind: 'oauthClientSecret' })
+    await setLevel('ignore', { oauthClientId: null, oauthScopes: [], ssoUrl: null })
+  }
+)
+
+test(
+  'P3-7: el certificado del SSO se ofrece en «Probar conexión», se puede fijar y entonces OAuth conecta',
+  { tag: '@tls' },
+  async () => {
+    // SSO propio con certificado autofirmado en 'localhost' (distinto del host del entorno).
+    ssoServer?.closeAllConnections()
+    await new Promise<void>((resolve) => (ssoServer ? ssoServer.close(() => resolve()) : resolve()))
+    const { key, cert, fingerprint: ssoFingerprint } = await newCertificate('localhost')
+    ssoServer = createServer({ key, cert }, (_req, res) => {
+      ssoRequests += 1
+      res.writeHead(200, { 'content-type': 'application/json', connection: 'close' })
+      res.end(
+        JSON.stringify({
+          access_token: SSO_ACCESS_TOKEN,
+          expires_in: 300,
+          token_type: 'Bearer',
+          scope: 'platform-management:environments:read'
+        })
+      )
+    })
+    await new Promise<void>((resolve) => ssoServer?.listen(0, '127.0.0.1', resolve))
+    const ssoHost = `localhost:${(ssoServer.address() as AddressInfo).port}`
+    const requestsBefore = ssoRequests
+
+    await setLevel('pinned', {
+      platformUrl: `https://${host}`,
+      oauthClientId: 'dt0s02.CLIENTEPUBLICO00000000000',
+      oauthScopes: ['platform-management:environments:read'],
+      ssoUrl: `https://${ssoHost}/sso/oauth2/token`
+    })
+    await invoke('secrets:set', { environmentId, kind: 'oauthClientSecret', value: CLIENT_SECRET })
+    try {
+      // 1) La prueba ofrece el certificado del SSO (y no le ha llegado nada: el TLS falla antes).
+      const first = await testConnection()
+      expect(first.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
+        state: 'disconnected',
+        error: { code: 'TLS_UNTRUSTED' }
+      })
+      const offeredSso = first.untrustedCertificates.find((c) => c.host === ssoHost)
+      expect(offeredSso).toEqual({
+        host: ssoHost,
+        fingerprint: ssoFingerprint,
+        reason: 'untrusted',
+        previousFingerprint: null
+      })
+      expect(ssoRequests).toBe(requestsBefore)
+
+      // 2) Se fija la huella del SSO (y la del host del entorno, que la prueba también ofrece).
+      for (const certificate of first.untrustedCertificates) {
+        await invoke('certificates:pin', {
+          environmentId,
+          host: certificate.host,
+          fingerprint: certificate.fingerprint
+        })
+      }
+      const pinned = await invoke<{ host: string; fingerprint: string }[]>('certificates:list', {
+        environmentId
+      })
+      expect(pinned).toContainEqual({ host: ssoHost, fingerprint: ssoFingerprint })
+
+      // 3) Con la huella fijada, la siguiente prueba conecta OAuth (el SSO emite el token y la
+      // plataforma lo acepta).
+      const second = await testConnection()
+      expect(second.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
+        state: 'connected',
+        error: null
+      })
+      expect(second.untrustedCertificates.filter((c) => c.host === ssoHost)).toEqual([])
+      expect(ssoRequests).toBeGreaterThan(requestsBefore)
+    } finally {
+      // Se deja como estaba: sin OAuth, sin plataforma, sin la huella del SSO y en 'ignore'.
+      await invoke('certificates:unpin', { environmentId, host: ssoHost })
+      await invoke('secrets:delete', { environmentId, kind: 'oauthClientSecret' })
+      await setLevel('ignore', {
+        platformUrl: null,
+        oauthClientId: null,
+        oauthScopes: [],
+        ssoUrl: null
       })
     }
-    const pinned = await invoke<{ host: string; fingerprint: string }[]>('certificates:list', {
+  }
+)
+
+test(
+  'de vuelta a system: otra vez no confiable (no queda nada en caché) y sin aviso',
+  { tag: '@tls' },
+  async () => {
+    await setLevel('system')
+    const report = await testConnection()
+    expect(report.mechanisms[0]).toMatchObject({
+      state: 'disconnected',
+      error: { code: 'TLS_UNTRUSTED' }
+    })
+    expect(report.untrustedCertificates[0]).toMatchObject({
+      host,
+      fingerprint: fingerprints[2],
+      reason: 'untrusted'
+    })
+    await expect(page.getByTestId('tls-ignore-warning')).toHaveCount(0)
+    await expect(page.getByTestId('env-status-certificates')).toHaveCount(0)
+  }
+)
+
+test(
+  'connection:status devuelve el último informe y se borra al cambiar el entorno',
+  { tag: '@tls' },
+  async () => {
+    const status = await invoke<{ mechanisms: Mechanism[] } | null>('connection:status', {
       environmentId
     })
-    expect(pinned).toContainEqual({ host: ssoHost, fingerprint: ssoFingerprint })
+    expect(status?.mechanisms[0]).toMatchObject({ error: { code: 'TLS_UNTRUSTED' } })
 
-    // 3) Con la huella fijada, la siguiente prueba conecta OAuth (el SSO emite el token y la
-    // plataforma lo acepta).
-    const second = await testConnection()
-    expect(second.mechanisms.find((m) => m.id === 'oauth')).toMatchObject({
-      state: 'connected',
-      error: null
-    })
-    expect(second.untrustedCertificates.filter((c) => c.host === ssoHost)).toEqual([])
-    expect(ssoRequests).toBeGreaterThan(requestsBefore)
-  } finally {
-    // Se deja como estaba: sin OAuth, sin plataforma, sin la huella del SSO y en 'ignore'.
-    await invoke('certificates:unpin', { environmentId, host: ssoHost })
-    await invoke('secrets:delete', { environmentId, kind: 'oauthClientSecret' })
-    await setLevel('ignore', {
-      platformUrl: null,
-      oauthClientId: null,
-      oauthScopes: [],
-      ssoUrl: null
-    })
+    await setLevel('ignore')
+    expect(await invoke('connection:status', { environmentId })).toBeNull()
   }
-})
+)
 
-test('de vuelta a system: otra vez no confiable (no queda nada en caché) y sin aviso', async () => {
-  await setLevel('system')
-  const report = await testConnection()
-  expect(report.mechanisms[0]).toMatchObject({
-    state: 'disconnected',
-    error: { code: 'TLS_UNTRUSTED' }
-  })
-  expect(report.untrustedCertificates[0]).toMatchObject({
-    host,
-    fingerprint: fingerprints[2],
-    reason: 'untrusted'
-  })
-  await expect(page.getByTestId('tls-ignore-warning')).toHaveCount(0)
-  await expect(page.getByTestId('env-status-certificates')).toHaveCount(0)
-})
+test(
+  'una URL clásica con /api/v2 se normaliza en el formulario y se guarda sin el sufijo',
+  { tag: '@tls' },
+  async () => {
+    await openEnvironmentForm()
+    const form = page.getByTestId('environment-form')
+    const field = form.getByTestId('environment-classic-url')
+    await field.fill(`https://127.0.0.1:${port}/API/v2/`)
+    await field.press('Tab')
 
-test('connection:status devuelve el último informe y se borra al cambiar el entorno', async () => {
-  const status = await invoke<{ mechanisms: Mechanism[] } | null>('connection:status', {
-    environmentId
-  })
-  expect(status?.mechanisms[0]).toMatchObject({ error: { code: 'TLS_UNTRUSTED' } })
+    await expect(field).toHaveValue(`https://127.0.0.1:${port}`)
+    await expect(field).not.toHaveAttribute('aria-invalid', 'true')
 
-  await setLevel('ignore')
-  expect(await invoke('connection:status', { environmentId })).toBeNull()
-})
+    await form.getByTestId('form-save').click()
+    await expect(form).toBeHidden()
+    const list = await invoke<{ environments: { id: string; classicApiUrl: string | null }[] }>(
+      'tenants:list'
+    )
+    expect(list.environments.find((e) => e.id === environmentId)?.classicApiUrl).toBe(
+      `https://127.0.0.1:${port}`
+    )
+  }
+)
 
-test('una URL clásica con /api/v2 se normaliza en el formulario y se guarda sin el sufijo', async () => {
-  await openEnvironmentForm()
-  const form = page.getByTestId('environment-form')
-  const field = form.getByTestId('environment-classic-url')
-  await field.fill(`https://127.0.0.1:${port}/API/v2/`)
-  await field.press('Tab')
-
-  await expect(field).toHaveValue(`https://127.0.0.1:${port}`)
-  await expect(field).not.toHaveAttribute('aria-invalid', 'true')
-
-  await form.getByTestId('form-save').click()
-  await expect(form).toBeHidden()
-  const list = await invoke<{ environments: { id: string; classicApiUrl: string | null }[] }>(
-    'tenants:list'
-  )
-  expect(list.environments.find((e) => e.id === environmentId)?.classicApiUrl).toBe(
-    `https://127.0.0.1:${port}`
-  )
-})
-
-test('ninguna respuesta IPC contiene el token, y sin errores de consola ni peticiones remotas del renderer', async () => {
-  for (const output of ipcOutputs) expect(output).not.toContain('SECRETOE2ETLS')
-  expect(await page.content()).not.toContain('SECRETOE2ETLS')
-  expect(consoleErrors).toEqual([])
-  // Las peticiones a 127.0.0.1 las hace main; el renderer no habla con ningún servidor.
-  expect(rendererRemote).toEqual([])
-})
+test(
+  'ninguna respuesta IPC contiene el token, y sin errores de consola ni peticiones remotas del renderer',
+  { tag: '@tls' },
+  async () => {
+    for (const output of ipcOutputs) expect(output).not.toContain('SECRETOE2ETLS')
+    expect(await page.content()).not.toContain('SECRETOE2ETLS')
+    expect(consoleErrors).toEqual([])
+    // Las peticiones a 127.0.0.1 las hace main; el renderer no habla con ningún servidor.
+    expect(rendererRemote).toEqual([])
+  }
+)

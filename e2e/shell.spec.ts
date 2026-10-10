@@ -178,19 +178,26 @@ async function expectTimeRange(selected: (typeof TIME_RANGES)[number]): Promise<
 }
 
 /** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
-test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
-  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
-  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
-    true
-  )
-})
+test(
+  'CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)',
+  { tag: '@shell' },
+  async () => {
+    const size = await page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight
+    }))
+    expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+      true
+    )
+  }
+)
 
-test('usa una carpeta de datos aislada', async () => {
+test('usa una carpeta de datos aislada', { tag: '@shell' }, async () => {
   const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
   expect(userData).toBe(userDataDir)
 })
 
-test('arranca en Inicio (#/) en español', async () => {
+test('arranca en Inicio (#/) en español', { tag: '@shell' }, async () => {
   await expect(page).toHaveURL(`${ENTRY}#/`)
   await expect(page.locator('html')).toHaveAttribute('lang', 'es')
   await expect(page.getByTestId('app-name')).toHaveText('Vigía')
@@ -205,7 +212,7 @@ test('arranca en Inicio (#/) en español', async () => {
   await expectPage('es', SECTIONS[0])
 })
 
-test('el rango temporal de la barra superior empieza en 2 h', async () => {
+test('el rango temporal de la barra superior empieza en 2 h', { tag: '@shell' }, async () => {
   const group = page.getByTestId('time-range')
   await expect(group).toBeVisible()
   await expect(group).toHaveAttribute('aria-label', t('es', 'timeRange.label'))
@@ -218,88 +225,96 @@ test('el rango temporal de la barra superior empieza en 2 h', async () => {
   await expectTimeRange('2h')
 })
 
-test('la barra lateral tiene los grupos y las secciones de la lista única', async () => {
-  const nav = page.getByRole('navigation', { name: t('es', 'nav.aria') })
-  await expect(nav).toBeVisible()
+test(
+  'la barra lateral tiene los grupos y las secciones de la lista única',
+  { tag: '@shell' },
+  async () => {
+    const nav = page.getByRole('navigation', { name: t('es', 'nav.aria') })
+    await expect(nav).toBeVisible()
 
-  // Cada sección con grupo está dentro de su grupo, y el grupo muestra su nombre.
-  for (const group of GROUPS) {
-    const container = page.getByTestId(`nav-group-${group}`)
-    await expect(container).toBeVisible()
-    await expect(container).toContainText(t('es', `nav.groups.${group}`))
-    const inGroup = SECTIONS.filter((section) => section.group === group)
-    await expect(
-      container.locator('[data-testid^="nav-"]:not([data-testid^="nav-group-"])')
-    ).toHaveCount(inGroup.length)
-    for (const section of inGroup) {
-      await expect(container.getByTestId(`nav-${section.id}`)).toHaveText(
-        new RegExp(t('es', `nav.${section.id}`))
-      )
+    // Cada sección con grupo está dentro de su grupo, y el grupo muestra su nombre.
+    for (const group of GROUPS) {
+      const container = page.getByTestId(`nav-group-${group}`)
+      await expect(container).toBeVisible()
+      await expect(container).toContainText(t('es', `nav.groups.${group}`))
+      const inGroup = SECTIONS.filter((section) => section.group === group)
+      await expect(
+        container.locator('[data-testid^="nav-"]:not([data-testid^="nav-group-"])')
+      ).toHaveCount(inGroup.length)
+      for (const section of inGroup) {
+        await expect(container.getByTestId(`nav-${section.id}`)).toHaveText(
+          new RegExp(t('es', `nav.${section.id}`))
+        )
+      }
     }
-  }
 
-  // Configuración, dentro de Administración.
-  await expect(
-    page.getByTestId('nav-group-administration').getByTestId('nav-configuration')
-  ).toBeVisible()
+    // Configuración, dentro de Administración.
+    await expect(
+      page.getByTestId('nav-group-administration').getByTestId('nav-configuration')
+    ).toBeVisible()
 
-  // Ajustes va fuera de los grupos.
-  await expect(page.getByTestId('nav-settings')).toBeVisible()
-  await expect(
-    page.locator('[data-testid^="nav-group-"] [data-testid="nav-settings"]')
-  ).toHaveCount(0)
+    // Ajustes va fuera de los grupos.
+    await expect(page.getByTestId('nav-settings')).toBeVisible()
+    await expect(
+      page.locator('[data-testid^="nav-group-"] [data-testid="nav-settings"]')
+    ).toHaveCount(0)
 
-  // El orden del menú es el de la lista única.
-  const order = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-testid^="nav-"]')).map(
-      (el) => el.getAttribute('data-testid') ?? ''
+    // El orden del menú es el de la lista única.
+    const order = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-testid^="nav-"]')).map(
+        (el) => el.getAttribute('data-testid') ?? ''
+      )
     )
-  )
-  const ids: string[] = SECTIONS.map((section) => `nav-${section.id}`)
-  expect(order.filter((id) => ids.includes(id))).toEqual(ids)
-})
-
-test('tooltips del menú: con el ratón, con el teclado, en las vistas no disponibles y con el menú plegado', async () => {
-  const tooltip = page.getByRole('tooltip')
-  const away = async (): Promise<void> => {
-    await moveToNeutral(page)
-    await page.keyboard.press('Escape')
-    await expect(tooltip).toHaveCount(0)
+    const ids: string[] = SECTIONS.map((section) => `nav-${section.id}`)
+    expect(order.filter((id) => ids.includes(id))).toEqual(ids)
   }
+)
 
-  // Sin entorno, Problemas no está disponible: lo marca y el tooltip da el motivo, pero sigue siendo un enlace.
-  const problems = page.getByTestId('nav-problems')
-  await expect(problems).toHaveAttribute('data-unavailable', 'true')
-  await expect(problems).toHaveText(new RegExp(t('es', 'nav.problems')))
-  await hoverFresh(page, problems)
-  await expect(tooltip).toBeVisible()
-  await expect(tooltip).toContainText('Sin entorno')
-  await away()
+test(
+  'tooltips del menú: con el ratón, con el teclado, en las vistas no disponibles y con el menú plegado',
+  { tag: '@shell' },
+  async () => {
+    const tooltip = page.getByRole('tooltip')
+    const away = async (): Promise<void> => {
+      await moveToNeutral(page)
+      await page.keyboard.press('Escape')
+      await expect(tooltip).toHaveCount(0)
+    }
 
-  // Con el teclado: el foco abre el tooltip, con el texto de ayuda de la sección.
-  await page.getByTestId('nav-topology').focus()
-  await expect(tooltip).toBeVisible()
-  await expect(tooltip).toContainText(t('es', 'navHelp.topology'))
-  await away()
+    // Sin entorno, Problemas no está disponible: lo marca y el tooltip da el motivo, pero sigue siendo un enlace.
+    const problems = page.getByTestId('nav-problems')
+    await expect(problems).toHaveAttribute('data-unavailable', 'true')
+    await expect(problems).toHaveText(new RegExp(t('es', 'nav.problems')))
+    await hoverFresh(page, problems)
+    await expect(tooltip).toBeVisible()
+    await expect(tooltip).toContainText('Sin entorno')
+    await away()
 
-  // Ajustes siempre está disponible.
-  await expect(page.getByTestId('nav-settings')).not.toHaveAttribute('data-unavailable', 'true')
+    // Con el teclado: el foco abre el tooltip, con el texto de ayuda de la sección.
+    await page.getByTestId('nav-topology').focus()
+    await expect(tooltip).toBeVisible()
+    await expect(tooltip).toContainText(t('es', 'navHelp.topology'))
+    await away()
 
-  // Menú plegado: el tooltip empieza por el nombre de la sección.
-  await page.getByTestId('sidebar-toggle').click()
-  await hoverFresh(page, page.getByTestId('nav-metrics'))
-  await expect(tooltip).toBeVisible()
-  await expect(tooltip).toHaveText(new RegExp(`^\\s*${t('es', 'nav.metrics')}`))
-  await away()
-  await page.getByTestId('sidebar-toggle').click()
+    // Ajustes siempre está disponible.
+    await expect(page.getByTestId('nav-settings')).not.toHaveAttribute('data-unavailable', 'true')
 
-  // La vista desactivada sigue siendo navegable y lo explica.
-  await problems.click()
-  await expect(page).toHaveURL(`${ENTRY}#/problems`)
-  await expect(page.getByTestId('module-unavailable')).toContainText('Sin entorno')
-  await expectNothingForbidden()
-  await goTo('home')
-})
+    // Menú plegado: el tooltip empieza por el nombre de la sección.
+    await page.getByTestId('sidebar-toggle').click()
+    await hoverFresh(page, page.getByTestId('nav-metrics'))
+    await expect(tooltip).toBeVisible()
+    await expect(tooltip).toHaveText(new RegExp(`^\\s*${t('es', 'nav.metrics')}`))
+    await away()
+    await page.getByTestId('sidebar-toggle').click()
+
+    // La vista desactivada sigue siendo navegable y lo explica.
+    await problems.click()
+    await expect(page).toHaveURL(`${ENTRY}#/problems`)
+    await expect(page.getByTestId('module-unavailable')).toContainText('Sin entorno')
+    await expectNothingForbidden()
+    await goTo('home')
+  }
+)
 
 /** Cajas del enlace, de su icono y de su etiqueta (el elemento con el nombre visible). */
 async function navGeometry(
@@ -335,105 +350,115 @@ async function navGeometry(
   }, label)
 }
 
-test('maquetación del menú: icono y nombre en la misma fila, desplegado y plegado; el activo se distingue', async () => {
-  await goTo('home')
-  await page.mouse.move(0, 0)
+test(
+  'maquetación del menú: icono y nombre en la misma fila, desplegado y plegado; el activo se distingue',
+  { tag: '@shell' },
+  async () => {
+    await goTo('home')
+    await page.mouse.move(0, 0)
 
-  // Desplegado: flex, icono a la izquierda y nombre a su derecha, en la misma fila.
-  for (const section of SECTIONS) {
-    const g = await navGeometry(section.id, t('es', `nav.${section.id}`))
-    expect(g.classes, `nav-${section.id}`).toContain('flex')
-    expect(g.icon, `icono de nav-${section.id}`).not.toBeNull()
-    expect(g.label, `etiqueta de nav-${section.id}`).not.toBeNull()
-    if (g.icon === null || g.label === null) continue
-    const iconCenterY = g.icon.y + g.icon.height / 2
-    expect(
-      iconCenterY,
-      `nav-${section.id}: centro del icono dentro de la caja del nombre`
-    ).toBeGreaterThanOrEqual(g.label.y - 2)
-    expect(
-      iconCenterY,
-      `nav-${section.id}: centro del icono dentro de la caja del nombre`
-    ).toBeLessThanOrEqual(g.label.y + g.label.height + 2)
-    expect(
-      g.label.x,
-      `nav-${section.id}: el nombre va a la derecha del icono`
-    ).toBeGreaterThanOrEqual(g.icon.x + g.icon.width - 1)
-    // Una sola fila: el enlace no es más alto que dos veces el icono.
-    expect(g.link.height, `nav-${section.id}: altura de una fila`).toBeLessThan(
-      2 * g.icon.height + 24
+    // Desplegado: flex, icono a la izquierda y nombre a su derecha, en la misma fila.
+    for (const section of SECTIONS) {
+      const g = await navGeometry(section.id, t('es', `nav.${section.id}`))
+      expect(g.classes, `nav-${section.id}`).toContain('flex')
+      expect(g.icon, `icono de nav-${section.id}`).not.toBeNull()
+      expect(g.label, `etiqueta de nav-${section.id}`).not.toBeNull()
+      if (g.icon === null || g.label === null) continue
+      const iconCenterY = g.icon.y + g.icon.height / 2
+      expect(
+        iconCenterY,
+        `nav-${section.id}: centro del icono dentro de la caja del nombre`
+      ).toBeGreaterThanOrEqual(g.label.y - 2)
+      expect(
+        iconCenterY,
+        `nav-${section.id}: centro del icono dentro de la caja del nombre`
+      ).toBeLessThanOrEqual(g.label.y + g.label.height + 2)
+      expect(
+        g.label.x,
+        `nav-${section.id}: el nombre va a la derecha del icono`
+      ).toBeGreaterThanOrEqual(g.icon.x + g.icon.width - 1)
+      // Una sola fila: el enlace no es más alto que dos veces el icono.
+      expect(g.link.height, `nav-${section.id}: altura de una fila`).toBeLessThan(
+        2 * g.icon.height + 24
+      )
+    }
+
+    // El activo lleva aria-current="page" y un fondo distinto del de uno inactivo.
+    const active = page.getByTestId('nav-home')
+    const inactive = page.getByTestId('nav-problems')
+    await expect(active).toHaveAttribute('aria-current', 'page')
+    await expect(inactive).not.toHaveAttribute('aria-current', 'page')
+    const background = (testId: string): Promise<string> =>
+      page.getByTestId(testId).evaluate((el) => getComputedStyle(el).backgroundColor)
+    expect(await background('nav-home')).not.toBe(await background('nav-problems'))
+
+    // Plegado: sigue siendo flex y el icono queda centrado en el enlace (±2 px).
+    await page.getByTestId('sidebar-toggle').click()
+    await page.mouse.move(0, 0)
+    for (const section of SECTIONS) {
+      const g = await navGeometry(section.id, t('es', `nav.${section.id}`))
+      expect(g.classes, `nav-${section.id} plegado`).toContain('flex')
+      expect(g.icon, `icono de nav-${section.id} plegado`).not.toBeNull()
+      if (g.icon === null) continue
+      const iconCenterX = g.icon.x + g.icon.width / 2
+      const linkCenterX = g.link.x + g.link.width / 2
+      expect(
+        Math.abs(iconCenterX - linkCenterX),
+        `nav-${section.id} plegado: icono centrado`
+      ).toBeLessThanOrEqual(2)
+      const iconCenterY = g.icon.y + g.icon.height / 2
+      expect(
+        Math.abs(iconCenterY - (g.link.y + g.link.height / 2)),
+        `nav-${section.id} plegado: centrado en vertical`
+      ).toBeLessThanOrEqual(2)
+    }
+    await expect(page.getByTestId('nav-home')).toHaveAttribute('aria-current', 'page')
+
+    // El tooltip sigue saliendo plegado, con el ratón y con el foco.
+    const tooltip = page.getByRole('tooltip')
+    await hoverFresh(page, page.getByTestId('nav-problems'))
+    await expect(tooltip).toBeVisible()
+    await moveToNeutral(page)
+    await page.keyboard.press('Escape')
+    await expect(tooltip).toHaveCount(0)
+    await page.getByTestId('nav-slos').focus()
+    await expect(tooltip).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    await page.getByTestId('sidebar-toggle').click()
+  }
+)
+
+test(
+  'maquetación de la barra superior: sus controles en una sola fila',
+  { tag: '@shell' },
+  async () => {
+    const ids = ['time-range', 'env-selector']
+    const centers: number[] = []
+    for (const id of ids) {
+      const box = await page.getByTestId(id).boundingBox()
+      expect(box, id).not.toBeNull()
+      if (box !== null) centers.push(box.y + box.height / 2)
+    }
+    const spread = Math.max(...centers) - Math.min(...centers)
+    expect(spread, 'centros verticales de los controles de la barra superior').toBeLessThanOrEqual(
+      4
     )
   }
+)
 
-  // El activo lleva aria-current="page" y un fondo distinto del de uno inactivo.
-  const active = page.getByTestId('nav-home')
-  const inactive = page.getByTestId('nav-problems')
-  await expect(active).toHaveAttribute('aria-current', 'page')
-  await expect(inactive).not.toHaveAttribute('aria-current', 'page')
-  const background = (testId: string): Promise<string> =>
-    page.getByTestId(testId).evaluate((el) => getComputedStyle(el).backgroundColor)
-  expect(await background('nav-home')).not.toBe(await background('nav-problems'))
-
-  // Plegado: sigue siendo flex y el icono queda centrado en el enlace (±2 px).
-  await page.getByTestId('sidebar-toggle').click()
-  await page.mouse.move(0, 0)
-  for (const section of SECTIONS) {
-    const g = await navGeometry(section.id, t('es', `nav.${section.id}`))
-    expect(g.classes, `nav-${section.id} plegado`).toContain('flex')
-    expect(g.icon, `icono de nav-${section.id} plegado`).not.toBeNull()
-    if (g.icon === null) continue
-    const iconCenterX = g.icon.x + g.icon.width / 2
-    const linkCenterX = g.link.x + g.link.width / 2
-    expect(
-      Math.abs(iconCenterX - linkCenterX),
-      `nav-${section.id} plegado: icono centrado`
-    ).toBeLessThanOrEqual(2)
-    const iconCenterY = g.icon.y + g.icon.height / 2
-    expect(
-      Math.abs(iconCenterY - (g.link.y + g.link.height / 2)),
-      `nav-${section.id} plegado: centrado en vertical`
-    ).toBeLessThanOrEqual(2)
-  }
-  await expect(page.getByTestId('nav-home')).toHaveAttribute('aria-current', 'page')
-
-  // El tooltip sigue saliendo plegado, con el ratón y con el foco.
-  const tooltip = page.getByRole('tooltip')
-  await hoverFresh(page, page.getByTestId('nav-problems'))
-  await expect(tooltip).toBeVisible()
-  await moveToNeutral(page)
-  await page.keyboard.press('Escape')
-  await expect(tooltip).toHaveCount(0)
-  await page.getByTestId('nav-slos').focus()
-  await expect(tooltip).toBeVisible()
-  await page.keyboard.press('Escape')
-
-  await page.getByTestId('sidebar-toggle').click()
-})
-
-test('maquetación de la barra superior: sus controles en una sola fila', async () => {
-  const ids = ['time-range', 'env-selector']
-  const centers: number[] = []
-  for (const id of ids) {
-    const box = await page.getByTestId(id).boundingBox()
-    expect(box, id).not.toBeNull()
-    if (box !== null) centers.push(box.y + box.height / 2)
-  }
-  const spread = Math.max(...centers) - Math.min(...centers)
-  expect(spread, 'centros verticales de los controles de la barra superior').toBeLessThanOrEqual(4)
-})
-
-test('el pie muestra un estado neutro sin entorno y sin backups', async () => {
+test('el pie muestra un estado neutro sin entorno y sin backups', { tag: '@shell' }, async () => {
   const status = page.getByTestId('env-status')
   await expect(status).toBeVisible()
   await expect(status).toContainText('Sin entorno configurado')
   await expect(status).not.toHaveText(/backup/i)
 })
 
-test('no aparecen elementos sin definir ni "próximamente" (es)', async () => {
+test('no aparecen elementos sin definir ni "próximamente" (es)', { tag: '@shell' }, async () => {
   await expectNothingForbidden()
 })
 
-test('Ajustes: tema Sistema e idioma español por defecto', async () => {
+test('Ajustes: tema Sistema e idioma español por defecto', { tag: '@shell' }, async () => {
   await goTo('settings')
   await expectPage('es', SECTIONS[10])
   await expect(page.getByTestId('theme-system')).toBeChecked()
@@ -448,15 +473,15 @@ test('Ajustes: tema Sistema e idioma español por defecto', async () => {
   await expect(page.locator('html')).toHaveAttribute('data-theme', prefersDark ? 'dark' : 'light')
 })
 
-test('recorre las 11 secciones en español', async () => {
+test('recorre las 11 secciones en español', { tag: '@shell' }, async () => {
   await tour('es')
 })
 
-test('la paleta Ctrl+K busca y navega en español', async () => {
+test('la paleta Ctrl+K busca y navega en español', { tag: '@shell' }, async () => {
   await expectPalette('es', 'Métricas')
 })
 
-test('cambiar a inglés traduce la interfaz', async () => {
+test('cambiar a inglés traduce la interfaz', { tag: '@shell' }, async () => {
   await goTo('settings')
   await page.getByTestId('language-en').click()
   await expect(page.getByTestId('language-en')).toBeChecked()
@@ -470,15 +495,15 @@ test('cambiar a inglés traduce la interfaz', async () => {
   await expectNothingForbidden()
 })
 
-test('recorre las 11 secciones en inglés', async () => {
+test('recorre las 11 secciones en inglés', { tag: '@shell' }, async () => {
   await tour('en')
 })
 
-test('la paleta Ctrl+K busca y navega en inglés', async () => {
+test('la paleta Ctrl+K busca y navega en inglés', { tag: '@shell' }, async () => {
   await expectPalette('en', 'Metrics')
 })
 
-test('el tema cambia entre claro y oscuro', async () => {
+test('el tema cambia entre claro y oscuro', { tag: '@shell' }, async () => {
   await goTo('settings')
   const html = page.locator('html')
 
@@ -494,7 +519,7 @@ test('el tema cambia entre claro y oscuro', async () => {
   await expect(html).toHaveAttribute('data-theme', 'dark')
 })
 
-test('el tema Sistema sigue a prefers-color-scheme en caliente', async () => {
+test('el tema Sistema sigue a prefers-color-scheme en caliente', { tag: '@shell' }, async () => {
   const html = page.locator('html')
   await page.getByTestId('theme-system').click()
   await expect(page.getByTestId('theme-system')).toBeChecked()
@@ -512,7 +537,7 @@ test('el tema Sistema sigue a prefers-color-scheme en caliente', async () => {
   await page.emulateMedia({ colorScheme: null })
 })
 
-test('las preferencias se conservan al recargar', async () => {
+test('las preferencias se conservan al recargar', { tag: '@shell' }, async () => {
   await page.getByTestId('theme-dark').click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   // El idioma sigue en inglés desde la prueba anterior.
@@ -528,7 +553,7 @@ test('las preferencias se conservan al recargar', async () => {
   await expectPage('en', SECTIONS[10])
 })
 
-test('el rango temporal cambia y no se puede dejar sin selección', async () => {
+test('el rango temporal cambia y no se puede dejar sin selección', { tag: '@shell' }, async () => {
   // El idioma sigue en inglés desde las pruebas anteriores.
   await expect(page.getByTestId('time-range')).toHaveAttribute(
     'aria-label',
@@ -550,7 +575,7 @@ test('el rango temporal cambia y no se puede dejar sin selección', async () => 
   await expectNothingForbidden()
 })
 
-test('el rango temporal no se guarda: al recargar vuelve a 2 h', async () => {
+test('el rango temporal no se guarda: al recargar vuelve a 2 h', { tag: '@shell' }, async () => {
   // Fija un valor distinto del de por defecto, para no depender de las pruebas anteriores.
   await page.getByTestId('time-range-24h').click()
   await expectTimeRange('24h')
@@ -561,44 +586,48 @@ test('el rango temporal no se guarda: al recargar vuelve a 2 h', async () => {
   await expectTimeRange('2h')
 })
 
-test('la CSP llega como cabecera, sin unsafe-eval ni orígenes remotos', async () => {
-  // En e2e la app corre sin empaquetar y sin servidor de Vite: la interfaz la
-  // sirve el protocolo app://, que es quien añade la cabecera.
-  const csp = await page.evaluate(async () => {
-    const response = await fetch('/index.html')
-    return response.headers.get('content-security-policy')
-  })
+test(
+  'la CSP llega como cabecera, sin unsafe-eval ni orígenes remotos',
+  { tag: '@shell' },
+  async () => {
+    // En e2e la app corre sin empaquetar y sin servidor de Vite: la interfaz la
+    // sirve el protocolo app://, que es quien añade la cabecera.
+    const csp = await page.evaluate(async () => {
+      const response = await fetch('/index.html')
+      return response.headers.get('content-security-policy')
+    })
 
-  expect(csp).toBeTruthy()
+    expect(csp).toBeTruthy()
 
-  // Cada directiva por separado: { 'script-src': ["'self'"], ... }.
-  const directives = Object.fromEntries(
-    (csp ?? '')
-      .split(';')
-      .map((directive) => directive.trim().split(/\s+/))
-      .filter(([name]) => name !== undefined && name !== '')
-      .map(([name, ...sources]) => [name as string, sources])
-  )
-  // Sin default-src, todo lo que no tenga directiva propia queda sin restringir.
-  expect(directives['default-src'], 'default-src').toBeDefined()
+    // Cada directiva por separado: { 'script-src': ["'self'"], ... }.
+    const directives = Object.fromEntries(
+      (csp ?? '')
+        .split(';')
+        .map((directive) => directive.trim().split(/\s+/))
+        .filter(([name]) => name !== undefined && name !== '')
+        .map(([name, ...sources]) => [name as string, sources])
+    )
+    // Sin default-src, todo lo que no tenga directiva propia queda sin restringir.
+    expect(directives['default-src'], 'default-src').toBeDefined()
 
-  const allowed = new Set(["'self'", "'none'", "'unsafe-inline'", 'data:', 'blob:'])
-  const problems: string[] = []
-  for (const [name, sources] of Object.entries(directives)) {
-    for (const source of sources) {
-      if (source.includes('unsafe-eval')) problems.push(`${name}: ${source}`)
-      else if (!allowed.has(source)) problems.push(`${name}: origen no permitido ${source}`)
-      // 'unsafe-inline' solo en estilos; en script-src o en default-src (que
-      // hace de respaldo para los scripts) permitiría ejecutar código en línea.
-      else if (source === "'unsafe-inline'" && !name.startsWith('style-src')) {
-        problems.push(`${name}: 'unsafe-inline' fuera de style-src`)
+    const allowed = new Set(["'self'", "'none'", "'unsafe-inline'", 'data:', 'blob:'])
+    const problems: string[] = []
+    for (const [name, sources] of Object.entries(directives)) {
+      for (const source of sources) {
+        if (source.includes('unsafe-eval')) problems.push(`${name}: ${source}`)
+        else if (!allowed.has(source)) problems.push(`${name}: origen no permitido ${source}`)
+        // 'unsafe-inline' solo en estilos; en script-src o en default-src (que
+        // hace de respaldo para los scripts) permitiría ejecutar código en línea.
+        else if (source === "'unsafe-inline'" && !name.startsWith('style-src')) {
+          problems.push(`${name}: 'unsafe-inline' fuera de style-src`)
+        }
       }
     }
+    expect(problems).toEqual([])
   }
-  expect(problems).toEqual([])
-})
+)
 
-test('las animaciones respetan prefers-reduced-motion', async () => {
+test('las animaciones respetan prefers-reduced-motion', { tag: '@shell' }, async () => {
   /** Duración máxima (s) de transiciones y animaciones CSS de los elementos indicados. */
   const maxDuration = (selector: string): Promise<number> =>
     page.evaluate((sel) => {
@@ -634,8 +663,12 @@ test('las animaciones respetan prefers-reduced-motion', async () => {
   await page.emulateMedia({ reducedMotion: null })
 })
 
-test('sin errores en consola ni peticiones remotas en todo el recorrido', async () => {
-  // Va la última: resume lo ocurrido en todas las pruebas anteriores.
-  expect(consoleErrors).toEqual([])
-  expect(remoteRequests).toEqual([])
-})
+test(
+  'sin errores en consola ni peticiones remotas en todo el recorrido',
+  { tag: '@shell' },
+  async () => {
+    // Va la última: resume lo ocurrido en todas las pruebas anteriores.
+    expect(consoleErrors).toEqual([])
+    expect(remoteRequests).toEqual([])
+  }
+)

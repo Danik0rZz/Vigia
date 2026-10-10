@@ -65,20 +65,27 @@ function invoke(channel: string, input?: unknown): Promise<unknown> {
 }
 
 /** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
-test('CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)', async () => {
-  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
-  expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
-    true
-  )
-})
+test(
+  'CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)',
+  { tag: '@smoke' },
+  async () => {
+    const size = await page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight
+    }))
+    expect(fitsContentSize(size, FIXED_WINDOW), `contenido de ${size.width}×${size.height}`).toBe(
+      true
+    )
+  }
+)
 
-test('la ventana carga la interfaz por el protocolo app://', async () => {
+test('la ventana carga la interfaz por el protocolo app://', { tag: '@smoke' }, async () => {
   expect(page.url()).toBe('app://vigia/index.html#/')
   await expect(page).toHaveTitle('Vigía')
   await expect(page.getByTestId('app-name')).toHaveText('Vigía')
 })
 
-test('app:getInfo devuelve los datos del runtime', async () => {
+test('app:getInfo devuelve los datos del runtime', { tag: '@smoke' }, async () => {
   const runtime = await app.evaluate(({ app: electronApp }) => ({
     version: electronApp.getVersion(),
     electron: process.versions.electron
@@ -96,13 +103,13 @@ test('app:getInfo devuelve los datos del runtime', async () => {
   })
 })
 
-test('el User-Agent solo tiene caracteres ASCII', async () => {
+test('el User-Agent solo tiene caracteres ASCII', { tag: '@smoke' }, async () => {
   const userAgent = await page.evaluate(() => navigator.userAgent)
   expect(userAgent).toMatch(/^[\x20-\x7E]+$/)
   expect(userAgent).toContain('vigia/')
 })
 
-test('el canal de ejemplo app:ping responde desde main', async () => {
+test('el canal de ejemplo app:ping responde desde main', { tag: '@smoke' }, async () => {
   const result = await invoke('app:ping', { message: 'desde la prueba' })
 
   expect(result).toMatchObject({ ok: true, data: { reply: 'pong: desde la prueba' } })
@@ -110,22 +117,26 @@ test('el canal de ejemplo app:ping responde desde main', async () => {
   expect(Number.isNaN(Date.parse(receivedAt))).toBe(false)
 })
 
-test('el preload valida la entrada y rechaza canales fuera del contrato', async () => {
-  const results = await page.evaluate(async () => {
-    const api = (
-      window as unknown as { vigia: { invoke: (...args: unknown[]) => Promise<unknown> } }
-    ).vigia
-    return {
-      invalid: await api.invoke('app:ping', { message: '' }),
-      unknown: await api.invoke('fs:readFile', { path: 'C:/secreto.txt' })
-    }
-  })
+test(
+  'el preload valida la entrada y rechaza canales fuera del contrato',
+  { tag: '@smoke' },
+  async () => {
+    const results = await page.evaluate(async () => {
+      const api = (
+        window as unknown as { vigia: { invoke: (...args: unknown[]) => Promise<unknown> } }
+      ).vigia
+      return {
+        invalid: await api.invoke('app:ping', { message: '' }),
+        unknown: await api.invoke('fs:readFile', { path: 'C:/secreto.txt' })
+      }
+    })
 
-  expect(results.invalid).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
-  expect(results.unknown).toMatchObject({ ok: false, error: { code: 'UNKNOWN_CHANNEL' } })
-})
+    expect(results.invalid).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+    expect(results.unknown).toMatchObject({ ok: false, error: { code: 'UNKNOWN_CHANNEL' } })
+  }
+)
 
-test('la interfaz no tiene acceso a Node ni a Electron', async () => {
+test('la interfaz no tiene acceso a Node ni a Electron', { tag: '@smoke' }, async () => {
   const exposed = await page.evaluate(() => ({
     require: typeof (window as unknown as Record<string, unknown>)['require'],
     process: typeof (window as unknown as Record<string, unknown>)['process'],
@@ -135,7 +146,7 @@ test('la interfaz no tiene acceso a Node ni a Electron', async () => {
   expect(exposed).toEqual({ require: 'undefined', process: 'undefined', api: ['invoke'] })
 })
 
-test('la CSP bloquea los scripts en línea', async () => {
+test('la CSP bloquea los scripts en línea', { tag: '@smoke' }, async () => {
   const ran = await page.evaluate(
     () =>
       new Promise<boolean>((resolve) => {
@@ -153,25 +164,29 @@ test('la CSP bloquea los scripts en línea', async () => {
   expect(ran).toBe(false)
 })
 
-test('CA1 (0045): VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco del sistema a quien usa el PC', async () => {
-  // main la enseña (showInactive) en ready-to-show, que puede llegar después de que la página
-  // cargue: se espera a verla y, entonces, no debe tener el foco.
-  await expectShownWithoutFocus(() =>
-    app.evaluate(({ BrowserWindow }) => {
-      const window = BrowserWindow.getAllWindows()[0]
-      return { visible: window?.isVisible() ?? false, focused: window?.isFocused() ?? true }
-    })
-  )
-  // Aun así, el teclado de Playwright llega (va por CDP, no por el foco del sistema).
-  await page.keyboard.press('Control+K')
-  await expect(page.getByTestId('command-palette')).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(page.getByTestId('command-palette')).toBeHidden()
-  // Y sigue sin el foco del sistema después de usar el teclado.
-  expect(
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isFocused())
-  ).toBe(false)
-})
+test(
+  'CA1 (0045): VIGIA_E2E: la ventana de la prueba se ve, pero no le quita el foco del sistema a quien usa el PC',
+  { tag: '@smoke' },
+  async () => {
+    // main la enseña (showInactive) en ready-to-show, que puede llegar después de que la página
+    // cargue: se espera a verla y, entonces, no debe tener el foco.
+    await expectShownWithoutFocus(() =>
+      app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows()[0]
+        return { visible: window?.isVisible() ?? false, focused: window?.isFocused() ?? true }
+      })
+    )
+    // Aun así, el teclado de Playwright llega (va por CDP, no por el foco del sistema).
+    await page.keyboard.press('Control+K')
+    await expect(page.getByTestId('command-palette')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('command-palette')).toBeHidden()
+    // Y sigue sin el foco del sistema después de usar el teclado.
+    expect(
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isFocused())
+    ).toBe(false)
+  }
+)
 
 /** Lecturas sucesivas de la ventana, como las daría main; la última se repite. */
 function readings(...states: WindowState[]): () => Promise<WindowState> {
@@ -179,48 +194,64 @@ function readings(...states: WindowState[]): () => Promise<WindowState> {
   return () => Promise.resolve(states[Math.min(call++, states.length - 1)] as WindowState)
 }
 
-test('CA1 (0045): la espera acepta una ventana que se ve un poco después y sin el foco', async () => {
-  const hidden = { visible: false, focused: false }
-  await expectShownWithoutFocus(readings(hidden, hidden, { visible: true, focused: false }))
-})
-
-test('CA2 (0045): si la ventana tiene el foco al verse, falla aunque después lo pierda', async () => {
-  // La espera cubre la visibilidad, no el foco: no puede seguir leyendo hasta que se vaya.
-  const read = readings(
-    { visible: false, focused: false },
-    { visible: true, focused: true },
-    { visible: true, focused: false }
-  )
-  await expect(expectShownWithoutFocus(read)).rejects.toThrow()
-})
-
-test('CA2 (0045): si la ventana nunca se ve, falla en un tiempo acotado', async () => {
-  const started = Date.now()
-  await expect(
-    expectShownWithoutFocus(readings({ visible: false, focused: false }), 500)
-  ).rejects.toThrow()
-  expect(Date.now() - started).toBeLessThan(5_000)
-})
-
-test('v0.10.1: el código de desarrollo (recarga en caliente de Vite) no está en el bundle de producción', async () => {
-  // out/ es la build de producción con la que corren estos e2e (sin el servidor de Vite).
-  const assets = join(process.cwd(), 'out', 'renderer', 'assets')
-  const bundle = readdirSync(assets)
-    .filter((name) => name.endsWith('.js'))
-    .map((name) => readFileSync(join(assets, name), 'utf8'))
-    .join('\n')
-  expect(bundle.length).toBeGreaterThan(0)
-  for (const devOnly of [
-    'vite:afterUpdate',
-    'vite:beforeUpdate',
-    'import.meta.hot',
-    '/@vite/client'
-  ]) {
-    expect(bundle, devOnly).not.toContain(devOnly)
+test(
+  'CA1 (0045): la espera acepta una ventana que se ve un poco después y sin el foco',
+  { tag: '@smoke' },
+  async () => {
+    const hidden = { visible: false, focused: false }
+    await expectShownWithoutFocus(readings(hidden, hidden, { visible: true, focused: false }))
   }
-})
+)
 
-test('una segunda instancia no abre otra ventana', async () => {
+test(
+  'CA2 (0045): si la ventana tiene el foco al verse, falla aunque después lo pierda',
+  { tag: '@smoke' },
+  async () => {
+    // La espera cubre la visibilidad, no el foco: no puede seguir leyendo hasta que se vaya.
+    const read = readings(
+      { visible: false, focused: false },
+      { visible: true, focused: true },
+      { visible: true, focused: false }
+    )
+    await expect(expectShownWithoutFocus(read)).rejects.toThrow()
+  }
+)
+
+test(
+  'CA2 (0045): si la ventana nunca se ve, falla en un tiempo acotado',
+  { tag: '@smoke' },
+  async () => {
+    const started = Date.now()
+    await expect(
+      expectShownWithoutFocus(readings({ visible: false, focused: false }), 500)
+    ).rejects.toThrow()
+    expect(Date.now() - started).toBeLessThan(5_000)
+  }
+)
+
+test(
+  'v0.10.1: el código de desarrollo (recarga en caliente de Vite) no está en el bundle de producción',
+  { tag: '@smoke' },
+  async () => {
+    // out/ es la build de producción con la que corren estos e2e (sin el servidor de Vite).
+    const assets = join(process.cwd(), 'out', 'renderer', 'assets')
+    const bundle = readdirSync(assets)
+      .filter((name) => name.endsWith('.js'))
+      .map((name) => readFileSync(join(assets, name), 'utf8'))
+      .join('\n')
+    expect(bundle.length).toBeGreaterThan(0)
+    for (const devOnly of [
+      'vite:afterUpdate',
+      'vite:beforeUpdate',
+      'import.meta.hot',
+      '/@vite/client'
+    ]) {
+      expect(bundle, devOnly).not.toContain(devOnly)
+    }
+  }
+)
+
+test('una segunda instancia no abre otra ventana', { tag: '@smoke' }, async () => {
   test.setTimeout(60_000)
   expect(app.windows()).toHaveLength(1)
   const locked = await app.evaluate(({ app: electronApp }) => electronApp.hasSingleInstanceLock())
@@ -278,7 +309,7 @@ test('una segunda instancia no abre otra ventana', async () => {
   expect(app.windows()).toHaveLength(1)
 })
 
-test('la navegación fuera de la app queda bloqueada', async () => {
+test('la navegación fuera de la app queda bloqueada', { tag: '@smoke' }, async () => {
   // Va la última: Playwright se queda esperando una navegación que main cancela.
   await page.evaluate(() => {
     window.location.href = 'https://example.com/'
