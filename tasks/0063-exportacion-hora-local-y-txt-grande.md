@@ -1,7 +1,7 @@
 ---
 id: '0063'
 titulo: 'Exportación: fechas del XLSX en hora local, TXT con tablas grandes y fecha local en el fichero de configuración'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-exportacion
@@ -104,6 +104,13 @@ configuración lleva la fecha local`: 00:30 en Madrid (verano e invierno), en Nu
 
 Ejecución al escribirlos: 14 fallan por el comportamiento actual (CA1, complemento de CA2 con
 `RangeError` y CA3 en Madrid y Nueva York); CA2 literal y los controles en UTC pasan.
+
+### Verifier, 2026-10-10, commit `a976ac0`, rango `main..feat/0063-exportacion-hora-local-y-txt-grande`: VERDE
+
+- check: 3437 tests en 197 ficheros, cobertura ok.
+- Con `TZ=UTC` (zona del CI): exportación, `export.test.ts` y `tenants.test.ts`, 220/220.
+- e2e afectados: 299/299.
+- Mini gráfico y exportaciones de `views.spec.ts` ×3 con `--workers=1`: 27/27.
 
 ## Resultado
 
