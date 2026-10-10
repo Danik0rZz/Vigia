@@ -1,7 +1,7 @@
 ---
 id: '0051'
 titulo: 'PROCESS_GROUP: tabla con las 20 de más CPU, aviso y modal «Ver todas» con transición de entrada'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:processGroupMetrics` y `entities:processGroupInstances` de la 0050)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -79,7 +79,26 @@ En la tabla «Instancias» de la página del process group (0032):
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Criterios / test anterior debilitado] `process-group-instances.ts:45-48`: `instancesTruncated`
+   pasa a `partial && !totalKnown` y controla a la vez el «como mínimo» del marcador y el aviso de
+   recorte de la tabla. La nota de la 0050 solo pedía corregir el marcador: con total conocido el
+   número es exacto, pero la lista puede seguir incompleta (la memoria va sin `:limit`), y el grupo
+   grande (con `totalCount`) se queda sin aviso. El e2e de la 0032 con 403 sigue cubriendo el
+   «7+» (legítimo), pero el unitario fija que la tabla deje de avisar y nadie prueba ya «`partial`
+   con total conocido» en la tabla. Separar las dos decisiones: marcador con `partial &&
+!totalKnown`, aviso de la tabla con `partial` (con total conocido, un texto que no diga que el
+   total puede estar incompleto, en es y en); ajustar el unitario y añadir un e2e con el grupo
+   recortado y total real: aviso de la tabla visible y marcador con 600 exacto.
+
+Bien: CA1 a CA6 con su test y sin tocarlos tras `afb7cf3`; foco, Escape, clic fuera, devolución del
+foco y `prefers-reduced-motion`; sin IPC, API, esquema, CSP ni dependencias; consulta `MANUAL`
+activada al pulsar (ADR-0004); nada del tenant.
+
+Opcional: la lista completa se vuelve a pedir al cambiar el rango con el modal cerrado (anotarlo o
+`enabled: requested && open`); `busy` de «Actualizar» no cuenta la consulta del modal; un e2e del
+error con Reintentar dentro del modal.
 
 ## Verificación
 
