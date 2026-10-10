@@ -1,7 +1,7 @@
 ---
 id: '0055'
 titulo: '`scan:tenant` falla cerrado: sin `.env.live.local` no da verde, y escanea lo que de verdad se sube'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -134,10 +134,14 @@ no se pone rojo por esto.
 
 - Línea de borrado (`sha local` a ceros): no se escanea, porque no sube contenido. Si todas las
   líneas son borrados, sale con 0 y lo dice («solo se borran ramas remotas»).
-- Entrada estándar vacía en `--pre-push`: sale con 2 («git no ha indicado qué se sube»). Git lanza
-  el hook con la entrada vacía cuando todo está al día, así que un `git push` sin nada que subir
-  termina en error en vez de en «Everything up-to-date». No publica nada y es la opción que no da
-  verde sin motivo.
+- Entrada estándar vacía en `--pre-push`: sale con 0 y dice «git no indica ningún ref que subir:
+  todo al día o rechazado por git». Cambiado en la ronda 1: al principio salía con 2, pero git lanza
+  el hook aunque no haya nada que subir y deja fuera de la entrada los refs al día y los rechazados,
+  así que un 2 tapaba el aviso de non-fast-forward. La comprobación del `.env` va antes y se
+  mantiene: sin `.env`, 2 aunque la entrada esté vacía.
+- `.env.live.local` vacío o sin valores reconocibles (ronda 1, decisión del Orquestador): sale con
+  2 («no se puede comprobar»), o con 0 y AVISO si `VIGIA_SCAN_TENANT_OPTIONAL=1`. Se comprueba antes
+  de leer la entrada, en los dos modos. Uno vacío en un worktree tapa al del principal y también da 2. El test anterior «con el .env vacío avisa y termina en 0» se ha invertido (commit `7efd813`).
 - Línea con otra forma (no son 4 campos o los sha no son hexadecimales): sale con 2.
 - El `.env` se comprueba antes de leer la entrada: sin él, 2 (o 0 con aviso y
   `VIGIA_SCAN_TENANT_OPTIONAL=1`) en los dos modos.
@@ -145,7 +149,9 @@ no se pone rojo por esto.
   comprobar»). Los dos paran el push.
 - Sin `origin/main` local (rama nueva en un repositorio recién creado), git falla y el script sale
   con 2. En Vigía `origin/main` siempre existe.
-- Tests propios en `scripts/scan-tenant.test.ts` › `0055 (developer): …` (commit `7742178`).
+- Tests propios en `scripts/scan-tenant.test.ts` › `0055 (developer): …` (commit `7742178`) y,
+  de la ronda 1, `0055 (ronda 1): …` y los del `.env` vacío en `CLI` (commit `7efd813`; código en
+  `cbc98bf`).
   Probado también a mano con un push real a un remoto temporal, con datos inventados: fuga, limpio,
   rama nueva, borrado, nada que subir y un worktree sin `.env`.
 
