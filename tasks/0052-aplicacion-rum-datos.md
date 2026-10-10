@@ -1,7 +1,7 @@
 ---
 id: '0052'
 titulo: 'APPLICATION (RUM): datos de actividad por tipo de acción, errores por tipo, usuarios, sesiones y experiencia'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -231,3 +231,5 @@ aplicación web»).
 
 `npm run check` en verde (175 ficheros, 3196 tests) y `npm run test:e2e:affected -- main..HEAD`
 completo (toca `src/shared/ipc.ts`, transversal): 341 pasados.
+
+**Cierre:** commits `63a79d3` (tests), `ac35870` (ficha y paso 0), `7db3ea3` (canal), `9990225` (notas de la API); ficheros principales `src/main/modules/application-rum.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/ipc.ts` y `src/shared/modules.ts`. Una ronda de revisión (aprobada a la primera). Sin ADR nuevo ni migraciones. Las sugerencias del revisor y la idea de `Error origin` pasaron a «Mejoras anotadas» del `BACKLOG.md`.
