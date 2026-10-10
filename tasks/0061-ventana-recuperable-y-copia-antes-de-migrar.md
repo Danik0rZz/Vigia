@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -96,6 +96,18 @@ CSP ni esquema; nada del tenant.
 
 Opcional: llamar a `hangs.responsive()` desde `render-process-gone` para no arrastrar el estado de
 cuelgue tras una recarga; abrir la base de origen con `readonly: true` en la copia.
+
+### Ronda 2: APROBADO
+
+El CAMBIO de la ronda 1, resuelto en `133ca20`: `prune` recibe la copia nueva y la deja fuera de la
+poda (se conservan ella y las 2 más recientes del resto); `backup-prune.test.ts` lo prueba con el
+reloj hacia atrás y fallaba con el código anterior. El [ALCANCE], resuelto según el CA1 ajustado
+por el Planificador: los cuatro casos de `killed` de `a1cdeb7` y `clean-exit` sin efecto; tras
+`a1cdeb7` solo se añade `backup-prune.test.ts`; `NOT_A_CRASH` solo contiene `'clean-exit'`. Los
+opcionales, hechos: base de origen `readonly: true`, `fileMustExist: true`, y `hangs.responsive()`
+desde `render-process-gone`. Lo aprobado en la ronda 1 sigue intacto.
+
+Opcional: que el verifier confirme los tipos de `prune(backupDir, destination, logger)`.
 
 ## Verificación
 
