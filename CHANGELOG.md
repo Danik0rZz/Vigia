@@ -20,6 +20,9 @@ Sin migraciones nuevas.
 
 ### Corregido
 
+- **Las fechas del XLSX exportado salen en hora local.** Antes Excel enseñaba la hora UTC, así que las celdas de fecha y las filas «Exportado», «Desde» y «Hasta» de la hoja Info salían desplazadas una o dos horas respecto a la zona que dice esa misma hoja. Ahora cuadran con la zona del equipo. **El CSV no cambia:** sigue en ISO UTC con `Z`, sin ambigüedad. Sin migraciones nuevas. (ficha 0063)
+- **El TXT aguanta tablas grandes.** Exportar a TXT una tabla de muchas filas (el máximo es 100 000) podía fallar con un error interno al calcular el ancho de las columnas; ahora se calcula sin ese límite. Sin migraciones nuevas. (ficha 0063)
+- **El fichero de configuración exportado lleva la fecha local.** Entre las 00:00 y las 02:00 (hora peninsular) el nombre llevaba la fecha del día anterior; ahora usa la del día local, como el resto de exportaciones. Sin migraciones nuevas. (ficha 0063)
 - **Las evidencias de un problema ya no se repintan al escribir en el buscador.** Cada letra volvía a pintar las 300 filas de la tabla aunque no cambiara ninguna; ahora solo se pintan las que cambian. Sin migraciones nuevas. (ficha 0059)
 
 ### Seguridad

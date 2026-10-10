@@ -1,7 +1,7 @@
 ---
 id: '0063'
 titulo: 'Exportación: fechas del XLSX en hora local, TXT con tablas grandes y fecha local en el fichero de configuración'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-exportacion
@@ -136,3 +136,5 @@ Decisiones razonables, refinables (la cola sigue delegada):
 del mini gráfico…` (`e2e/views.spec.ts`), las fechas leídas se pasan a instante con
   `wallTimeToEpoch` en la zona del renderer (pierden los segundos, dentro del margen de un minuto
   que ya tenía el test).
+
+Cierre: 10 commits en `main..HEAD` (tests `7133a34`; correcciones `750c966`, `f913f71`, `4ea7cab`; adaptación de tests anteriores `09d021f` y `527d9d5`; más los de ficha). Ficheros principales: `src/main/export/xlsx.ts`, `txt.ts`, `file-name.ts`, `src/main/ipc/handlers/tenants.ts`. 1 ronda de revisión (APROBADO). ADR nuevo: ninguno. Sin migraciones.
