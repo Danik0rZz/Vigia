@@ -1,7 +1,7 @@
 ---
 id: '0056'
 titulo: 'CI: acciones fijadas por SHA, npm audit, artefactos de e2e fallidos, sin cancelar runs y caché de Electron'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -143,6 +143,14 @@ Decisiones del developer (Dani delegó; refinables):
   `concurrency`.
 - `npm audit` hoy: el de producción sale con código 0 (solo los 2 `moderate` de `uuid` por ExcelJS,
   por debajo de `high`): sin excepciones.
+
+### Verifier, 2026-10-10, commit `2dd10e7`, rango `main..feat/0056-ci-endurecido`: VERDE
+
+- check: 3292 tests en 181 ficheros, cobertura ok.
+- e2e: no aplica (solo `.github/workflows`, la ficha y `scripts/ci-workflow.test.ts`).
+- `npm audit --omit=dev --audit-level=high`: salida 0 (2 moderadas de `uuid` vía `exceljs`).
+  `npm audit --audit-level=critical`: salida 0 (15: 14 moderadas y 1 alta, ninguna crítica).
+- CA5 (CI del push en verde): lo comprueba el Orquestador tras el push.
 
 ## Resultado
 
