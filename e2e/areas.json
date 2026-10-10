@@ -124,6 +124,7 @@
         "src/main/export/**",
         "src/main/modules/**",
         "src/main/ipc/handlers/modules.ts",
+        "src/main/ipc/handlers/metrics-query.ts",
         "src/main/ipc/handlers/export.ts",
         "src/main/dynatrace/**",
         "src/shared/dynatrace.ts",
