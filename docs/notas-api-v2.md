@@ -691,6 +691,46 @@ navegador, tipo de usuario o geolocalización).
   la forma `:filter(eq(...))` equivale a `entityId(...)` en vivo (0006, 0023), pero este filtro es
   deducido: no se ha probado en vivo.
 
+### RUM de una aplicación web (ficha 0052, observado en vivo, solo lectura)
+
+3 aplicaciones, `now-24h`, solo API clásica (`GET /metrics/{metricId}` y `GET /metrics/query`; nada
+de Grail ni DQL). Todas las candidatas existen, admiten `resolution=Inf` y tienen la dimensión
+`dt.entity.application`. Canal `entities:applicationRum`.
+
+| Papel               | Expresión del canal (prefijo `builtin:apps.web.`)                                                                          | Unidad                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Acciones por tipo   | `actionCount.{load,xhr,custom}.browser:splitBy():sum`                                                                      | Count                   |
+| Duración por tipo   | `actionDuration.{load,xhr,custom}.browser:splitBy():avg`                                                                   | MilliSecond             |
+| Errores por tipo    | `countOfErrors:splitBy("Error type"):sum`                                                                                  | Count                   |
+| Acciones afectadas  | `percentageOfUserActionsAffectedByErrors:splitBy()`                                                                        | Percent (0 a 100)       |
+| Usuarios activos    | `activeUsersEst:splitBy()`                                                                                                 | Count (estimación)      |
+| Sesiones            | `startedSessions:splitBy():sum` y `endedSessions:splitBy():sum`                                                            | Count                   |
+| Duración de sesión  | `sessionDuration:splitBy():avg`                                                                                            | **MicroSecond**         |
+| Acciones por sesión | `actionsPerSession:splitBy():avg`                                                                                          | Count                   |
+| Rebote              | `bouncedSessionRatio:splitBy()`                                                                                            | Percent (0 a 100)       |
+| Core Web Vitals     | `{largestContentfulPaint.load.browser,cumulativeLayoutShift.load.browser,interactionToNextPaint}:splitBy():percentile(75)` | ms, ms; CLS Unspecified |
+| Rage clicks         | `event.count.rageClick:splitBy():sum`                                                                                      | Count                   |
+
+- Como mucho **10 expresiones por consulta** (OpenAPI v2, `metricSelector`): las 18 van en dos
+  consultas de series (sin `resolution`) y dos de totales (`resolution=Inf`), en paralelo. Todas 200,
+  con `metricId` igual a la expresión (también con las comillas de `"Error type"`); se casan por
+  posición de todos modos.
+- **Errores HTTP:** no hay métrica con «http» en el nombre. `countOfErrors` tiene `Error type`
+  (valores vistos: `JavaScript` y `Request`) y `Error origin` (`First party`, `Third party`). Por
+  `Error type`, los tipos suman el total en el rango y en cada intervalo, con los mismos timestamps:
+  los HTTP son `Request`. `jsErrorsDuringUa` + `jsErrorsWithoutUa` es igual al tipo `JavaScript`.
+  `errorCountForDavis` solo trae `Request` (y añade `Error context`): no sirve para separar.
+- `activeUsersEst` con `resolution=Inf` y `:splitBy()` (igual que `:value`) es la estimación de
+  usuarios distintos del rango: no es la suma ni el máximo de la serie y queda por debajo de las
+  sesiones. `:avg` no sirve.
+- En los porcentajes, `:splitBy()` es `:value`; `:avg` es la media sin ponderar de los tipos de
+  usuario (difiere con varios). Ninguno coincide con 100 × `countOfUserActionsWithErrors` /
+  `actionCount.summary`. En `sessionDuration` y `actionsPerSession`, `:splitBy()` es `:avg`.
+- INP no admite `avg` (sí `percentile`): los tres Core Web Vitals van con el percentil 75.
+- Sin datos en ninguna de las 3: `actionCount.custom.browser`, `actionDuration.custom.browser` y
+  `event.count.rageClick` (llegan sin series). `jsErrorsDuringUa` y `jsErrorsWithoutUa`, en 2 de 3.
+- En los recuentos, el total con `Inf` queda a menos del 1 % de la suma de la serie.
+
 ### Métricas de un disco (ficha 0040, observado en vivo, solo lectura)
 
 3 discos, `now-2h`. `builtin:host.disk.*` da 16 métricas, todas con `entityType` HOST y las dimensiones `dt.entity.host` y `dt.entity.disk`.
