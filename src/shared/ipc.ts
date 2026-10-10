@@ -40,6 +40,7 @@ import {
   applicationMetricsResultSchema,
   diskEntityIdSchema,
   diskMetricsResultSchema,
+  processGroupInstancesResultSchema,
   processGroupMetricsResultSchema,
   problemDetailOutputSchema,
   problemSummarySchema,
@@ -439,6 +440,18 @@ export const ipcContract = {
       timeRange: timeRangeSchema
     }),
     output: processGroupMetricsResultSchema
+  },
+  /**
+   * Lista completa de instancias de un PROCESS_GROUP en el rango (ficha 0050), a demanda (la
+   * pide el modal «Ver todas», no la página): de más a menos CPU, el total y si está recortada.
+   */
+  'entities:processGroupInstances': {
+    input: z.object({
+      environmentId: z.uuid(),
+      entityId: processGroupEntityIdSchema,
+      timeRange: timeRangeSchema
+    }),
+    output: processGroupInstancesResultSchema
   },
   /**
    * Métricas de una aplicación web (APPLICATION) en el rango (ficha 0033): series y

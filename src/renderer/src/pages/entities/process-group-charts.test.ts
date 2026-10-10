@@ -65,7 +65,7 @@ function group(items: ProcessGroupInstance[]): ProcessGroupMetricsResult {
       memory: { avg: 1.5e8 },
       network: { in: 150, out: 15 }
     },
-    instances: { items, total: items.length },
+    instances: { items, total: items.length, totalKnown: true },
     warnings: [],
     partial: []
   }

@@ -1,5 +1,7 @@
+import { z } from 'zod'
 import type {
   ProcessGroupInstance,
+  ProcessGroupInstancesResult,
   ProcessGroupMetricsResult,
   ProcessSeries
 } from '@shared/modules'
@@ -20,6 +22,16 @@ import { truncatedResults, type MetricData } from './metrics'
  * - cada expresión vuelve en el orden pedido, con `metricId` igual a la expresión:
  *   se casan por posición, como en el proceso;
  * - unidades sin convertir: % (la CPU del grupo puede pasar de 100), bytes y bytes/s.
+ *
+ * Ficha 0050 (paso 0 en vivo, en su "Verificación"):
+ * - `:sort(value(avg,descending))` detrás de la CPU por instancia, con `Inf`, la ordena de más a
+ *   menos, y `:limit(20)` además deja solo las 20 de más CPU;
+ * - la memoria de esas 20 sale de la memoria de todas en la misma consulta, casada por id (una
+ *   petición menos que filtrarla por los ids);
+ * - `GET /entities` con el selector del grupo y `pageSize=1` da en `totalCount` el total real de
+ *   instancias.
+ *
+ * Ninguna consulta pasa del límite de 10 expresiones de `metricSelector`.
  */
 
 const G = 'builtin:tech.generic.'
@@ -30,6 +42,11 @@ const NETWORK_OUT = `${G}network.bytesTx`
 const TOTAL = ':splitBy():sum'
 const BY_INSTANCE =
   ':parents:splitBy("dt.entity.process_group_instance","dt.entity.host"):avg:names'
+/** De más a menos CPU media (ficha 0050, probado en vivo con `Inf`). */
+const SORT = ':sort(value(avg,descending))'
+
+/** Instancias que trae `entities:processGroupMetrics`: las de más CPU (ficha 0050). */
+export const PROCESS_GROUP_TOP_INSTANCES = 20
 
 const INSTANCE_DIMENSION = 'dt.entity.process_group_instance'
 const HOST_DIMENSION = 'dt.entity.host'
@@ -48,12 +65,33 @@ const TOTALS = [CPU, MEMORY, NETWORK_IN, NETWORK_OUT].map((metric) => `${metric}
 /** Consulta 1 (series del total, sin resolution), en este orden. */
 export const PROCESS_GROUP_SERIES_SELECTOR = TOTALS.join(',')
 
-/** Consulta 2 (medias del total y por instancia, con `resolution=Inf`), en este orden. */
+/**
+ * Consulta 2 (medias del total y por instancia, con `resolution=Inf`), en este orden: los cuatro
+ * totales, la CPU de las 20 de más CPU y la memoria de todas (ficha 0050).
+ */
 export const PROCESS_GROUP_MARKER_SELECTOR = [
   ...TOTALS,
-  `${CPU}${BY_INSTANCE}`,
+  `${CPU}${BY_INSTANCE}${SORT}:limit(${PROCESS_GROUP_TOP_INSTANCES})`,
   `${MEMORY}${BY_INSTANCE}`
 ].join(',')
+
+/**
+ * Lista completa (canal `entities:processGroupInstances`, ficha 0050), con `resolution=Inf`: la
+ * CPU de todas, ordenada, y la memoria de todas, en este orden.
+ */
+export const PROCESS_GROUP_INSTANCES_SELECTOR = [
+  `${CPU}${BY_INSTANCE}${SORT}`,
+  `${MEMORY}${BY_INSTANCE}`
+].join(',')
+
+/**
+ * Respuesta de `GET /entities` con `pageSize=1` (`EntitiesList`): solo interesa `totalCount`,
+ * el total real de instancias del grupo (ficha 0050).
+ */
+export const entityCountSchema = z.looseObject({
+  totalCount: z.number().int().nonnegative().optional()
+})
+export type EntityCount = z.output<typeof entityCountSchema>
 
 const EMPTY: ProcessSeries = { timestamps: [], values: [] }
 
@@ -78,13 +116,13 @@ function maxOf(series: ProcessSeries): number | null {
 /**
  * Instancias de las medias por instancia (CPU en `cpuIndex`, memoria en
  * `memoryIndex`), casadas por id. Ordenadas por CPU media de más a menos; las de
- * CPU null, al final. Sin nombre en dimensionMap, el id; sin host, null.
+ * CPU null (o sin serie de CPU), al final. Sin nombre en dimensionMap, el id; sin host, null.
  */
 function instancesOf(
   markers: MetricData,
   cpuIndex: number,
   memoryIndex: number
-): ProcessGroupMetricsResult['instances'] {
+): ProcessGroupInstance[] {
   const byId = new Map<string, ProcessGroupInstance>()
   const collect = (index: number, role: 'cpu' | 'memory'): void => {
     for (const series of markers.result[index]?.data ?? []) {
@@ -114,13 +152,38 @@ function instancesOf(
     if (b.cpu === null) return -1
     return b.cpu - a.cpu
   })
-  return { items, total: items.length }
+  return items
 }
 
-/** Junta las dos respuestas en series, totales e instancias para la interfaz. */
+/**
+ * Las 20 de más CPU, el total real (de `totalCount`) y si se conoce. Sin `totalCount`, el
+ * número de instancias distintas recibidas: las 20 de CPU y las de la memoria de todas.
+ */
+function topInstancesOf(
+  markers: MetricData,
+  totalCount: number | null
+): ProcessGroupMetricsResult['instances'] {
+  const all = instancesOf(markers, 4, 5)
+  return {
+    items: all.slice(0, PROCESS_GROUP_TOP_INSTANCES),
+    total: totalCount ?? all.length,
+    totalKnown: totalCount !== null
+  }
+}
+
+/** El total real de la respuesta de `/entities`; null si no llegó (o no se pudo pedir). */
+export function totalCountOf(count: EntityCount | null): number | null {
+  return count?.totalCount ?? null
+}
+
+/**
+ * Junta las dos respuestas en series, totales e instancias para la interfaz. `totalCount`, el
+ * total real de instancias (null si `/entities` falló).
+ */
 export function toProcessGroupMetrics(
   series: MetricData,
-  markers: MetricData
+  markers: MetricData,
+  totalCount: number | null
 ): ProcessGroupMetricsResult {
   const cpu = seriesAt(series, 0)
   return {
@@ -135,8 +198,26 @@ export function toProcessGroupMetrics(
       memory: { avg: single(markers, 1) },
       network: { in: single(markers, 2), out: single(markers, 3) }
     },
-    instances: instancesOf(markers, 4, 5),
+    instances: topInstancesOf(markers, totalCount),
     warnings: [...new Set([...(series.warnings ?? []), ...(markers.warnings ?? [])])],
     partial: [...truncatedResults(series), ...truncatedResults(markers)]
+  }
+}
+
+/**
+ * Lista completa de instancias (canal `entities:processGroupInstances`, ficha 0050), de más a
+ * menos CPU. `truncated`: la API recortó las series (ratio > 1) o llegan menos instancias que el
+ * total real. Sin `totalCount`, el total es el número recibido y solo cuenta el recorte de la API.
+ */
+export function toProcessGroupInstances(
+  data: MetricData,
+  totalCount: number | null
+): ProcessGroupInstancesResult {
+  const items = instancesOf(data, 0, 1)
+  const partial = truncatedResults(data).length > 0
+  return {
+    items,
+    total: totalCount ?? items.length,
+    truncated: partial || (totalCount !== null && items.length < totalCount)
   }
 }

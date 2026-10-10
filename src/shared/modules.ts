@@ -640,14 +640,31 @@ export const processGroupMetricsResultSchema = z.object({
     memory: z.object({ avg: z.number().nullable() }),
     network: z.object({ in: z.number().nullable(), out: z.number().nullable() })
   }),
+  /**
+   * Ficha 0050: las 20 de más CPU, el total real de instancias del grupo (de `totalCount` de
+   * `GET /entities`) y si se conoce; con `totalKnown` false, `total` es el número recibido.
+   */
   instances: z.object({
     items: z.array(processGroupInstanceSchema),
-    total: z.number().int().nonnegative()
+    total: z.number().int().nonnegative(),
+    totalKnown: z.boolean()
   }),
   warnings: z.array(z.string()),
   partial: metricResultSchema.shape.partial
 })
 export type ProcessGroupMetricsResult = z.output<typeof processGroupMetricsResultSchema>
+
+/**
+ * Lista completa de instancias de un process group (canal `entities:processGroupInstances`,
+ * ficha 0050), de más a menos CPU media. `total`: el real (de `totalCount`) o, si no se pudo
+ * saber, el número recibido. `truncated`: la API recortó la respuesta o llegan menos que el total.
+ */
+export const processGroupInstancesResultSchema = z.object({
+  items: z.array(processGroupInstanceSchema),
+  total: z.number().int().nonnegative(),
+  truncated: z.boolean()
+})
+export type ProcessGroupInstancesResult = z.output<typeof processGroupInstancesResultSchema>
 
 /**
  * Id de una entidad APPLICATION de Dynatrace, una aplicación web (ficha 0033). Como el

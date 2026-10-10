@@ -62,10 +62,14 @@ import {
   toProcessMetrics
 } from '../../modules/process-metrics'
 import {
+  PROCESS_GROUP_INSTANCES_SELECTOR,
   PROCESS_GROUP_MARKER_SELECTOR,
   PROCESS_GROUP_SERIES_SELECTOR,
+  entityCountSchema,
   processGroupEntitySelector,
-  toProcessGroupMetrics
+  toProcessGroupInstances,
+  toProcessGroupMetrics,
+  totalCountOf
 } from '../../modules/process-group-metrics'
 import {
   APPLICATION_ACTIONS_SELECTOR,
@@ -123,6 +127,7 @@ type ModuleChannels =
   | 'entities:monitorBreakdown'
   | 'entities:processMetrics'
   | 'entities:processGroupMetrics'
+  | 'entities:processGroupInstances'
   | 'entities:applicationMetrics'
   | 'entities:diskMetrics'
   | 'slos:list'
@@ -161,6 +166,31 @@ export function createModuleHandlers(
   deps: ModuleHandlerDeps
 ): Pick<IpcImplementations, ModuleChannels> {
   const { client, repo } = deps
+
+  /**
+   * Total real de instancias de un process group (ficha 0050): `totalCount` de `GET /entities`
+   * con el selector de sus instancias y `pageSize=1`. Sin `entities.read` (403) o con cualquier
+   * error de Dynatrace, null: el canal responde igual, con el número recibido.
+   */
+  const processGroupTotal = async (
+    environmentId: string,
+    entitySelector: string,
+    range: { from: string; to?: string }
+  ): Promise<number | null> => {
+    try {
+      const count = await client.dtRequest({
+        envId: environmentId,
+        api: 'classic',
+        path: DT_ENDPOINTS.entities.path,
+        query: { entitySelector, pageSize: 1, ...range },
+        schema: entityCountSchema
+      })
+      return totalCountOf(count)
+    } catch (error) {
+      if (error instanceof DtError) return null
+      throw error
+    }
+  }
 
   return {
     'problems:list': async ({ environmentId, timeRange, status, severity, impact, text }) => {
@@ -571,13 +601,51 @@ export function createModuleHandlers(
         })
       try {
         // Series del total con la resolución que elija la API; medias del total y por
-        // instancia con Inf (sin fold: mezclarlos da 400).
-        const [series, markers] = await Promise.all([
+        // instancia con Inf (sin fold: mezclarlos da 400); y el total real de instancias.
+        const [series, markers, totalCount] = await Promise.all([
           query(PROCESS_GROUP_SERIES_SELECTOR),
-          query(PROCESS_GROUP_MARKER_SELECTOR, 'Inf')
+          query(PROCESS_GROUP_MARKER_SELECTOR, 'Inf'),
+          processGroupTotal(environmentId, entitySelector, range)
         ])
-        return toProcessGroupMetrics(series, markers)
+        return toProcessGroupMetrics(series, markers, totalCount)
       } catch (error) {
+        if (
+          error instanceof DtError &&
+          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
+        ) {
+          throw new DtError(error.code, error.message, error.status, {
+            key: 'processGroupMetricsRejected',
+            params: { status: error.status ?? 0, detail: error.message }
+          })
+        }
+        throw error
+      }
+    },
+
+    'entities:processGroupInstances': async ({ environmentId, entityId, timeRange }) => {
+      repo.getEnvironment(environmentId)
+      const range = timeRangeToDt(timeRange)
+      const entitySelector = processGroupEntitySelector(entityId)
+      try {
+        // Una consulta con Inf (CPU de todas, ordenada, y memoria de todas) y el total real.
+        const [data, totalCount] = await Promise.all([
+          client.dtRequest({
+            envId: environmentId,
+            api: 'classic',
+            path: '/metrics/query',
+            query: {
+              metricSelector: PROCESS_GROUP_INSTANCES_SELECTOR,
+              entitySelector,
+              resolution: 'Inf',
+              ...range
+            },
+            schema: metricDataSchema
+          }),
+          processGroupTotal(environmentId, entitySelector, range)
+        ])
+        return toProcessGroupInstances(data, totalCount)
+      } catch (error) {
+        // El mismo motivo que las métricas del grupo: es la misma consulta, más larga.
         if (
           error instanceof DtError &&
           (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
