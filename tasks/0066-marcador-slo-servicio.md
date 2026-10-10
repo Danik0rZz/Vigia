@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -103,7 +103,23 @@ Depende de la 0065 porque las dos tocan los mismos textos y tests del servicio.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1 a CA4 cubiertos, cada uno con su número: CA1 en `service-availability.test.ts` (89,9, 90,
+  100 y `null`); CA2 a CA4 en `e2e/views.spec.ts` (orden en el DOM y en pantalla, «SLO»,
+  `data-level`, color, «por debajo del 90 %», solo actividad y «—»). Rojo antes del código y sin
+  tocar tests tras `ff7cdaf`.
+- Piezas comunes de `EntityMarkers.tsx` y regla en la función pura `availabilityLevel` con
+  `AVAILABILITY_CRITICAL`. Nada del tenant.
+- Decisiones del developer: quitar la clave `marker` y los cambios de los e2e de la 0008, 0012,
+  0047 y 0048 son los que pide la especificación.
+- Columnas `lg:grid-cols-3 xl:grid-cols-6` en vez de `lg:grid-cols-6`: aceptable, no es
+  `[ALCANCE]`. No cambia ningún CA, mantiene el centrado de la 0012 a 1024 px y sigue la pauta de
+  `ApplicationMarkers.tsx`. Entre 1024 y 1279 px salen dos filas de tres; la de seis, desde 1280
+  px, solo la ve la prueba a mano (los e2e van a 1024×720).
+
+Opcionales: decirle a Dani en la prueba a mano lo de los 1280 px; dos comentarios pasan de 100
+columnas (JSDoc de `ServiceMarkers.tsx` y el bloque de nombres de `e2e/views.spec.ts`).
 
 ## Verificación
 
@@ -119,28 +135,32 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 
 ### Pasos
 
-| Paso                                                     | Agente       | Ronda | Inicio              | Fin                 | Duración    | Notas                                                                                                                                                                                 |
-| -------------------------------------------------------- | ------------ | ----- | ------------------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Redacción de la ficha                                    | Planificador | —     | 2026-10-10 12:55:05 | 2026-10-10 12:56:12 | 1 min 7 s   | Desde el primer comando; la llegada del mensaje no se puede medir                                                                                                                     |
-| Espera de la aprobación de Dani                          | Dani         | —     | 2026-10-10 12:56:12 | 2026-10-10 12:57:58 | 1 min 46 s  | Desde el aviso hasta su «1» (rojo/verde al 90 %)                                                                                                                                      |
-| Aprobación, BACKLOG, commit y envío al Orquestador       | Planificador | —     | 2026-10-10 12:57:58 | 2026-10-10 12:57:59 | 0 min 1 s   | Hasta antes del commit; el commit y el SendMessage tardan unos segundos más                                                                                                           |
-| Espera en la cola del Orquestador (0064 y 0065 en curso) | —            | —     | 2026-10-10 12:57:59 | 2026-10-10 13:51:52 | 53 min 53 s | Desde el commit de la aprobación hasta crear la rama                                                                                                                                  |
-| Rama, lectura de la ficha y lanzamiento del developer    | Orquestador  | —     | 2026-10-10 13:51:52 | 2026-10-10 13:52:11 | 0 min 19 s  | Incluye el aviso de la 0065                                                                                                                                                           |
-| Desarrollo (tests primero, código, ficha)                | developer    | —     | 2026-10-10 13:52:14 | 2026-10-10 14:15:31 | 23 min 17 s | Desde su primer comando; no se puede medir lo que tarda en arrancar el subagente ni la redacción de su respuesta. Incluye un e2e en rojo (centrado de la 0012 a 1024 px) y su arreglo |
-| Vuelta del developer al Orquestador                      | Orquestador  | —     | 2026-10-10 14:15:31 | 2026-10-10 14:16:00 | 0 min 29 s  | Incluye la redacción de su respuesta                                                                                                                                                  |
+| Paso                                                               | Agente       | Ronda | Inicio              | Fin                 | Duración    | Notas                                                                                                                                                                                 |
+| ------------------------------------------------------------------ | ------------ | ----- | ------------------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Redacción de la ficha                                              | Planificador | —     | 2026-10-10 12:55:05 | 2026-10-10 12:56:12 | 1 min 7 s   | Desde el primer comando; la llegada del mensaje no se puede medir                                                                                                                     |
+| Espera de la aprobación de Dani                                    | Dani         | —     | 2026-10-10 12:56:12 | 2026-10-10 12:57:58 | 1 min 46 s  | Desde el aviso hasta su «1» (rojo/verde al 90 %)                                                                                                                                      |
+| Aprobación, BACKLOG, commit y envío al Orquestador                 | Planificador | —     | 2026-10-10 12:57:58 | 2026-10-10 12:57:59 | 0 min 1 s   | Hasta antes del commit; el commit y el SendMessage tardan unos segundos más                                                                                                           |
+| Espera en la cola del Orquestador (0064 y 0065 en curso)           | —            | —     | 2026-10-10 12:57:59 | 2026-10-10 13:51:52 | 53 min 53 s | Desde el commit de la aprobación hasta crear la rama                                                                                                                                  |
+| Rama, lectura de la ficha y lanzamiento del developer              | Orquestador  | —     | 2026-10-10 13:51:52 | 2026-10-10 13:52:11 | 0 min 19 s  | Incluye el aviso de la 0065                                                                                                                                                           |
+| Desarrollo (tests primero, código, ficha)                          | developer    | —     | 2026-10-10 13:52:14 | 2026-10-10 14:15:31 | 23 min 17 s | Desde su primer comando; no se puede medir lo que tarda en arrancar el subagente ni la redacción de su respuesta. Incluye un e2e en rojo (centrado de la 0012 a 1024 px) y su arreglo |
+| Vuelta del developer al Orquestador                                | Orquestador  | —     | 2026-10-10 14:15:31 | 2026-10-10 14:16:00 | 0 min 29 s  | Incluye la redacción de su respuesta                                                                                                                                                  |
+| Filas del developer en la ficha, commit y lanzamiento del reviewer | Orquestador  | 1     | 2026-10-10 14:16:00 | 2026-10-10 14:16:17 | 0 min 17 s  | Commit con hook de 14:16:09 a 14:16:10                                                                                                                                                |
+| Revisión                                                           | reviewer     | 1     | 2026-10-10 14:16:20 | 2026-10-10 14:17:03 | 0 min 43 s  | APROBADO. Desde su primer comando al último; el arranque y la redacción de la respuesta no se pueden medir                                                                            |
+| Vuelta del reviewer al Orquestador                                 | Orquestador  | 1     | 2026-10-10 14:17:03 | 2026-10-10 14:17:32 | 0 min 29 s  | Incluye la redacción de su respuesta                                                                                                                                                  |
 
 ### Ejecuciones
 
-| Quién     | Comando                                                                                            | Inicio              | Fin                 | Duración   | Resultado                                           | Tests (pasan / fallan / saltados)     |
-| --------- | -------------------------------------------------------------------------------------------------- | ------------------- | ------------------- | ---------- | --------------------------------------------------- | ------------------------------------- |
-| developer | npx vitest run service-availability.test.ts y service-availability-view.test.ts (antes del código) | 2026-10-10 13:55:09 | 2026-10-10 13:55:11 | 2 s        | falla, como se esperaba (falta `availabilityLevel`) | unit 17 / 3 / 0                       |
-| developer | git commit (solo tests; hook: prettier y eslint)                                                   | 2026-10-10 13:55:18 | 2026-10-10 13:55:26 | 8 s        | ok                                                  | hook sin tests                        |
-| developer | npm run check                                                                                      | 2026-10-10 13:55:55 | 2026-10-10 13:56:50 | 55 s       | ok                                                  | unit 3451 / 0 / 0                     |
-| developer | git commit (código; hook: prettier, lint, typecheck y vitest related)                              | 2026-10-10 13:56:55 | 2026-10-10 13:57:29 | 34 s       | ok                                                  | unit (related) 57 / 0 / 0             |
-| developer | npm run test:e2e:affected -- main..HEAD (con compilación)                                          | 2026-10-10 13:57:34 | 2026-10-10 14:02:50 | 5 min 16 s | falla (CA2 y CA3 de la 0012 a 1024×720)             | e2e 302 / 2 / 0                       |
-| developer | npm run test:e2e:affected -- main (columnas sin commitear; con compilación)                        | 2026-10-10 14:03:35 | 2026-10-10 14:08:48 | 5 min 13 s | ok                                                  | e2e 304 / 0 / 0                       |
-| developer | git commit (columnas; hook: prettier, lint, typecheck y vitest related)                            | 2026-10-10 14:08:55 | 2026-10-10 14:09:13 | 18 s       | ok                                                  | unit (related) 42 / 0 / 0             |
-| developer | npm run check                                                                                      | 2026-10-10 14:09:25 | 2026-10-10 14:10:07 | 42 s       | ok                                                  | unit 3451 / 0 / 0                     |
-| developer | npm run test:e2e:affected -- main..HEAD (con compilación)                                          | 2026-10-10 14:10:11 | 2026-10-10 14:15:24 | 5 min 13 s | ok                                                  | e2e 304 / 0 / 0                       |
-| developer | git commit (ficha; hook: prettier)                                                                 | 2026-10-10 14:15:28 | 2026-10-10 14:15:29 | 1 s        | ok                                                  | hook sin tests                        |
-| developer | npx tsc y npx prettier sueltos                                                                     | sin hora            | sin hora            | —          | ok                                                  | no se midieron (lo dice el developer) |
+| Quién       | Comando                                                                                            | Inicio              | Fin                 | Duración   | Resultado                                           | Tests (pasan / fallan / saltados)     |
+| ----------- | -------------------------------------------------------------------------------------------------- | ------------------- | ------------------- | ---------- | --------------------------------------------------- | ------------------------------------- |
+| developer   | npx vitest run service-availability.test.ts y service-availability-view.test.ts (antes del código) | 2026-10-10 13:55:09 | 2026-10-10 13:55:11 | 2 s        | falla, como se esperaba (falta `availabilityLevel`) | unit 17 / 3 / 0                       |
+| developer   | git commit (solo tests; hook: prettier y eslint)                                                   | 2026-10-10 13:55:18 | 2026-10-10 13:55:26 | 8 s        | ok                                                  | hook sin tests                        |
+| developer   | npm run check                                                                                      | 2026-10-10 13:55:55 | 2026-10-10 13:56:50 | 55 s       | ok                                                  | unit 3451 / 0 / 0                     |
+| developer   | git commit (código; hook: prettier, lint, typecheck y vitest related)                              | 2026-10-10 13:56:55 | 2026-10-10 13:57:29 | 34 s       | ok                                                  | unit (related) 57 / 0 / 0             |
+| developer   | npm run test:e2e:affected -- main..HEAD (con compilación)                                          | 2026-10-10 13:57:34 | 2026-10-10 14:02:50 | 5 min 16 s | falla (CA2 y CA3 de la 0012 a 1024×720)             | e2e 302 / 2 / 0                       |
+| developer   | npm run test:e2e:affected -- main (columnas sin commitear; con compilación)                        | 2026-10-10 14:03:35 | 2026-10-10 14:08:48 | 5 min 13 s | ok                                                  | e2e 304 / 0 / 0                       |
+| developer   | git commit (columnas; hook: prettier, lint, typecheck y vitest related)                            | 2026-10-10 14:08:55 | 2026-10-10 14:09:13 | 18 s       | ok                                                  | unit (related) 42 / 0 / 0             |
+| developer   | npm run check                                                                                      | 2026-10-10 14:09:25 | 2026-10-10 14:10:07 | 42 s       | ok                                                  | unit 3451 / 0 / 0                     |
+| developer   | npm run test:e2e:affected -- main..HEAD (con compilación)                                          | 2026-10-10 14:10:11 | 2026-10-10 14:15:24 | 5 min 13 s | ok                                                  | e2e 304 / 0 / 0                       |
+| developer   | git commit (ficha; hook: prettier)                                                                 | 2026-10-10 14:15:28 | 2026-10-10 14:15:29 | 1 s        | ok                                                  | hook sin tests                        |
+| developer   | npx tsc y npx prettier sueltos                                                                     | sin hora            | sin hora            | —          | ok                                                  | no se midieron (lo dice el developer) |
+| Orquestador | git commit (medición del developer; hook: prettier)                                                | 2026-10-10 14:16:09 | 2026-10-10 14:16:10 | 1 s        | ok                                                  | hook sin tests                        |
