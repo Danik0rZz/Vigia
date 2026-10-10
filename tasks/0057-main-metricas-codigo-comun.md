@@ -1,7 +1,7 @@
 ---
 id: '0057'
 titulo: 'Main: un solo código para consultar y transformar métricas en todos los canales de entidad'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -65,7 +65,13 @@ que cada expresión sea exactamente la probada en vivo):**
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `src/main/ipc/handlers/connection.ts` también llama a `repo.getEnvironment(environmentId)`
+  sin usar el resultado (3 veces): podría pasar a `requireEnvironment`.
+- (developer) `metrics:query` (el explorador, no es de entidad) sigue con su `dtRequest` propio:
+  admite cualquier `resolution`, no solo `Inf`; `createMetricsQuery` podría aceptarla.
+- (developer) `instancesOf` (process group) y `topActionsOf` (aplicación) repiten «casar series por
+  id de dimensión con su nombre»; no encajan en `seriesByDimension` (juntan dos dimensiones o varios
+  resultados en un objeto) y se han dejado como estaban.
 
 ## Notas del revisor
 
@@ -115,4 +121,37 @@ Decisiones del test-writer (Dani las delegó; razonables y refinables):
 
 ## Resultado
 
-(pendiente)
+Developer, 2026-10-10. Sin cambios en el contrato IPC ni en las expresiones de métrica.
+
+**Inventario de canales de métricas de entidad en `main`** (los 11 de
+`src/main/ipc/handlers/modules.ts`): `entities:serviceMetrics`, `hostMetrics`, `hostBreakdown`,
+`processMetrics`, `processGroupMetrics`, `processGroupInstances`, `diskMetrics`,
+`applicationMetrics`, `applicationRum`, `monitorMetrics` y `monitorBreakdown`. Sus módulos
+(`service-metrics`, `host-metrics`, `host-breakdown`, `process-metrics`, `process-group-metrics`,
+`disk-metrics`, `application-metrics`, `application-rum`, `monitor-metrics` y `monitor-breakdown`)
+usan ahora `src/main/modules/metric-series.ts`. `metrics:query` (explorador) no es de entidad y no
+se toca. Las 23 llamadas sueltas a `repo.getEnvironment` de `modules.ts` son ahora
+`repo.requireEnvironment`.
+
+Decisiones (Dani las delegó; razonables y refinables):
+
+- Donde las copias diferían: `single` con `=== undefined ? null` frente a `?? null` daba lo mismo
+  (los valores son `number | null`), y `singleValue` usa `?? null`. El `single` del servicio, que
+  dividía, es ahora `inMs(singleValue(...), divisor)` en `service-metrics.ts`.
+- Se añade `firstValue(values)` a `metric-series.ts` (no estaba en los tests): el primer valor de
+  una lista, o null, para los desgloses por dimensión (host, monitor) y RUM, que trabajan con
+  listas y no con `(data, index)`. La guardia de CA3 no lo cuenta como copia.
+- El desglose del monitor guardaba `value` en su `Entry`; ahora usa `DimensionEntry` (`values`) y
+  `firstValue`. Los comparadores en línea con los null al final de `process-group-metrics` y
+  `application-metrics` pasan a `descending` (mismo orden, estable).
+- `seriesAt` devuelve una serie vacía nueva cada vez (antes, una constante `EMPTY` compartida).
+- `createMetricsQuery` conserva el orden de parámetros de la URL que tenía cada canal
+  (`metricSelector`, `entitySelector`, `resolution`, `from`, `to`). Los canales con dos ámbitos
+  (aplicación y sus acciones; discos y procesos del host) crean dos `query`; el desglose del
+  monitor, una por consulta.
+- `requireEnvironment` devuelve `void`. La prueba en vivo `problems.live.test.ts` pasaba un
+  repositorio simulado con solo `getEnvironment`: se le añade `requireEnvironment` en un commit
+  propio (no cambia ninguna expectativa).
+- `metrics-query.ts` va en el área de módulos de `e2e/areas.json`.
+
+`npm run check` en verde (3328 tests) y `npm run test:e2e:affected -- main..HEAD`: 353 pasados.
