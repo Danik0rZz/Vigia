@@ -1,7 +1,7 @@
 ---
 id: '0057'
 titulo: 'Main: un solo código para consultar y transformar métricas en todos los canales de entidad'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -139,6 +139,12 @@ Decisiones del test-writer (Dani las delegó; razonables y refinables):
   `params.status` a 0 si no llega estado (como hoy).
 - `requireEnvironment` se añade al repositorio; `getEnvironment` sigue para quien usa el
   resultado (servicios, conexión, exportación).
+
+### Verifier, 2026-10-10, commit `ea7121d`, rango `main..feat/0057-main-metricas-codigo-comun`: VERDE
+
+- check: 3328 tests en 185 ficheros, cobertura ok.
+- e2e completo: 353/353, sin intermitentes.
+- `views.spec.ts` ×3 con `--workers=1`: 771/771.
 
 ## Resultado
 
