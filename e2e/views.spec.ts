@@ -1488,6 +1488,11 @@ function processInfoBody(): Record<string, unknown> {
  */
 const TAGS_ID = 'SERVICE-00000000000E2F37'
 const TAGS_MANY_ID = 'SERVICE-00000000000E2F38'
+/**
+ * Ficha 0049: servicio inventado para la cápsula de etiquetas: dos etiquetas con la misma clave
+ * (`equipo`), una con otra clave y valor (`zona`) y una de solo clave (`critico`).
+ */
+const TAGS_CAPSULE_ID = 'SERVICE-00000000000E2F49'
 const TAGS_SORTED_KEYS = ['app', 'critico', 'equipo', 'nombre', 'zona']
 const TAGS_MANY_KEYS = Array.from(
   { length: 40 },
@@ -1518,6 +1523,14 @@ function tagsMixedBody(): Record<string, unknown> {
       value: 'pagos-entorno-e2e',
       stringRepresentation: '[Environment]equipo:pagos-entorno-e2e'
     }
+  ])
+}
+function tagsCapsuleBody(): Record<string, unknown> {
+  return tagsBody(TAGS_CAPSULE_ID, [
+    { context: 'CONTEXTLESS', key: 'equipo', value: 'pagos', stringRepresentation: 'equipo:pagos' },
+    { context: 'CONTEXTLESS', key: 'zona', value: 'norte', stringRepresentation: 'zona:norte' },
+    { context: 'CONTEXTLESS', key: 'critico', stringRepresentation: 'critico' },
+    { context: 'CONTEXTLESS', key: 'equipo', value: 'web', stringRepresentation: 'equipo:web' }
   ])
 }
 function tagsManyBody(): Record<string, unknown> {
@@ -1574,6 +1587,8 @@ function entityBodies(): Record<string, Record<string, unknown>> {
     // Ficha 0037.
     [TAGS_ID]: tagsMixedBody(),
     [TAGS_MANY_ID]: tagsManyBody(),
+    // Ficha 0049.
+    [TAGS_CAPSULE_ID]: tagsCapsuleBody(),
     // Ficha 0040.
     [DISK_PAGE_ID]: diskInfoBody(),
     // Ficha 0041.
@@ -14498,6 +14513,104 @@ test('CA5 (0037): sin etiquetas, o sin el scope entities.read, no hay fila de p�
     await invoke('environments:setActive', { environmentId: env['Producción'] })
     await invoke('environments:delete', { id: noEntities })
     await reloadUi()
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0049: etiquetas como cápsula de dos colores (clave | valor).
+// ---------------------------------------------------------------------------
+
+/**
+ * Nombres que fija este test (la ficha pide un `data-testid` por mitad sin darlo; decisión del
+ * developer, delegada por Dani y refinable): la mitad de la clave es `entity-tag-key-part` (con el
+ * contexto y `entity-tag-key` dentro) y la del valor, `entity-tag-value-part` (con
+ * `entity-tag-value` dentro). Los de la 0037 siguen igual.
+ */
+async function capsuleParts(pill: Locator): Promise<{
+  pill: { left: number; right: number; top: number }
+  key: { left: number; right: number; top: number; background: string } | null
+  value: { left: number; right: number; top: number; background: string } | null
+}> {
+  return pill.evaluate((element) => {
+    const part = (
+      id: string
+    ): { left: number; right: number; top: number; background: string } | null => {
+      const target = element.querySelector(`[data-testid="${id}"]`)
+      if (target === null) return null
+      const rect = target.getBoundingClientRect()
+      return {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        background: getComputedStyle(target).backgroundColor
+      }
+    }
+    const rect = element.getBoundingClientRect()
+    return {
+      pill: { left: rect.left, right: rect.right, top: rect.top },
+      key: part('entity-tag-key-part'),
+      value: part('entity-tag-value-part')
+    }
+  })
+}
+
+const TRANSPARENT = ['rgba(0, 0, 0, 0)', 'transparent', '']
+
+test('CA3 (0049): una etiqueta clave:valor sale como cápsula de dos mitades y una de solo clave con una sola; la misma clave lleva el mismo color', async () => {
+  const row = await openTagsPage(TAGS_CAPSULE_ID)
+  const pills = row.getByTestId('entity-tag')
+  await expect(pills).toHaveCount(4)
+  expect(await tagKeys(row)).toEqual(['critico', 'equipo', 'equipo', 'zona'])
+  await settledBox(row)
+
+  // Con valor: dos mitades, la clave a la izquierda y el valor a su derecha, en la misma línea,
+  // cada una con su texto y con fondos distintos (ninguno transparente).
+  const withValue: [number, string, string][] = [
+    [1, 'equipo', 'pagos'],
+    [2, 'equipo', 'web'],
+    [3, 'zona', 'norte']
+  ]
+  const keyBackgrounds: Record<number, string> = {}
+  for (const [index, key, value] of withValue) {
+    const pill = pills.nth(index)
+    await expect(pill.getByTestId('entity-tag-key-part'), key).toHaveCount(1)
+    await expect(pill.getByTestId('entity-tag-value-part'), key).toHaveCount(1)
+    await expect(
+      pill.getByTestId('entity-tag-key-part').getByTestId('entity-tag-key'),
+      key
+    ).toHaveText(new RegExp(`^\\s*${key}\\s*$`))
+    await expect(
+      pill.getByTestId('entity-tag-value-part').getByTestId('entity-tag-value'),
+      key
+    ).toHaveText(new RegExp(`^\\s*${value}\\s*$`))
+    const parts = await capsuleParts(pill)
+    expect(parts.key, `${key}: mitad de la clave`).not.toBeNull()
+    expect(parts.value, `${key}: mitad del valor`).not.toBeNull()
+    if (parts.key === null || parts.value === null) continue
+    expect(parts.key.right, `${key}: la clave, a la izquierda del valor`).toBeLessThanOrEqual(
+      parts.value.left + 1.5
+    )
+    expect(Math.abs(parts.key.top - parts.value.top), `${key}: misma línea`).toBeLessThan(2)
+    expect(TRANSPARENT, `${key}: la clave tiene fondo`).not.toContain(parts.key.background)
+    expect(TRANSPARENT, `${key}: el valor tiene fondo`).not.toContain(parts.value.background)
+    expect(parts.key.background, `${key}: dos colores`).not.toBe(parts.value.background)
+    keyBackgrounds[index] = parts.key.background
+  }
+
+  // La misma clave (equipo), el mismo color.
+  expect(keyBackgrounds[1]).toBe(keyBackgrounds[2])
+
+  // Solo clave: una sola mitad, del color de la clave, que ocupa la cápsula entera.
+  const critico = pills.nth(0)
+  await expect(critico.getByTestId('entity-tag-key-part')).toHaveCount(1)
+  await expect(critico.getByTestId('entity-tag-value-part')).toHaveCount(0)
+  const single = await capsuleParts(critico)
+  expect(single.key).not.toBeNull()
+  if (single.key !== null) {
+    expect(TRANSPARENT, 'solo clave: con fondo').not.toContain(single.key.background)
+    // Entera: como mucho el borde (1 px por lado) y redondeo.
+    expect(single.key.left - single.pill.left).toBeLessThanOrEqual(2)
+    expect(single.pill.right - single.key.right).toBeLessThanOrEqual(2)
   }
 })
 

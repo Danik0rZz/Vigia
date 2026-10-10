@@ -300,3 +300,68 @@ describe('CA5 (0043): los fondos y textos del ajuste de contraste son los de los
     expect(declaration.indexOf(light)).toBeLessThan(declaration.indexOf(dark))
   })
 })
+
+/**
+ * Ficha 0049 (CA2): colores de la cápsula de etiquetas, en los dos temas. Contrato elegido al
+ * escribir los tests (anotado en la ficha): `--tag-0` a `--tag-7` (fondo de la mitad de la clave)
+ * con `--tag-key-foreground` encima, también al 85 % de opacidad (prefijo del contexto, apagado);
+ * `--tag-value-bg` con `--tag-value-foreground` (mitad del valor). Texto ≥ 4.5. Los tonos y el
+ * texto de la clave pueden definirse solo en `:root` y heredarse en oscuro.
+ */
+const TAG_TONES = Array.from({ length: 8 }, (_, i) => `--tag-${i}`)
+const TAG_CONTEXT_OPACITY = 0.85
+
+/** `fg` con opacidad `alpha` encima de `bg`, como #rrggbb. */
+function blend(fg: string, bg: string, alpha: number): string {
+  const channel = (hex: string, i: number): number => parseInt(hex.slice(1 + 2 * i, 3 + 2 * i), 16)
+  return `#${[0, 1, 2]
+    .map((i) =>
+      Math.round(channel(fg, i) * alpha + channel(bg, i) * (1 - alpha))
+        .toString(16)
+        .padStart(2, '0')
+    )
+    .join('')}`
+}
+
+describe.each(THEMES)(
+  'CA2 (0049): contraste de la cápsula de etiquetas, tema %s',
+  (_n, selector) => {
+    const hex = (token: string, inherit: boolean): string => {
+      const value = cssToken(selector, token) ?? (inherit ? cssToken(':root', token) : undefined)
+      expect(value ?? '(sin definir)', `${token} en ${selector}`).toMatch(/^#[0-9a-f]{6}$/i)
+      return value ?? '#000000'
+    }
+
+    it.each(TAG_TONES)(
+      '%s con el texto de la clave ≥ 4.5 (también el contexto, al 85 %)',
+      (tone) => {
+        const background = hex(tone, true)
+        const foreground = hex('--tag-key-foreground', true)
+        expect(contrast(foreground, background)).toBeGreaterThanOrEqual(4.5)
+        expect(
+          contrast(blend(foreground, background, TAG_CONTEXT_OPACITY), background)
+        ).toBeGreaterThanOrEqual(4.5)
+      }
+    )
+
+    it('los 8 tonos se distinguen', () => {
+      expect(new Set(TAG_TONES.map((tone) => hex(tone, true).toLowerCase())).size).toBe(8)
+    })
+
+    it('mitad del valor: texto ≥ 4.5 sobre su fondo', () => {
+      expect(
+        contrast(hex('--tag-value-foreground', false), hex('--tag-value-bg', false))
+      ).toBeGreaterThanOrEqual(4.5)
+    })
+  }
+)
+
+describe('CA2 (0049): los colores de la cápsula se exponen a Tailwind', () => {
+  it.each([...TAG_TONES, '--tag-key-foreground', '--tag-value-bg', '--tag-value-foreground'])(
+    '%s',
+    (token) => {
+      const name = token.slice(2)
+      expect(css).toMatch(new RegExp(`--color-${name}:\\s*var\\(--${name}\\);`))
+    }
+  )
+})
