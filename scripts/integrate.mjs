@@ -2,6 +2,8 @@
 //
 // Uso (en la rama de la ficha, con el árbol limpio):
 //   node scripts/integrate.mjs <ruta de la ficha> <zona>
+// y, para agrupar la cola en PR (escribe el resultado de groupForPrs en JSON):
+//   node scripts/integrate.mjs --agrupar <ficha> [<ficha> …]
 //
 // Lee el front matter de la ficha y comprueba que está `verificada`, que el árbol está limpio y que
 // la rama actual es la suya. Si todo está en orden, escribe en la salida estándar el mensaje del
@@ -116,10 +118,30 @@ function git(args, execFile) {
   return execFile('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] })
 }
 
+const USAGE = [
+  'Uso: node scripts/integrate.mjs <ruta de la ficha> <zona>',
+  '     node scripts/integrate.mjs --agrupar <ficha> [<ficha> …]  (en el orden de la cola)'
+].join('\n')
+
 export function main({ argv, readFile, execFile, stdout, stderr }) {
+  if (argv[0] === '--agrupar') {
+    const paths = argv.slice(1)
+    if (paths.length === 0) {
+      stderr(USAGE)
+      return 2
+    }
+    const fichas = paths.map((file) => parseFrontMatter(readFile(file)))
+    try {
+      stdout(JSON.stringify(groupForPrs(fichas), null, 2))
+    } catch (error) {
+      stderr(error instanceof Error ? error.message : String(error))
+      return 1
+    }
+    return 0
+  }
   const [path, zona] = argv
   if (!path || !zona) {
-    stderr('Uso: node scripts/integrate.mjs <ruta de la ficha> <zona>')
+    stderr(USAGE)
     return 2
   }
   const ficha = parseFrontMatter(readFile(path))
