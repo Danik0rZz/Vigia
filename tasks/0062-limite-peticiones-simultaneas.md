@@ -1,7 +1,7 @@
 ---
 id: '0062'
 titulo: 'Main limita las peticiones simultáneas a Dynatrace por entorno'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -52,7 +52,10 @@ reintento de 429 que ya existe no cambia.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Ningún handler pasa aún `signal`: cuando el renderer cancele una consulta (TanStack
+  Query da su `AbortSignal`), main podría propagarlo por IPC hasta `dtRequest` y sacarla de la cola.
+- (developer) El reintento de un 429 podría frenar a todo el entorno (no solo a esa petición)
+  mientras dura el `Retry-After`.
 
 ## Notas del revisor
 
@@ -91,4 +94,24 @@ pueden fallar, y vigilan que no se rompan cuando lo haya).
 
 ## Resultado
 
-(pendiente)
+Implementado en `src/main/dynatrace/concurrency.ts` (limitador por entorno, puro) y `client.ts`, que
+lo usa alrededor de cada intento. Pruebas propias en `concurrency.test.ts`.
+
+Decisiones del developer (en nombre de Dani, refinables):
+
+- **Sin bloqueos:** el sitio se toma por **intento** HTTP (el `fetch` y la lectura del cuerpo) y se
+  suelta antes de devolver, de lanzar el error o de esperar el reintento de un 429. Nadie pide un
+  sitio mientras ocupa otro: la paginación pide cada página después de soltar la anterior, y las
+  peticiones en dos fases esperan la respuesta (ya sin sitio) antes de pedir la siguiente. Con el
+  sitio tomado solo se renueva el token OAuth tras un 401, y eso va por su propio `fetch` al SSO, no
+  por este cliente. Test: 8 paginaciones de 3 páginas a la vez terminan todas, con 6 en vuelo como
+  mucho.
+- **Plazo:** la espera en cola no cuenta para el plazo de 30 s; el temporizador arranca al tener
+  sitio (las que están en vuelo tienen su plazo, así que la cola siempre avanza).
+- **Cancelación:** rechaza con el `reason` de la señal (un `AbortError`, como `fetch`), no con un
+  `DtError`: no hace falta un código ni un `reason` nuevos mientras ningún handler la use. Abortada
+  en vuelo, ya no se confunde con un TIMEOUT.
+- **Log:** `logger.debug` es opcional en `DtClientDeps` (y en `createDynatraceServices`). Se avisa
+  una vez al pasar de 20 pendientes y se rearma cuando la cola baja a 20. La línea solo lleva el id
+  interno del entorno y el número de pendientes: ni URL, ni query, ni token.
+- **Límite inyectable:** `DtClientDeps.maxConcurrentPerEnv` (por defecto 6).
