@@ -1,7 +1,7 @@
 ---
 id: '0060'
 titulo: 'El token nunca sigue una redirección, y el log tiene un filtro final de secretos'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -157,4 +157,8 @@ el Orquestador.
 
 ## Resultado
 
-(pendiente)
+Commits: `95dc88c` (tests), `40fcc88` (redirecciones), `a690271` (filtro del log), más los de la ficha.
+
+Ficheros principales: `src/main/dynatrace/client.ts`, `src/main/dynatrace/oauth.ts`, `src/shared/error-reasons.ts` y los textos es/en (`redirectRefused`); `src/main/log-mask.ts` y `src/main/logging.ts`; `src/main/CLAUDE.md`; `e2e/areas.json`. Tests: `redirect.test.ts`, `log-mask.test.ts`, `logging.test.ts`.
+
+Rondas de revisión: 1 (aprobado). ADR nuevo: ninguno. Sin migraciones. El fallo de la guarda en vivo CA1 (0014) y las dos sugerencias del revisor quedan en las «Mejoras anotadas» del BACKLOG.
