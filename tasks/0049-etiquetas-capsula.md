@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -88,7 +88,21 @@ En `EntityTags.tsx` (y sus estilos), cada etiqueta pasa a ser una **cápsula**:
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+Ficha ligera: los tests del developer cubren CA1 a CA4 tal como están escritos (tono estable y
+dentro de la paleta con entradas raras; contraste de los 8 tonos con blanco y con el contexto al
+85 %, en claro y en oscuro; cápsula de dos mitades con fondos distintos y el mismo tono para la
+misma clave) y fallarían sin el código; el de tests va antes del de código. Peor caso recalculado:
+`--tag-0` unos 5,7:1 (4,6:1 con el contexto); también al pasar el ratón. Los «:» quedan `sr-only` y
+los e2e de la 0037 siguen pasando sin tocarlos. Sin IPC, API, dependencias, esquema ni ficheros
+nuevos; tokens en `main.css` con su guarda; nada del tenant.
+
+Sugerencias, no bloquean:
+
+- El brillo de `capsule-gloss` baja el azul con blanco a unos 4,2 en la franja de arriba: bajar el
+  brillo u oscurecer un poco `--tag-0` para tener margen.
+- Añadir `--tag-border` a la lista del test de exposición a Tailwind.
 
 ## Verificación
 
