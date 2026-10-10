@@ -1,7 +1,7 @@
 ---
 id: '0057'
 titulo: 'Main: un solo código para consultar y transformar métricas en todos los canales de entidad'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -12,7 +12,7 @@ adrs: [2, 5]
 adr_nuevo:
 api: ninguna nueva (los mismos endpoints y expresiones de métrica ya probados en vivo)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -75,7 +75,21 @@ que cada expresión sea exactamente la probada en vivo):**
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Legibilidad] `src/main/modules/service-metrics.ts:139-145`: `inMs` quedó entre el comentario de
+   `rateSeries` y la función, con dos JSDoc seguidos (el de arriba no le corresponde) y `rateSeries`
+   sin comentario. Mover `inMs` con su comentario por encima o por debajo de `rateSeries`.
+
+Bien: peticiones idénticas (`buildQuery` descarta los `undefined`; mismo orden de parámetros en los
+11 canales; mismas expresiones y número de consultas, ≤ 10 por consulta); salida idéntica
+(`rethrowRejected` igual que el `catch` anterior; `mergeMeta` conserva el orden); cambios sutiles
+equivalentes (`?? null`, `firstValue`, comparadores). Tras `7080d03` solo cambian
+`problems.live.test.ts` (`72d2874`, añade `requireEnvironment` sin tocar expectativas) y
+`areas.json`; ningún test de los 11 canales. Guardias de CA3 y de `repo.getEnvironment(` reales.
+
+Opcional: recuperar la línea en blanco entre `entities:hostBreakdown` y `entities:hostLogs` en
+`handlers/modules.ts`.
 
 ## Verificación
 
