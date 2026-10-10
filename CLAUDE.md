@@ -87,7 +87,7 @@ y ADR-0007, ADR-0010 y ADR-0013.
 | `npm run dev`                          | App en desarrollo con recarga en caliente                         |
 | `npm run check`                        | Lint, tipos, formato y tests unitarios con umbral de cobertura    |
 | `npm run test:e2e`                     | Compila y prueba la app de punta a punta (Playwright)             |
-| `npm run test:e2e:affected -- [rango]` | Solo los e2e afectados (`e2e/areas.json`), compilando una vez     |
+| `npm run test:e2e:affected -- [rango]` | e2e afectados (`e2e/areas.json`); `--no-build`, `-g`, `--help`    |
 | `npm run test:e2e:nobuild`             | e2e sin compilar (si solo cambian los specs y `out/` está al día) |
 | `npm run build`                        | Tipos y compilación a `out/`                                      |
 | `npm run dist:win`                     | Zip de Windows en `dist/`                                         |

@@ -164,14 +164,15 @@ el aviso de la ficha cuando acaba, con el enlace. **Si falla, se para la cola:**
 ## Niveles de prueba
 
 - **Durante el desarrollo (developer, ADR-0013):** solo los e2e de su ficha. Compila una vez
-  (`npm run build`) y lanza `npm run test:e2e:nobuild -- <spec> -g "(NNNN)"`. Vuelve a compilar
-  solo si cambia algo fuera de `e2e/`, porque los e2e corren sobre `out/`. Tras un arreglo, solo lo
-  que falló (`--last-failed`), y nunca repite una tanda si el código no ha cambiado. Mientras itera
-  con los unitarios, `vitest related <ficheros>` o `--changed`. Termina con `npm run check` y, una
-  sola vez, los specs de las zonas cuyo código fuente ha modificado, según `e2e/areas.json`
-  (`npm run test:e2e:affected -- main..HEAD`). No basta con los specs cuyos tests ha tocado: una
-  regresión sale en el spec que no se ve venir, como el centrado de la 0012 en la 0066. Si aun así
-  se escapa algo, lo encuentra el verifier.
+  (`npm run build`) y lanza `npm run test:e2e:affected -- main..HEAD --no-build -g "(NNNN)"` (o
+  `npm run test:e2e:nobuild -- <spec> -g "(NNNN)"` si sabe el spec). `--no-build` no comprueba si
+  `out/` está al día. Vuelve a compilar solo si cambia algo fuera de `e2e/`, porque los e2e corren
+  sobre `out/`. Tras un arreglo, solo lo que falló (`--last-failed`), y nunca repite una tanda si
+  el código no ha cambiado. Mientras itera con los unitarios, `vitest related <ficheros>` o
+  `--changed`. Termina con `npm run check` y, una sola vez, los specs de las zonas cuyo código
+  fuente ha modificado, según `e2e/areas.json` (`npm run test:e2e:affected -- main..HEAD`). No
+  basta con los specs cuyos tests ha tocado: una regresión sale en el spec que no se ve venir, como
+  el centrado de la 0012 en la 0066. Si aun así se escapa algo, lo encuentra el verifier.
 - El e2e local ya corre con la ventana del CI (1024×720): los specs la fijan al arrancar la app.
 - **Por ficha (verifier):** en un worktree propio en su scratchpad, `npm run check` y un único
   pase de `npm run test:e2e:affected -- main..feat/NNNN-slug`. No repite lo que ya está en verde
