@@ -7,8 +7,7 @@ bueno de Dani o de peticiones en su nombre.
 ## En curso
 
 - Cola aprobada por Dani el 2026-10-10, en este orden: lote **servicio-tipos**
-  (0046 y 0047 hechas;
-  [0048](tasks/0048-servicio-grafico-slo.md)), [0049](tasks/0049-etiquetas-capsula.md) (etiquetas en
+  (0046, 0047 y 0048 hechas), [0049](tasks/0049-etiquetas-capsula.md) (etiquetas en
   cápsula), **grupo-procesos-2** ([0050](tasks/0050-grupo-procesos-top-instancias-datos.md),
   [0051](tasks/0051-grupo-procesos-modal-instancias.md)) y **aplicacion-rum**
   ([0052](tasks/0052-aplicacion-rum-datos.md), [0053](tasks/0053-aplicacion-rum-actividad-errores.md),
@@ -194,6 +193,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Servicio: los avisos de `warnings` de `entities:serviceMetrics` son español fijo y llegan así a los metadatos de «Exportar» también en inglés; sustituirlos por un campo estructurado (por ejemplo `metricSetFallback: true`) u omitirlos; la nota de la página ya no depende de ellos. (surgió en 0046 y 0047)
 - Servicio: test de `serviceChartSelector` para la tasa de Unificadas y el `:count` de Solo actividad. (surgió en 0047)
 - Servicio: un `expect` de la nota «Métricas de servidor por defecto» en el e2e «sin entities.read» de la 0046. (surgió en 0047)
+- Servicio: tests unitarios de `rangeAvailability` y `formatAvailability` con peticiones todas a `null` y con `series.errors === null`. (surgió en 0048)
 - e2e de «Eventos» del host: filtrar por `HOST_EVENTS_HOST` dejaría sin comprobar los trozos sin el host si el fixture necesitara varias consultas (hoy cabe en una). (surgió en 0042)
 
 ## Aparcado
@@ -273,3 +273,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0042](tasks/0042-host-eventos.md) (lote host-2): tarjeta «Eventos» en la página del host (los 20 más recientes del host y de lo que corre en él) con canal `entities:hostEvents`; scope nuevo `events.read`. Sin migraciones.
 - [0046](tasks/0046-servicio-metricas-por-tipo.md) (lote servicio-tipos): `entities:serviceMetrics` lee antes la entidad y usa las métricas de su conjunto según el `serviceType` (Servidor, Cliente, Unificadas o Solo actividad); EXTERNAL va a Cliente por decisión del Orquestador. Sin migraciones.
 - [0047](tasks/0047-servicio-vista-por-tipo.md) (lote servicio-tipos): la página del servicio se adapta a su `serviceType`: cabecera «Servicio · Base de datos», marcadores y gráficos según el conjunto (Solo actividad enseña solo Peticiones, Problemas y actividad), nota de dónde salen las métricas y «Abrir en Métricas» con las claves del conjunto. Sin migraciones.
+- [0048](tasks/0048-servicio-grafico-slo.md) (lote servicio-tipos): gráfico «Disponibilidad (SLO calculado)» encima de la rejilla del servicio, con la línea del 90 % y los tramos por debajo sombreados, y su valor del rango en el marcador (en color de error y con texto por debajo del 90 %). Sin migraciones.

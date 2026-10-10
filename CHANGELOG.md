@@ -7,6 +7,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 Sin migraciones nuevas.
 
+### Añadido
+
+- **Gráfico de disponibilidad en la página del servicio.** Encima de la rejilla de gráficos sale «Disponibilidad (SLO calculado)», a todo el ancho: la línea de (peticiones − errores) / peticiones × 100, una línea discontinua en el **90 %** («Crítico 90 %») y los tramos por debajo sombreados en el color de error. Un tooltip en el nombre explica la fórmula y aclara que lo calcula Vigía (no es un SLO de Dynatrace). Sin peticiones, o si falta una de las dos series, queda un hueco, no un 0. El marcador «Tasa de error» añade debajo «Disponibilidad 99,5 %» con el valor del rango; si baja del 90 %, va en color de error y con el texto «por debajo del 90 %». En **Solo actividad** (colas) no hay errores y no salen ni el gráfico ni la línea. Sin migraciones nuevas. (ficha 0048)
+
 ### Cambiado
 
 - **La página del servicio se adapta a su tipo.** La cabecera enseña el tipo junto a «Servicio» (por ejemplo «Servicio · Base de datos», con nombre legible en español e inglés; un tipo desconocido sale tal cual). Los marcadores y gráficos siguen el conjunto de métricas: en **Solo actividad** (colas) quedan Peticiones, Problemas y un gráfico de actividad, con una nota que lo explica; en **Cliente** y **Unificadas** salen los mismos marcadores y gráficos con una nota bajo ellos («Medido desde los clientes» / «Métricas unificadas») y su ayuda. Si no se puede leer la entidad (por ejemplo sin `entities.read`), una nota dice que se usan las métricas de servidor por defecto. «Abrir en Métricas» usa ya las métricas del conjunto del servicio. Los servicios web se ven como antes. Sin migraciones nuevas. (ficha 0047)

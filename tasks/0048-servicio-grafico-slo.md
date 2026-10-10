@@ -1,7 +1,7 @@
 ---
 id: '0048'
 titulo: 'SERVICE: gráfico de disponibilidad (SLO calculado) con umbral crítico del 90 %'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -116,4 +116,7 @@ Código en 515dfac.
 
 ## Resultado
 
-(pendiente)
+- Commits: `51962dc` (tests), `515dfac` (código); revisión y verificación en los commits de la ficha.
+- Ficheros principales: `src/renderer/src/pages/entities/service-availability.ts`, `ServiceCharts.tsx`, `ServiceMarkers.tsx`, `EntityChartPanel.tsx` (opcionales `selector`, `titleHint`, `testIds`), `src/renderer/src/components/Chart.tsx` (`data-thresholds`) y los textos en es y en.
+- Rondas de revisión: 1 (aprobado). ADR nuevo: ninguno. Sin migraciones.
+- Sugerencia del revisor (tests unitarios de `rangeAvailability` y `formatAvailability` con datos a `null`) anotada en `BACKLOG.md`, "Mejoras anotadas".
