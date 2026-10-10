@@ -1,7 +1,7 @@
 ---
 id: '0058'
 titulo: 'Páginas de entidad: un solo código para acceso, marcadores, niveles y tablas'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -126,6 +126,12 @@ Decisiones del test-writer (Dani las delegó; refinables):
   `EntityMarkers.tsx` y de `TableCard` en `EntityTables.tsx`, y que ningún otro `.ts`/`.tsx` de
   `pages/entities/` los defina (incluidos servicio, aplicación y `ApplicationUserSections.tsx`). El
   tipo `Level` común tiene que admitir `success` (Apdex).
+
+### Verifier, 2026-10-10, commit `ce2f98e`, rango `main..feat/0058-paginas-entidad-codigo-comun`: VERDE
+
+- check: 3339 tests en 187 ficheros, cobertura ok.
+- e2e completo: 353/353, sin intermitentes.
+- `views.spec.ts` ×3 con `--workers=1`: 771/771.
 
 ## Resultado
 
