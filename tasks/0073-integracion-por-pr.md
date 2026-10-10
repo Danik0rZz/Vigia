@@ -209,7 +209,7 @@ Verificación 2026-10-11, commit 4c3f0cc, rango `main..feat/0073-integracion-por
 
 ## Resultado
 
-(pendiente)
+Commits de la rama (`main..HEAD`): tests 256d5e4; código ee66c7e, d046349 y b9ce29c (`integrate.mjs`, `--agrupar`, `ci.yml`); documentación 3898d9a y arreglos de las rondas 1 a 3 (1b1c6aa, 0f37bd4, 21375f7, 3fd0769). Ficheros principales: `scripts/integrate.mjs`, `.github/workflows/ci.yml`, `docs/flujo.md`, `.claude/commands/tarea.md` y `cerrar-version.md`, `.claude/agents/*.md`, `tasks/_PLANTILLA.md`. Rondas de revisión: 3 (APROBADO en la tercera). ADR: completado el ADR-0014 (puntos 10 y 11). Sin migraciones. Se integra con el flujo de antes (`git push origin main`); es la última. Pruebas a mano de Dani: las de la sección «Pruebas a mano para Dani».
 
 Decisiones del developer (2026-10-11):
 
@@ -226,15 +226,13 @@ Decisiones del developer (2026-10-11):
   y doc-writer usan `<base>..HEAD` con la base que les pasa el Orquestador (`main` por defecto).
 - Al reabrir una ficha por el CI, su campo `rama` pasa a `fix/NNNN-ci` (el tipo del commit sale
   de él).
-- La ficha aprobada del Planificador sigue en un commit en `main` local, sin push. Ronda 2 (punto
-  2 del revisor), un solo camino, «Traer `main`» (`docs/flujo.md`, «Git»; `tarea.md`,
-  `cerrar-version.md` y `planner.md` lo citan igual): `git fetch origin` y
-  `git -C <checkout principal> merge --no-edit origin/main` (avanza si puede; si el Planificador
-  commiteó después, deja un merge en `main` local, sin push), y `git merge --no-edit main` en la
-  `integra/…` en curso si `integra/…..main` no está vacío; sin ninguna en curso, la siguiente
-  sale de `main` o recibe ese merge, y al acabar la cola, si `origin/main..main` no está vacío,
-  PR solo de documentos. Se hace al empezar cada ficha, antes de abrir una PR y tras fusionar una.
-  Respeta la regla de la ficha (los documentos van en la `integra/…` en curso) sin cambiarla.
+- «Traer `main`» (versión final, tras las rondas 2 y 3 del revisor; la ficha aprobada del Planificador
+  sigue en un commit en `main` local, sin push). Un solo camino, en `docs/flujo.md` («Git»),
+  `tarea.md`, `cerrar-version.md` y `planner.md`: `git fetch origin`, merge de `origin/main` en `main`
+  local y de `main` en la `integra/…` en curso (mensajes `chore(git): trae origin/main` y
+  `chore(git): trae main`). Con cambios sin commitear en el checkout principal no se empieza; con
+  conflicto, `merge --abort`, parada y aviso. La PR solo de documentos cuenta lo que no va en ninguna
+  PR abierta (`git log --oneline main --not origin/main <integra/… con PR abierta>`).
 - Ronda 2 (punto 3): la `integra/…` en curso es la que no tiene PR; si no hay ninguna al empezar
   una ficha agrupable, el Orquestador la crea antes (`git branch`, desde la que tenga la PR sin
   fusionar o desde `main`), para que la rama de la ficha salga siempre de ella. Los conflictos con
@@ -244,11 +242,5 @@ Decisiones del developer (2026-10-11):
 - Ronda 2 (punto 4): `git push origin main` queda solo para integrar esta ficha; desde la
   siguiente no es vía de integración aunque falte la protección, y sin `gh` se para y se avisa.
 - `/cerrar-version` integra su commit con una PR desde `integra/…` que fusiona el Orquestador.
-- Ronda 3 (ronda 2 del revisor): la PR solo de documentos cuenta lo que no va en ninguna PR
-  abierta (`git log --oneline main --not origin/main <integra/… con PR abierta>`); con cambios sin
-  commitear en el checkout principal no se empieza el merge, y con conflicto `merge --abort`,
-  parada y aviso, sin resolver en el checkout de otra sesión. Los merges de «Traer `main`» llevan
-  mensaje en español (`chore(git): trae origin/main` y `chore(git): trae main`). Mismo texto en
-  `docs/flujo.md`, `tarea.md` y `cerrar-version.md`.
 - En `ci.yml`, el e2e lleva `if: github.event_name != 'push'`: corre en las PR y a mano
   (`workflow_dispatch`), no en el push a `main`.

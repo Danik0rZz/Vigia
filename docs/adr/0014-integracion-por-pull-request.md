@@ -37,6 +37,8 @@ documentos. Dani decidió el 2026-10-10 las reglas de push y de borrado de ramas
    sin administración), que los agentes no ven ni guardan. Si no basta para leer el CI, lo decide Dani.
 9. **El push a `main` mantiene `npm run check` y `dist:win`**, sin e2e (ya pasó en cada PR), para
    cazar combinaciones de PR que no se probaron juntas.
+10. **`hecha` es «integrada en su rama `integra/…`».** El doc-writer deja la ficha `verificada` (`integrate.mjs` solo integra una `verificada`) y el Orquestador pone `hecha` dentro del commit de la ficha. `groupForPrs` falla si `exclusiones` no es una lista.
+11. **«Traer `main`»:** como `main` estará protegida, `main` local nunca se sube. El Orquestador hace `git fetch origin` y `merge` de `origin/main` en `main` local (sin push) y de `main` en la `integra/…` en curso; con cambios sin commitear o conflicto en el checkout principal no empieza el merge (o `merge --abort`), para la cola y avisa. Los documentos sin código (ficha aprobada del Planificador) viajan en la `integra/…` en curso o en una PR solo de documentos.
 
 ## Alternativas descartadas
 
@@ -52,5 +54,5 @@ documentos. Dani decidió el 2026-10-10 las reglas de push y de borrado de ramas
 - El e2e completo corre una vez por PR, no por ficha ni por push.
 - Una PR solo de documentos pasa en segundos con «CI ok».
 - Un run cancelado por un push nuevo ejecuta «CI ok» en rojo sobre el SHA antiguo; no afecta a la PR.
-- Cuando la protección esté activa, `git push origin main` deja de usarse (lo implementa la 0073).
+- Cuando la protección esté activa, `git push origin main` deja de usarse; la 0073 es la última ficha integrada así.
 - La comprobación con dos PR de prueba en GitHub la hace el Orquestador al integrar la 0072.

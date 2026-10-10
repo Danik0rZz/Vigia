@@ -23,7 +23,7 @@ bueno de Dani o de peticiones en su nombre.
   [0068](tasks/0068-e2e-afectados-sin-compilar.md) (hecha), [0069](tasks/0069-e2e-vistas-arnes-comun.md) (hecha),
   [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (en espera: antes va una ficha de bug aparte, la del fallo de Inicio recién arrancada, "certificado no de confianza" con el nivel en «ignorar», que sale también con 4 workers; Dani eligió la opción 1; la escribe el Planificador y se trata al final de esta cola; después la 0070 repite los tres pases con 8 workers),
   [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md) (hecha),
-  [0073](tasks/0073-integracion-por-pr.md) y [0074](tasks/0074-medicion-automatica-ci.md); después,
+  [0073](tasks/0073-integracion-por-pr.md) (hecha) y [0074](tasks/0074-medicion-automatica-ci.md); después,
   lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md),
   [0076](tasks/0076-e2e-poner-en-cuarentena.md),
   [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) y
@@ -253,6 +253,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo en la 0070. (surgió en 0069)
 - El comentario de `e2e/views.spec.ts` (≈ línea 5472) dice «y sus problemas para los recuentos», que ahora viven en `e2e/views/fixtures.ts`: retocarlo en la 0070. (surgió en 0069)
 - Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069)
+- Permisos de `.claude/settings.json`: negar `gh pr merge --squash`, `--rebase` y `--delete-branch` y `git push origin :<rama>`, como ya se niegan el force push y los tags (hoy que fusione solo Dani las PR de una ficha y que nadie borre ramas remotas está solo escrito en `docs/flujo.md`). Ficha propia; lo decide Dani. (surgió en 0073)
+- `/cerrar-version`: que se pare si hay una PR de `integra/…` sin fusionar. (surgió en 0073)
 - Test de la 0072: fijar `== 'true'` en el de CA3 y llevar la lógica de `ci-ok` (CA4) a un script probado con resultados de ejemplo; `!cancelled()` evitaría el «CI ok» en rojo de un run cancelado por otro push, pero la ficha pedía `always()`. (surgió en 0072)
 
 ## Aparcado
@@ -355,3 +357,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0068](tasks/0068-e2e-afectados-sin-compilar.md) (lote flujo-herramientas): `npm run test:e2e:affected` con `--no-build`, `-g`/`--grep`, `--last-failed` y `--help` (`parseArgs` y `plan` puras en `scripts/affected-e2e.cjs`); una opción desconocida sale con 2 sin lanzar nada. Sin migraciones.
 - [0069](tasks/0069-e2e-vistas-arnes-comun.md) (lote flujo-herramientas): el simulador, los fixtures, los ayudantes y los ganchos de `e2e/views.spec.ts` viven en `e2e/views/` (`harness.ts`, `simulator.ts`, `fixtures.ts`, `sim-state.ts`) y se activan con `setupViewsApp()`; la guarda `scripts/e2e-views-harness.test.ts` (dentro de `npm run check`) exige una única llamada en el nivel superior. Sin migraciones.
 - [0072](tasks/0072-ci-en-pull-request.md) (lote flujo-herramientas): el CI arranca en las PR a `main` con los jobs `cambios` (`scripts/ci-changes.mjs`), `windows` (check y e2e completo, sin `dist:win`) y «CI ok» (siempre se ejecuta); el push a `main` sigue igual. ADR-0014. Sin migraciones.
+- [0073](tasks/0073-integracion-por-pr.md) (lote flujo-herramientas): integración por PR: un commit por ficha (`scripts/integrate.mjs`), ramas `integra/AAAAMMDD-N`, PR de 3 a 5 fichas (`groupForPrs`, campo `exclusiones`; las que tocan una exclusión van solas y las fusiona Dani), `check` y `dist:win` en el push a `main` y e2e completo solo en las PR. ADR-0014. Sin migraciones.
