@@ -1,18 +1,17 @@
 import type { JSX } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ZodType } from 'zod'
 import { monitorEntityIdSchema, type MonitorKind } from '@shared/modules'
 import { ModuleUnavailable, RefreshButton } from '../../components/ModuleState'
 import {
   useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
-  useModuleAccess,
-  useModuleRefresh,
   useMonitorBreakdown,
   useMonitorMetrics,
   uniqueUnavailable
 } from '../../data/modules'
-import { useConnectionStatusKnown } from '../../data/tenants'
+import { useEntityPageAccess } from './entity-access'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { MonitorCharts } from './MonitorCharts'
@@ -24,6 +23,12 @@ import { MonitorTables } from './MonitorTables'
 const ID_PREFIX: Record<MonitorKind, string> = {
   browser: 'SYNTHETIC_TEST-',
   http: 'HTTP_CHECK-'
+}
+
+/** Esquema del id de cada tipo de monitor: el de monitor, y solo con el prefijo de este tipo. */
+const ID_SCHEMA: Record<MonitorKind, ZodType<string>> = {
+  browser: monitorEntityIdSchema.refine((id) => id.startsWith(ID_PREFIX.browser)),
+  http: monitorEntityIdSchema.refine((id) => id.startsWith(ID_PREFIX.http))
 }
 
 /**
@@ -44,28 +49,22 @@ export function MonitorEntityPage({
 }: EntityPageProps & { monitorKind: MonitorKind; testId: string }): JSX.Element {
   const { t } = useTranslation()
   // Un id que no es de este tipo de monitor no llega a main: el canal lo rechazaría igual.
-  const monitorId =
-    monitorEntityIdSchema.safeParse(props.id).success && props.id.startsWith(ID_PREFIX[monitorKind])
-      ? props.id
-      : null
-  const metricsAccess = useModuleAccess('metrics')
-  const problemsAccess = useModuleAccess('problems')
-  const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
-  const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
-  const entitiesAccess = useModuleAccess('entities')
-  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
-  const statusKnown = useConnectionStatusKnown(
-    entitiesAccess.available ? entitiesAccess.envId : null
-  )
-  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
+  const {
+    id: monitorId,
+    metricsAccess,
+    problemsAccess,
+    entitiesAccess,
+    metricsEnv,
+    problemsEnv,
+    entitiesEnv,
+    refresh,
+    canRefresh
+  } = useEntityPageAccess(props.id, ID_SCHEMA[monitorKind])
   const metrics = useMonitorMetrics(metricsEnv, monitorId)
   const breakdown = useMonitorBreakdown(metricsEnv, monitorId)
   const problems = useEntityProblemCounts(problemsEnv, monitorId)
   const problemList = useEntityProblems(problemsEnv, monitorId)
   const info = useEntityInfo(entitiesEnv, monitorId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
-  const canFetch =
-    monitorId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -73,7 +72,7 @@ export function MonitorEntityPage({
       testId={testId}
       typeText={t(`entities.types.${monitorKind === 'browser' ? 'SYNTHETIC_TEST' : 'HTTP_CHECK'}`)}
       actions={
-        canFetch ? (
+        canRefresh ? (
           <RefreshButton
             onRefresh={refresh}
             busy={

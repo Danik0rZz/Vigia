@@ -7,14 +7,12 @@ import {
   useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
-  useModuleAccess,
-  useModuleRefresh,
   uniqueUnavailable
 } from '../../data/modules'
-import { useConnectionStatusKnown } from '../../data/tenants'
 import { DiskCharts } from './DiskCharts'
 import { DiskInfo } from './DiskInfo'
 import { DiskMarkers } from './DiskMarkers'
+import { useEntityPageAccess } from './entity-access'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 
@@ -28,25 +26,21 @@ import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityP
  */
 export function DiskEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
-  // Un id que no es de disco no llega a main: el canal lo rechazaría igual.
-  const diskId = diskEntityIdSchema.safeParse(props.id).success ? props.id : null
-  const metricsAccess = useModuleAccess('metrics')
-  const problemsAccess = useModuleAccess('problems')
-  const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
-  const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
-  const entitiesAccess = useModuleAccess('entities')
-  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
-  const statusKnown = useConnectionStatusKnown(
-    entitiesAccess.available ? entitiesAccess.envId : null
-  )
-  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
+  const {
+    id: diskId,
+    metricsAccess,
+    problemsAccess,
+    entitiesAccess,
+    metricsEnv,
+    problemsEnv,
+    entitiesEnv,
+    refresh,
+    canRefresh
+  } = useEntityPageAccess(props.id, diskEntityIdSchema)
   const metrics = useDiskMetrics(metricsEnv, diskId)
   const problems = useEntityProblemCounts(problemsEnv, diskId)
   const problemList = useEntityProblems(problemsEnv, diskId)
   const info = useEntityInfo(entitiesEnv, diskId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
-  const canFetch =
-    diskId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -54,7 +48,7 @@ export function DiskEntityPage(props: EntityPageProps): JSX.Element {
       testId="entity-page-disk"
       typeText={t('entities.types.DISK')}
       actions={
-        canFetch ? (
+        canRefresh ? (
           <RefreshButton
             onRefresh={refresh}
             busy={

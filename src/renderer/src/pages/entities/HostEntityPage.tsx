@@ -11,10 +11,10 @@ import {
   useHostLogs,
   useHostMetrics,
   useModuleAccess,
-  useModuleRefresh,
   uniqueUnavailable
 } from '../../data/modules'
 import { useConnectionStatusKnown } from '../../data/tenants'
+import { useEntityPageAccess } from './entity-access'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { HostCharts } from './HostCharts'
@@ -37,36 +37,28 @@ import { HostTables } from './HostTables'
  */
 export function HostEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
-  // Un id que no es de host no llega a main: el canal lo rechazaría igual.
-  const hostId = hostEntityIdSchema.safeParse(props.id).success ? props.id : null
-  const metricsAccess = useModuleAccess('metrics')
-  const problemsAccess = useModuleAccess('problems')
-  const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
-  const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
-  const entitiesAccess = useModuleAccess('entities')
-  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
-  const statusKnown = useConnectionStatusKnown(
-    entitiesAccess.available ? entitiesAccess.envId : null
-  )
-  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
+  // Ficha 0042: events.read y entities.read (el canal lee las relaciones del host).
+  const eventsAccess = useModuleAccess('events')
+  const eventsKnown = useConnectionStatusKnown(eventsAccess.available ? eventsAccess.envId : null)
+  const eventsEnv = eventsAccess.available && eventsKnown ? eventsAccess.envId : null
+  const {
+    id: hostId,
+    metricsAccess,
+    problemsAccess,
+    entitiesAccess,
+    metricsEnv,
+    problemsEnv,
+    entitiesEnv,
+    refresh,
+    canRefresh
+  } = useEntityPageAccess(props.id, hostEntityIdSchema, [eventsEnv])
   const metrics = useHostMetrics(metricsEnv, hostId)
   const breakdown = useHostBreakdown(metricsEnv, hostId)
   const problems = useEntityProblemCounts(problemsEnv, hostId)
   const problemList = useEntityProblems(problemsEnv, hostId)
   const info = useEntityInfo(entitiesEnv, hostId)
   const logs = useHostLogs(entitiesEnv, hostId)
-  // Ficha 0042: events.read y entities.read (el canal lee las relaciones del host).
-  const eventsAccess = useModuleAccess('events')
-  const eventsKnown = useConnectionStatusKnown(eventsAccess.available ? eventsAccess.envId : null)
-  const eventsEnv = eventsAccess.available && eventsKnown ? eventsAccess.envId : null
   const events = useHostEvents(eventsEnv, hostId)
-  const refresh = useModuleRefresh(
-    metricsEnv ?? problemsEnv ?? entitiesEnv ?? eventsEnv,
-    'entities'
-  )
-  const canFetch =
-    hostId !== null &&
-    (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null || eventsEnv !== null)
 
   return (
     <EntityPageFrame
@@ -74,7 +66,7 @@ export function HostEntityPage(props: EntityPageProps): JSX.Element {
       testId="entity-page-host"
       typeText={t('entities.types.HOST')}
       actions={
-        canFetch ? (
+        canRefresh ? (
           <RefreshButton
             onRefresh={refresh}
             busy={

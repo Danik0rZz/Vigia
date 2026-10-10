@@ -6,14 +6,12 @@ import {
   useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
-  useModuleAccess,
   useInvalidateProcessGroupInstances,
-  useModuleRefresh,
   useProcessGroupMetrics,
   useProcessMetricsList,
   uniqueUnavailable
 } from '../../data/modules'
-import { useConnectionStatusKnown } from '../../data/tenants'
+import { useEntityPageAccess } from './entity-access'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { topInstances } from './process-group-charts'
@@ -34,18 +32,17 @@ import { ProcessGroupMarkers } from './ProcessGroupMarkers'
  */
 export function ProcessGroupEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
-  // Un id que no es de process group no llega a main: el canal lo rechazaría igual.
-  const groupId = processGroupEntityIdSchema.safeParse(props.id).success ? props.id : null
-  const metricsAccess = useModuleAccess('metrics')
-  const problemsAccess = useModuleAccess('problems')
-  const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
-  const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
-  const entitiesAccess = useModuleAccess('entities')
-  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
-  const statusKnown = useConnectionStatusKnown(
-    entitiesAccess.available ? entitiesAccess.envId : null
-  )
-  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
+  const {
+    id: groupId,
+    metricsAccess,
+    problemsAccess,
+    entitiesAccess,
+    metricsEnv,
+    problemsEnv,
+    entitiesEnv,
+    refresh: refreshActive,
+    canRefresh
+  } = useEntityPageAccess(props.id, processGroupEntityIdSchema)
   const metrics = useProcessGroupMetrics(metricsEnv, groupId)
   const instances = useMemo(() => topInstances(metrics.data), [metrics.data])
   const instanceIds = useMemo(() => instances.map((instance) => instance.id), [instances])
@@ -53,7 +50,6 @@ export function ProcessGroupEntityPage(props: EntityPageProps): JSX.Element {
   const problems = useEntityProblemCounts(problemsEnv, groupId)
   const problemList = useEntityProblems(problemsEnv, groupId)
   const info = useEntityInfo(entitiesEnv, groupId)
-  const refreshActive = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
   // La lista completa del modal «Ver todas» (0051) no está activa con el modal cerrado: se marca
   // como vieja y se vuelve a pedir al abrirlo.
   const invalidateFullList = useInvalidateProcessGroupInstances(metricsEnv, groupId)
@@ -61,8 +57,6 @@ export function ProcessGroupEntityPage(props: EntityPageProps): JSX.Element {
     invalidateFullList()
     refreshActive()
   }
-  const canFetch =
-    groupId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -70,7 +64,7 @@ export function ProcessGroupEntityPage(props: EntityPageProps): JSX.Element {
       testId="entity-page-process_group"
       typeText={t('entities.types.PROCESS_GROUP')}
       actions={
-        canFetch ? (
+        canRefresh ? (
           <RefreshButton
             onRefresh={refresh}
             busy={

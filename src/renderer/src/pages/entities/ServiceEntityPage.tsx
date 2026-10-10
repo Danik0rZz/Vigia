@@ -6,12 +6,10 @@ import {
   useEntityProblemCounts,
   useEntityInfo,
   useEntityProblems,
-  useModuleAccess,
-  useModuleRefresh,
   useServiceMetrics,
   uniqueUnavailable
 } from '../../data/modules'
-import { useConnectionStatusKnown } from '../../data/tenants'
+import { useEntityPageAccess } from './entity-access'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { ServiceCharts } from './ServiceCharts'
@@ -28,31 +26,27 @@ import { serviceTypeName } from './service-type'
  */
 export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
-  // Un id que no es de servicio no llega a main: el canal lo rechazaría igual.
-  const serviceId = serviceEntityIdSchema.safeParse(props.id).success ? props.id : null
-  const metricsAccess = useModuleAccess('metrics')
-  const problemsAccess = useModuleAccess('problems')
-  const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
-  const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
-  const entitiesAccess = useModuleAccess('entities')
-  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
-  const statusKnown = useConnectionStatusKnown(
-    entitiesAccess.available ? entitiesAccess.envId : null
-  )
-  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
+  const {
+    id: serviceId,
+    metricsAccess,
+    problemsAccess,
+    entitiesAccess,
+    metricsEnv,
+    problemsEnv,
+    entitiesEnv,
+    refresh,
+    canRefresh
+  } = useEntityPageAccess(props.id, serviceEntityIdSchema)
   const metrics = useServiceMetrics(metricsEnv, serviceId)
   const problems = useEntityProblemCounts(problemsEnv, serviceId)
   const problemList = useEntityProblems(problemsEnv, serviceId)
   const info = useEntityInfo(entitiesEnv, serviceId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
   // Ficha 0047: el serviceType que usó main para las métricas, junto al tipo de entidad.
   const serviceType = metrics.data?.serviceType ?? null
   const typeText =
     serviceType === null
       ? t('entities.types.SERVICE')
       : `${t('entities.types.SERVICE')} · ${serviceTypeName(serviceType, t)}`
-  const canFetch =
-    serviceId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -60,7 +54,7 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
       testId="entity-page-service"
       typeText={typeText}
       actions={
-        canFetch ? (
+        canRefresh ? (
           <RefreshButton
             onRefresh={refresh}
             busy={

@@ -6,12 +6,10 @@ import {
   useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
-  useModuleAccess,
-  useModuleRefresh,
   useProcessMetrics,
   uniqueUnavailable
 } from '../../data/modules'
-import { useConnectionStatusKnown } from '../../data/tenants'
+import { useEntityPageAccess } from './entity-access'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 import { ProcessCharts } from './ProcessCharts'
@@ -29,25 +27,21 @@ import { ProcessMarkers } from './ProcessMarkers'
  */
 export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
-  // Un id que no es de proceso no llega a main: el canal lo rechazaría igual.
-  const processId = processEntityIdSchema.safeParse(props.id).success ? props.id : null
-  const metricsAccess = useModuleAccess('metrics')
-  const problemsAccess = useModuleAccess('problems')
-  const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
-  const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
-  const entitiesAccess = useModuleAccess('entities')
-  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
-  const statusKnown = useConnectionStatusKnown(
-    entitiesAccess.available ? entitiesAccess.envId : null
-  )
-  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
+  const {
+    id: processId,
+    metricsAccess,
+    problemsAccess,
+    entitiesAccess,
+    metricsEnv,
+    problemsEnv,
+    entitiesEnv,
+    refresh,
+    canRefresh
+  } = useEntityPageAccess(props.id, processEntityIdSchema)
   const metrics = useProcessMetrics(metricsEnv, processId)
   const problems = useEntityProblemCounts(problemsEnv, processId)
   const problemList = useEntityProblems(problemsEnv, processId)
   const info = useEntityInfo(entitiesEnv, processId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
-  const canFetch =
-    processId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -55,7 +49,7 @@ export function ProcessEntityPage(props: EntityPageProps): JSX.Element {
       testId="entity-page-process_group_instance"
       typeText={t('entities.types.PROCESS_GROUP_INSTANCE')}
       actions={
-        canFetch ? (
+        canRefresh ? (
           <RefreshButton
             onRefresh={refresh}
             busy={

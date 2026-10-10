@@ -8,11 +8,8 @@ import {
   useEntityInfo,
   useEntityProblemCounts,
   useEntityProblems,
-  useModuleAccess,
-  useModuleRefresh,
   uniqueUnavailable
 } from '../../data/modules'
-import { useConnectionStatusKnown } from '../../data/tenants'
 import { ApplicationActions } from './ApplicationActions'
 import { ApplicationApdexSection } from './ApplicationCharts'
 import { ApplicationInfo } from './ApplicationInfo'
@@ -20,6 +17,7 @@ import { ApplicationMarkers } from './ApplicationMarkers'
 import { ApplicationRumSections } from './ApplicationRumCharts'
 import { ApplicationSection } from './ApplicationSection'
 import { ApplicationUserSections } from './ApplicationUserSections'
+import { useEntityPageAccess } from './entity-access'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 
@@ -34,26 +32,22 @@ import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityP
  */
 export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
   const { t } = useTranslation()
-  // Un id que no es de aplicación no llega a main: el canal lo rechazaría igual.
-  const applicationId = applicationEntityIdSchema.safeParse(props.id).success ? props.id : null
-  const metricsAccess = useModuleAccess('metrics')
-  const problemsAccess = useModuleAccess('problems')
-  const metricsEnv = metricsAccess.available ? metricsAccess.envId : null
-  const problemsEnv = problemsAccess.available ? problemsAccess.envId : null
-  const entitiesAccess = useModuleAccess('entities')
-  // Sin el resultado de la última prueba no se sabe si falta entities.read: hasta tenerlo, no se pide.
-  const statusKnown = useConnectionStatusKnown(
-    entitiesAccess.available ? entitiesAccess.envId : null
-  )
-  const entitiesEnv = entitiesAccess.available && statusKnown ? entitiesAccess.envId : null
+  const {
+    id: applicationId,
+    metricsAccess,
+    problemsAccess,
+    entitiesAccess,
+    metricsEnv,
+    problemsEnv,
+    entitiesEnv,
+    refresh,
+    canRefresh
+  } = useEntityPageAccess(props.id, applicationEntityIdSchema)
   const metrics = useApplicationMetrics(metricsEnv, applicationId)
   const rum = useApplicationRum(metricsEnv, applicationId)
   const problems = useEntityProblemCounts(problemsEnv, applicationId)
   const problemList = useEntityProblems(problemsEnv, applicationId)
   const info = useEntityInfo(entitiesEnv, applicationId)
-  const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
-  const canFetch =
-    applicationId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
   return (
     <EntityPageFrame
@@ -61,7 +55,7 @@ export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
       testId="entity-page-application"
       typeText={t('entities.types.APPLICATION')}
       actions={
-        canFetch ? (
+        canRefresh ? (
           <RefreshButton
             onRefresh={refresh}
             busy={
