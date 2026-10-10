@@ -1,5 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, Menu, nativeTheme } from 'electron'
 import { APP_NAME, APP_ORIGIN, APP_USER_MODEL_ID } from '@shared/app'
+import { backupBeforeMigrations } from './db/backup'
 import { E2E_ENV, isE2eMode } from './e2e-mode'
 import { createAppHandlers } from './ipc/handlers/app'
 import { createConnectionHandlers } from './ipc/handlers/connection'
@@ -10,7 +11,13 @@ import { createUiHandlers } from './ipc/handlers/ui'
 import { openLocalData, storedTheme, storeTheme, type LocalData } from './local-data'
 import { registerIpcHandlers } from './ipc/register'
 import { initLogging, log } from './logging'
-import { configureAppPaths, rendererRoot } from './paths'
+import {
+  configureAppPaths,
+  databaseBackupsDir,
+  databasePath,
+  migrationsDir,
+  rendererRoot
+} from './paths'
 import { registerAppProtocol, registerAppScheme } from './protocol'
 import { hardenAllWebContents, hardenDefaultSession } from './security/harden'
 import { isAllowedOrigin, originOf } from './security/origins'
@@ -51,7 +58,7 @@ function bootstrap(): void {
 
   app.on('window-all-closed', () => app.quit())
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
     log.info(`${APP_NAME} ${app.getVersion()} arrancando`, {
       electron: process.versions.electron,
       packaged: app.isPackaged
@@ -66,6 +73,13 @@ function bootstrap(): void {
 
     let data: LocalData
     try {
+      // Sin copia correcta no se migra: si falla, rechaza y cae en este diálogo (ficha 0061).
+      await backupBeforeMigrations({
+        file: databasePath(),
+        migrationsFolder: migrationsDir(),
+        backupDir: databaseBackupsDir(),
+        logger: log
+      })
       data = openLocalData(log)
     } catch (error) {
       log.error('No se pudo abrir la base de datos local', error)

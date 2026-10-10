@@ -23,6 +23,11 @@ export function databasePath(): string {
   return join(app.getPath('userData'), 'vigia.db')
 }
 
+/** Copias de la base antes de migrar (ficha 0061). */
+export function databaseBackupsDir(): string {
+  return join(app.getPath('userData'), 'backups')
+}
+
 /**
  * Migraciones de la base: en la app empaquetada van en `resources/migrations`
  * (`extraResources`); sin empaquetar se leen del código fuente.
