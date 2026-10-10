@@ -8,4 +8,4 @@ export {
   partSheetName,
   type XlsxInfo
 } from './xlsx'
-export { exportFileName } from './file-name'
+export { exportFileName, localDateStamp } from './file-name'

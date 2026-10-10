@@ -16,6 +16,11 @@ function sanitize(part: string): string {
 
 const two = (value: number): string => String(value).padStart(2, '0')
 
+/** `AAAAMMDD` del día local de `date` (no el de UTC: a las 00:30 en Madrid ya es el día nuevo). */
+export function localDateStamp(date: Date): string {
+  return `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}`
+}
+
 /** `<cliente>_<entorno>_<módulo>_<AAAAMMDD-HHmm>.<ext>`, en hora local. */
 export function exportFileName(input: {
   client: string
@@ -25,6 +30,6 @@ export function exportFileName(input: {
   ext: string
 }): string {
   const { date } = input
-  const stamp = `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}-${two(date.getHours())}${two(date.getMinutes())}`
+  const stamp = `${localDateStamp(date)}-${two(date.getHours())}${two(date.getMinutes())}`
   return `${[input.client, input.environment, input.module].map(sanitize).join('_')}_${stamp}.${input.ext}`
 }

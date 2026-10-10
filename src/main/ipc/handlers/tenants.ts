@@ -1,5 +1,6 @@
 import type { EnvironmentView, SecretKind } from '@shared/tenants'
 import { DomainError } from '../../errors'
+import { localDateStamp } from '../../export/file-name'
 import type { SecretStore } from '../../secrets/store'
 import {
   applyConfigImport,
@@ -70,7 +71,8 @@ export function createTenantHandlers(
 
   const exportConfig: IpcImplementation<'config:export'> = async () => {
     const date = now()
-    const stamp = date.toISOString().slice(0, 10).replaceAll('-', '')
+    // Día local, no el de UTC (ficha 0063).
+    const stamp = localDateStamp(date)
     const path = await deps.dialogs.chooseSaveFile(`vigia-config-${stamp}.json`)
     if (path === null) return { status: 'cancelled' }
     const file = buildConfigExport(repo.listClients(), repo.listEnvironments(), date)
