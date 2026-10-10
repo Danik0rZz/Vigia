@@ -103,14 +103,25 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 
 ### Pasos
 
-| Paso                                               | Agente       | Ronda | Inicio              | Fin                 | Duración   | Notas                                                                       |
-| -------------------------------------------------- | ------------ | ----- | ------------------- | ------------------- | ---------- | --------------------------------------------------------------------------- |
-| Redacción de la ficha                              | Planificador | —     | 2026-10-10 12:44:08 | 2026-10-10 12:44:50 | 0 min 42 s | Desde el primer comando; la llegada del mensaje no se puede medir           |
-| Espera de la aprobación de Dani                    | Dani         | —     | 2026-10-10 12:44:50 | 2026-10-10 12:48:24 | 3 min 34 s | Desde el aviso hasta su «1» (ligera)                                        |
-| Aprobación, BACKLOG, commit y envío al Orquestador | Planificador | —     | 2026-10-10 12:48:24 | 2026-10-10 12:48:32 | 0 min 8 s  | Hasta antes del commit; el commit y el SendMessage tardan unos segundos más |
+| Paso                                                   | Agente       | Ronda | Inicio              | Fin                 | Duración    | Notas                                                                                                            |
+| ------------------------------------------------------ | ------------ | ----- | ------------------- | ------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| Redacción de la ficha                                  | Planificador | —     | 2026-10-10 12:44:08 | 2026-10-10 12:44:50 | 0 min 42 s  | Desde el primer comando; la llegada del mensaje no se puede medir                                                |
+| Espera de la aprobación de Dani                        | Dani         | —     | 2026-10-10 12:44:50 | 2026-10-10 12:48:24 | 3 min 34 s  | Desde el aviso hasta su «1» (ligera)                                                                             |
+| Aprobación, BACKLOG, commit y envío al Orquestador     | Planificador | —     | 2026-10-10 12:48:24 | 2026-10-10 12:48:32 | 0 min 8 s   | Hasta antes del commit; el commit y el SendMessage tardan unos segundos más                                      |
+| Espera en la cola del Orquestador (0064 en curso)      | —            | —     | 2026-10-10 12:48:33 | 2026-10-10 13:16:32 | 27 min 59 s | Desde el commit de la aprobación hasta crear la rama; la 0064 estaba en cierre e integración                     |
+| Rama y lanzamiento del developer                       | Orquestador  | —     | 2026-10-10 13:16:32 | 2026-10-10 13:16:45 | 0 min 13 s  | Incluye leer la ficha; lanzado entre 13:16:36 y 13:16:45                                                         |
+| Tests, texto, check, e2e afectados y ficha en revisión | developer    | —     | 2026-10-10 13:16:46 | 2026-10-10 13:25:09 | 8 min 23 s  | Desde su primer comando; no se puede medir lo que tarda en arrancar el subagente ni la redacción de su respuesta |
+| Vuelta del developer al Orquestador                    | Orquestador  | —     | 2026-10-10 13:25:09 | 2026-10-10 13:25:27 | 0 min 18 s  | Del último comando del developer a mi primer comando tras su respuesta                                           |
 
 ### Ejecuciones
 
-| Quién        | Comando                                | Inicio              | Fin                 | Duración | Resultado | Tests (pasan / fallan / saltados) |
-| ------------ | -------------------------------------- | ------------------- | ------------------- | -------- | --------- | --------------------------------- |
-| Planificador | npx prettier --write (ficha y BACKLOG) | 2026-10-10 12:48:32 | 2026-10-10 12:48:32 | < 1 s    | ok        | —                                 |
+| Quién        | Comando                                                                         | Inicio              | Fin                 | Duración   | Resultado                     | Tests (pasan / fallan / saltados)                                         |
+| ------------ | ------------------------------------------------------------------------------- | ------------------- | ------------------- | ---------- | ----------------------------- | ------------------------------------------------------------------------- |
+| Planificador | npx prettier --write (ficha y BACKLOG)                                          | 2026-10-10 12:48:32 | 2026-10-10 12:48:32 | < 1 s      | ok                            | —                                                                         |
+| developer    | npx vitest run locales/service-availability-view.test.ts (antes del código)     | 2026-10-10 13:17:11 | 2026-10-10 13:17:13 | 2 s        | falla, como se esperaba (CA1) | unit 4 / 1 / 0                                                            |
+| developer    | git commit (solo tests; hook: prettier y eslint)                                | 2026-10-10 13:17:16 | 2026-10-10 13:17:24 | 8 s        | ok                            | hook sin tests                                                            |
+| developer    | npx vitest run src/renderer/src/locales/                                        | 2026-10-10 13:17:28 | 2026-10-10 13:17:38 | 10 s       | ok                            | unit 110 / 0 / 0                                                          |
+| developer    | git commit (texto; hook: prettier, lint y typecheck)                            | 2026-10-10 13:17:42 | 2026-10-10 13:18:12 | 30 s       | ok                            | hook sin tests                                                            |
+| developer    | npm run check                                                                   | 2026-10-10 13:18:17 | 2026-10-10 13:18:59 | 42 s       | ok                            | unit 3448 / 0 / 0                                                         |
+| developer    | npm run test:e2e:affected -- main..HEAD (con compilación; shell, smoke y views) | 2026-10-10 13:19:04 | 2026-10-10 13:24:48 | 5 min 44 s | ok                            | e2e 301 / 0 / 0 (Playwright: 5,4 min; la compilación no se puede separar) |
+| developer    | git commit (ficha; hook: prettier)                                              | 2026-10-10 13:25:06 | 2026-10-10 13:25:07 | 1 s        | ok                            | hook sin tests                                                            |
