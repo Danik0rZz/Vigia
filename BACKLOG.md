@@ -14,7 +14,6 @@ bueno de Dani o de peticiones en su nombre.
   **auditoria-codigo-comun** (0057, 0058 y 0059 hechas), **auditoria-robustez** (0060 hecha,
   0061 y 0062 hechas), **auditoria-exportacion** (0063 hecha) y
   **auditoria-interfaz** (0064 hecha).
-- Después, [0065](tasks/0065-titulo-slo-servicio.md) (título «SLO» del servicio, ligera, con medición del flujo), aprobada por Dani el 2026-10-10.
 - Después, [0066](tasks/0066-marcador-slo-servicio.md) (marcador «SLO» propio en el servicio, ligera, con medición del flujo; depende de la 0065), aprobada por Dani el 2026-10-10.
 - Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
 
@@ -233,6 +232,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Test e2e de la exportación del mini gráfico: una exportación justo en la hora repetida de una zona con cambio de hora puede salirse una hora (no en el CI, que va en UTC; en la VPS, una hora al año). (surgió en 0063)
 - Notas al pie del Markdown del tenant: las referencias `[^1]` y la vuelta `↩` salen en texto, porque sus enlaces internos no son http/https; se podrían admitir los anclajes internos `#user-content-…`. Además el título oculto sale con el texto por defecto de remark-rehype («Footnotes»), sin traducir: ponerlo en es y en. (surgió en 0064)
 - `e2e/tenants.spec.ts` es inestable a veces: AUD-03 (confirmación al cerrar con un secreto sin guardar) y AUD-21 (paleta por encima de un diálogo) fallan con `--repeat-each 3`; ya pasaba en `main`. (surgió en 0064)
+- El test «CA3 (0048)» de `e2e/views.spec.ts` es el que comprueba el texto exacto «SLO»: poner «CA2 (0065)» en su nombre (regla de `e2e/CLAUDE.md`). (surgió en 0065)
 
 ## Aparcado
 
@@ -328,3 +328,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0062](tasks/0062-limite-peticiones-simultaneas.md) (lote auditoria-robustez): main limita a 6 las peticiones simultáneas a Dynatrace por entorno (`dynatrace/concurrency.ts`), con cola en orden, cancelación y aviso `debug` al pasar de 20 pendientes. Sin migraciones.
 - [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) (lote auditoria-exportacion): las fechas del XLSX van en hora local (`toExcelLocal`), el TXT calcula los anchos con un bucle (aguanta tablas grandes) y el fichero de configuración lleva la fecha local (`localDateStamp`). Sin migraciones.
 - [0064](tasks/0064-reintentar-solo-su-panel.md) (lote auditoria-interfaz): «Reintentar» de un panel solo repite su consulta (`onRetry` de `PanelBoundary`), sin aviso de secretos por campos que ya no existen, token fuera de la caché de mutaciones (`gcTime: 0`), `app:getInfo` con tiempo máximo de 2 s, `DataGrid` cancela su fotograma y los títulos del Markdown del tenant son `p[role="heading"]` (`MarkdownHeading`). Sin migraciones.
+- [0065](tasks/0065-titulo-slo-servicio.md): el gráfico de disponibilidad de la página del servicio se titula «SLO» en español e inglés (`entities.service.availability.title`); el tooltip, la serie y el marcador no cambian. Sin migraciones.

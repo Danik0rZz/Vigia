@@ -1,7 +1,7 @@
 ---
 id: '0065'
 titulo: 'El gráfico de disponibilidad del servicio se titula «SLO» (con medición del flujo)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -115,7 +115,18 @@ exacto (regla de `e2e/CLAUDE.md`).
 
 ## Resultado
 
-(pendiente)
+- Commits (`main..HEAD`): `ca7dff9` (tests), `5ed19cf` (el texto) y los de la ficha (`f4b898c`, `b2c97b8`, `bb1b955`, `2d2fd10`) más el de cierre.
+- Ficheros principales: `src/renderer/src/locales/es/common.json` y `en/common.json` (clave `entities.service.availability.title`), `src/renderer/src/locales/service-availability-view.test.ts` y `e2e/views.spec.ts`.
+- Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Migraciones: no.
+- Opcional del revisor pasado a «Mejoras anotadas» del BACKLOG: poner «CA2 (0065)» en el nombre del test «CA3 (0048)».
+
+**Totales de la medición** (sacados de las tablas de abajo, hasta la vuelta del verifier al Orquestador; el merge, el push y el CI se añaden después, cuando el Orquestador pase sus horas, para completar el total hasta el CI en verde):
+
+- Tiempo de reloj desde la petición: del primer comando del Planificador (12:44:08) a la vuelta del verifier (13:35:30), 51 min 22 s. El cierre del doc-writer (**DW**) se suma aparte; la llegada de la petición al Planificador no se pudo medir.
+- Por agente (solo tiempo medido): Planificador 50 s (42 s + 8 s; el commit y el envío al Orquestador no se midieron), developer 8 min 23 s, reviewer 20 s, verifier 8 min 10 s, Orquestador 1 min 58 s (lanzamientos, vueltas, filas de la ficha y commits) y doc-writer **DW**. El arranque interno de cada subagente y la redacción de sus respuestas no se pueden medir.
+- Esperas: Dani 3 min 34 s (aprobación) y cola del Orquestador 27 min 59 s (la 0064 estaba en curso); en total 31 min 33 s, que no son trabajo de ninguna ficha.
+- Ejecuciones apuntadas hasta el cierre: **EJ** (cada fila de «Ejecuciones» cuenta una, repeticiones incluidas; la del commit de cierre no se apunta porque su propio contenido es esta tabla).
+- Tests ejecutados: unitarios 7011 en 4 ejecuciones (7010 pasan y 1 falla, el fallo esperado de CA1 antes del código; 5 + 110 + 3448 + 3448) y e2e 602 en 2 ejecuciones (301 + 301), todos en verde al final.
 
 ## Medición del flujo
 
@@ -139,6 +150,7 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 | Revisión en la ficha, commit y lanzamiento del verifier | Orquestador  | 1     | 2026-10-10 13:26:35 | 2026-10-10 13:26:58 | 0 min 23 s  | Commit con hook de 13:26:49 a 13:26:50                                                                           |
 | Verificación (modo ficha)                               | verifier     | 1     | 2026-10-10 13:27:00 | 2026-10-10 13:35:10 | 8 min 10 s  | VERDE. Worktree limpio, `npm ci`, `install-electron`, check, e2e afectados y limpieza                            |
 | Vuelta del verifier al Orquestador                      | Orquestador  | 1     | 2026-10-10 13:35:10 | 2026-10-10 13:35:30 | 0 min 20 s  | Incluye la redacción de su respuesta                                                                             |
+| Cierre de la ficha: CHANGELOG, BACKLOG y Resultado      | doc-writer   | —     | 2026-10-10 13:35:56 | 2026-10-10 13:36:36 | 0 min 40 s  | Hasta el fin del primer prettier; la segunda pasada de prettier y el commit de cierre no se midieron             |
 
 ### Ejecuciones
 
@@ -160,3 +172,4 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 | verifier     | npm run check                                                                   | 2026-10-10 13:27:22 | 2026-10-10 13:28:53 | 1 min 31 s | ok                            | unit 3448 / 0 / 0                                                         |
 | verifier     | npm run test:e2e:affected -- main..bb1b955 (con compilación)                    | 2026-10-10 13:28:56 | 2026-10-10 13:34:48 | 5 min 52 s | ok                            | e2e 301 / 0 / 0                                                           |
 | verifier     | limpieza del worktree (ruta larga, con reintentos)                              | 2026-10-10 13:34:52 | 2026-10-10 13:35:10 | 18 s       | ok                            | —                                                                         |
+| doc-writer   | npx prettier --write (BACKLOG, CHANGELOG y ficha)                               | 2026-10-10 13:36:34 | 2026-10-10 13:36:36 | 2 s        | ok                            | —                                                                         |
