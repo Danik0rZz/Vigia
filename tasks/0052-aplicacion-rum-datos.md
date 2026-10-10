@@ -1,7 +1,7 @@
 ---
 id: '0052'
 titulo: 'APPLICATION (RUM): datos de actividad por tipo de acción, errores por tipo, usuarios, sesiones y experiencia'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -109,7 +109,86 @@ Informe solo de comportamientos; tabla final en "Resultado" y en `docs/notas-api
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `63a79d3` (`test(aplicacion): criterios de la ficha 0052 (#0052)`). Los
+unitarios y el e2e fallan porque el canal no existe (`implementación de entities:applicationRum:
+expected undefined`, `UNKNOWN_CHANNEL` en el e2e), no por el test: 17 de
+`application-rum.test.ts`, más los registros de `channel-coverage.test.ts` y `modules.test.ts`, y
+los 2 e2e de CA5.
+
+| Criterio | Test                                                                                                                                                                  |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CA1      | `src/main/modules/application-rum-explore.live.test.ts` › `CA1 (0052): el informe no contiene ningún id ni nombre observado` (ya pasa: paso 0 hecho)                  |
+| CA2      | `src/main/ipc/handlers/application-rum.test.ts` › `CA2 (0052): ninguna consulta pasa de 10 expresiones y todas llevan el id y el rango`                               |
+| CA3      | `src/main/ipc/handlers/application-rum.test.ts` › `CA3 (0052): transformación por papel, con papeles sin datos y null conservados`                                    |
+| CA4      | `src/main/ipc/handlers/application-rum.test.ts` › `CA4 (0052): un 400 o un 404 de Dynatrace acaba en error con reason`                                                |
+| CA5      | `e2e/views.spec.ts` › `CA5 (0052): entities:applicationRum por IPC con ids inventados: …` y `CA5 (0052): entities:applicationRum con un 400 del simulador acaba en …` |
+
+**Paso 0 (CA1), en vivo y de solo lectura, el 2026-10-10:** 3 aplicaciones (2 de los problemas
+de 7 días y 1 de `type("APPLICATION")`), `now-24h`, 96 peticiones GET, token fuera del log. Solo
+API clásica (`GET /metrics/{metricId}` y `GET /metrics/query`). Informe en
+`live-reports/application-rum-explore.json` (ignorado), sin ids ni nombres.
+
+- **Todas las candidatas existen** (200 en `GET /metrics/{metricId}`, `resolutionInfSupported`),
+  con la dimensión `dt.entity.application`. Con datos en las 3: `actionCount` y `actionDuration`
+  de `load` y `xhr`, las de errores, sesiones, usuarios y Core Web Vitals. **Sin datos en
+  ninguna:** `actionCount.custom.browser`, `actionDuration.custom.browser` y
+  `event.count.rageClick`. `jsErrorsDuringUa` y `jsErrorsWithoutUa`, en 2 de 3.
+- **Errores HTTP: se pueden separar.** `countOfErrors` tiene `Error type` (valores vistos:
+  `JavaScript` y `Request`) y `Error origin` (`First party`, `Third party`). Con
+  `countOfErrors:splitBy("Error type"):sum`, los tipos suman el total en el rango (Inf) y en cada
+  intervalo en las 3, con los mismos timestamps. `jsErrorsDuringUa` + `jsErrorsWithoutUa` es igual
+  al tipo `JavaScript`. Los HTTP son el tipo `Request`. (`errorCountForDavis` solo trae `Request`
+  y añade `Error context`: no sirve para separar los de JavaScript.)
+- **`activeUsersEst`:** con `resolution=Inf`, `:splitBy()` (igual que `:value`) da un valor
+  distinto de la suma y del máximo de la serie y menor o igual que las sesiones: es la estimación
+  de usuarios distintos del rango. `:sum` difiere menos del 1 % o es igual; `:avg`, no.
+- **Porcentajes:** en `percentageOfUserActionsAffectedByErrors` y `bouncedSessionRatio`,
+  `:splitBy()` es `:value`; `:avg` difiere con varios tipos de usuario (media sin ponderar de los
+  tipos) y coincide con uno solo. Ninguno coincide con 100 × `countOfUserActionsWithErrors` /
+  `actionCount.summary`. `sessionDuration` y `actionsPerSession`: `:splitBy()` es `:avg`.
+- **Unidades** (descriptor y tramos): `sessionDuration` en **MicroSecond** (> 1e6);
+  `bouncedSessionRatio` y `percentageOfUserActionsAffectedByErrors` en Percent (0 a 100); LCP e
+  INP en MilliSecond (100 a 1e4); CLS Unspecified (0 a 1); `actionsPerSession` Count. INP no
+  admite `avg` (sí `percentile`).
+
+| Papel                | Expresión exacta del canal (prefijo `builtin:apps.web.`)                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `actionsByType`      | `actionCount.{load,xhr,custom}.browser:splitBy():sum`                                                                      |
+| `durationByType`     | `actionDuration.{load,xhr,custom}.browser:splitBy():avg` (ms)                                                              |
+| `errorsByType`       | `countOfErrors:splitBy("Error type"):sum` (`JavaScript` → `javascript`, `Request` → `http`, resto → `other`)               |
+| `affectedActionsPct` | `percentageOfUserActionsAffectedByErrors:splitBy()` (%)                                                                    |
+| `activeUsers`        | `activeUsersEst:splitBy()` (estimación)                                                                                    |
+| `sessions`           | `startedSessions:splitBy():sum` y `endedSessions:splitBy():sum`                                                            |
+| `sessionDuration`    | `sessionDuration:splitBy():avg` (µs)                                                                                       |
+| `actionsPerSession`  | `actionsPerSession:splitBy():avg`                                                                                          |
+| `bounceRate`         | `bouncedSessionRatio:splitBy()` (%)                                                                                        |
+| `vitals`             | `{largestContentfulPaint.load.browser,cumulativeLayoutShift.load.browser,interactionToNextPaint}:splitBy():percentile(75)` |
+| `rageClicks`         | `event.count.rageClick:splitBy():sum`                                                                                      |
+
+Las 18, con `entitySelector=entityId("<id>")`, de 10 en 10: series sin `resolution` (`10m` con
+`now-24h`) y totales con `resolution=Inf`, todas 200 en las 3 aplicaciones, `metricId` igual a la
+expresión (también con las comillas de `"Error type"`), ratios ≤ 1 y una serie sin dimensiones
+por expresión (salvo la de errores, una por tipo). En los recuentos, el total con Inf queda a
+menos del 1 % de la suma de la serie.
+
+**Decisiones del test-writer (delegadas por el Orquestador, refinables):**
+
+- Forma de la salida: `resolution` (la de las series), `series` y `totals` con los once papeles
+  de la especificación; cada serie `{ timestamps, values }` y cada total número o `null`.
+- Todos los papeles tienen métrica en el catálogo: **ninguno es `null`**. Un papel sin datos
+  (como `custom` y `rageClicks` en vivo) llega con serie vacía y total `null`, como en la 0033.
+  `errorsByType` nunca es `null`: el paso 0 confirma que los tipos suman el total.
+- `errorsByType`: un tipo sin series, vacío y total `null` (no `0`); los tipos que no son
+  `JavaScript` ni `Request` (ninguno visto en vivo) se suman en `other`, intervalo a intervalo.
+- Core Web Vitals con el percentil 75 (el criterio de Google; INP no admite media). Porcentajes y
+  usuarios sin agregación (`:splitBy()`), porque `:avg` es la media sin ponderar de los tipos de
+  usuario.
+- Unidades sin convertir: la duración de sesión llega en µs (la vista la formatea).
+- Totales de todos los papeles con `resolution=Inf` (no la suma de la serie).
+- Casado por posición: el test cambia el `metricId` de la respuesta y el resultado no cambia.
+- Un 400 o 404 lleva el `reason` de la 0033, `applicationMetricsRejected` (su texto, «la
+  consulta de métricas de la aplicación», vale aquí; no hace falta clave nueva).
+- El simulador de los e2e da 400 con más de 10 expresiones por consulta, como la API.
 
 ## Resultado
 
