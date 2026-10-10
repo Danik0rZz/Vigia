@@ -11,7 +11,7 @@ bueno de Dani o de peticiones en su nombre.
   (0052, 0053 y 0054 hechas).
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
   **auditoria-publicacion** (0055 y 0056 hechas),
-  **auditoria-codigo-comun** ([0057](tasks/0057-main-metricas-codigo-comun.md), [0058](tasks/0058-paginas-entidad-codigo-comun.md),
+  **auditoria-codigo-comun** (0057 hecha, [0058](tasks/0058-paginas-entidad-codigo-comun.md),
   [0059](tasks/0059-react-compiler.md)), **auditoria-robustez** ([0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md),
   [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md), [0062](tasks/0062-limite-peticiones-simultaneas.md)),
   [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) y [0064](tasks/0064-reintentar-solo-su-panel.md).
@@ -211,6 +211,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - CI: `persist-credentials: false` en los `actions/checkout`; ningún paso necesita el token tras el checkout. (surgió en 0056)
 - CI: mover el `npm audit` de producción después de `check` y de los e2e, para que un fallo del registro de npm no ponga el CI en rojo sin probar nada. (surgió en 0056)
 
+- `connection.ts` también llama a `repo.getEnvironment(environmentId)` sin usar el resultado (3 veces): podría pasar a `requireEnvironment`. (surgió en 0057)
+- `metrics:query` (el explorador) sigue con su `dtRequest` propio porque admite cualquier `resolution`; `createMetricsQuery` podría aceptarla. (surgió en 0057)
+- `instancesOf` (process group) y `topActionsOf` (aplicación) repiten «casar series por id de dimensión con su nombre»; no encajan en `seriesByDimension` y se dejaron como estaban. (surgió en 0057)
+
 ## Aparcado
 
 - Monaco (fases 5 y 7): no se implementa ni se pregunta por él hasta que Dani lo retome.
@@ -297,3 +301,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0054](tasks/0054-aplicacion-rum-usuarios-experiencia.md) (lote aplicacion-rum): secciones «Usuarios y sesiones» (usuarios activos, sesiones con duración media y datos pequeños) y «Experiencia» (tarjetas de LCP, CLS e INP con la calificación de Google y gráfico con umbrales) en la página de la aplicación web, solo con la API clásica. Sin migraciones.
 - [0055](tasks/0055-scan-tenant-falla-cerrado.md) (lote auditoria-publicacion): `scan:tenant` falla cerrado (sin `.env.live.local`, o vacío, sale con 2; en un worktree usa el del checkout principal), el pre-push escanea los refs que se suben y `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional. Sin migraciones.
 - [0056](tasks/0056-ci-endurecido.md) (lote auditoria-publicacion): CI con acciones fijadas por SHA, `npm audit` en cada push y semanal (`audit.yml`), artefacto de los e2e fallidos, runs encolados y caché de Electron. Sin migraciones.
+- [0057](tasks/0057-main-metricas-codigo-comun.md) (lote auditoria-codigo-comun): los 11 canales de métricas de entidad en `main` comparten `metric-series.ts`, `createMetricsQuery`, `rethrowRejected` y `requireEnvironment`; sin cambios visibles. Sin migraciones.

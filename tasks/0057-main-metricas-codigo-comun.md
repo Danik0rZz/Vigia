@@ -1,7 +1,7 @@
 ---
 id: '0057'
 titulo: 'Main: un solo código para consultar y transformar métricas en todos los canales de entidad'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -182,3 +182,5 @@ Decisiones (Dani las delegó; razonables y refinables):
 - `metrics-query.ts` va en el área de módulos de `e2e/areas.json`.
 
 `npm run check` en verde (3328 tests) y `npm run test:e2e:affected -- main..HEAD`: 353 pasados.
+
+Cierre: 15 commits en `main..HEAD`; ficheros principales `src/main/modules/metric-series.ts`, `src/main/ipc/handlers/metrics-query.ts`, `src/main/ipc/handlers/modules.ts` y los módulos de métricas; 2 rondas de revisión (CAMBIOS y APROBADO); sin ADR nuevo ni migraciones.

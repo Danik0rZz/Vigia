@@ -13,6 +13,7 @@ por IPC (ADR-0002).
 src/
   main/        Proceso main: único con acceso a red, disco, procesos y secretos
     ipc/         Registro de canales (handler.ts) y sus implementaciones (handlers/)
+    modules/     Transformación de métricas y entidades (metric-series.ts es el código común de series)
     security/    CSP, orígenes de confianza, navegación y rutas del protocolo app://
     dynatrace/   Cliente de Dynatrace, red y particiones por entorno
     db/          Esquema de SQLite (Drizzle) y migraciones
