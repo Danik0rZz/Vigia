@@ -1,6 +1,7 @@
 import { z, type ZodType } from 'zod'
 import { nextPageQuery, type DtListEndpoint } from '@shared/dt-endpoints'
 import type { Environment, SecretKind } from '@shared/tenants'
+import { cancelReason, createEnvLimiter, isCancelled } from './concurrency'
 import { DtError } from './errors'
 import { redactQueryEcho } from './log-redact'
 import { issuePath, parseItems } from './parse-items'
@@ -31,6 +32,12 @@ export interface DtRequestOptions<T> {
   schema: ZodType<T>
   timeoutMs?: number
   auth?: DtAuth
+  /**
+   * Cancela la petición (ficha 0062): en cola, sale sin llegar a `fetch`; en
+   * vuelo, aborta el `fetch` y suelta su sitio. Rechaza con el `reason` de la
+   * señal, como `fetch`, no con un `DtError`.
+   */
+  signal?: AbortSignal
 }
 
 export interface DtPaginateOptions<T> extends Omit<DtRequestOptions<T>, 'schema' | 'path'> {
@@ -73,8 +80,15 @@ export interface DtClientDeps {
   sleep(ms: number): Promise<void>
   now(): Date
   random(): number
-  logger: { warn(...args: unknown[]): void; error(...args: unknown[]): void }
+  logger: {
+    /** Opcional: sin él, la cola larga no se registra (ficha 0062). */
+    debug?(...args: unknown[]): void
+    warn(...args: unknown[]): void
+    error(...args: unknown[]): void
+  }
   timeoutMs?: number
+  /** Peticiones en vuelo por entorno; por defecto 6 (ficha 0062). */
+  maxConcurrentPerEnv?: number
   /**
    * Por qué se rechazó el certificado de un host (huella cambiada o no
    * confiable), o null si el verificador no lo ha rechazado.
@@ -137,6 +151,15 @@ function errorText(error: unknown): string {
  */
 export function createDtClient(deps: DtClientDeps): DtClient {
   const defaultTimeout = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  // El log de la cola solo lleva el id del entorno y el número: nunca la URL,
+  // la query ni el token.
+  const limiter = createEnvLimiter({
+    ...(deps.maxConcurrentPerEnv === undefined ? {} : { limit: deps.maxConcurrentPerEnv }),
+    onLongQueue: (envId, pending) =>
+      deps.logger.debug?.(
+        `Dynatrace: la cola del entorno ${envId} tiene ${pending} peticiones pendientes`
+      )
+  })
 
   async function environmentOf(envId: string): Promise<Environment> {
     let environment: Environment | null | undefined
@@ -212,11 +235,11 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     signal: AbortSignal,
     response: Response,
     promise: Promise<R>,
-    timeoutMs: number
+    abortError: () => unknown
   ): Promise<R> {
     return new Promise<R>((resolve, reject) => {
       const onAbort = (): void => {
-        reject(timeoutError(timeoutMs))
+        reject(abortError())
         void response.body?.cancel().catch(() => undefined)
       }
       if (signal.aborted) {
@@ -233,13 +256,16 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     url: string,
     init: RequestInit,
     signal: AbortSignal,
-    timeoutMs: number
+    timeoutMs: number,
+    cancel: AbortSignal | undefined
   ): Promise<Response> {
     try {
       // Nunca se sigue una redirección (ficha 0060): dónde viaja una petición con
       // credenciales no lo decide la respuesta. Una 3xx rechaza el fetch.
       return await deps.fetchFor(envId)(url, { ...init, redirect: 'error', signal })
     } catch (error) {
+      // Cancelada desde fuera: no es un plazo vencido ni un fallo de red.
+      if (isCancelled(cancel)) throw cancelReason(cancel)
       const text = errorText(error)
       const name = error instanceof Error ? error.name : ''
       if (signal.aborted || name === 'AbortError' || name === 'TimeoutError') {
@@ -300,6 +326,8 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     // Concatenación, no new URL(path, base): en Managed la base lleva /e/<id>.
     const url = `${base}${api === 'classic' ? '/api/v2' : ''}${path}${buildQuery(options.query)}`
     const timeoutMs = options.timeoutMs ?? defaultTimeout
+    const cancel = options.signal
+    if (isCancelled(cancel)) throw cancelReason(cancel)
 
     let auth = await authorization(envId, api, options.auth)
     let renewedOAuth = false
@@ -316,17 +344,30 @@ export function createDtClient(deps: DtClientDeps): DtClient {
         init.body = JSON.stringify(options.body)
       }
 
+      // Un sitio del entorno por intento (ficha 0062), tomado ANTES del plazo: la
+      // espera en cola no cuenta como tiempo de respuesta. Se suelta al acabar el
+      // intento, antes de devolver o de esperar el reintento de un 429, así que
+      // nadie pide un sitio mientras ocupa otro (sin bloqueos en la paginación).
+      const slot = limiter.acquire(envId, cancel)
+      const release = typeof slot === 'function' ? slot : await slot
       // Un plazo por intento, que cubre las cabeceras Y la lectura del cuerpo.
       const controller = new AbortController()
+      const onCancel = (): void => controller.abort()
+      cancel?.addEventListener('abort', onCancel, { once: true })
       const timer = setTimeout(() => controller.abort(), timeoutMs)
       let outcome: Outcome
       try {
-        const response = await send(envId, url, init, controller.signal, timeoutMs)
+        if (isCancelled(cancel)) throw cancelReason(cancel)
+        const response = await send(envId, url, init, controller.signal, timeoutMs, cancel)
         const readBody = <R>(promise: Promise<R>): Promise<R> =>
-          withinDeadline(controller.signal, response, promise, timeoutMs)
+          withinDeadline(controller.signal, response, promise, () =>
+            isCancelled(cancel) ? cancelReason(cancel) : timeoutError(timeoutMs)
+          )
         outcome = await handleResponse(response, readBody)
       } finally {
         clearTimeout(timer)
+        cancel?.removeEventListener('abort', onCancel)
+        release()
       }
       if (!outcome.retry) return outcome.value
       if (outcome.wait > 0) await deps.sleep(outcome.wait)

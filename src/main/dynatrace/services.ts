@@ -28,7 +28,11 @@ export function createDynatraceServices(deps: {
   db: AppDatabase
   repo: TenantRepository
   secrets: SecretStore
-  logger: { warn(...args: unknown[]): void; error(...args: unknown[]): void }
+  logger: {
+    debug?(...args: unknown[]): void
+    warn(...args: unknown[]): void
+    error(...args: unknown[]): void
+  }
 }): DynatraceServices {
   const { repo, secrets } = deps
   const pins = createPinStore(deps.db)
