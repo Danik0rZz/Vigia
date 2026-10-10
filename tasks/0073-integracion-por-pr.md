@@ -13,7 +13,7 @@ adrs: [7, 10, 13] # ADR que aplican, por número
 adr_nuevo: 'ADR-0014 (lo abre la 0072): se completa con las decisiones de Dani de esta ficha' # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 2
+rondas_revision: 3
 ---
 
 ## Petición original
@@ -175,6 +175,13 @@ Resueltos de la ronda 1: puntos 1, 3, 4 y 5. Punto 2 («Traer `main`»): funcion
 2. [Flujo] `flujo.md:260-262` y `tarea.md:58-60`: falta qué hacer si el `merge --no-edit origin/main` del checkout principal no sale limpio (conflicto o cambios sin commitear del Planificador). `git merge --abort` (o no empezarlo si hay cambios), parar la cola y avisar a Dani o al Planificador; no resolver conflictos en el checkout de otra sesión.
 
 Opcional: mensaje de los merges en español (`-m "chore(git): trae origin/main"`); `/cerrar-version` usa «Traer `main`»: que su texto siga igual que el de `tarea.md`.
+
+### Ronda 3: APROBADO
+
+- Punto 1 de la ronda 2 resuelto: la PR solo de documentos cuenta solo lo que no va en ninguna PR abierta (`git log --oneline main --not origin/main <integra/… con PR abierta>`), igual en `docs/flujo.md` y `tarea.md`.
+- Punto 2 resuelto: con `status --porcelain` no vacío no se empieza el merge; con conflicto, `merge --abort`; se para la cola y se avisa, sin resolver conflictos en el checkout de otra sesión. Igual en `flujo.md`, `tarea.md` y `cerrar-version.md`. Merges de «Traer `main`» con mensaje en español.
+- 3fd0769 solo toca esos tres documentos. Los `--no-edit` que quedan son el merge de conflictos de la `integra/…`, no «Traer `main`». Tests de los CA sin cambios desde 256d5e4. `npm run check` y el test de CA5 los pasa el verifier.
+- Opcional: la decisión del developer de la ronda 2 en la ficha aún cita `--no-edit` y `origin/main..main`; el doc-writer puede resumirla con la de la ronda 3.
 
 ## Verificación
 
