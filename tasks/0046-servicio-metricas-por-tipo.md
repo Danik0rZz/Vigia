@@ -1,7 +1,7 @@
 ---
 id: '0046'
 titulo: 'SERVICE: las métricas dependen del serviceType (servidor, cliente, unificadas o solo actividad)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -99,7 +99,89 @@ comportamientos, nunca ids ni nombres. Resultado en "Resultado" y en `docs/notas
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `a66a0e9` (`test(servicio): criterios de la ficha 0046`). Fallan porque el
+código no existe (`Cannot find module './service-metric-set'`, `metricSet`/`serviceType` sin
+llegar en la salida, ninguna petición a la entidad), no por el test: 17 de
+`service-metric-set.test.ts` (canal), el fichero de `serviceMetricSet` entero, los 2 de CA3
+(0006), que ahora cuentan la petición de la entidad, y los 2 e2e nuevos. El resto de `views`
+(220) y de los unitarios, en verde con el simulador nuevo.
+
+| Criterio | Test                                                                                                                                                                                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CA1      | `src/main/modules/service-metric-set-explore.live.test.ts` › `CA1 (0046): el informe no contiene ningún id, nombre ni valor observado` (ya pasa: paso 0 hecho)                                                                                               |
+| CA2      | `src/main/modules/service-metric-set.test.ts` › `CA2 (0046): serviceMetricSet da el conjunto de la tabla…`; en el canal, `src/main/ipc/handlers/service-metric-set.test.ts` › `CA2 (0046) en el canal: tipo desconocido o que no llega → Servidor con aviso` |
+| CA3      | `src/main/ipc/handlers/service-metric-set.test.ts` › `CA3 (0046): primero la entidad y después las consultas con las métricas del conjunto` (una por conjunto)                                                                                               |
+| CA4      | `src/main/ipc/handlers/service-metric-set.test.ts` › `CA4 (0046): Solo actividad y tasa de las Unificadas`                                                                                                                                                   |
+| CA5      | `src/main/ipc/handlers/service-metric-set.test.ts` › `CA5 (0046): si la entidad falla, conjunto Servidor y un aviso` (403, 404 y 400)                                                                                                                        |
+| CA6      | `src/main/ipc/handlers/service-metric-set.test.ts` › `CA6 (0046): la salida trae serviceType, metricSet y metricKeys`                                                                                                                                        |
+| CA7      | `e2e/views.spec.ts` › `CA7 (0046): entities:serviceMetrics por IPC con un servicio de cada conjunto…` y `CA7 (0046): … sin entities.read: entidad con 403…`                                                                                                  |
+
+**Paso 0 (CA1), en vivo y de solo lectura, el 2026-10-10:** censo de `type("SERVICE")` en
+`now-24h` y 2 servicios por tipo con `serviceType("…")`, 89 peticiones GET (mediana 336 ms,
+máximo 933 ms), token fuera del log. Informe en `live-reports/service-metric-set-explore.json`
+(ignorado), sin ids ni nombres.
+
+- **Tipos que existen:** `WEB_SERVICE`, `CUSTOM_SERVICE`, `SPAN`, `EXTERNAL`,
+  `WEB_REQUEST_SERVICE` (con y sin `webServerName`), `RPC_SERVICE` (con y sin
+  `remoteEndpoint`/`remoteServiceName`), `DATABASE_SERVICE`, `UNIFIED` y
+  `QUEUE_LISTENER_SERVICE`. No hay `BACKGROUND_ACTIVITY` ni `MESSAGING_SERVICE`; ninguno fuera de
+  la tabla. `serviceType("…")` en el selector funciona (todos los devueltos son de ese tipo).
+- **`GET /entities/{id}` con los `fields` de la ficha:** 200, `properties.serviceType` siempre;
+  una propiedad que el servicio no tiene **no llega** (la clave falta, no viene a `null`).
+- **Descriptores:** las de Servidor y Cliente, iguales: tiempos en `MicroSecond` (con `median`,
+  `percentile` y `count`), recuentos `Count` (`value`), tasa `Percent` (`avg`), todas con
+  `resolution=Inf` y `fold`. Unificadas: `response_time_service_aggregation` en
+  **`MilliSecond`** (no µs; `median`, `percentile`, `count`), `failure_count_service_aggregation`
+  y `count_service_aggregation` en `Count`. `response_time_…` y `count_…` tienen la dimensión
+  `failed` (`"true"`/`"false"`); `failure_count_…` solo la del servicio.
+- **Reparto (qué conjunto tiene datos):** Servidor en WEB_SERVICE, CUSTOM_SERVICE, SPAN,
+  WEB_REQUEST_SERVICE con `webServerName` y RPC_SERVICE sin `remote*`. Cliente en
+  WEB_REQUEST_SERVICE sin `webServerName` y DATABASE_SERVICE (sin datos de Servidor); el
+  RPC_SERVICE con `remote*` tiene datos en los dos. Unificadas: solo sus métricas. Solo
+  actividad: `response.server` (tiempos y `:count`) sí; `requestCount.server` y los errores, no.
+  **EXTERNAL: sin datos de Servidor en los 2 vistos, y sí de Cliente** (ver abajo).
+- **Unificadas:** con `entitySelector` y sin `splitBy`, `response_time_…` y `count_…` llegan en
+  dos series (por `failed`): hay que pedir `:splitBy("dt.entity.service")`. Con él, el total es la
+  suma de `failed=true` y `failed=false`, y `failure_count_…` es igual a `count_…` con
+  `failed=true`. No hay métrica de tasa: main la calcula como fallidas / total × 100 (fallidas ≤
+  total siempre).
+- **Expresiones probadas** (todas 200, una serie por expresión, en el orden pedido, sin
+  `resolution` → `10m` en 24 h, y con `resolution=Inf`), con
+  `:filter(eq("dt.entity.service","<id>")):splitBy("dt.entity.service")` tras la clave:
+  Servidor y Cliente, `response.*:…:median`, `:percentile(90.0)`, `:percentile(99.0)`,
+  `errors.*.count`, `errors.*.rate` y `requestCount.*`; Unificadas, `response_time_…` con
+  `:median`/`:percentile(90.0)`/`:percentile(99.0)`, `failure_count_…` y `count_…`; Solo
+  actividad, `builtin:service.response.server…:count`. Recuentos con `Inf` frente a la suma de
+  la serie: iguales en errores y a menos del 1 % en peticiones (en Servidor, ≥ 1 % en uno: los
+  totales siguen saliendo de sumar la serie, como en la 0006).
+
+**Decisiones del test-writer (delegadas por el Orquestador, refinables):**
+
+- `serviceMetricSet(serviceType: string | null, properties: Record<string, unknown>)` en
+  `src/main/modules/service-metric-set.ts`, que devuelve `'server' | 'client' | 'unified' |
+'activity'`. Una propiedad cuenta si es una cadena no vacía (o una lista no vacía); los valores
+  distinguen mayúsculas (`unified` no es `UNIFIED`). `webServerName` solo cuenta en
+  WEB_REQUEST_SERVICE y `remote*` solo en RPC_SERVICE.
+- Solo actividad: `series.responseTime`, `series.errors`, `series.ok` y `series.errorRate` son
+  `null`, y en `totals`, `responseTime`, `errors`, `ok` y `errorRate` también; las peticiones
+  salen de `response.server:count` (serie y suma). Ninguna expresión pide mediana ni percentiles.
+- Unificadas: tiempos en ms tal cual (sin ÷ 1000); `errors` = `failure_count_…`, `requests` =
+  `count_…` (con `splitBy("dt.entity.service")`), OK = total − fallidas y tasa punto a punto y
+  total = fallidas / total × 100 (`null` sin peticiones).
+- `metricKeys`: `{ responseTime, requests, errors, errorRate }` con la clave sin
+  transformaciones o `null`. Servidor y Cliente, sus cuatro; Unificadas, `errorRate: null` (se
+  calcula); Solo actividad, solo `requests: 'builtin:service.response.server'`.
+- `serviceType`: el de la entidad tal cual; `null` si la entidad falla o no lo trae. Avisos en
+  `warnings`: entidad que falla (403, 404, 400…), entidad sin `serviceType` y tipo fuera de la
+  tabla (el aviso lleva el tipo). Con un tipo de la tabla, `warnings` no gana nada.
+- En el simulador e2e, la entidad que pide el canal (la de `+properties.serviceType`) va aparte
+  de la de `entities:get` (`sim.serviceEntityQueries`), con 403 para el token sin
+  `entities.read`; los servicios de fichas anteriores son WEB_SERVICE para el canal (aunque su
+  tarjeta diga otro tipo), así que siguen con las métricas de Servidor.
+
+**Para el Planificador o Dani (no reinterpretado):** en vivo, EXTERNAL tiene datos solo en
+Cliente, pero la tabla de Dani lo pone en Servidor. Los tests siguen la tabla (CA2 lo exige); con
+ella, un EXTERNAL saldrá sin datos. Cambiarlo a Cliente es tocar la tabla.
 
 ## Resultado
 
