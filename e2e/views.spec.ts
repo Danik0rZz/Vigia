@@ -7039,9 +7039,15 @@ test('v0.10.2: «Abrir en Métricas» y la exportación del mini gráfico usan e
   // Los puntos exportados, dentro del rango visible.
   const data = book.worksheets[0]
   const times: number[] = []
+  // Las fechas del XLSX van en hora local (ficha 0063): ExcelJS devuelve la hora de pared como si
+  // fuera UTC, y se pasa a instante con la zona del renderer, la del equipo (el CI va en UTC y la
+  // VPS en Europe/Madrid). Se pierden los segundos: cabe en el margen de un minuto de abajo.
+  const zone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)
   data?.eachRow((row, n) => {
     const value = row.getCell(1).value
-    if (n > 1 && value instanceof Date) times.push(value.getTime())
+    if (n > 1 && value instanceof Date) {
+      times.push(wallTimeToEpoch(value.toISOString().slice(0, 16), zone))
+    }
   })
   expect(times.length).toBeGreaterThan(0)
   expect(Math.min(...times)).toBeGreaterThanOrEqual(axis.from - 60_000)
