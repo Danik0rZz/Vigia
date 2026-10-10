@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -102,6 +102,18 @@ nivel lo cubre CA6). Sin choque con el ADR-0011. CA3 y CA4 correctos; C-10 solo 
 C-13 con `cancelAnimationFrame`. Sin endpoints, textos, dependencias ni esquema; nada del tenant.
 
 Opcional: `main.tsx:575` sobra `request.catch(() => undefined)`.
+
+### Ronda 2: APROBADO
+
+El CAMBIO de la ronda 1, resuelto en `90d5423`: `MarkdownHeading` reenvía `id` y `footnote-label` lo
+conserva. Como el `a` de `MarkdownText` deja en texto los enlaces que no son http/https (0001,
+ADR-0008), la referencia `[^1]` no lleva `aria-describedby`; el unitario nuevo exige
+`id="footnote-label"` en el `p` con `role="heading"` (fallaría sin el arreglo), que ningún
+`aria-describedby` apunte a un `id` inexistente y que el título no salga como `h2`. `ea23061`
+(quita el `catch` sobrante) es seguro: `Promise.race` ya recoge el rechazo. Tests tocados tras
+`c680e67`: solo `a73b351` (ya valorado) y el bloque nuevo; nada más cambia.
+
+Opcional: el título oculto de las notas sale como «Footnotes» sin traducir (ya en "Ideas surgidas").
 
 ## Verificación
 
