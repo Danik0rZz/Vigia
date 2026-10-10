@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 /**
  * Copia de `vigia.db` antes de aplicar migraciones pendientes (ficha 0061,
@@ -64,13 +64,19 @@ function stamp(date: Date): string {
   return date.toISOString().replace(/[-:.]/g, '')
 }
 
-/** Borra las copias más antiguas por encima de `BACKUPS_KEPT`. Un fallo aquí no impide arrancar. */
-function prune(backupDir: string, logger: BackupLogger): void {
+/**
+ * Borra las copias más antiguas por encima de `BACKUPS_KEPT`. La recién hecha
+ * (`keep`) nunca se borra, aunque el reloj haya ido hacia atrás y su nombre
+ * quede el primero: se conservan ella y las `BACKUPS_KEPT - 1` más recientes
+ * del resto. Un fallo aquí no impide arrancar.
+ */
+function prune(backupDir: string, keep: string, logger: BackupLogger): void {
   try {
-    const copies = readdirSync(backupDir)
-      .filter((name) => BACKUP_NAME.test(name))
+    const keepName = basename(keep)
+    const others = readdirSync(backupDir)
+      .filter((name) => BACKUP_NAME.test(name) && name !== keepName)
       .sort()
-    for (const name of copies.slice(0, Math.max(0, copies.length - BACKUPS_KEPT))) {
+    for (const name of others.slice(0, Math.max(0, others.length - (BACKUPS_KEPT - 1)))) {
       rmSync(join(backupDir, name))
       logger.info('Copia antigua de la base borrada', join(backupDir, name))
     }
@@ -90,8 +96,8 @@ export async function backupBeforeMigrations(options: BackupOptions): Promise<st
   if (!existsSync(file)) return null
 
   let destination: string | null = null
-  // Abre la base existente sin crearla; no escribe en ella.
-  const sqlite = new Database(file, { fileMustExist: true })
+  // Solo lectura y sin crearla: la copia no puede tocar la base.
+  const sqlite = new Database(file, { readonly: true, fileMustExist: true })
   try {
     const applied = lastApplied(sqlite)
     const pending = readJournal(migrationsFolder).filter(
@@ -125,6 +131,6 @@ export async function backupBeforeMigrations(options: BackupOptions): Promise<st
     sqlite.close()
   }
 
-  prune(backupDir, logger)
+  prune(backupDir, destination, logger)
   return destination
 }
