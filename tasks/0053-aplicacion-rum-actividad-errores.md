@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:applicationRum` de la 0052 y lo que ya usa la página)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -86,7 +86,20 @@ Textos en es y en.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con su test (8 e2e de la 0053 y los textos), y fallarían sin el código; tras `bb216f9`
+solo se añade `application-rum-charts.test.ts`. Los 5 e2e de la 0034 solo se ajustan al cambio de
+página sin perder fuerza (lo que sale lo cubre CA1 (0053) con más detalle; los gráficos viejos con
+`toHaveCount(0)`; la franja con 2 paneles exactos). `useApplicationRum` en `MANUAL` (ADR-0004); la
+`note` de `EntityChartPanel` es opcional y no cambia los otros usos; tooltip de «estimado» con ratón
+y foco. «Abrir en Métricas» con las métricas de la 0052 y el filtro de la 0034. «Carga» y
+«Personalizadas» no chocan con el glosario. Sin IPC, dependencias ni esquema; nada del tenant.
+
+Sugerencias, no bloquean:
+
+- Dos `<section>` anidadas con el mismo `aria-label` («Acciones clave»): quitarlo a la de dentro.
+- Los tipos y textos de la 0034 que ya no se usan (en "Ideas surgidas"), para una ficha de limpieza.
 
 ## Verificación
 
