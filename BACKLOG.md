@@ -10,7 +10,7 @@ bueno de Dani o de peticiones en su nombre.
   (0046, 0047 y 0048 hechas), 0049 hecha (etiquetas en cápsula), **grupo-procesos-2** (0050 y 0051 hechas) y **aplicacion-rum**
   (0052, 0053 y 0054 hechas).
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
-  **auditoria-publicacion** (0055 hecha, [0056](tasks/0056-ci-endurecido.md)),
+  **auditoria-publicacion** (0055 y 0056 hechas),
   **auditoria-codigo-comun** ([0057](tasks/0057-main-metricas-codigo-comun.md), [0058](tasks/0058-paginas-entidad-codigo-comun.md),
   [0059](tasks/0059-react-compiler.md)), **auditoria-robustez** ([0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md),
   [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md), [0062](tasks/0062-limite-peticiones-simultaneas.md)),
@@ -207,6 +207,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `scan:tenant`: `scanRange` usa `git diff <rango>`, que compara solo los extremos; un valor añadido y borrado dentro de los commits que se suben se publica en el historial sin detectarse. Escanear commit a commit con `git log -p`. (surgió en 0055)
 - `scan:tenant`: tampoco escanea el contenido de las etiquetas anotadas; cubrirlas. (surgió en 0055)
 - `scan:tenant`: test del `.env.live.local` ilegible (existe pero no se puede leer); difícil de simular en Windows, riesgo bajo. (surgió en 0055)
+- CI: con `cancel-in-progress: false`, GitHub deja un run en marcha y uno en espera por grupo; un tercer push cancela el que esperaba. Hoy no afecta (el Orquestador espera el CI antes de la siguiente ficha); revisarlo si el flujo cambia. [ALCANCE] (surgió en 0056)
+- CI: `persist-credentials: false` en los `actions/checkout`; ningún paso necesita el token tras el checkout. (surgió en 0056)
+- CI: mover el `npm audit` de producción después de `check` y de los e2e, para que un fallo del registro de npm no ponga el CI en rojo sin probar nada. (surgió en 0056)
 
 ## Aparcado
 
@@ -293,3 +296,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0053](tasks/0053-aplicacion-rum-actividad-errores.md) (lote aplicacion-rum): la página de la aplicación web pasa a seis marcadores y secciones Actividad, Errores, Apdex y Acciones clave, con los datos de RUM de la 0052 (API clásica). Sin migraciones.
 - [0054](tasks/0054-aplicacion-rum-usuarios-experiencia.md) (lote aplicacion-rum): secciones «Usuarios y sesiones» (usuarios activos, sesiones con duración media y datos pequeños) y «Experiencia» (tarjetas de LCP, CLS e INP con la calificación de Google y gráfico con umbrales) en la página de la aplicación web, solo con la API clásica. Sin migraciones.
 - [0055](tasks/0055-scan-tenant-falla-cerrado.md) (lote auditoria-publicacion): `scan:tenant` falla cerrado (sin `.env.live.local`, o vacío, sale con 2; en un worktree usa el del checkout principal), el pre-push escanea los refs que se suben y `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional. Sin migraciones.
+- [0056](tasks/0056-ci-endurecido.md) (lote auditoria-publicacion): CI con acciones fijadas por SHA, `npm audit` en cada push y semanal (`audit.yml`), artefacto de los e2e fallidos, runs encolados y caché de Electron. Sin migraciones.

@@ -220,7 +220,12 @@ informe local). Nunca van al CI.
   aviso: para clones sin tenant de pruebas; en la VPS no se usa.
 - **CI** (`.github/workflows/ci.yml`): en cada push a `main` y a mano, en `windows-latest`,
   instalación del README, `npm run check`, `npm run test:e2e` y `npm run dist:win` (sin subir el
-  zip). Sin `test:live` ni secretos: los logs del CI son públicos.
+  zip). Sin `test:live` ni secretos: los logs del CI son públicos. Además: `npm audit` (producción
+  `high` bloquea; desarrollo `critical` solo avisa); acciones fijadas por SHA de 40 hexadecimales con
+  la versión en un comentario (lo exige `scripts/ci-workflow.test.ts`); runs encolados, sin cancelar
+  (`cancel-in-progress: false`); caché de Electron con su versión en la clave (al subir Electron,
+  cambiarla); y `test-results/` como artefacto 7 días si fallan los e2e. `audit.yml` repite el audit
+  cada lunes y a mano.
 - **Permisos de Claude Code** (`.claude/settings.json`): niegan force push, tags y releases, y leer
   `.env*`.
 - Ningún agente salta un hook (`--no-verify`) ni da por buenos unos tests en rojo.

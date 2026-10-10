@@ -90,3 +90,9 @@ desarrollo o empaquetado (http-cache-semantics vía `@electron/get`, `esbuild` v
 `v6` con `buf`, y ExcelJS solo usa `v4`. No forzar overrides; revisar al subir ExcelJS o
 electron-builder. Deuda anotada: npm marca ESLint 9.39.5 como sin soporte (no subir a 10 sin
 typescript-eslint y electron-vite compatibles).
+
+Desde la ficha 0056 el CI mantiene esa revisión: `ci.yml` ejecuta `npm audit --omit=dev
+--audit-level=high` (bloquea) y `npm audit --audit-level=critical` (solo avisa), y `audit.yml` lo repite
+cada lunes y a mano. GitHub desactiva los workflows programados tras 60 días sin actividad en el
+repositorio: si pasa, se reactiva desde la pestaña Actions. Las acciones de los workflows van fijadas
+por SHA (ver `docs/flujo.md`, "CI").

@@ -1,7 +1,7 @@
 ---
 id: '0056'
 titulo: 'CI: acciones fijadas por SHA, npm audit, artefactos de e2e fallidos, sin cancelar runs y caché de Electron'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -154,4 +154,9 @@ Decisiones del developer (Dani delegó; refinables):
 
 ## Resultado
 
-(pendiente)
+- Commits: `4962bea` (tests), `07b0542` y `f0e4ec6` (workflows), más los de ficha y cierre.
+- Ficheros principales: `.github/workflows/ci.yml`, `.github/workflows/audit.yml`,
+  `scripts/ci-workflow.test.ts`.
+- Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones.
+- CA5 (CI del push en verde) queda pendiente: lo comprueba el Orquestador con el enlace tras el push.
+- Prueba a mano de Dani: ver en Actions que el workflow semanal aparece y se puede lanzar.

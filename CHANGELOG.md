@@ -18,6 +18,8 @@ Sin migraciones nuevas.
 
 ### Seguridad
 
+- **CI más seguro y cómodo.** Las acciones de GitHub quedan fijadas por su código exacto (SHA) y no por una etiqueta que su dueño podría mover. El CI ejecuta `npm audit` en cada push: bloquea si lo que va dentro del zip tiene una vulnerabilidad alta o crítica, y solo avisa, sin bloquear, por las críticas de las herramientas de desarrollo. Un workflow nuevo, `audit.yml`, repite esa revisión cada lunes y se puede lanzar a mano desde la pestaña Actions (sin Dependabot, que abre PRs). Hoy ambas pasan sin excepciones. Sin migraciones nuevas. (ficha 0056)
+- **Si falla un e2e en el CI, se guardan sus capturas y su log.** Se suben como artefacto `e2e-test-results` durante 7 días (solo con el simulador, sin datos del tenant). Los runs del CI ya no se cancelan entre sí: se encolan, así que el enlace del aviso de Telegram siempre apunta a un run completo. La caché de Electron (unos 100 MB) se reutiliza entre runs. Sin migraciones nuevas. (ficha 0056)
 - **La comprobación de restos del tenant antes de subir ya no se salta en silencio.** Antes, si faltaba `.env.live.local` (por ejemplo en un worktree), `scan:tenant` daba verde sin comprobar nada. Ahora falla cerrado: sin ese fichero, o con él vacío, el push se para con un mensaje claro. En un worktree usa el del checkout principal. El pre-push escanea lo que de verdad se sube (los refs que le pasa git) y, si no hay nada que subir, lo deja pasar. Para clones sin tenant de pruebas, `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional (sale con 0 y un aviso). Nunca se imprimen valores del fichero. Sin migraciones nuevas. (ficha 0055)
 
 ### Cambiado
