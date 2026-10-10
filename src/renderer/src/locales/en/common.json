@@ -239,6 +239,7 @@
     "tlsUntrusted": "The certificate of {{host}} is not trusted.",
     "tlsMismatch": "The certificate of {{host}} does not match the pinned fingerprint.",
     "network": "Network error: {{detail}}",
+    "redirectRefused": "The environment URL redirects to another address; use the final URL.",
     "rateLimited": "Dynatrace is limiting requests; try again later.",
     "notJson": "The response is not JSON.",
     "unexpectedFormat": "The response does not have the expected format ({{path}}).",

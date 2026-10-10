@@ -17,6 +17,7 @@ export const errorReasonKeys = [
   'tlsUntrusted',
   'tlsMismatch',
   'network',
+  'redirectRefused',
   'rateLimited',
   'notJson',
   'unexpectedFormat',

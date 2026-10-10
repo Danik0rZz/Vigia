@@ -148,6 +148,8 @@ export function createOAuthTokenManager(deps: {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
+        // Un 307 reenviaría el cuerpo con el client_secret a donde diga el servidor (ficha 0060).
+        redirect: 'error',
         signal: AbortSignal.timeout(SSO_TIMEOUT_MS)
       })
     } catch (error) {

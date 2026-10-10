@@ -115,6 +115,15 @@ async function readErrorMessage(response: Response): Promise<string> {
     .join(' · ')
 }
 
+/**
+ * Rechazo de `fetch` con `redirect: 'error'` ante una 3xx. `session.fetch` de
+ * Electron 44: `Attempted to redirect, but redirect policy was 'error'`; el de
+ * Node (undici): `fetch failed` con causa `unexpected redirect`.
+ */
+export function isRedirectRefusal(text: string): boolean {
+  return /redirect policy was 'error'|unexpected redirect/i.test(text)
+}
+
 function errorText(error: unknown): string {
   if (!(error instanceof Error)) return String(error)
   const cause = error.cause instanceof Error ? ` ${error.cause.message}` : ''
@@ -227,12 +236,23 @@ export function createDtClient(deps: DtClientDeps): DtClient {
     timeoutMs: number
   ): Promise<Response> {
     try {
-      return await deps.fetchFor(envId)(url, { ...init, signal })
+      // Nunca se sigue una redirección (ficha 0060): dónde viaja una petición con
+      // credenciales no lo decide la respuesta. Una 3xx rechaza el fetch.
+      return await deps.fetchFor(envId)(url, { ...init, redirect: 'error', signal })
     } catch (error) {
       const text = errorText(error)
       const name = error instanceof Error ? error.name : ''
       if (signal.aborted || name === 'AbortError' || name === 'TimeoutError') {
         throw timeoutError(timeoutMs)
+      }
+      if (isRedirectRefusal(text)) {
+        // Sin detalle: el mensaje no repite la URL ni el destino de la redirección.
+        throw new DtError(
+          'NETWORK',
+          'La URL del entorno responde con una redirección y no se sigue.',
+          undefined,
+          { key: 'redirectRefused' }
+        )
       }
       // Un rechazo del verificador propio llega como net::ERR_FAILED, no como
       // ERR_CERT: solo cuenta como fallo de certificado si el verificador lo anotó.

@@ -239,6 +239,7 @@
     "tlsUntrusted": "El certificado de {{host}} no es de confianza.",
     "tlsMismatch": "El certificado de {{host}} no coincide con la huella fijada.",
     "network": "Error de red: {{detail}}",
+    "redirectRefused": "La URL del entorno redirige a otra dirección; usa la URL final.",
     "rateLimited": "Dynatrace limita las peticiones; prueba más tarde.",
     "notJson": "La respuesta no es JSON.",
     "unexpectedFormat": "La respuesta no tiene el formato esperado ({{path}}).",
