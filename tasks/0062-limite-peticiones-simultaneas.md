@@ -1,7 +1,7 @@
 ---
 id: '0062'
 titulo: 'Main limita las peticiones simultáneas a Dynatrace por entorno'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -106,6 +106,12 @@ Decisiones tomadas en nombre de Dani (refinables):
 
 Ejecución tras escribirlos: 13 fallan y 2 pasan ya (orden FIFO y umbral por entorno: sin límite no
 pueden fallar, y vigilan que no se rompan cuando lo haya).
+
+### Verifier, 2026-10-10, commit `fe4d146`, rango `main..feat/0062-limite-peticiones-simultaneas`: VERDE
+
+- check ×4 seguidas: las 4 en verde (3423 tests en 197 ficheros, cobertura ok); el fallo suelto que
+  vio el developer no se ha repetido.
+- e2e completo: 355/355, sin intermitentes.
 
 ## Resultado
 
