@@ -1,7 +1,7 @@
 ---
 id: '0054'
 titulo: 'APPLICATION (RUM): secciones «Usuarios y sesiones» y «Experiencia» (Core Web Vitals)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -72,7 +72,7 @@ Métricas», exportar y errores por panel, como el resto. Textos en es y en.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+Las dos sugerencias del revisor (`LEVEL_CLASS` repetido y JSDoc largos) pasaron a «Mejoras anotadas» del BACKLOG.
 
 ## Notas del revisor
 
@@ -157,7 +157,7 @@ defecto está apagado como en vivo.
 
 ## Resultado
 
-(pendiente)
+Commits de código: `86407cf` (calificación y textos) y `1b9cb2c` (secciones), con tests en `ef36826` y la corrección de regex en `0fe0a40`. Ficheros principales: `ApplicationUserSections.tsx`, `application-rum-users.ts`, `lib/application-format.ts`, `EntityChartPanel.tsx`, `chart-time.ts` y los textos es/en. Una ronda de revisión (aprobada); verifier en verde (3228 unitarios, 353 e2e). Sin ADR nuevo ni migraciones. El aviso del developer sobre las regex de CA3 quedó resuelto en `0fe0a40`.
 
 **Aviso del developer al Orquestador: test de CA3 (0054) mal escrito, sin tocar.** En
 `e2e/views.spec.ts` (`APP_VITAL_EXPECTED`, líneas 16277, 16284 y 16291) los patrones perdieron
