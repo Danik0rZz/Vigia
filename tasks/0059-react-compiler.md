@@ -12,7 +12,7 @@ adrs: [1]
 adr_nuevo: React Compiler en el build del renderer
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -71,7 +71,19 @@ se vuelven a pintar todas las filas.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 y CA2 en `e2e/views.spec.ts` y CA3 en `scripts/react-compiler.test.ts` (carga la config real y
+pasa un componente por el plugin), y fallarían sin el compilador; los e2e exigen que una fila que
+cambia suba su contador. Sin tocar tests tras `4d499eb`. CA4, para el verifier (e2e completo).
+`babel-plugin-react-compiler` 1.0.0 exacta en devDependencies, MIT, solo trae `@babel/types`. El
+contador solo se enciende con `errorTrigger`, que en la app empaquetada es siempre falso
+(`e2e-mode.test.ts`): no puede aparecer en el zip; se escribe en un efecto. `toggleRow` equivale a
+las dos funciones que sustituye. Los componentes que el compilador se salta no usan `DataGrid`. Sin
+CSP, `harden`, IPC, API ni esquema.
+
+Opcional: un test unitario de `useRenderCount` (sin `enableRenderCount()` no escribe el atributo; con
+él cuenta).
 
 ## Verificación
 
