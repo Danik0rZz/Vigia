@@ -12,7 +12,7 @@ adrs: [2, 5]
 adr_nuevo:
 api: ninguna nueva (cambia cómo se llama a `fetch`)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -73,7 +73,26 @@ de una librería con un token en el mensaje iría al fichero sin filtro.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 con su test y sin tocarlos tras `95dc88c`; los de servidores locales usan el `fetch` real y
+comprueban que el destino no recibe nada (ni el `client_secret` ante un 307 del SSO). Solo hay dos
+`fetch` con credenciales y los dos llevan `redirect: 'error'`: `send()` en `client.ts` (después de
+`...init`, por donde pasa todo, también la prueba de conexión) y `requestToken` en `oauth.ts`.
+`redirectRefused` no lleva detalle ni la URL. Si `maskLogMessage` falla, electron-log descarta el
+mensaje en vez de escribirlo sin filtrar; las excepciones no controladas y lo que llega del renderer
+pasan por el mismo camino; el fichero escribe el `stack` enmascarado y no la `cause`. `reason` nuevo
+en es y en; `log-mask.ts` transversal en `areas.json`; nada del tenant.
+
+El fallo en vivo de CA1 (0014) no tiene relación con esta ficha (no toca ese módulo ni
+`live-client.ts`, e `initLogging` no corre en las pruebas en vivo); lo más probable es un falso
+positivo de la comparación de texto con datos del tenant.
+
+Sugerencias, no bloquean:
+
+- Un test que fije el comportamiento ante un fallo del filtro (el mensaje se descarta).
+- [ALCANCE] Enmascarar también objetos anidados y la `cause` (el fichero escribe con `depth: 5`);
+  cambiaría CA3. Lo decide Dani: al BACKLOG.
 
 ## Verificación
 
