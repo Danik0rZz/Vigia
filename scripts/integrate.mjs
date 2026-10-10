@@ -8,8 +8,9 @@
 // Lee el front matter de la ficha y comprueba que está `verificada`, que el árbol está limpio y que
 // la rama actual es la suya. Si todo está en orden, escribe en la salida estándar el mensaje del
 // commit de la ficha (`feat(zona): título (#NNNN)`, `fix(…)` si la rama es `fix/`) y sale con 0;
-// si no, escribe los motivos en la salida de error y sale con 1. No toca git: el `git merge
-// --squash` en la rama `integra/…` y el commit los hace el Orquestador (`.claude/commands/tarea.md`).
+// si no, escribe los motivos en la salida de error y sale con 1. No toca git: el
+// `git merge --squash` en la rama `integra/…` y el commit los hace el Orquestador
+// (`.claude/commands/tarea.md`).
 //
 // `groupForPrs` decide cómo se agrupan las fichas de la cola en PR. Lo usa el Orquestador; el
 // script no abre PR.
@@ -85,19 +86,27 @@ export function checkIntegration({ ficha, clean, branch }) {
 /**
  * Pura: agrupa las fichas de la cola (en su orden) en PR. Una ficha con alguna exclusión, o sin el
  * campo `exclusiones` (las de antes de la 0073), va sola y la fusiona Dani. Las demás se juntan de
- * MIN_GROUP a MAX_GROUP: la PR se cierra al llegar a MAX_GROUP o al acabar la cola con las que haya.
- * Una ficha sola en medio no corta el grupo en curso. Lanza un Error con un valor desconocido.
+ * MIN_GROUP a MAX_GROUP: la PR se cierra al llegar a MAX_GROUP o al acabar la cola con las que
+ * haya. Una ficha sola en medio no corta el grupo en curso. Lanza un Error si `exclusiones` no es
+ * una lista o tiene un valor desconocido.
  */
 export function groupForPrs(fichas) {
   const prs = []
   let current = []
   for (const ficha of fichas) {
     const exclusiones = ficha.exclusiones
+    // Vacío (`exclusiones:`) o un escalar (`exclusiones: ipc`) no es una lista: se para, en vez de
+    // agrupar la ficha como si no tocara nada o de recorrer el texto letra a letra.
+    if (exclusiones !== undefined && !Array.isArray(exclusiones)) {
+      throw new Error(
+        `Ficha ${ficha.id}: «exclusiones» tiene que ser una lista ([] si ninguna, [ipc, api]…), ` +
+          `no «${String(exclusiones)}».`
+      )
+    }
     for (const value of exclusiones ?? []) {
       if (!EXCLUSIONES.includes(value)) {
-        throw new Error(
-          `Ficha ${ficha.id}: exclusión «${value}» desconocida (válidas: ${EXCLUSIONES.join(', ')}).`
-        )
+        const valid = EXCLUSIONES.join(', ')
+        throw new Error(`Ficha ${ficha.id}: exclusión «${value}» desconocida (válidas: ${valid}).`)
       }
     }
     if (exclusiones === undefined || exclusiones.length > 0) {

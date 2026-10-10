@@ -73,7 +73,7 @@ describe('integrate.mjs: main', () => {
     expect(d.execFile).not.toHaveBeenCalled()
   })
 
-  it('--agrupar escribe en JSON las PR de las fichas, la sola al aparecer y el grupo al cerrarse', () => {
+  it('--agrupar da en JSON las PR: la sola al aparecer y el grupo al cerrarse', () => {
     const fichas: Record<string, string> = {
       'a.md': FICHA,
       'b.md': FICHA.replace("id: '0099'", "id: '0100'").replace(
@@ -98,5 +98,20 @@ describe('integrate.mjs: main', () => {
     expect(main(bad)).toBe(1)
     expect(bad.err[0]).toMatch(/red/)
     expect(main(deps(['--agrupar']))).toBe(2)
+  })
+
+  it.each([
+    ['vacío', 'exclusiones:'],
+    ['escalar', 'exclusiones: ipc'],
+    ['escalar entre comillas', "exclusiones: ''"]
+  ])('--agrupar con exclusiones %s (no es una lista) sale con 1 y lo explica', (_caso, campo) => {
+    const d = {
+      ...deps(['--agrupar', 'a.md']),
+      readFile: () => FICHA.replace('exclusiones: []', campo)
+    }
+    expect(main(d)).toBe(1)
+    expect(d.out).toEqual([])
+    expect(d.err[0]).toMatch(/0099/)
+    expect(d.err[0]).toMatch(/lista/)
   })
 })
