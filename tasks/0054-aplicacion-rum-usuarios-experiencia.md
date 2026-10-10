@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna nueva (usa `entities:applicationRum` de la 0052)
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -76,7 +76,23 @@ Métricas», exportar y errores por panel, como el resto. Textos en es y en.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA5 con su test. Umbrales de Google (LCP 2500/4000 ms, CLS 0,1/0,25, INP 200/500 ms; el corte
+cuenta en el tramo mejor), probados por los dos lados; la calificación sale siempre con texto. Tras
+`ef36826` solo cambia `0fe0a40`, que devuelve las barras invertidas perdidas a tres regex de CA3:
+sin él el test no podía pasar con ninguna app correcta; no cambia ni debilita el criterio. Los 5 e2e
+de 0034 y 0053 solo amplían listas que siguen comparándose exactas. `EntityChartPanel` (`footer`,
+`unit` por serie) y `axisTooltip` (`formatOf`) con parámetros opcionales: nada cambia por defecto.
+Sin IPC, consultas nuevas, main, CSP ni permisos; reutiliza el `rum` de la 0052 (ADR-0004); nada del
+tenant.
+
+Sugerencias, no bloquean:
+
+- `LEVEL_CLASS` de `ApplicationUserSections.tsx` repite el de `ApplicationMarkers.tsx`: sacarlo a
+  `application-format.ts`.
+- Reajustar el JSDoc de `WebApplicationEntityPage.tsx:31` (más de 100 columnas) y el de
+  `ApplicationSection.tsx:8-11`.
 
 ## Verificación
 
