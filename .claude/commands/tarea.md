@@ -147,8 +147,8 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
   vuelta.
 - Copia las filas en la ficha, junto con las tuyas: commits con su hook, merge --squash, push, PR,
   fusión y esperas.
-- Los tiempos del CI salen del propio CI (jobs y pasos, sin logs). Sin rama propia: guárdalos y
-  pásaselos al doc-writer de la ficha siguiente, que los añade a la ficha medida en su commit de
+- Los tiempos del CI salen de `node scripts/ci-times.mjs <run>` (jobs y pasos, sin logs). Sin rama
+  propia: guárdalos y pásaselos al doc-writer de la ficha siguiente, que los añade a la ficha medida en su commit de
   cierre, con los totales. Si no queda ninguna detrás, un commit de documentación en la rama de
   integración en curso o, si no hay, en una PR solo de documentos.
 

@@ -308,8 +308,10 @@ Las reglas:
 - Se desglosa el tiempo del Orquestador y el **arranque de cada subagente**: la hora que toma el
   Orquestador justo antes de lanzarlo frente a la del primer comando del subagente.
 - Las esperas de Dani y las de la cola van en su propia fila.
-- Los tiempos del CI se leen del propio CI (la API de GitHub o `gh run view`: inicio y fin de cada
-  job y de cada paso, sin copiar logs).
+- Los tiempos del CI salen de `node scripts/ci-times.mjs <run>` (id o URL del run): filas de
+  «Ejecuciones» con inicio y fin de cada job y de cada paso en hora local, y el total del run. Lee la
+  API de GitHub sin token (con `GITHUB_TOKEN` en el entorno, lo usa sin escribirlo) y nunca copia
+  logs.
 - La medición va en el commit de documentación. En una PR, «CI ok» deja pasar en segundos lo que
   solo toca `tasks/`, `docs/` o Markdown, y el push a `main` lo ignora (`paths-ignore`).
 - Como el CI no se espera, sus horas llegan cuando la ficha ya está integrada. No llevan rama
