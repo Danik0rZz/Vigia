@@ -1,7 +1,7 @@
 ---
 id: '0047'
 titulo: 'SERVICE: la página se adapta al conjunto de métricas del serviceType'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -102,6 +102,11 @@ claves, cabecera «Servicio» sola, selector `.server` fijo), no por el test.
 
 En el simulador, un DATABASE_SERVICE nuevo (`SVC_DB_ID`, con los datos del de Cliente) aparte de
 `SVC_SET_IDS`, para no cambiar el recorrido de los cuatro conjuntos de la CA7 de la 0046.
+
+### Verifier, 2026-10-10, commit `6469def`, rango `main..feat/0047-servicio-vista-por-tipo`: VERDE
+
+- check: 3098 tests en 172 ficheros, cobertura ok.
+- e2e afectados: 265/265, sin intermitentes.
 
 ## Resultado
 
