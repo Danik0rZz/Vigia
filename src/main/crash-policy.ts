@@ -54,8 +54,11 @@ export function crashLanguageFromLocale(locale: string): CrashLanguage {
 /** Dos caídas en menos de este tiempo (desde la última recarga) cierran la app. */
 export const CRASH_WINDOW_MS = 60_000
 
-/** Salidas del proceso que no son una caída: cierre normal o matado a propósito. */
-const NOT_A_CRASH = new Set(['clean-exit', 'killed'])
+/**
+ * Única salida que no es una caída: el cierre normal. `killed` (Finalizar tarea,
+ * un antivirus) sí lo es: deja la ventana en blanco igual (CA1 ajustado).
+ */
+const NOT_A_CRASH = new Set(['clean-exit'])
 
 interface CrashLogger {
   info(...args: unknown[]): void

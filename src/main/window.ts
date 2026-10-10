@@ -79,9 +79,11 @@ function watchRenderer(window: BrowserWindow): void {
     },
     language
   })
-  window.webContents.on('render-process-gone', (_event, details) =>
+  window.webContents.on('render-process-gone', (_event, details) => {
+    // Un proceso caído ya no está colgado: no se arrastra el cuelgue tras recargar.
+    hangs.responsive()
     crashes.renderProcessGone(details)
-  )
+  })
   window.on('unresponsive', () => hangs.unresponsive())
   window.on('responsive', () => hangs.responsive())
 }
