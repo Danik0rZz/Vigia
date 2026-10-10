@@ -1,7 +1,7 @@
 ---
 id: '0067'
 titulo: 'e2e: una etiqueta de zona en cada test, con una guarda que falla si falta'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -187,4 +187,8 @@ fichero y el título (o la zona muerta). En el ejemplo de función auxiliar, la 
 
 ## Resultado
 
-(pendiente)
+- Commits: `d68f89c` (tests), `3b1b72a` (guarda `checkTags`), `56f6ba8` (zona en cada test y `zones`/`resourceTags` en `areas.json`), `fb74236` (documentación en `e2e/CLAUDE.md` y `docs/flujo.md`).
+- Ficheros principales: `scripts/e2e-tags.cjs`, `scripts/e2e-tags.test.ts`, `e2e/areas.json`, los seis `e2e/*.spec.ts` (solo etiquetas; el resto del diff es el reformateo de Prettier).
+- Rondas de revisión: 1 (APROBADO). Verifier en verde: check y e2e completo 362/362.
+- ADR nuevo: ninguno. Sin migraciones.
+- Opcionales del revisor, a «Mejoras anotadas» del BACKLOG: regla de zona de los «Abrir en Métricas» (a resolver antes de la 0070 y la 0071) y ámbito de `usesClipboard`.
