@@ -1,7 +1,7 @@
 ---
 id: '0067'
 titulo: 'e2e: una etiqueta de zona en cada test, con una guarda que falla si falta'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -121,7 +121,24 @@ Normal (`ligera: no`). Es M, ya no cumple el requisito de tamaño.
 
 ## Verificación
 
-(pendiente)
+Tests (test-writer): commit d68f89c, `scripts/e2e-tags.test.ts`. Fallan al cargar porque aún no
+existe `scripts/e2e-tags.cjs`.
+
+Contrato que fijan los tests (la ficha no lo concretaba): `scripts/e2e-tags.cjs` exporta
+`checkTags(specs: { file, code }[], config: { zones, resourceTags })`, con `zones` y `resourceTags`
+como objeto etiqueta → descripción, y devuelve la lista de problemas
+`{ kind, file?, test?, tag?, message }` en el orden en que aparecen los tests. `kind` es
+`sin-zona`, `dos-zonas`, `desconocida`, `portapapeles` o `zona-muerta`, y `message` nombra el
+fichero y el título (o la zona muerta). En el ejemplo de función auxiliar, la auxiliar se llama
+`clipboardText`, como en `views.spec.ts`.
+
+- CA1: «CA1 (0067): cada test de e2e/\*.spec.ts tiene una zona conocida y @portapapeles si lo usa».
+- CA2: los cinco «CA2 (0067): …» de «checkTags (la propia comprobación)»: válido, sin zona, dos
+  zonas, etiqueta desconocida, portapapeles en el cuerpo y por función auxiliar.
+- CA3: «CA3 (0067): zona heredada de test.describe»: hereda (también anidado), choque con el
+  describe y describe sin zona.
+- CA4: «CA4 (0067): zonas de la lista»: zona muerta, y forma de `zones` y `resourceTags` en
+  `e2e/areas.json`.
 
 ## Resultado
 
