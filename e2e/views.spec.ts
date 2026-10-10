@@ -3070,6 +3070,57 @@ const APPLICATION_ACTIONS: Record<
   ]
 }
 
+/**
+ * Ficha 0052: datos de RUM de la aplicación inventada (canal entities:applicationRum). Solo API
+ * clásica (`builtin:apps.web.*`). Las expresiones exactas del paso 0, con `entityId(...)`; las de
+ * custom y rageClick llegan sin series (como en vivo). `countOfErrors` por «Error type»: una
+ * serie por tipo (`JavaScript` y `Request`, los vistos en vivo), que suman el total.
+ */
+const RUM_W = 'builtin:apps.web.'
+const RUM_ERRORS = `${RUM_W}countOfErrors:splitBy("Error type"):sum`
+/** Serie (sin resolution) y total (Inf) de cada expresión de RUM sin tipo de error. */
+const APPLICATION_RUM: Record<string, { series: (number | null)[]; total: number }> = {
+  [`${RUM_W}actionCount.load.browser:splitBy():sum`]: { series: [40, 55, null], total: 96 },
+  [`${RUM_W}actionCount.xhr.browser:splitBy():sum`]: { series: [120, null, 90], total: 214 },
+  [`${RUM_W}actionDuration.load.browser:splitBy():avg`]: {
+    series: [1_850, null, 2_010.5],
+    total: 1_930.25
+  },
+  [`${RUM_W}actionDuration.xhr.browser:splitBy():avg`]: { series: [310, 295.5, null], total: 302 },
+  [`${RUM_W}percentageOfUserActionsAffectedByErrors:splitBy()`]: {
+    series: [4.5, null, 6],
+    total: 5.2
+  },
+  [`${RUM_W}activeUsersEst:splitBy()`]: { series: [18, 22, null], total: 31 },
+  [`${RUM_W}startedSessions:splitBy():sum`]: { series: [8, 11, null], total: 19 },
+  [`${RUM_W}endedSessions:splitBy():sum`]: { series: [6, null, 9], total: 16 },
+  [`${RUM_W}sessionDuration:splitBy():avg`]: {
+    series: [150_000_000, null, 192_000_000],
+    total: 171_500_000
+  },
+  [`${RUM_W}actionsPerSession:splitBy():avg`]: { series: [5.5, null, 6.25], total: 5.9 },
+  [`${RUM_W}bouncedSessionRatio:splitBy()`]: { series: [25, null, 33.5], total: 28.75 },
+  [`${RUM_W}largestContentfulPaint.load.browser:splitBy():percentile(75)`]: {
+    series: [2_200, null, 2_640],
+    total: 2_480
+  },
+  [`${RUM_W}cumulativeLayoutShift.load.browser:splitBy():percentile(75)`]: {
+    series: [0.04, null, 0.11],
+    total: 0.08
+  },
+  [`${RUM_W}interactionToNextPaint:splitBy():percentile(75)`]: {
+    series: [160, 210, null],
+    total: 190
+  }
+}
+/** Errores por «Error type»: serie y total de cada tipo. */
+const APPLICATION_RUM_ERRORS: Record<string, { series: (number | null)[]; total: number }> = {
+  JavaScript: { series: [1, null, 4], total: 5 },
+  Request: { series: [6, 3, null], total: 9 }
+}
+/** La API admite como mucho 10 expresiones por consulta (OpenAPI v2, `metricSelector`). */
+const METRIC_SELECTOR_MAX = 10
+
 /** ¿Es una consulta de métricas de la aplicación inventada? */
 function isApplicationMetricsQuery(query: URLSearchParams): boolean {
   return (query.get('entitySelector') ?? '').includes(APPLICATION_METRICS_ID)
@@ -3107,6 +3158,10 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
   }
   const entitySelector = query.get('entitySelector')
   const expressions = splitSelector(selector)
+  // Ficha 0052: como la API, más de 10 expresiones en una consulta dan 400.
+  if (expressions.length > METRIC_SELECTOR_MAX) {
+    return [400, { error: { code: 400, message: 'Más de 10 métricas por consulta (simulado)' } }]
+  }
   const at = PROCESS_T0 + 1_800_000
   return [
     200,
@@ -3150,12 +3205,23 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
             expression.startsWith(APPLICATION_ROLE_PREFIX[role] ?? role)
           )
         ) {
+          const rum = APPLICATION_RUM[expression]
           const values = inf
             ? APPLICATION_TOTALS[expression] === undefined
-              ? undefined
+              ? rum === undefined
+                ? undefined
+                : [rum.total]
               : [APPLICATION_TOTALS[expression]]
-            : APPLICATION_SERIES[expression]
-          if (values !== undefined) {
+            : (APPLICATION_SERIES[expression] ?? rum?.series)
+          if (expression === RUM_ERRORS) {
+            // Ficha 0052: una serie por tipo de error, con su dimensión.
+            data = Object.entries(APPLICATION_RUM_ERRORS).map(([type, item]) => ({
+              dimensionMap: { 'Error type': type },
+              dimensions: [type],
+              timestamps: inf ? [at] : PROCESS_TIMESTAMPS,
+              values: inf ? [item.total] : item.series
+            }))
+          } else if (values !== undefined) {
             data = [
               {
                 dimensionMap: {},
@@ -9361,6 +9427,121 @@ test('CA6 (0033): entities:applicationMetrics por IPC con ids inventados: tres c
     warnings: [],
     partial: []
   })
+})
+
+test('CA5 (0052): entities:applicationRum por IPC con ids inventados: solo métricas clásicas, de 10 en 10, series y totales por papel', async () => {
+  const data = await invoke<Record<string, unknown>>('entities:applicationRum', {
+    environmentId: env['Producción'],
+    entityId: APPLICATION_METRICS_ID,
+    timeRange: '2h'
+  })
+  // Las consultas llegan al simulador (métricas clásicas), con el id, el rango y como mucho 10
+  // expresiones; cada expresión, una vez en las series y otra en los totales (Inf).
+  const queries = sim.applicationMetricQueries
+  expect(queries.length).toBeGreaterThanOrEqual(4)
+  const expressions = (inf: boolean): string[] =>
+    queries
+      .filter((q) => (q.get('resolution') === 'Inf') === inf)
+      .flatMap((q) => splitSelector(q.get('metricSelector') ?? ''))
+      .sort()
+  const expected = [
+    ...Object.keys(APPLICATION_RUM),
+    RUM_ERRORS,
+    `${RUM_W}actionCount.custom.browser:splitBy():sum`,
+    `${RUM_W}actionDuration.custom.browser:splitBy():avg`,
+    `${RUM_W}event.count.rageClick:splitBy():sum`
+  ].sort()
+  expect(expressions(false)).toEqual(expected)
+  expect(expressions(true)).toEqual(expected)
+  for (const query of queries) {
+    expect(query.get('entitySelector')).toBe(APPLICATION_SELECTOR)
+    expect(query.get('from')).toBe('now-2h')
+    expect(splitSelector(query.get('metricSelector') ?? '').length).toBeLessThanOrEqual(
+      METRIC_SELECTOR_MAX
+    )
+  }
+
+  const rum = (expression: string): { timestamps: number[]; values: unknown[] } => ({
+    timestamps: PROCESS_TIMESTAMPS,
+    values: APPLICATION_RUM[`${RUM_W}${expression}`]!.series
+  })
+  const total = (expression: string): number => APPLICATION_RUM[`${RUM_W}${expression}`]!.total
+  const none = { timestamps: [], values: [] }
+  expect(data).toMatchObject({
+    resolution: '10m',
+    series: {
+      actionsByType: {
+        load: rum('actionCount.load.browser:splitBy():sum'),
+        xhr: rum('actionCount.xhr.browser:splitBy():sum'),
+        custom: none
+      },
+      durationByType: {
+        load: rum('actionDuration.load.browser:splitBy():avg'),
+        xhr: rum('actionDuration.xhr.browser:splitBy():avg'),
+        custom: none
+      },
+      errorsByType: {
+        javascript: { timestamps: PROCESS_TIMESTAMPS, values: [1, null, 4] },
+        http: { timestamps: PROCESS_TIMESTAMPS, values: [6, 3, null] },
+        other: none
+      },
+      affectedActionsPct: rum('percentageOfUserActionsAffectedByErrors:splitBy()'),
+      activeUsers: rum('activeUsersEst:splitBy()'),
+      sessions: {
+        started: rum('startedSessions:splitBy():sum'),
+        ended: rum('endedSessions:splitBy():sum')
+      },
+      sessionDuration: rum('sessionDuration:splitBy():avg'),
+      actionsPerSession: rum('actionsPerSession:splitBy():avg'),
+      bounceRate: rum('bouncedSessionRatio:splitBy()'),
+      vitals: {
+        lcp: rum('largestContentfulPaint.load.browser:splitBy():percentile(75)'),
+        cls: rum('cumulativeLayoutShift.load.browser:splitBy():percentile(75)'),
+        inp: rum('interactionToNextPaint:splitBy():percentile(75)')
+      },
+      rageClicks: none
+    },
+    totals: {
+      actionsByType: {
+        load: total('actionCount.load.browser:splitBy():sum'),
+        xhr: total('actionCount.xhr.browser:splitBy():sum'),
+        custom: null
+      },
+      durationByType: {
+        load: total('actionDuration.load.browser:splitBy():avg'),
+        xhr: total('actionDuration.xhr.browser:splitBy():avg'),
+        custom: null
+      },
+      errorsByType: { javascript: 5, http: 9, other: null },
+      affectedActionsPct: total('percentageOfUserActionsAffectedByErrors:splitBy()'),
+      activeUsers: total('activeUsersEst:splitBy()'),
+      sessions: {
+        started: total('startedSessions:splitBy():sum'),
+        ended: total('endedSessions:splitBy():sum')
+      },
+      sessionDuration: total('sessionDuration:splitBy():avg'),
+      actionsPerSession: total('actionsPerSession:splitBy():avg'),
+      bounceRate: total('bouncedSessionRatio:splitBy()'),
+      vitals: {
+        lcp: total('largestContentfulPaint.load.browser:splitBy():percentile(75)'),
+        cls: total('cumulativeLayoutShift.load.browser:splitBy():percentile(75)'),
+        inp: total('interactionToNextPaint:splitBy():percentile(75)')
+      },
+      rageClicks: null
+    }
+  })
+})
+
+test('CA5 (0052): entities:applicationRum con un 400 del simulador acaba en error con reason', async () => {
+  sim.applicationMetricsFail = true
+  // invoke lanza con el error del sobre: lleva el reason de la 0033.
+  await expect(
+    invoke('entities:applicationRum', {
+      environmentId: env['Producción'],
+      entityId: APPLICATION_METRICS_ID,
+      timeRange: '2h'
+    })
+  ).rejects.toThrow(/"key":"applicationMetricsRejected"/)
 })
 
 test('CA5 (0023): entities:monitorBreakdown por IPC con ids inventados de browser y HTTP monitor', async () => {

@@ -137,6 +137,8 @@ describe('cobertura de los canales IPC', () => {
     expect([...(byFactory['modules'] ?? [])].sort()).toEqual([
       // Ficha 0033: cubierto en modules.test (todos los canales) y application-metrics.test.
       'entities:applicationMetrics',
+      // Ficha 0052: cubierto en modules.test (todos los canales) y application-rum.test.
+      'entities:applicationRum',
       // Ficha 0040: cubierto en modules.test (todos los canales) y disk-metrics.test.
       'entities:diskMetrics',
       // Ficha 0014: cubiertos en modules.test (todos los canales) y entity-detail.test.

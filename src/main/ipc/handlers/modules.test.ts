@@ -784,6 +784,12 @@ describe('todos los canales de módulos', () => {
       entityId: 'APPLICATION-0123456789ABCDEF',
       timeRange: '2h'
     })
+    // Ficha 0052: datos de RUM de una aplicación web (su comportamiento, en application-rum.test).
+    await call('entities:applicationRum' as IpcChannel, {
+      environmentId: envId,
+      entityId: 'APPLICATION-0123456789ABCDEF',
+      timeRange: '2h'
+    })
     // Ficha 0027: métricas de un proceso (su comportamiento, en process-metrics.test).
     await call('entities:processMetrics' as IpcChannel, {
       environmentId: envId,
