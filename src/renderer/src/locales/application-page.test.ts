@@ -33,23 +33,23 @@ function applicationTexts(messages: unknown): Record<string, unknown> {
 const esApp = applicationTexts(es)
 const enApp = applicationTexts(en)
 
-/** Los textos que la ficha nombra, con su texto en español. */
+/**
+ * Los textos que la ficha nombra, con su texto en español. Ficha 0053: el marcador de duración y
+ * los gráficos de acciones, duración y errores totales se sustituyen por los de tipo (sus textos,
+ * en `application-rum-page.test.ts`), y la tabla puede titularse «Acciones clave».
+ */
 const LABELS_ES: Record<string, string | RegExp> = {
   'markers.apdex': 'Apdex',
   'markers.actions': 'Acciones',
-  'markers.duration': 'Duración',
   'markers.errors': 'Errores',
   'markers.problems': 'Problemas',
   'charts.apdex': 'Apdex',
-  'charts.actions': 'Acciones',
-  'charts.duration': 'Duración',
-  'charts.errors': 'Errores',
   'apdex.excellent': 'Excelente',
   'apdex.good': 'Buena',
   'apdex.fair': 'Aceptable',
   'apdex.poor': 'Pobre',
   'apdex.unacceptable': 'Inaceptable',
-  'actions.title': 'Acciones de usuario',
+  'actions.title': /^Acciones (de usuario|clave)$/,
   'info.groups.calls': 'Llama a',
   'info.groups.synthetic': 'Monitores sintéticos',
   'info.groups.other': /^Otras/

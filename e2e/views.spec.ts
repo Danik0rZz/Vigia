@@ -3080,8 +3080,14 @@ const RUM_W = 'builtin:apps.web.'
 const RUM_ERRORS = `${RUM_W}countOfErrors:splitBy("Error type"):sum`
 /** Serie (sin resolution) y total (Inf) de cada expresión de RUM sin tipo de error. */
 const APPLICATION_RUM: Record<string, { series: (number | null)[]; total: number }> = {
-  [`${RUM_W}actionCount.load.browser:splitBy():sum`]: { series: [40, 55, null], total: 96 },
-  [`${RUM_W}actionCount.xhr.browser:splitBy():sum`]: { series: [120, null, 90], total: 214 },
+  [`${RUM_W}actionCount.load.browser:splitBy():sum`]: {
+    series: [4_000, 5_500, null],
+    total: 9_640
+  },
+  [`${RUM_W}actionCount.xhr.browser:splitBy():sum`]: {
+    series: [12_000, null, 9_000],
+    total: 21_400
+  },
   [`${RUM_W}actionDuration.load.browser:splitBy():avg`]: {
     series: [1_850, null, 2_010.5],
     total: 1_930.25
@@ -3091,15 +3097,15 @@ const APPLICATION_RUM: Record<string, { series: (number | null)[]; total: number
     series: [4.5, null, 6],
     total: 5.2
   },
-  [`${RUM_W}activeUsersEst:splitBy()`]: { series: [18, 22, null], total: 31 },
+  [`${RUM_W}activeUsersEst:splitBy()`]: { series: [180, 220, null], total: 1_234 },
   [`${RUM_W}startedSessions:splitBy():sum`]: { series: [8, 11, null], total: 19 },
   [`${RUM_W}endedSessions:splitBy():sum`]: { series: [6, null, 9], total: 16 },
   [`${RUM_W}sessionDuration:splitBy():avg`]: {
     series: [150_000_000, null, 192_000_000],
-    total: 171_500_000
+    total: 45_600_000
   },
   [`${RUM_W}actionsPerSession:splitBy():avg`]: { series: [5.5, null, 6.25], total: 5.9 },
-  [`${RUM_W}bouncedSessionRatio:splitBy()`]: { series: [25, null, 33.5], total: 28.75 },
+  [`${RUM_W}bouncedSessionRatio:splitBy()`]: { series: [25, null, 33.5], total: 28.4 },
   [`${RUM_W}largestContentfulPaint.load.browser:splitBy():percentile(75)`]: {
     series: [2_200, null, 2_640],
     total: 2_480
@@ -3117,6 +3123,44 @@ const APPLICATION_RUM: Record<string, { series: (number | null)[]; total: number
 const APPLICATION_RUM_ERRORS: Record<string, { series: (number | null)[]; total: number }> = {
   JavaScript: { series: [1, null, 4], total: 5 },
   Request: { series: [6, 3, null], total: 9 }
+}
+/**
+ * Ficha 0053: las de custom, con datos solo con `sim.applicationRumCustom` (en vivo llegan sin
+ * series; así se prueba el «custom si hay»).
+ */
+const APPLICATION_RUM_CUSTOM: Record<string, { series: (number | null)[]; total: number }> = {
+  [`${RUM_W}actionCount.custom.browser:splitBy():sum`]: {
+    series: [500, null, 750],
+    total: 1_250
+  },
+  [`${RUM_W}actionDuration.custom.browser:splitBy():avg`]: {
+    series: [620, 655, null],
+    total: 640
+  }
+}
+/**
+ * Ficha 0053: con `sim.applicationRumErrorsUntyped`, los errores llegan en una sola serie sin
+ * «Error type» (no se pueden separar): el canal deja `javascript` y `http` sin datos y los
+ * pone en `other`.
+ */
+const APPLICATION_RUM_UNTYPED_ERRORS = { series: [7, 3, 4] as (number | null)[], total: 14 }
+/**
+ * Ficha 0053: expresiones que solo pide el canal entities:applicationRum (startedSessions la
+ * piden los dos canales). Toda consulta de RUM lleva alguna.
+ */
+const RUM_ONLY_EXPRESSIONS = new Set(
+  [
+    ...Object.keys(APPLICATION_RUM),
+    ...Object.keys(APPLICATION_RUM_CUSTOM),
+    RUM_ERRORS,
+    `${RUM_W}event.count.rageClick:splitBy():sum`
+  ].filter((expression) => !(expression in APPLICATION_TOTALS))
+)
+/** Ficha 0053: ¿es una consulta del canal entities:applicationRum? */
+function isRumQuery(query: URLSearchParams): boolean {
+  return splitSelector(query.get('metricSelector') ?? '').some((expression) =>
+    RUM_ONLY_EXPRESSIONS.has(expression)
+  )
 }
 /** La API admite como mucho 10 expresiones por consulta (OpenAPI v2, `metricSelector`). */
 const METRIC_SELECTOR_MAX = 10
@@ -3152,6 +3196,10 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
       400,
       { error: { code: 400, message: 'Métricas de la aplicación no disponibles (simulado)' } }
     ]
+  }
+  if (sim.applicationRumFail && isRumQuery(query)) {
+    // Ficha 0053: solo falla el canal de RUM (errores por panel); el de la 0033 responde.
+    return [400, { error: { code: 400, message: 'Métricas de RUM no disponibles (simulado)' } }]
   }
   if (inf && selector.includes(':fold(')) {
     return [400, { error: { code: 400, message: 'fold no admite resolution Inf (simulado)' } }]
@@ -3205,7 +3253,9 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
             expression.startsWith(APPLICATION_ROLE_PREFIX[role] ?? role)
           )
         ) {
-          const rum = APPLICATION_RUM[expression]
+          const rum =
+            APPLICATION_RUM[expression] ??
+            (sim.applicationRumCustom ? APPLICATION_RUM_CUSTOM[expression] : undefined)
           const values = inf
             ? APPLICATION_TOTALS[expression] === undefined
               ? rum === undefined
@@ -3213,7 +3263,19 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
                 : [rum.total]
               : [APPLICATION_TOTALS[expression]]
             : (APPLICATION_SERIES[expression] ?? rum?.series)
-          if (expression === RUM_ERRORS) {
+          if (expression === RUM_ERRORS && sim.applicationRumErrorsUntyped) {
+            // Ficha 0053: una sola serie, sin «Error type».
+            data = [
+              {
+                dimensionMap: {},
+                dimensions: [],
+                timestamps: inf ? [at] : PROCESS_TIMESTAMPS,
+                values: inf
+                  ? [APPLICATION_RUM_UNTYPED_ERRORS.total]
+                  : APPLICATION_RUM_UNTYPED_ERRORS.series
+              }
+            ]
+          } else if (expression === RUM_ERRORS) {
             // Ficha 0052: una serie por tipo de error, con su dimensión.
             data = Object.entries(APPLICATION_RUM_ERRORS).map(([type, item]) => ({
               dimensionMap: { 'Error type': type },
@@ -4190,6 +4252,12 @@ const defaultSim = () => ({
   applicationEmpty: [] as string[],
   /** Ficha 0034: las consultas de las acciones de usuario llegan sin series (lista vacía). */
   applicationActionsEmpty: false,
+  /** Ficha 0053: las consultas del canal entities:applicationRum fallan con un 400. */
+  applicationRumFail: false,
+  /** Ficha 0053: las métricas de custom (acciones y duración) traen datos. */
+  applicationRumCustom: false,
+  /** Ficha 0053: los errores llegan en una sola serie sin «Error type» (sin separar). */
+  applicationRumErrorsUntyped: false,
   /** Ficha 0032: las consultas de métricas de los process groups inventados fallan con un 400. */
   processGroupMetricsFail: false,
   /** Ficha 0032: las expresiones por instancia del process group llegan recortadas (ratio > 1). */
@@ -15885,27 +15953,33 @@ test('CA5 (0051): el panel del modal entra con escala, desplazamiento y opacidad
 /**
  * Página de la aplicación inventada de la ficha 0033 (APPLICATION_METRICS_ID), con el canal
  * entities:applicationMetrics (series APPLICATION_SERIES, totales APPLICATION_TOTALS y las tres
- * acciones de APPLICATION_ACTIONS), sus problemas (applicationBandProblems: uno abierto y uno
- * cerrado) y entities:get (applicationInfoBody).
+ * acciones de APPLICATION_ACTIONS), el canal entities:applicationRum de la 0052 (APPLICATION_RUM
+ * y APPLICATION_RUM_ERRORS), sus problemas (applicationBandProblems: uno abierto y uno cerrado) y
+ * entities:get (applicationInfoBody).
  *
  * Nombres que fijan estos tests (la ficha no los da; decisión del test-writer, delegada por Dani y
  * refinable), los del process group (0032) con el prefijo `application`:
- * - Marcadores: la fila `application-markers`; cada marcador `application-marker-<id>` (apdex,
- *   actions, duration, errors y problems); el valor principal en `application-marker-value`, con
- *   `data-level` en el Apdex (`apdexLevel` de `lib/application-format.ts`: success, warning o
- *   error) y en los errores (error si > 0); el texto de la categoría del Apdex, dentro del
- *   marcador; los recuentos de problemas en `application-marker-open` y
+ * - Marcadores (ficha 0053): la fila `application-markers`; cada marcador
+ *   `application-marker-<id>` (apdex, users, sessions, actions, errors y problems, en ese orden);
+ *   el valor principal en `application-marker-value`, con `data-level` en el Apdex
+ *   (`apdexLevel` de `lib/application-format.ts`: success, warning o error) y en los errores
+ *   (error si > 0); lo de debajo en `application-marker-secondary`; el texto de la categoría del
+ *   Apdex, dentro del marcador; los recuentos de problemas en `application-marker-open` y
  *   `application-marker-closed`.
- * - Gráficos: la sección `application-charts`; cada uno en un `application-chart-panel` con
- *   `data-kind` (apdex, actions, duration y errors, en ese orden) y su título en un encabezado;
- *   dentro, el `Chart` con testid `application-chart-<kind>` (con `data-series`). La franja,
- *   `application-problem-band`, en el panel del Apdex; cada tramo,
- *   `application-problem-segment` con `data-problem-id`.
- * - Tabla: la tarjeta `application-actions`, con el `DataGrid` `application-actions-grid`
- *   (columnas name, count y duration, en ese orden; de más a menos acciones al entrar; botones
- *   `sort-<columna>`) y filas `application-action-row` con `data-action-id`; la barra de la
- *   duración, `application-action-duration-bar`. Sin acciones, el aviso
- *   `application-actions-empty` (en vivo la lista de acciones clave suele venir vacía).
+ * - Secciones (ficha 0053): cada una en un `application-section` con `data-section` (activity,
+ *   errors, apdex y key-actions, en ese orden, entre los marcadores e «Información») y su título
+ *   en el primer encabezado.
+ * - Gráficos: cada uno en un `application-chart-panel` con `data-kind` y su título en un
+ *   encabezado; dentro, el `Chart` con testid `application-chart-<kind>` (con `data-series`).
+ *   «Actividad»: actionsByType y durationByType; «Errores»: errorsByType y affectedActions;
+ *   «Apdex»: apdex. La franja, `application-problem-band`, en los paneles del Apdex y de la
+ *   duración por tipo; cada tramo, `application-problem-segment` con `data-problem-id`. La nota
+ *   de errores sin separar, `application-errors-note`, en el panel errorsByType.
+ * - Tabla: la tarjeta `application-actions` (en la sección key-actions), con el `DataGrid`
+ *   `application-actions-grid` (columnas name, count y duration, en ese orden; de más a menos
+ *   acciones al entrar; botones `sort-<columna>`) y filas `application-action-row` con
+ *   `data-action-id`; la barra de la duración, `application-action-duration-bar`. Sin acciones,
+ *   el aviso `application-actions-empty` (en vivo la lista de acciones clave suele venir vacía).
  * - «Información»: `application-info`, con `application-info-row` (`data-key`: al menos
  *   applicationType, applicationInjectionType, customizedName y detectedName),
  *   `application-info-value`, `application-info-relations`, `application-info-group`
@@ -15913,24 +15987,53 @@ test('CA5 (0051): el panel del modal entra con escala, desplazamiento y opacidad
  *   (`data-entity-id`), `-names` y `-entity-name`.
  *
  * Formato, como el servicio: Apdex con dos decimales; recuentos con separador de miles;
- * duraciones con `formatDurationMs` (ms o s con un decimal).
+ * duraciones con `formatDurationMs` (ms o s con un decimal); porcentajes con un decimal.
+ *
+ * Ficha 0053 (decisiones del test-writer, refinables): los marcadores de usuarios, sesiones,
+ * acciones y errores salen del canal de RUM; el total de acciones y el de errores son la suma de
+ * sus tipos (así cuadra con lo de debajo). Errores «sin separar»: el canal trae `javascript` y
+ * `http` sin datos (total null) y los errores en `other`. Custom y «otros», solo si traen datos.
  */
 const APP_PAGE_TEST_ID = 'entity-page-application'
-type AppChartKind = 'apdex' | 'actions' | 'duration' | 'errors'
-const APP_METRIC_MARKERS = ['apdex', 'actions', 'duration', 'errors'] as const
+type AppChartKind =
+  'apdex' | 'actionsByType' | 'durationByType' | 'errorsByType' | 'affectedActions'
+type AppSection = 'activity' | 'errors' | 'apdex' | 'key-actions'
+const APP_MARKERS = ['apdex', 'users', 'sessions', 'actions', 'errors', 'problems'] as const
 const APP_MARKER_LABELS: Record<string, string> = {
   apdex: 'Apdex',
+  users: 'Usuarios activos',
+  sessions: 'Sesiones',
   actions: 'Acciones',
-  duration: 'Duración',
   errors: 'Errores',
   problems: 'Problemas'
 }
-const APP_CHART_KINDS: AppChartKind[] = ['apdex', 'actions', 'duration', 'errors']
-const APP_CHART_TITLES: Record<AppChartKind, string> = {
+const APP_SECTIONS: AppSection[] = ['activity', 'errors', 'apdex', 'key-actions']
+const APP_SECTION_TITLES: Record<AppSection, string> = {
+  activity: 'Actividad',
+  errors: 'Errores',
   apdex: 'Apdex',
-  actions: 'Acciones',
-  duration: 'Duración',
-  errors: 'Errores'
+  'key-actions': 'Acciones clave'
+}
+const APP_SECTION_CHARTS: Record<AppSection, AppChartKind[]> = {
+  activity: ['actionsByType', 'durationByType'],
+  errors: ['errorsByType', 'affectedActions'],
+  apdex: ['apdex'],
+  'key-actions': []
+}
+const APP_CHART_TITLES: Record<AppChartKind, RegExp> = {
+  apdex: /Apdex/,
+  actionsByType: /Acciones por tipo/,
+  durationByType: /Duración por tipo/,
+  errorsByType: /Errores por tipo/,
+  affectedActions: /Acciones afectadas por errores/
+}
+/** Los nombres de las series por tipo (es): load, XHR, custom, JavaScript, HTTP y otros. */
+const APP_SERIES = {
+  load: /load|carga/i,
+  xhr: /xhr/i,
+  custom: /custom|personalizad/i,
+  javascript: /javascript/i,
+  http: /http/i
 }
 const APP_ACTION_COLUMNS = ['name', 'count', 'duration'] as const
 /** Las acciones del simulador, de más a menos recuento (como las da el canal). */
@@ -15946,13 +16049,22 @@ const APP_ACTION_DURATION: Record<string, RegExp> = {
 
 const appPage = (): Locator => page.getByTestId(APP_PAGE_TEST_ID)
 const appMarker = (id: string): Locator => appPage().getByTestId(`application-marker-${id}`)
+const appMarkerValue = (id: string): Locator =>
+  appMarker(id).getByTestId('application-marker-value')
+const appMarkerSecondary = (id: string): Locator =>
+  appMarker(id).getByTestId('application-marker-secondary')
+const appSection = (id: AppSection): Locator =>
+  appPage().locator(`[data-testid="application-section"][data-section="${id}"]`)
 const appChartPanel = (kind: AppChartKind): Locator =>
   appPage().locator(`[data-testid="application-chart-panel"][data-kind="${kind}"]`)
 const appChartPlot = (kind: AppChartKind): Locator =>
   appChartPanel(kind).getByTestId(`application-chart-${kind}`)
-const appBand = (): Locator => appChartPanel('apdex').getByTestId('application-problem-band')
-const appSegment = (problemId: string): Locator =>
-  appBand().locator(`[data-testid="application-problem-segment"][data-problem-id="${problemId}"]`)
+const appBand = (kind: AppChartKind = 'apdex'): Locator =>
+  appChartPanel(kind).getByTestId('application-problem-band')
+const appSegment = (problemId: string, kind: AppChartKind = 'apdex'): Locator =>
+  appBand(kind).locator(
+    `[data-testid="application-problem-segment"][data-problem-id="${problemId}"]`
+  )
 const appActions = (): Locator => appPage().getByTestId('application-actions')
 const appActionRow = (id: string): Locator =>
   appActions().locator(`[data-testid="application-action-row"][data-action-id="${id}"]`)
@@ -15976,17 +16088,49 @@ async function openApplicationPage(): Promise<Locator> {
 /** Ficha 0034: espera a que el gráfico tenga sus series y las devuelve. */
 async function appChartSeries(kind: AppChartKind): Promise<string[]> {
   const plot = appChartPlot(kind)
-  await expect(plot.locator('canvas').first()).toBeVisible()
-  await expect(plot).toHaveAttribute('data-series', /\[.+\]/)
+  await expect(plot.locator('canvas').first(), kind).toBeVisible()
+  await expect(plot, kind).toHaveAttribute('data-series', /\[.+\]/)
   return JSON.parse((await plot.getAttribute('data-series')) ?? '[]') as string[]
 }
 
-/** Ficha 0034: los `data-kind` de los paneles de gráficos, en el orden en que se pintan. */
-async function appChartKinds(): Promise<string[]> {
-  return appPage()
-    .getByTestId('application-charts')
+/** Ficha 0053: comprueba que el gráfico lleva exactamente esas series, en ese orden. */
+async function expectAppChartSeries(kind: AppChartKind, patterns: RegExp[]): Promise<void> {
+  const series = await appChartSeries(kind)
+  expect(series, kind).toHaveLength(patterns.length)
+  for (const [index, pattern] of patterns.entries()) {
+    expect(series[index], `${kind}[${index}]`).toMatch(pattern)
+  }
+}
+
+/** Los `data-kind` de los paneles de gráficos de la página (o de una sección), en su orden. */
+async function appChartKinds(section?: AppSection): Promise<string[]> {
+  const root = section === undefined ? appPage() : appSection(section)
+  return root
     .getByTestId('application-chart-panel')
     .evaluateAll((els) => els.map((el) => el.getAttribute('data-kind') ?? ''))
+}
+
+/** Ficha 0053: los `data-section` de las secciones, en el orden en que se pintan. */
+async function appSectionIds(): Promise<string[]> {
+  return appPage()
+    .getByTestId('application-section')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-section') ?? ''))
+}
+
+/** Ficha 0053: los marcadores de la fila (sus ids), en el orden en que se pintan. */
+async function appMarkerIds(): Promise<string[]> {
+  const known = APP_MARKERS.map((id) => `application-marker-${id}`)
+  return appPage()
+    .getByTestId('application-markers')
+    .locator('[data-testid^="application-marker-"]')
+    .evaluateAll(
+      (els, ids) =>
+        els
+          .map((el) => el.getAttribute('data-testid') ?? '')
+          .filter((testId) => ids.includes(testId))
+          .map((testId) => testId.replace('application-marker-', '')),
+      known
+    )
 }
 
 /** Ficha 0034: los ids de las filas de la tabla de acciones, en el orden en que se pintan. */
@@ -16004,28 +16148,49 @@ async function expandAppInfoGroup(key: string): Promise<Locator> {
   return group
 }
 
-/** Ficha 0034: los marcadores de métricas con los valores del simulador, ya formateados (es). */
-async function expectAppMetricMarkers(): Promise<void> {
+/** Ficha 0034: el marcador del Apdex con el valor del simulador (0,88, «Buena»). */
+async function expectAppApdexMarker(): Promise<void> {
   // Apdex: 0,88 del rango, categoría «Buena» (≥ 0,85 y < 0,94), con su color.
-  const apdex = appMarker('apdex')
-  await expect(apdex.getByTestId('application-marker-value')).toHaveText(/^\s*0,88\s*$/)
-  await expect(apdex).toContainText('Buena')
-  await expect(apdex.getByTestId('application-marker-value')).toHaveAttribute(
-    'data-level',
-    'success'
-  )
-  // Acciones: 135 en el rango.
-  await expect(appMarker('actions').getByTestId('application-marker-value')).toHaveText(
-    loneNumber('135')
-  )
-  // Duración: 1420,75 ms → 1,4 s.
-  await expect(appMarker('duration').getByTestId('application-marker-value')).toHaveText(
-    /^\s*1,4\ss\s*$/
-  )
-  // Errores: 7, con el color de error (> 0).
-  const errors = appMarker('errors').getByTestId('application-marker-value')
-  await expect(errors).toHaveText(loneNumber('7'))
-  await expect(errors).toHaveAttribute('data-level', 'error')
+  await expect(appMarkerValue('apdex')).toHaveText(/^\s*0,88\s*$/)
+  await expect(appMarker('apdex')).toContainText('Buena')
+  await expect(appMarkerValue('apdex')).toHaveAttribute('data-level', 'success')
+}
+
+/** Ficha 0053: usuarios activos, 1234 en el rango, con «estimado» debajo. */
+async function expectAppUsersMarker(): Promise<void> {
+  await expect(appMarkerValue('users')).toHaveText(loneNumber('1.234'))
+  await expect(appMarkerSecondary('users')).toContainText(/estimad/i)
+}
+
+/** Ficha 0053: sesiones iniciadas (19); debajo, duración media (45,6 s) y rebote (28,4 %). */
+async function expectAppSessionsMarker(): Promise<void> {
+  await expect(appMarkerValue('sessions')).toHaveText(loneNumber('19'))
+  const secondary = appMarkerSecondary('sessions')
+  // 45 600 000 µs de media → 45,6 s.
+  await expect(secondary).toContainText(/(^|[^\d,.])45,6\ss/)
+  await expect(secondary).toContainText(/(^|[^\d,.])28,4\s?%/)
+}
+
+/** Ficha 0053: acciones, 9640 load + 21 400 XHR; sin custom (no trae datos). */
+async function expectAppActionsMarker(): Promise<void> {
+  await expect(appMarkerValue('actions')).toHaveText(loneNumber('31.040'))
+  const secondary = appMarkerSecondary('actions')
+  await expect(secondary).toContainText(APP_SERIES.load)
+  await expect(secondary).toContainText(loneNumber('9.640'))
+  await expect(secondary).toContainText(APP_SERIES.xhr)
+  await expect(secondary).toContainText(loneNumber('21.400'))
+  await expect(secondary).not.toContainText(APP_SERIES.custom)
+}
+
+/** Ficha 0053: errores, 5 de JavaScript + 9 HTTP, con el color de error. */
+async function expectAppErrorsMarker(): Promise<void> {
+  await expect(appMarkerValue('errors')).toHaveText(loneNumber('14'))
+  await expect(appMarkerValue('errors')).toHaveAttribute('data-level', 'error')
+  const secondary = appMarkerSecondary('errors')
+  await expect(secondary).toContainText('JavaScript')
+  await expect(secondary).toContainText(loneNumber('5'))
+  await expect(secondary).toContainText('HTTP')
+  await expect(secondary).toContainText(loneNumber('9'))
 }
 
 /** Ficha 0034: el marcador de problemas, uno abierto y uno cerrado. */
@@ -16038,39 +16203,46 @@ async function expectAppProblemsMarker(): Promise<void> {
   )
 }
 
-test('CA1 (0034): la página de una aplicación enseña sus marcadores, sus cuatro gráficos y la tabla de acciones de usuario con los valores del simulador, sin «Página en construcción»', async () => {
+/** Ficha 0053: los seis marcadores con los valores del simulador. */
+async function expectAppMarkers(): Promise<void> {
+  await expectAppApdexMarker()
+  await expectAppUsersMarker()
+  await expectAppSessionsMarker()
+  await expectAppActionsMarker()
+  await expectAppErrorsMarker()
+  await expectAppProblemsMarker()
+}
+
+/** Ficha 0053: las consultas del canal de RUM que ha recibido el simulador. */
+const appRumQueries = (): URLSearchParams[] => sim.applicationMetricQueries.filter(isRumQuery)
+
+test('CA1 (0034): la página de una aplicación enseña sus marcadores, el gráfico del Apdex y la tabla de acciones de usuario con los valores del simulador, sin «Página en construcción»', async () => {
   const entityPage = await openApplicationPage()
 
-  // Cinco marcadores: Apdex, acciones, duración, errores y problemas, con su nombre y valores.
+  // Marcadores (ficha 0053: los seis los mira CA1 de la 0053): Apdex y problemas.
   const row = entityPage.getByTestId('application-markers')
   await expect(row).toBeVisible()
-  for (const id of [...APP_METRIC_MARKERS, 'problems']) {
-    await expect(row.getByTestId(`application-marker-${id}`), id).toBeVisible()
-    await expect(row.getByTestId(`application-marker-${id}`), id).toContainText(
-      APP_MARKER_LABELS[id] ?? id
-    )
-  }
-  await expectAppMetricMarkers()
+  await expectAppApdexMarker()
   await expectAppProblemsMarker()
 
-  // Cuatro gráficos en su orden: Apdex, acciones, duración y errores; una serie cada uno.
-  const section = entityPage.getByTestId('application-charts')
-  await expect(section).toBeVisible()
-  const panels = section.getByTestId('application-chart-panel')
-  await expect(panels).toHaveCount(4)
-  expect(await appChartKinds()).toEqual(APP_CHART_KINDS)
-  for (const [index, kind] of APP_CHART_KINDS.entries()) {
-    await expect(panels.nth(index).getByRole('heading').first(), kind).toContainText(
-      APP_CHART_TITLES[kind]
-    )
-    expect(await appChartSeries(kind), kind).toHaveLength(1)
+  // El gráfico del Apdex se queda (ficha 0053), en su sección, con una serie.
+  await expect(appSection('apdex')).toBeVisible()
+  expect(await appChartKinds('apdex')).toEqual(['apdex'])
+  await expect(appChartPanel('apdex').getByRole('heading').first()).toContainText('Apdex')
+  expect(await appChartSeries('apdex')).toHaveLength(1)
+  // Los gráficos de la 0034 de acciones, duración y errores totales ya no están (ficha 0053).
+  for (const old of ['actions', 'duration', 'errors']) {
+    await expect(
+      entityPage.locator(`[data-testid="application-chart-panel"][data-kind="${old}"]`),
+      old
+    ).toHaveCount(0)
   }
 
-  // Tabla «Acciones de usuario»: las tres, de más a menos acciones, con nombre, recuento y
-  // duración media (con barra).
+  // Tabla de acciones (en «Acciones clave», ficha 0053): las tres, de más a menos acciones, con
+  // nombre, recuento y duración media (con barra).
   const card = appActions()
   await expect(card).toBeVisible()
-  await expect(card).toContainText('Acciones de usuario')
+  await expect(appSection('key-actions').getByTestId('application-actions')).toHaveCount(1)
   const grid = card.getByTestId('application-actions-grid')
   await expect(grid).toHaveAttribute('role', 'grid')
   expect(await gridColumns(grid)).toEqual(APP_ACTION_COLUMNS.map((c) => `col-${c}`))
@@ -16133,7 +16305,6 @@ test('CA1 (0034), nota del Orquestador: sin acciones de usuario en el rango (lo 
 
   const card = appActions()
   await expect(card).toBeVisible()
-  await expect(card).toContainText('Acciones de usuario')
   const empty = card.getByTestId('application-actions-empty')
   await expect(empty).toBeVisible()
   await expect(empty).not.toHaveText(/^\s*$/)
@@ -16145,34 +16316,35 @@ test('CA1 (0034), nota del Orquestador: sin acciones de usuario en el rango (lo 
     await expect(card, text).not.toContainText(text)
   }
 
-  // Marcadores y gráficos, como siempre.
-  await expectAppMetricMarkers()
-  await expect(appPage().getByTestId('application-chart-panel')).toHaveCount(4)
+  // Marcadores y gráficos, como siempre (ficha 0053: seis marcadores y cinco gráficos).
+  await expectAppMarkers()
+  await expect(appPage().getByTestId('application-chart-panel')).toHaveCount(5)
 })
 
 test('CA3 (0034): con papeles sin datos (Apdex y errores), sus marcadores y gráficos no salen y el resto sí', async () => {
+  // Ficha 0053: 'errors' deja sin series countOfErrors en los dos canales (total y por tipo).
   sim.applicationEmpty = ['apdex', 'errors']
   const entityPage = await openApplicationPage()
 
-  // Los de acciones y duración, con sus valores; el de problemas, también.
-  await expect(appMarker('actions').getByTestId('application-marker-value')).toHaveText(
-    loneNumber('135')
-  )
-  await expect(appMarker('duration').getByTestId('application-marker-value')).toHaveText(
-    /^\s*1,4\ss\s*$/
-  )
+  // Los de usuarios, sesiones y acciones, con sus valores; el de problemas, también.
+  await expectAppUsersMarker()
+  await expectAppSessionsMarker()
+  await expectAppActionsMarker()
   await expectAppProblemsMarker()
-  // Gráficos: solo acciones y duración, en ese orden y con su serie.
-  await expect(entityPage.getByTestId('application-chart-panel')).toHaveCount(2)
-  expect(await appChartKinds()).toEqual(['actions', 'duration'])
-  expect(await appChartSeries('actions')).toHaveLength(1)
-  expect(await appChartSeries('duration')).toHaveLength(1)
+  expect(await appMarkerIds()).toEqual(['users', 'sessions', 'actions', 'problems'])
+  // Gráficos: la actividad entera y las acciones afectadas, con sus series.
+  expect(await appChartKinds()).toEqual(['actionsByType', 'durationByType', 'affectedActions'])
+  for (const kind of ['actionsByType', 'durationByType', 'affectedActions'] as const) {
+    expect((await appChartSeries(kind)).length, kind).toBeGreaterThan(0)
+  }
 
   // Los del Apdex y los errores no salen (ni marcador ni gráfico), ni un «—» en su lugar.
   for (const role of ['apdex', 'errors'] as const) {
     await expect(appMarker(role), role).toHaveCount(0)
-    await expect(appChartPanel(role), role).toHaveCount(0)
-    await expect(entityPage.getByTestId(`application-chart-${role}`), role).toHaveCount(0)
+  }
+  for (const kind of ['apdex', 'errorsByType'] as const) {
+    await expect(appChartPanel(kind), kind).toHaveCount(0)
+    await expect(entityPage.getByTestId(`application-chart-${kind}`), kind).toHaveCount(0)
   }
   // La tabla de acciones sigue.
   await expect(appActions().getByTestId('application-action-row')).toHaveCount(3)
@@ -16189,8 +16361,9 @@ test('CA4 (0034): la franja de problemas sale sobre el gráfico del Apdex con lo
   for (const { problemId } of [APPLICATION_BAND_OPEN, APPLICATION_BAND_CLOSED]) {
     await expect(appSegment(problemId), problemId).toHaveCount(1)
   }
-  // Solo en el panel del Apdex.
-  await expect(page.getByTestId('application-problem-band')).toHaveCount(1)
+  // En el panel del Apdex y (ficha 0053) en el de la duración por tipo; en ningún otro.
+  await expect(page.getByTestId('application-problem-band')).toHaveCount(2)
+  await expect(appBand('durationByType')).toHaveCount(1)
 
   // La lista se pide con la aplicación y el rango global.
   await settledRequests()
@@ -16224,14 +16397,18 @@ test('CA5 (0034): la tarjeta «Información» de la aplicación sale la última,
   await expect(card).toBeVisible()
   await expect(card).toContainText('Información')
   await expect(card.getByTestId('application-info-row').first()).toBeVisible()
-  const sections = ['application-markers', 'application-charts', 'application-actions']
-  for (const id of sections) await expect(entityPage.getByTestId(id), id).toBeVisible()
+  // Ficha 0053: marcadores y secciones (actividad, errores, Apdex y acciones clave).
+  const sections: [string, Locator][] = [
+    ['application-markers', entityPage.getByTestId('application-markers')],
+    ...APP_SECTIONS.map((id): [string, Locator] => [id, appSection(id)])
+  ]
+  for (const [id, section] of sections) await expect(section, id).toBeVisible()
 
-  // La última sección: nada visible detrás; marcadores, gráficos y acciones, encima.
+  // La última sección: nada visible detrás; marcadores y secciones, encima.
   expect(await visibleNeighbours(APP_PAGE_TEST_ID, 'application-info', 'after')).toEqual([])
   const infoBox = await settledBox(card)
-  for (const id of sections) {
-    const box = await settledBox(entityPage.getByTestId(id))
+  for (const [id, section] of sections) {
+    const box = await settledBox(section)
     expect(box.y + box.height, `${id} encima de «Información»`).toBeLessThanOrEqual(infoBox.y + 1)
   }
 
@@ -16301,6 +16478,234 @@ test('CA5 (0034): la tarjeta «Información» de la aplicación sale la última,
   await clickInPlace(appInfoEntity('calls', INFO_FEW_ID), { scroll: true })
   await expect(page.getByTestId('entity-page-service')).toBeVisible()
   expect(await currentRoute()).toBe(`/entities/SERVICE/${INFO_FEW_ID}`)
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0053: página de la aplicación con los marcadores nuevos y las secciones «Actividad» y
+// «Errores» (canal entities:applicationRum de la 0052). Nombres y decisiones, en el comentario
+// de la página de la aplicación (ficha 0034).
+// ---------------------------------------------------------------------------
+
+test('CA1 (0053): la página de una aplicación enseña los seis marcadores, en su orden, con sus valores formateados y sus líneas de debajo', async () => {
+  const entityPage = await openApplicationPage()
+  const row = entityPage.getByTestId('application-markers')
+  await expect(row).toBeVisible()
+  for (const id of APP_MARKERS) {
+    await expect(appMarker(id), id).toBeVisible()
+    await expect(appMarker(id), id).toContainText(APP_MARKER_LABELS[id] ?? id)
+  }
+  expect(await appMarkerIds()).toEqual([...APP_MARKERS])
+  // Ni el de duración de la 0034.
+  await expect(appMarker('duration')).toHaveCount(0)
+
+  // Valores: Apdex 0,88 «Buena»; usuarios 1.234 «estimado»; sesiones 19 con 45,6 s · 28,4 %;
+  // acciones 31.040 con load 9.640 · XHR 21.400; errores 14 con JavaScript 5 · HTTP 9;
+  // problemas 1 abierto y 1 cerrado.
+  await expectAppMarkers()
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(row, text).not.toContainText(text)
+  }
+
+  // Las consultas de RUM, con el rango global.
+  await settledRequests()
+  expect(appRumQueries().length).toBeGreaterThanOrEqual(4)
+  for (const query of appRumQueries()) expect(query.get('from')).toBe('now-2h')
+})
+
+test('CA1 (0053): con acciones custom, el marcador de acciones las suma y las enseña debajo', async () => {
+  sim.applicationRumCustom = true
+  await openApplicationPage()
+  // 9640 + 21 400 + 1250.
+  await expect(appMarkerValue('actions')).toHaveText(loneNumber('32.290'))
+  const secondary = appMarkerSecondary('actions')
+  await expect(secondary).toContainText(APP_SERIES.load)
+  await expect(secondary).toContainText(loneNumber('9.640'))
+  await expect(secondary).toContainText(APP_SERIES.xhr)
+  await expect(secondary).toContainText(loneNumber('21.400'))
+  await expect(secondary).toContainText(APP_SERIES.custom)
+  await expect(secondary).toContainText(loneNumber('1.250'))
+})
+
+test('CA2 (0053): las secciones «Actividad» y «Errores» enseñan sus dos gráficos con sus series, en su orden, y la franja de problemas sobre la duración por tipo', async () => {
+  const entityPage = await openApplicationPage()
+
+  // Secciones con título, en su orden; los marcadores, encima de todas.
+  expect(await appSectionIds()).toEqual(APP_SECTIONS)
+  const markersBox = await settledBox(entityPage.getByTestId('application-markers'))
+  for (const id of APP_SECTIONS) {
+    const section = appSection(id)
+    await expect(section, id).toBeVisible()
+    await expect(section.getByRole('heading').first(), id).toContainText(APP_SECTION_TITLES[id])
+    const box = await settledBox(section)
+    expect(markersBox.y + markersBox.height, `marcadores encima de ${id}`).toBeLessThanOrEqual(
+      box.y + 1
+    )
+    expect(await appChartKinds(id), id).toEqual(APP_SECTION_CHARTS[id])
+  }
+  for (const kind of APP_SECTION_CHARTS.activity.concat(APP_SECTION_CHARTS.errors)) {
+    await expect(appChartPanel(kind).getByRole('heading').first(), kind).toContainText(
+      APP_CHART_TITLES[kind]
+    )
+  }
+
+  // «Actividad»: load y XHR (custom no trae datos en el simulador, como en vivo).
+  await expectAppChartSeries('actionsByType', [APP_SERIES.load, APP_SERIES.xhr])
+  await expectAppChartSeries('durationByType', [APP_SERIES.load, APP_SERIES.xhr])
+  // «Errores»: JavaScript y HTTP (sin «otros»: no traen datos), y el % de acciones afectadas.
+  await expectAppChartSeries('errorsByType', [APP_SERIES.javascript, APP_SERIES.http])
+  expect(await appChartSeries('affectedActions')).toHaveLength(1)
+  // Separados: sin nota.
+  await expect(appChartPanel('errorsByType').getByTestId('application-errors-note')).toHaveCount(0)
+
+  // La franja de problemas, sobre la duración por tipo, con los dos problemas.
+  const band = appBand('durationByType')
+  await expect(band).toBeVisible()
+  await expect(band.getByTestId('application-problem-segment')).toHaveCount(2)
+  for (const { problemId } of [APPLICATION_BAND_OPEN, APPLICATION_BAND_CLOSED]) {
+    await expect(appSegment(problemId, 'durationByType'), problemId).toHaveCount(1)
+  }
+  const bandBox = await settledBox(band)
+  const plotBox = await settledBox(appChartPlot('durationByType'))
+  expect(bandBox.y + bandBox.height).toBeLessThanOrEqual(plotBox.y + 1)
+})
+
+test('CA2 (0053): con acciones custom, los dos gráficos de «Actividad» llevan load, XHR y custom', async () => {
+  sim.applicationRumCustom = true
+  await openApplicationPage()
+  const all = [APP_SERIES.load, APP_SERIES.xhr, APP_SERIES.custom]
+  await expectAppChartSeries('actionsByType', all)
+  await expectAppChartSeries('durationByType', all)
+})
+
+test('CA3 (0053): con los errores sin separar por tipo, el gráfico de errores lleva una sola serie y la nota, y el marcador no enseña la línea JavaScript · HTTP', async () => {
+  sim.applicationRumErrorsUntyped = true
+  await openApplicationPage()
+
+  // El gráfico: una sola serie, con la nota.
+  expect(await appChartSeries('errorsByType')).toHaveLength(1)
+  const note = appChartPanel('errorsByType').getByTestId('application-errors-note')
+  await expect(note).toBeVisible()
+  await expect(note).not.toHaveText(/^\s*$/)
+
+  // El marcador: el total (14), sin JavaScript ni HTTP.
+  await expect(appMarkerValue('errors')).toHaveText(loneNumber('14'))
+  await expect(appMarkerValue('errors')).toHaveAttribute('data-level', 'error')
+  await expect(appMarker('errors')).not.toContainText('JavaScript')
+  await expect(appMarker('errors')).not.toContainText('HTTP')
+
+  // El resto, como siempre.
+  expect(await appChartSeries('affectedActions')).toHaveLength(1)
+  await expectAppActionsMarker()
+})
+
+test('CA4 (0053): con papeles sin datos (usuarios, acciones por tipo y acciones afectadas), su marcador o gráfico no sale y el resto sí', async () => {
+  sim.applicationEmpty = [
+    `${RUM_W}activeUsersEst`,
+    `${RUM_W}actionCount.load`,
+    `${RUM_W}actionCount.xhr`,
+    `${RUM_W}percentageOfUserActionsAffectedByErrors`
+  ]
+  const entityPage = await openApplicationPage()
+
+  // Marcadores: sin usuarios ni acciones; el resto con sus valores.
+  expect(await appMarkerIds()).toEqual(['apdex', 'sessions', 'errors', 'problems'])
+  await expect(appMarker('users')).toHaveCount(0)
+  await expect(appMarker('actions')).toHaveCount(0)
+  await expectAppApdexMarker()
+  await expectAppSessionsMarker()
+  await expectAppErrorsMarker()
+  await expectAppProblemsMarker()
+
+  // Gráficos: sin acciones por tipo ni acciones afectadas; el resto con sus series.
+  expect(await appChartKinds()).toEqual(['durationByType', 'errorsByType', 'apdex'])
+  for (const kind of ['actionsByType', 'affectedActions'] as const) {
+    await expect(appChartPanel(kind), kind).toHaveCount(0)
+    await expect(entityPage.getByTestId(`application-chart-${kind}`), kind).toHaveCount(0)
+  }
+  await expectAppChartSeries('durationByType', [APP_SERIES.load, APP_SERIES.xhr])
+  await expectAppChartSeries('errorsByType', [APP_SERIES.javascript, APP_SERIES.http])
+  expect(await appChartSeries('apdex')).toHaveLength(1)
+
+  // Faltar datos no es un fallo.
+  await expect(entityPage.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  await expect(appActions().getByTestId('application-action-row')).toHaveCount(3)
+})
+
+test('CA5 (0053): cambiar el rango global vuelve a pedir los datos de RUM; «Actualizar» también; volver a la página sin cambios, no', async () => {
+  await openApplicationPage()
+  await expectAppMarkers()
+  await appChartSeries('actionsByType')
+  await settledRequests()
+  const rum = appRumQueries().length
+  expect(rum).toBeGreaterThanOrEqual(4)
+  for (const query of appRumQueries()) expect(query.get('from')).toBe('now-2h')
+
+  // Rango nuevo: otra vez, con now-24h.
+  await page.getByTestId('time-range-24h').click()
+  await expect.poll(() => appRumQueries().length).toBe(rum * 2)
+  for (const query of appRumQueries().slice(rum)) expect(query.get('from')).toBe('now-24h')
+  await expectAppMarkers()
+
+  // Fuera y vuelta, sin cambiar nada: ninguna petición nueva.
+  await goTo('metrics')
+  await expect(appPage()).toHaveCount(0)
+  const before = await settledRequests()
+  await openApplicationPage()
+  await expectAppMarkers()
+  await page.waitForTimeout(1500)
+  expect(sim.requests.slice(before), 'peticiones al volver a la página').toEqual([])
+
+  // «Actualizar», en la cabecera de la página: otra vez, con el rango actual.
+  await appPage().getByTestId('module-refresh').click()
+  await expect.poll(() => appRumQueries().length).toBe(rum * 3)
+  for (const query of appRumQueries().slice(rum * 2)) expect(query.get('from')).toBe('now-24h')
+  await expectAppMarkers()
+})
+
+test('CA5 (0053): si falla el canal de RUM, sus marcadores y cada gráfico de «Actividad» y «Errores» enseñan el aviso con Reintentar, y el Apdex, los problemas y la tabla siguen', async () => {
+  sim.applicationRumFail = true
+  await openApplicationPage()
+  const rumMarkers = ['users', 'sessions', 'actions', 'errors'] as const
+  const rumCharts = ['actionsByType', 'durationByType', 'errorsByType', 'affectedActions'] as const
+
+  // Lo que no es de RUM, con sus valores y sin aviso.
+  await expectAppApdexMarker()
+  await expectAppProblemsMarker()
+  expect(await appChartSeries('apdex')).toHaveLength(1)
+  await expect(appActions().getByTestId('application-action-row')).toHaveCount(3)
+  for (const id of ['apdex', 'problems']) {
+    await expect(appMarker(id).getByRole('button', { name: 'Reintentar' }), id).toHaveCount(0)
+  }
+  await expect(appChartPanel('apdex').getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+
+  // Cada marcador de RUM, en su sitio, con el aviso y Reintentar y sin valor.
+  for (const id of rumMarkers) {
+    const marker = appMarker(id)
+    await expect(marker, id).toBeVisible()
+    await expect(marker.getByRole('alert').first(), id).toBeVisible()
+    await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toBeVisible()
+    await expect(marker.getByTestId('application-marker-value'), id).toHaveCount(0)
+  }
+  // Cada gráfico de RUM, con su aviso y Reintentar, sin gráfico.
+  for (const kind of rumCharts) {
+    const panel = appChartPanel(kind)
+    await expect(panel, kind).toBeVisible()
+    await expect(panel.getByRole('alert').first(), kind).toBeVisible()
+    await expect(panel.getByRole('button', { name: 'Reintentar' }), kind).toBeVisible()
+    await expect(panel.getByTestId(`application-chart-${kind}`), kind).toHaveCount(0)
+  }
+
+  // Reintentar, con el canal ya bien: llegan los valores y los gráficos.
+  sim.applicationRumFail = false
+  await clickInPlace(appChartPanel('actionsByType').getByRole('button', { name: 'Reintentar' }), {
+    scroll: true
+  })
+  await expectAppMarkers()
+  await expectAppChartSeries('actionsByType', [APP_SERIES.load, APP_SERIES.xhr])
+  await expectAppChartSeries('errorsByType', [APP_SERIES.javascript, APP_SERIES.http])
+  for (const kind of rumCharts) {
+    await expect(appChartPanel(kind).getByRole('alert'), kind).toHaveCount(0)
+  }
 })
 
 /**
