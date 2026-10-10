@@ -1,7 +1,7 @@
 ---
 id: '0051'
 titulo: 'PROCESS_GROUP: tabla con las 20 de más CPU, aviso y modal «Ver todas» con transición de entrada'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -125,10 +125,30 @@ real, la nota del revisor de la 0050 pide que el marcador no diga «como mínimo
 del «7+» solo existe sin `totalCount`. El unitario de `instancesTruncated` (0032) gana
 `instances.totalKnown` por lo mismo.
 
+**Ronda 1 (CAMBIOS):** tests en `309b9a0` y código en `ef2ac8c`.
+
+- Unitario de la 0032 (`process-group-instances.test.ts`): en `afb7cf3` lo cambié para que la tabla
+  dejara de avisar con el total real, y el revisor vio que eso debilitaba la 0032. Ahora vuelve a
+  exigir el aviso con `partial`, se sepa o no el total, y un test nuevo fija el «como mínimo» del
+  marcador (`instancesAtLeast`).
+- e2e nuevos: `CA3 (0051), revisión ronda 1` (grupo recortado con total real: aviso de la tabla
+  visible, sin hablar del total, y marcador con 600 exacto); `CA2 (0051), revisión ronda 1` (con el
+  modal cerrado, ni un rango nuevo ni «Actualizar» piden la lista; al abrir, sí); y
+  `Especificación (0051)` (error de la lista con Reintentar dentro del modal, con
+  `sim.processGroupInstancesFail`, nuevo).
+- `CA6 (0051)` de textos: ahora también comprueba que cada clave sea una cadena. Antes
+  `String(undefined)` pasaba el patrón y una clave que faltara no lo hacía fallar.
+- Resultados: `npm run check` en verde (3178 tests en 174 ficheros);
+  `npm run test:e2e:affected -- main..HEAD` 307/307; los de la 0051 y la 0032 con
+  `--repeat-each 3`, 45/45.
+
 **Decisiones del developer (delegadas, refinables):**
 
-- `instancesTruncated` (marcador «como mínimo» y aviso de recorte de la tabla): solo con `partial`
-  y `totalKnown: false`. Con el total real, el marcador da el total exacto.
+- Tras la ronda 1, dos decisiones por separado: el «como mínimo» del marcador (`instancesAtLeast`)
+  solo con `partial` y `totalKnown: false` (con el total real, el total exacto), y el aviso de
+  recorte de la tabla (`instancesTruncated`) con `partial`, se sepa o no el total; con el total
+  real, el texto `partialList` («Dynatrace ha recortado la consulta de instancias: la lista puede
+  estar incompleta.»), sin hablar del total.
 - Aviso de la tabla (`instancesNotice`): con `totalKnown` y un `total` mayor que las enseñadas,
   «N de total»; sin `totalKnown`, «N instancias…; puede haber más» si llegan 20 (el tope) o vino
   `partial`. En los demás casos, ni aviso ni botón.
@@ -136,8 +156,12 @@ del «7+» solo existe sin `totalCount`. El unitario de `instancesTruncated` (00
   con un `total` mayor que lo recibido, «Se muestran N de M instancias. Dynatrace devuelve como
   mucho unas 498 por consulta y no incluye las que no tienen datos en el rango.»; si no, «Se
   muestran N instancias y puede haber más: …». Sin tocar el canal (no hizo falta `totalKnown`).
-- La consulta del modal se pide la primera vez que se abre y queda activa mientras la página está
-  montada: reabrir no pide y «Actualizar» de la página la refresca con lo demás.
+- Tras la ronda 1 (opcional del revisor): la consulta del modal solo está activa con el modal
+  abierto (`enabled: open`). Reabrirlo con la misma clave no pide nada; con el modal cerrado, un
+  rango nuevo no la pide (se pide al abrirlo) y «Actualizar» la marca como vieja sin pedirla
+  (`useInvalidateProcessGroupInstances`, `refetchType: 'none'`), así que se vuelve a pedir al
+  abrirlo. Con el modal abierto no se puede pulsar «Actualizar», así que su `busy` no tiene que
+  contar esta consulta.
 - Modal genérico `ShowcaseDialog` en `components/dialogs.tsx` (Radix Dialog): 1100 px o 94 vw, alto
   máximo 92 vh con scroll; fondo `bg-overlay` con `backdrop-blur`; panel con `vigia-dialog-in`
   (`main.css`: `translateY(14px) scale(0.92)` a 1, 320 ms, `cubic-bezier(0.34, 1.45, 0.64, 1)`) y
