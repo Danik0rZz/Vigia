@@ -254,36 +254,62 @@ const serviceSeriesSchema = z.object({
 })
 export type ServiceSeries = z.output<typeof serviceSeriesSchema>
 
+/**
+ * Conjunto de métricas de un servicio según su `serviceType` (ficha 0046): Servidor,
+ * Cliente, Unificadas o Solo actividad.
+ */
+export const serviceMetricSetSchema = z.enum(['server', 'client', 'unified', 'activity'])
+export type ServiceMetricSet = z.output<typeof serviceMetricSetSchema>
+
+const responseTimeSeriesSchema = z.object({
+  median: serviceSeriesSchema,
+  p90: serviceSeriesSchema,
+  p99: serviceSeriesSchema
+})
+
 /** Métricas de un servicio en el rango (canal `entities:serviceMetrics`). */
 export const serviceMetricsResultSchema = z.object({
   /** Resolución que devolvió la API para las series (por ejemplo, 1m o 1h). */
   resolution: z.string(),
+  /** `serviceType` de la entidad tal cual; null si la entidad falla o no lo trae (ficha 0046). */
+  serviceType: z.string().nullable(),
+  /** Conjunto de métricas usado (ficha 0046). */
+  metricSet: serviceMetricSetSchema,
+  /**
+   * Clave de métrica usada para cada papel (para «Abrir en Métricas»); null si el conjunto no
+   * tiene ese papel o se calcula en main (la tasa de las unificadas).
+   */
+  metricKeys: z.object({
+    responseTime: z.string().nullable(),
+    requests: z.string().nullable(),
+    errors: z.string().nullable(),
+    errorRate: z.string().nullable()
+  }),
+  /** En Solo actividad, tiempos, errores, OK y tasa son null: ese conjunto no los mide. */
   series: z.object({
     /** Tiempos de respuesta en milisegundos. */
-    responseTime: z.object({
-      median: serviceSeriesSchema,
-      p90: serviceSeriesSchema,
-      p99: serviceSeriesSchema
-    }),
+    responseTime: responseTimeSeriesSchema.nullable(),
     requests: serviceSeriesSchema,
-    errors: serviceSeriesSchema,
+    errors: serviceSeriesSchema.nullable(),
     /** Peticiones sin error (peticiones − errores, nunca negativo). */
-    ok: serviceSeriesSchema,
+    ok: serviceSeriesSchema.nullable(),
     /** Tasa de error en porcentaje (0–100). */
-    errorRate: serviceSeriesSchema
+    errorRate: serviceSeriesSchema.nullable()
   }),
   totals: z.object({
     requests: z.number().min(0),
-    errors: z.number().min(0),
-    ok: z.number().min(0),
+    errors: z.number().min(0).nullable(),
+    ok: z.number().min(0).nullable(),
     /** errors / requests × 100; null sin peticiones. */
     errorRate: z.number().nullable(),
     /** Tiempos del rango completo, en milisegundos; null sin dato. */
-    responseTime: z.object({
-      median: z.number().nullable(),
-      p90: z.number().nullable(),
-      p99: z.number().nullable()
-    })
+    responseTime: z
+      .object({
+        median: z.number().nullable(),
+        p90: z.number().nullable(),
+        p99: z.number().nullable()
+      })
+      .nullable()
   }),
   warnings: z.array(z.string()),
   partial: metricResultSchema.shape.partial

@@ -37,8 +37,13 @@ export function minutesPerPoint(resolution: string): number {
   return step === null || step <= 0 ? 1 : step / MINUTE_MS
 }
 
-/** Una serie como puntos `[tiempo, valor]`; un null sigue siendo null (hueco). */
-function points(series: ServiceSeries, divisor = 1): [number, number | null][] {
+/**
+ * Una serie como puntos `[tiempo, valor]`; un null sigue siendo null (hueco). Una serie que
+ * el conjunto no mide (null, Solo actividad de la 0046) sale sin puntos; la vista por tipo es
+ * de la 0047.
+ */
+function points(series: ServiceSeries | null, divisor = 1): [number, number | null][] {
+  if (series === null) return []
   return series.timestamps.map((time, index) => {
     const value = series.values[index] ?? null
     return [time, value === null ? null : value / divisor]
@@ -73,9 +78,21 @@ export function serviceChartSeries(
   switch (kind) {
     case 'responseTime':
       return [
-        { name: name('median'), color: colors.accent, points: points(series.responseTime.median) },
-        { name: name('p90'), color: colors.series2, points: points(series.responseTime.p90) },
-        { name: name('p99'), color: colors.series3, points: points(series.responseTime.p99) }
+        {
+          name: name('median'),
+          color: colors.accent,
+          points: points(series.responseTime?.median ?? null)
+        },
+        {
+          name: name('p90'),
+          color: colors.series2,
+          points: points(series.responseTime?.p90 ?? null)
+        },
+        {
+          name: name('p99'),
+          color: colors.series3,
+          points: points(series.responseTime?.p99 ?? null)
+        }
       ]
     case 'activity':
       return [

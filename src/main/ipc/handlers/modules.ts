@@ -37,6 +37,12 @@ import {
 } from '../../modules/entities'
 import { markerSelector, seriesSelector, toServiceMetrics } from '../../modules/service-metrics'
 import {
+  KNOWN_SERVICE_TYPES,
+  SERVICE_TYPE_FIELDS,
+  serviceMetricSet,
+  serviceTypeEntitySchema
+} from '../../modules/service-metric-set'
+import {
   HOST_MARKER_SELECTOR,
   HOST_SERIES_SELECTORS,
   hostEntitySelector,
@@ -389,14 +395,49 @@ export function createModuleHandlers(
           query: { metricSelector, resolution, ...range },
           schema: metricDataSchema
         })
+      // Ficha 0046: primero la entidad, para elegir las métricas por su serviceType. Si falla
+      // (sin entities.read, 404…), las de Servidor, como antes, y un aviso: la página sigue.
+      const warnings: string[] = []
+      let serviceType: string | null = null
+      let properties: Record<string, unknown> = {}
+      try {
+        const entity = await client.dtRequest({
+          envId: environmentId,
+          api: 'classic',
+          // El id ya viene validado (serviceEntityIdSchema); se codifica igual por ser ruta.
+          path: `/entities/${encodeURIComponent(entityId)}`,
+          query: { fields: SERVICE_TYPE_FIELDS },
+          schema: serviceTypeEntitySchema
+        })
+        properties = entity.properties ?? {}
+        const type = properties['serviceType']
+        serviceType = typeof type === 'string' && type !== '' ? type : null
+        if (serviceType === null) {
+          warnings.push('La entidad no trae serviceType: se usan las métricas de servidor.')
+        } else if (!KNOWN_SERVICE_TYPES.has(serviceType)) {
+          warnings.push(
+            `serviceType ${serviceType} fuera de la tabla de la ficha 0046: se usan las métricas de servidor.`
+          )
+        }
+      } catch (error) {
+        if (!(error instanceof DtError)) throw error
+        // Solo el estado: el texto de Dynatrace no hace falta para el aviso.
+        warnings.push(
+          `No se ha podido leer la entidad (${error.status ?? error.code}): se usan las métricas de servidor.`
+        )
+      }
+      const set = serviceMetricSet(serviceType, properties)
+      const context = { set, serviceType, warnings }
       try {
         // Series con la resolución que elija la API; tiempos del rango con Inf (sin fold:
-        // mezclarlos da 400). Los recuentos totales salen de sumar la serie.
+        // mezclarlos da 400). Los recuentos totales salen de sumar la serie. Solo actividad
+        // no mide tiempos: sin consulta de marcadores.
+        const markerQuery = markerSelector(set, entityId)
         const [series, markers] = await Promise.all([
-          query(seriesSelector(entityId)),
-          query(markerSelector(entityId), 'Inf')
+          query(seriesSelector(set, entityId)),
+          markerQuery === null ? Promise.resolve(null) : query(markerQuery, 'Inf')
         ])
-        return toServiceMetrics(series, markers)
+        return toServiceMetrics(context, series, markers)
       } catch (error) {
         if (
           error instanceof DtError &&

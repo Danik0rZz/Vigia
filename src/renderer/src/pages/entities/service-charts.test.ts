@@ -64,6 +64,15 @@ function metrics(
   } = overrides
   return {
     resolution,
+    // Campos de la ficha 0046 (un servicio de Servidor, como los de la 0009).
+    serviceType: 'WEB_SERVICE',
+    metricSet: 'server',
+    metricKeys: {
+      responseTime: 'builtin:service.response.server',
+      requests: 'builtin:service.requestCount.server',
+      errors: 'builtin:service.errors.server.count',
+      errorRate: 'builtin:service.errors.server.rate'
+    },
     series: {
       responseTime: { median: series(median), p90: series(p90), p99: series(p99) },
       requests: series(requests),
