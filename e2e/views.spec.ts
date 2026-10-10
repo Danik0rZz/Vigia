@@ -10675,7 +10675,8 @@ test('CA3 (0048): con una caída por debajo del 90 %, el gráfico de disponibili
   // El panel, dentro de la sección de gráficos y encima del primero de la rejilla.
   const panel = section.getByTestId('service-slo-panel')
   await expect(panel).toBeVisible()
-  await expect(panel.getByTestId('service-slo-title')).toHaveText('Disponibilidad (SLO calculado)')
+  // Título «SLO» desde la ficha 0065 (CA2).
+  await expect(panel.getByTestId('service-slo-title')).toHaveText('SLO')
   const firstGrid = section.getByTestId('service-chart-panel').first()
   await expect(firstGrid).toBeVisible()
   const sloBox = await panel.boundingBox()
@@ -10731,7 +10732,7 @@ test('CA4 (0048): en un servicio de solo actividad no salen el gráfico de dispo
   await expect(servicePage.getByTestId('service-marker-availability')).toHaveCount(0)
 })
 
-test('CA5 (0048): el tooltip del nombre del gráfico explica la fórmula, con ratón y con foco', async () => {
+test('CA2 (0065) y CA5 (0048): el tooltip del nombre del gráfico explica la fórmula, con ratón y con foco', async () => {
   await openServicePage(SVC_SLO_ID)
   const title = sloPanel().getByTestId('service-slo-title')
   await expect(title).toBeVisible()

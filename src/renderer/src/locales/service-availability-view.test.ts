@@ -5,7 +5,8 @@ import es from './es/common.json'
 /**
  * Ficha 0048: textos nuevos de la disponibilidad (SLO calculado) de la página del servicio, en
  * `common`, en es y en, bajo `entities.service.availability`:
- * - `title`: el nombre del gráfico («Disponibilidad (SLO calculado)»);
+ * - `title`: el nombre del gráfico («SLO» desde la ficha 0065, igual en los dos idiomas: es un
+ *   nombre del glosario);
  * - `hint`: el tooltip del nombre, con la fórmula y que lo calcula Vigía;
  * - `critical`: la etiqueta de la línea del umbral («Crítico 90 %»);
  * - `series`: el nombre de la serie;
@@ -36,12 +37,12 @@ describe('CA6 (0048): textos nuevos de la disponibilidad en es y en', () => {
       expect(typeof textEn, `${path} (en)`).toBe('string')
       expect((textEs as string).trim(), `${path} (es)`).not.toBe('')
       expect((textEn as string).trim(), `${path} (en)`).not.toBe('')
-      expect(textEn, `${path}: en igual que es`).not.toBe(textEs)
+      // El título es «SLO» en los dos (ficha 0065): nombre propio del glosario.
+      if (key !== 'title') expect(textEn, `${path}: en igual que es`).not.toBe(textEs)
     }
   })
 
   it('los textos que da la ficha, en español', () => {
-    expect(at(es, `${base}.title`)).toBe('Disponibilidad (SLO calculado)')
     expect(at(es, `${base}.critical`)).toMatch(/^Crítico 90\s?%$/)
     expect(at(es, `${base}.marker`)).toMatch(/^Disponibilidad \{\{value\}\}$/)
     expect(at(es, `${base}.markerCritical`)).toMatch(/por debajo del 90\s?%/)
@@ -54,6 +55,24 @@ describe('CA6 (0048): textos nuevos de la disponibilidad en es y en', () => {
     expect(hintEs).toMatch(/×\s?100|x\s?100|\* ?100/)
     expect(hintEs).toContain('Vigía')
     expect(hintEs).toContain('Dynatrace')
+    const hintEn = at(en, `${base}.hint`) as string
+    expect(hintEn).toMatch(/requests/i)
+    expect(hintEn).toMatch(/errors/i)
+    expect(hintEn).toContain('Vigía')
+  })
+})
+
+describe('CA1 (0065): el gráfico de disponibilidad del servicio se titula «SLO»', () => {
+  it('el título vale «SLO» en es y en en', () => {
+    expect(at(es, `${base}.title`)).toBe('SLO')
+    expect(at(en, `${base}.title`)).toBe('SLO')
+  })
+
+  it('el tooltip sigue explicando la fórmula (peticiones, errores y Vigía)', () => {
+    const hintEs = at(es, `${base}.hint`) as string
+    expect(hintEs).toMatch(/peticiones/i)
+    expect(hintEs).toMatch(/errores/i)
+    expect(hintEs).toContain('Vigía')
     const hintEn = at(en, `${base}.hint`) as string
     expect(hintEn).toMatch(/requests/i)
     expect(hintEn).toMatch(/errors/i)
