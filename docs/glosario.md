@@ -22,3 +22,5 @@ Solo se escriben igual en español y en inglés los nombres propios de objetos o
 | Cloud application | Sí               | Carga de trabajo desplegada en Kubernetes, OpenShift u otra plataforma de contenedores |
 
 Solo se añaden términos que la app vaya a usar.
+
+<!-- Prueba de la 0072: PR solo de documentación. Se cierra sin fusionar. -->
