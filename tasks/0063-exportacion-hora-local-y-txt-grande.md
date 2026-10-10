@@ -1,7 +1,7 @@
 ---
 id: '0063'
 titulo: 'Exportación: fechas del XLSX en hora local, TXT con tablas grandes y fecha local en el fichero de configuración'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-exportacion
@@ -60,7 +60,9 @@ día anterior. `src/main/export/file-name.ts` ya usa hora local: se exporta de a
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `csv.ts` construye las líneas con spread en literales de array (`[header, ...lines]`).
+  No es el fallo de C-02 (el spread en un literal no pasa argumentos y no tiene ese límite), pero
+  para ser coherente con el TXT se podría pasar a `concat`.
 
 ## Notas del revisor
 
@@ -93,4 +95,25 @@ Ejecución al escribirlos: 14 fallan por el comportamiento actual (CA1, compleme
 
 ## Resultado
 
-(pendiente)
+Desarrollo (developer):
+
+- C-11: `localDateStamp(date)` en `src/main/export/file-name.ts` (exportada en `index.ts`), usada
+  por `exportFileName` y por `config:export` (`src/main/ipc/handlers/tenants.ts`).
+- C-02: en `src/main/export/txt.ts`, el ancho de cada columna sale de un bucle, y las líneas se
+  juntan con `concat` en vez de hacer spread de la tabla.
+- C-01: `toExcelLocal(date)` en `src/main/export/xlsx.ts`, para las celdas de fecha y para las filas
+  Exportado, Desde y Hasta de Info. Usa los getters locales, que ya aplican el horario de verano que
+  correspondía en esa fecha. `workbook.created` (metadato del fichero, no una celda) sigue siendo el
+  instante real.
+
+Decisiones razonables, refinables (la cola sigue delegada):
+
+- `toExcelLocal` también conserva los milisegundos, aunque la especificación solo enumera hasta los
+  segundos: no cambia lo que se ve (formato `hh:mm:ss`) y no recorta el valor.
+- Dos tests anteriores a la ficha comprobaban las fechas del XLSX en UTC y dejaban de ser ciertos con
+  la decisión de Dani. Se adaptan en commits propios sin cambiar qué prueban (qué instante va en cada
+  fila): en `src/main/ipc/handlers/export.test.ts`, lo esperado pasa a la hora de pared de Madrid (la
+  zona de `vitest.config.ts`) con `Intl`; en el e2e `v0.10.2: «Abrir en Métricas» y la exportación
+del mini gráfico…` (`e2e/views.spec.ts`), las fechas leídas se pasan a instante con
+  `wallTimeToEpoch` en la zona del renderer (pierden los segundos, dentro del margen de un minuto
+  que ya tenía el test).
