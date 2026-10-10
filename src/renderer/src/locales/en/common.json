@@ -1151,7 +1151,8 @@
         "open": "Open",
         "closed": "Closed",
         "loading": "Loading…",
-        "loadError": "Couldn't load."
+        "loadError": "Couldn't load.",
+        "requests": "Requests"
       },
       "charts": {
         "title": "Request metrics",
@@ -1166,7 +1167,8 @@
           "p99": "p99",
           "ok": "OK",
           "ko": "KO",
-          "errorRate": "Error rate"
+          "errorRate": "Error rate",
+          "requests": "Requests"
         },
         "perMinuteUnit": "/min",
         "perMinuteTooltip": "{{perMinute}} · {{total}} in the interval",
@@ -1248,6 +1250,29 @@
           "lastSeen": "Last seen",
           "managementZones": "Management zones"
         }
+      },
+      "serviceTypes": {
+        "WEB_SERVICE": "Web service",
+        "CUSTOM_SERVICE": "Custom service",
+        "BACKGROUND_ACTIVITY": "Background activity",
+        "SPAN": "Span",
+        "MESSAGING_SERVICE": "Messaging",
+        "EXTERNAL": "External",
+        "WEB_REQUEST_SERVICE": "Web requests",
+        "RPC_SERVICE": "RPC",
+        "DATABASE_SERVICE": "Database",
+        "UNIFIED": "Unified",
+        "QUEUE_LISTENER_SERVICE": "Queue listener"
+      },
+      "metricSetNote": {
+        "activity": "This service type only measures activity",
+        "activityHint": "Dynatrace only counts the requests of this service type: there are no response times or errors.",
+        "client": "Measured from the callers",
+        "clientHint": "Times, requests and errors come from the client metrics: what the callers of this service measure.",
+        "unified": "Unified metrics",
+        "unifiedHint": "Times, requests and errors come from the Dynatrace unified metrics; the error rate is calculated from the failed requests and the total.",
+        "fallback": "Default server metrics",
+        "fallbackHint": "The type of this service could not be read (for example, the token lacks entities.read), so the server metrics are used."
       }
     },
     "tags": {

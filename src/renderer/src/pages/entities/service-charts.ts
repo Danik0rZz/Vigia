@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 import type { EChartsCoreOption } from 'echarts/core'
-import type { ServiceMetricsResult, ServiceSeries } from '@shared/modules'
+import type { ServiceMetricSet, ServiceMetricsResult, ServiceSeries } from '@shared/modules'
 import { resolutionMs } from '@shared/metric-points'
 import { formatNumber } from '@shared/format-number'
 import type { ChartColors } from '../../components/Chart'
@@ -21,6 +21,14 @@ export const SERVICE_CHART_KINDS: readonly ServiceChartKind[] = [
   'errors'
 ]
 
+/**
+ * Los gráficos que tiene un conjunto de métricas (ficha 0047): Solo actividad no mide tiempos
+ * ni errores, así que solo lleva el de actividad; los demás, los cuatro.
+ */
+export function serviceChartKinds(set: ServiceMetricSet): readonly ServiceChartKind[] {
+  return set === 'activity' ? ['activity'] : SERVICE_CHART_KINDS
+}
+
 /** El nombre del gráfico en los testids y en `data-kind` (`response-time`…). */
 export function serviceChartSlug(kind: ServiceChartKind): string {
   return kind.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
@@ -39,8 +47,7 @@ export function minutesPerPoint(resolution: string): number {
 
 /**
  * Una serie como puntos `[tiempo, valor]`; un null sigue siendo null (hueco). Una serie que
- * el conjunto no mide (null, Solo actividad de la 0046) sale sin puntos; la vista por tipo es
- * de la 0047.
+ * el conjunto no mide (null, Solo actividad de la 0046) sale sin puntos.
  */
 function points(series: ServiceSeries | null, divisor = 1): [number, number | null][] {
   if (series === null) return []
@@ -95,6 +102,16 @@ export function serviceChartSeries(
         }
       ]
     case 'activity':
+      // Solo actividad (ficha 0047): una serie con todas las peticiones, sin la parte KO.
+      if (series.ok === null || series.errors === null) {
+        return [
+          {
+            name: name('requests'),
+            color: colors.success,
+            points: points(series.requests, minutes)
+          }
+        ]
+      }
       return [
         { name: name('ok'), color: colors.success, points: points(series.ok, minutes) },
         { name: name('ko'), color: colors.danger, points: points(series.errors, minutes) }
@@ -241,24 +258,44 @@ function scope(entityId: string): string {
   return `:filter(eq("dt.entity.service","${entityId}")):splitBy("dt.entity.service")`
 }
 
-/** Consulta de Métricas de cada gráfico («Abrir en Métricas»). */
-export function serviceChartSelector(kind: ServiceChartKind, entityId: string): string {
+/** Claves de las métricas de Servidor: las de antes de la 0046 y las de mientras carga. */
+const SERVER_KEYS: ServiceMetricsResult['metricKeys'] = {
+  responseTime: 'builtin:service.response.server',
+  requests: 'builtin:service.requestCount.server',
+  errors: 'builtin:service.errors.server.count',
+  errorRate: 'builtin:service.errors.server.rate'
+}
+
+/**
+ * Consulta de Métricas de cada gráfico («Abrir en Métricas»), con las claves que usó main
+ * (`metricKeys`, ficha 0047). Sin datos todavía, las de Servidor. Solo actividad cuenta con
+ * `response.server:count`; en las unificadas, que no tienen métrica de tasa, la tasa abre las
+ * fallidas y el total con los que se calcula.
+ */
+export function serviceChartSelector(
+  kind: ServiceChartKind,
+  entityId: string,
+  data?: Pick<ServiceMetricsResult, 'metricSet' | 'metricKeys'>
+): string {
   const s = scope(entityId)
+  const keys = data?.metricKeys ?? SERVER_KEYS
+  const responseTime = keys.responseTime ?? SERVER_KEYS.responseTime
+  const requests = keys.requests ?? SERVER_KEYS.requests
+  const errors = keys.errors ?? SERVER_KEYS.errors
   switch (kind) {
     case 'responseTime':
       return [
-        `builtin:service.response.server${s}:median`,
-        `builtin:service.response.server${s}:percentile(90.0)`,
-        `builtin:service.response.server${s}:percentile(99.0)`
+        `${responseTime}${s}:median`,
+        `${responseTime}${s}:percentile(90.0)`,
+        `${responseTime}${s}:percentile(99.0)`
       ].join(',')
     case 'activity':
-      return [
-        `builtin:service.requestCount.server${s}`,
-        `builtin:service.errors.server.count${s}`
-      ].join(',')
+      if (data?.metricSet === 'activity') return `${requests}${s}:count`
+      return [`${requests}${s}`, `${errors}${s}`].join(',')
     case 'errorRate':
-      return `builtin:service.errors.server.rate${s}`
+      if (keys.errorRate !== null) return `${keys.errorRate}${s}`
+      return [`${errors}${s}`, `${requests}${s}`].join(',')
     case 'errors':
-      return `builtin:service.errors.server.count${s}`
+      return `${errors}${s}`
   }
 }

@@ -6,12 +6,15 @@ import type { EntityProblemCounts, ServiceMetricsResult } from '@shared/modules'
 import { cn } from '../../lib/cn'
 import { formatCount, formatDurationMs, formatErrorRate } from '../../lib/service-format'
 import { MarkerCard, MarkerCount, QueryState, RangeLine } from './EntityMarkers'
+import { serviceMetricNote, type ServiceMetricNote } from './service-type'
 
 /**
  * Fila de marcadores de la página de un SERVICE (ficha 0008): peticiones OK y
  * KO, tasa de error, tiempos (mediana, p90 y p99) y problemas abiertos y
  * cerrados del rango global. Cada canal se pinta por su lado: si uno falla, sus
- * marcadores enseñan el aviso con Reintentar y los demás siguen.
+ * marcadores enseñan el aviso con Reintentar y los demás siguen. Según el conjunto de métricas
+ * (ficha 0047): Solo actividad deja Peticiones y Problemas, y una nota bajo los marcadores dice
+ * de dónde salen los datos (mientras carga, los de siempre y sin nota).
  */
 export function ServiceMarkers({
   metrics,
@@ -28,6 +31,9 @@ export function ServiceMarkers({
   const { t, i18n } = useTranslation()
   const lang = i18n.language
   const metricState = { query: metrics, enabled: metricsEnabled }
+  const data = metrics.data
+  const activityOnly = data?.metricSet === 'activity'
+  const note = data === undefined ? null : serviceMetricNote(data)
 
   return (
     <div className="grid gap-2">
@@ -35,75 +41,90 @@ export function ServiceMarkers({
         data-testid="service-markers"
         role="group"
         aria-label={t('entities.service.markers.label')}
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+        className={cn('grid gap-4 sm:grid-cols-2', !activityOnly && 'lg:grid-cols-5')}
       >
-        <MarkerCard testId="service-marker-ok" title={t('entities.service.markers.ok')}>
-          <QueryState {...metricState}>
-            {(data) => <BigValue>{formatCount(okOf(data), lang)}</BigValue>}
-          </QueryState>
-        </MarkerCard>
+        {activityOnly ? (
+          <MarkerCard
+            testId="service-marker-requests"
+            title={t('entities.service.markers.requests')}
+          >
+            <QueryState {...metricState}>
+              {(loaded) => <BigValue>{formatCount(requestsOf(loaded), lang)}</BigValue>}
+            </QueryState>
+          </MarkerCard>
+        ) : (
+          <>
+            <MarkerCard testId="service-marker-ok" title={t('entities.service.markers.ok')}>
+              <QueryState {...metricState}>
+                {(data) => <BigValue>{formatCount(okOf(data), lang)}</BigValue>}
+              </QueryState>
+            </MarkerCard>
 
-        <MarkerCard testId="service-marker-ko" title={t('entities.service.markers.ko')}>
-          <QueryState {...metricState}>
-            {(data) => {
-              const errors = errorsOf(data)
-              return (
-                <BigValue danger={errors !== null && errors > 0}>
-                  {formatCount(errors, lang)}
-                </BigValue>
-              )
-            }}
-          </QueryState>
-        </MarkerCard>
+            <MarkerCard testId="service-marker-ko" title={t('entities.service.markers.ko')}>
+              <QueryState {...metricState}>
+                {(data) => {
+                  const errors = errorsOf(data)
+                  return (
+                    <BigValue danger={errors !== null && errors > 0}>
+                      {formatCount(errors, lang)}
+                    </BigValue>
+                  )
+                }}
+              </QueryState>
+            </MarkerCard>
 
-        <MarkerCard
-          testId="service-marker-error-rate"
-          title={t('entities.service.markers.errorRate')}
-        >
-          <QueryState {...metricState}>
-            {(data) => <BigValue>{formatErrorRate(data?.totals.errorRate ?? null, lang)}</BigValue>}
-          </QueryState>
-        </MarkerCard>
+            <MarkerCard
+              testId="service-marker-error-rate"
+              title={t('entities.service.markers.errorRate')}
+            >
+              <QueryState {...metricState}>
+                {(data) => (
+                  <BigValue>{formatErrorRate(data?.totals.errorRate ?? null, lang)}</BigValue>
+                )}
+              </QueryState>
+            </MarkerCard>
 
-        <MarkerCard
-          testId="service-marker-response-time"
-          title={t('entities.service.markers.responseTime')}
-        >
-          <QueryState {...metricState}>
-            {(data) => {
-              const times = data?.totals.responseTime
-              return (
-                <div className="grid gap-1">
-                  <p
-                    data-testid="service-marker-median"
-                    className="flex flex-wrap items-baseline justify-center gap-x-2"
-                  >
-                    <span className="text-3xl font-semibold tabular-nums">
-                      {formatDurationMs(times?.median ?? null, lang)}
-                    </span>{' '}
-                    <span className="text-xs text-muted-foreground">
-                      {t('entities.service.markers.median')}
-                    </span>
-                  </p>
-                  <p className="flex flex-wrap justify-center gap-x-3 text-sm">
-                    <Percentile
-                      testId="service-marker-p90"
-                      label={t('entities.service.markers.p90')}
-                      hint={t('entities.service.markers.p90Hint')}
-                      value={formatDurationMs(times?.p90 ?? null, lang)}
-                    />
-                    <Percentile
-                      testId="service-marker-p99"
-                      label={t('entities.service.markers.p99')}
-                      hint={t('entities.service.markers.p99Hint')}
-                      value={formatDurationMs(times?.p99 ?? null, lang)}
-                    />
-                  </p>
-                </div>
-              )
-            }}
-          </QueryState>
-        </MarkerCard>
+            <MarkerCard
+              testId="service-marker-response-time"
+              title={t('entities.service.markers.responseTime')}
+            >
+              <QueryState {...metricState}>
+                {(data) => {
+                  const times = data?.totals.responseTime
+                  return (
+                    <div className="grid gap-1">
+                      <p
+                        data-testid="service-marker-median"
+                        className="flex flex-wrap items-baseline justify-center gap-x-2"
+                      >
+                        <span className="text-3xl font-semibold tabular-nums">
+                          {formatDurationMs(times?.median ?? null, lang)}
+                        </span>{' '}
+                        <span className="text-xs text-muted-foreground">
+                          {t('entities.service.markers.median')}
+                        </span>
+                      </p>
+                      <p className="flex flex-wrap justify-center gap-x-3 text-sm">
+                        <Percentile
+                          testId="service-marker-p90"
+                          label={t('entities.service.markers.p90')}
+                          hint={t('entities.service.markers.p90Hint')}
+                          value={formatDurationMs(times?.p90 ?? null, lang)}
+                        />
+                        <Percentile
+                          testId="service-marker-p99"
+                          label={t('entities.service.markers.p99')}
+                          hint={t('entities.service.markers.p99Hint')}
+                          value={formatDurationMs(times?.p99 ?? null, lang)}
+                        />
+                      </p>
+                    </div>
+                  )
+                }}
+              </QueryState>
+            </MarkerCard>
+          </>
+        )}
 
         <MarkerCard testId="service-marker-problems" title={t('entities.service.markers.problems')}>
           <QueryState query={problems} enabled={problemsEnabled}>
@@ -129,8 +150,39 @@ export function ServiceMarkers({
           </QueryState>
         </MarkerCard>
       </div>
+      {note !== null && <MetricSetNote note={note} />}
       <RangeLine resolution={metrics.data?.resolution ?? null} testId="service-markers-range" />
     </div>
+  )
+}
+
+/**
+ * Nota pequeña bajo los marcadores con el origen de las métricas (ficha 0047) y su explicación
+ * en un tooltip que también se abre con el foco.
+ */
+function MetricSetNote({ note }: { note: ServiceMetricNote }): JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <p
+          data-testid="service-metric-set-note"
+          data-note={note}
+          tabIndex={0}
+          className="w-fit cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-2"
+        >
+          {t(`entities.service.metricSetNote.${note}`)}
+        </p>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          sideOffset={6}
+          className="glass z-50 max-w-80 rounded-md px-3 py-2 text-xs text-foreground"
+        >
+          {t(`entities.service.metricSetNote.${note}Hint`)}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }
 
@@ -140,6 +192,9 @@ export function ServiceMarkers({
  */
 const hasRequestData = (data: ServiceMetricsResult): boolean =>
   data.series.requests.values.some((value) => value !== null)
+
+const requestsOf = (data: ServiceMetricsResult | null): number | null =>
+  data !== null && hasRequestData(data) ? data.totals.requests : null
 
 const okOf = (data: ServiceMetricsResult | null): number | null =>
   data !== null && hasRequestData(data) ? data.totals.ok : null

@@ -1151,7 +1151,8 @@
         "open": "Abiertos",
         "closed": "Cerrados",
         "loading": "Cargando…",
-        "loadError": "No se pudo cargar."
+        "loadError": "No se pudo cargar.",
+        "requests": "Peticiones"
       },
       "charts": {
         "title": "Métricas de peticiones",
@@ -1166,7 +1167,8 @@
           "p99": "p99",
           "ok": "OK",
           "ko": "KO",
-          "errorRate": "Tasa de error"
+          "errorRate": "Tasa de error",
+          "requests": "Peticiones"
         },
         "perMinuteUnit": "/min",
         "perMinuteTooltip": "{{perMinute}} · {{total}} en el intervalo",
@@ -1248,6 +1250,29 @@
           "lastSeen": "Visto por última vez",
           "managementZones": "Management zones"
         }
+      },
+      "serviceTypes": {
+        "WEB_SERVICE": "Servicio web",
+        "CUSTOM_SERVICE": "Servicio personalizado",
+        "BACKGROUND_ACTIVITY": "Actividad en segundo plano",
+        "SPAN": "Span",
+        "MESSAGING_SERVICE": "Mensajería",
+        "EXTERNAL": "Externo",
+        "WEB_REQUEST_SERVICE": "Peticiones web",
+        "RPC_SERVICE": "RPC",
+        "DATABASE_SERVICE": "Base de datos",
+        "UNIFIED": "Unificado",
+        "QUEUE_LISTENER_SERVICE": "Escucha de colas"
+      },
+      "metricSetNote": {
+        "activity": "Este tipo de servicio solo mide actividad",
+        "activityHint": "Dynatrace solo cuenta las peticiones de este tipo de servicio: no hay tiempos de respuesta ni errores.",
+        "client": "Medido desde los clientes",
+        "clientHint": "Tiempos, peticiones y errores salen de las métricas de cliente: lo que miden quienes llaman a este servicio.",
+        "unified": "Métricas unificadas",
+        "unifiedHint": "Tiempos, peticiones y errores salen de las métricas unificadas de Dynatrace; la tasa de error se calcula con las fallidas y el total.",
+        "fallback": "Métricas de servidor por defecto",
+        "fallbackHint": "No se pudo saber el tipo de este servicio (por ejemplo, el token no tiene entities.read), así que se usan las métricas de servidor."
       }
     },
     "tags": {

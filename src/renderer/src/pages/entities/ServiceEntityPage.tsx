@@ -17,6 +17,7 @@ import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityP
 import { ServiceCharts } from './ServiceCharts'
 import { ServiceInfo } from './ServiceInfo'
 import { ServiceMarkers } from './ServiceMarkers'
+import { serviceTypeName } from './service-type'
 
 /**
  * Página de análisis de una entidad SERVICE: marcadores del rango global
@@ -44,6 +45,12 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
   const problemList = useEntityProblems(problemsEnv, serviceId)
   const info = useEntityInfo(entitiesEnv, serviceId)
   const refresh = useModuleRefresh(metricsEnv ?? problemsEnv ?? entitiesEnv, 'entities')
+  // Ficha 0047: el serviceType que usó main para las métricas, junto al tipo de entidad.
+  const serviceType = metrics.data?.serviceType ?? null
+  const typeText =
+    serviceType === null
+      ? t('entities.types.SERVICE')
+      : `${t('entities.types.SERVICE')} · ${serviceTypeName(serviceType, t)}`
   const canFetch =
     serviceId !== null && (metricsEnv !== null || problemsEnv !== null || entitiesEnv !== null)
 
@@ -51,7 +58,7 @@ export function ServiceEntityPage(props: EntityPageProps): JSX.Element {
     <EntityPageFrame
       {...props}
       testId="entity-page-service"
-      typeText={t('entities.types.SERVICE')}
+      typeText={typeText}
       actions={
         canFetch ? (
           <RefreshButton

@@ -5,6 +5,7 @@ import type { EntityProblemList, ServiceMetricsResult } from '@shared/modules'
 import type { ChartColors } from '../../components/Chart'
 import {
   SERVICE_CHART_KINDS,
+  serviceChartKinds,
   serviceChartOption,
   serviceChartSelector,
   serviceChartSeries,
@@ -19,7 +20,9 @@ import { EntityChartPanel } from './EntityChartPanel'
  * Sección «Métricas de peticiones» de la página de un SERVICE (ficha 0009): cuatro
  * gráficos en una rejilla de 2×2 (una columna por debajo de 1024 px). Todos salen de la
  * misma consulta que los marcadores (`entities:serviceMetrics`, una sola llamada). Sobre
- * el de la tasa de error va la franja de los problemas de la entidad (ficha 0010).
+ * el de la tasa de error va la franja de los problemas de la entidad (ficha 0010). Los gráficos
+ * dependen del conjunto de métricas (ficha 0047): Solo actividad deja solo el de actividad;
+ * mientras carga, los cuatro.
  */
 export function ServiceCharts({
   serviceId,
@@ -33,6 +36,8 @@ export function ServiceCharts({
   problemList: UseQueryResult<EntityProblemList> | null
 }): JSX.Element {
   const { t } = useTranslation()
+  const set = metrics.data?.metricSet
+  const kinds = set === undefined ? SERVICE_CHART_KINDS : serviceChartKinds(set)
   return (
     <section
       data-testid="service-charts"
@@ -40,8 +45,8 @@ export function ServiceCharts({
       className="grid gap-3"
     >
       <h2 className="text-sm font-semibold">{t('entities.service.charts.title')}</h2>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {SERVICE_CHART_KINDS.map((kind) => (
+      <div className={kinds.length > 1 ? 'grid gap-4 lg:grid-cols-2' : 'grid gap-4'}>
+        {kinds.map((kind) => (
           <ServiceChartPanel
             key={kind}
             kind={kind}
@@ -94,7 +99,7 @@ function ServiceChartPanel({
       testIdPrefix="service"
       slug={serviceChartSlug(kind)}
       title={t(`entities.service.charts.${kind}`)}
-      selector={serviceChartSelector(kind, serviceId)}
+      selector={serviceChartSelector(kind, serviceId, data)}
       query={metrics}
       buildOption={buildOption}
       series={series}
