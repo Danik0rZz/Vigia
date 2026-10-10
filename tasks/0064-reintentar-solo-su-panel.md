@@ -1,7 +1,7 @@
 ---
 id: '0064'
 titulo: '«Reintentar» de un panel solo vuelve a pedir lo suyo (y arreglos pequeños de la interfaz)'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-interfaz
@@ -140,13 +140,14 @@ Decisiones del developer (la cola está delegada; se pueden afinar):
 - **C-10:** `main.tsx` siembra `['appInfo']` en la caché al llegar la respuesta (aunque llegue tarde)
   y la consulta de `Sidebar` lleva `staleTime: Infinity` para no repetirla al montarse.
 - **C-14:** los títulos llevan la clase `md-h<nivel>` y `main.css` pasa de `.md-text h1` a
-  `.md-text .md-h1` (mismo aspecto). Los e2e de las fichas 0001 y 0035 que buscaban `h1…h6` en la
-  descripción buscan ahora `p[role="heading"]` (commit propio).
-- **Bloqueo (CA6):** `MarkdownText.test.ts`, `CA6 (0064)`, «`# a` sale con nivel 5…», exige
-  `visibleText(html) === 'ab'`, pero react-markdown deja un `\n` entre bloques (con `h1` reales
-  también: `<h1>a</h1>\n<h6>b</h6>`), así que da `'a\nb'` con cualquier implementación. No se toca:
-  lo decide el Orquestador. El cambio de C-14 y el de los e2e quedan sin commitear hasta entonces
-  (el pre-commit no deja pasar el test).
+  `.md-text .md-h1` (mismo aspecto).
+- **e2e de las fichas 0001 y 0035 (aec8b83):** buscaban `h1…h6` en la descripción y C-14 deja de
+  pintar los títulos del Markdown del tenant como títulos reales, así que ahora buscan
+  `p[role="heading"]`. Lo que verifican no se debilita: el texto exacto y que haya un único título
+  siguen igual. El nivel no lo comprobaban antes y lo cubre `CA6 (0064)` en unitario. Un título que
+  volviera a salir como `h1` lo detecta ese mismo unitario.
+- **CA6:** el test exigía `'ab'` y react-markdown deja un `\n` entre bloques con cualquier
+  implementación. Lo corrigió el test-writer en a73b351 (compara `['a', 'b']`).
 
 ## Resultado
 
