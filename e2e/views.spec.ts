@@ -5712,6 +5712,173 @@ async function expandRow(title: string): Promise<Locator> {
   return detail
 }
 
+/**
+ * Ficha 0059: cuántas veces se ha pintado cada fila de un DataGrid. Contrato (decisión del
+ * test-writer, refinable): con VIGIA_E2E, cada fila principal (la de `rowTestId`) lleva
+ * `data-render-count`, las veces que se ha pintado desde que se montó. Devuelve id → renders
+ * (-1 si falta el atributo) de las filas montadas, por el atributo `idAttr` de cada fila.
+ */
+async function rowRenders(rowTestId: string, idAttr: string): Promise<Record<string, number>> {
+  return page.evaluate(
+    ({ testId, attr }) => {
+      const out: Record<string, number> = {}
+      for (const row of document.querySelectorAll<HTMLElement>(`[data-testid="${testId}"]`)) {
+        const id = row.getAttribute(attr)
+        const count = row.getAttribute('data-render-count')
+        if (id !== null) out[id] = count === null || count === '' ? -1 : Number(count)
+      }
+      return out
+    },
+    { testId: rowTestId, attr: idAttr }
+  )
+}
+
+/** Ficha 0059: espera a que los renders de las filas no cambien entre dos frames y los devuelve. */
+async function settledRowRenders(
+  rowTestId: string,
+  idAttr: string
+): Promise<Record<string, number>> {
+  let last: Record<string, number> = {}
+  await expect
+    .poll(async () => {
+      const before = await rowRenders(rowTestId, idAttr)
+      await nextFrames()
+      last = await rowRenders(rowTestId, idAttr)
+      return JSON.stringify(before) === JSON.stringify(last)
+    })
+    .toBe(true)
+  return last
+}
+
+/**
+ * Ficha 0059: guarda el elemento de cada fila montada. Si una fila se desmonta y se vuelve a montar,
+ * su contador empieza de cero y podría coincidir con el de antes: `sameRows` lo descubre.
+ */
+async function markRows(rowTestId: string, idAttr: string): Promise<void> {
+  await page.evaluate(
+    ({ testId, attr }) => {
+      const marks = new Map<string, Element>()
+      for (const row of document.querySelectorAll(`[data-testid="${testId}"]`)) {
+        const id = row.getAttribute(attr)
+        if (id !== null) marks.set(id, row)
+      }
+      ;(window as unknown as { __rows0059?: Map<string, Element> }).__rows0059 = marks
+    },
+    { testId: rowTestId, attr: idAttr }
+  )
+}
+
+/** Ficha 0059: ids marcados con `markRows` cuya fila sigue siendo el mismo elemento montado. */
+async function sameRows(rowTestId: string, idAttr: string): Promise<string[]> {
+  return page.evaluate(
+    ({ testId, attr }) => {
+      const marks = (window as unknown as { __rows0059?: Map<string, Element> }).__rows0059
+      if (marks === undefined) return []
+      const now = new Map<string, Element>()
+      for (const row of document.querySelectorAll(`[data-testid="${testId}"]`)) {
+        const id = row.getAttribute(attr)
+        if (id !== null) now.set(id, row)
+      }
+      return [...marks]
+        .filter(([id, row]) => row.isConnected && now.get(id) === row)
+        .map(([id]) => id)
+    },
+    { testId: rowTestId, attr: idAttr }
+  )
+}
+
+/** Ficha 0059: el subconjunto de `renders` con esos ids. */
+function pick(renders: Record<string, number>, ids: readonly string[]): Record<string, number> {
+  return Object.fromEntries(ids.map((id) => [id, renders[id] ?? -1]))
+}
+
+test('CA1 (0059): en Problemas con 300 filas, hacer scroll de diez filas no vuelve a pintar las que ya estaban montadas y no han cambiado', async () => {
+  sim.many = true
+  await goTo('problems')
+  const rows = page.getByTestId('problem-row')
+  await expect(rows.first()).toContainText('P-M')
+  const scroller = page.getByTestId('problems-scroll')
+  const row = (index: number): Locator =>
+    page.locator(`[data-testid="problem-row"][data-index="${index}"]`)
+  await expect(row(10)).toHaveCount(1)
+  expect(await firstVisibleIndex()).toBe(0)
+
+  // Antes del scroll: cada fila montada lleva su contador.
+  const before = await settledRowRenders('problem-row', 'data-problem-id')
+  const mounted = Object.keys(before)
+  expect(mounted.length, 'filas montadas').toBeGreaterThan(10)
+  expect(mounted.length, 'virtualizada: no están las 300').toBeLessThan(300)
+  for (const [id, count] of Object.entries(before)) {
+    expect(count, `data-render-count de ${id}`).toBeGreaterThanOrEqual(1)
+  }
+  await markRows('problem-row', 'data-problem-id')
+
+  // Scroll de diez filas exactas (lo que separa la fila 10 de la 0).
+  const tops = await Promise.all(
+    [0, 10].map((i) => row(i).evaluate((el) => el.getBoundingClientRect().top))
+  )
+  const delta = (tops[1] ?? 0) - (tops[0] ?? 0)
+  expect(delta).toBeGreaterThan(0)
+  await scroller.evaluate((el, by) => {
+    el.scrollTop += by
+  }, delta)
+  await expect.poll(firstVisibleIndex).toBe(10)
+  const after = await settledRowRenders('problem-row', 'data-problem-id')
+
+  // Las que siguen montadas (el mismo elemento) no se han vuelto a pintar.
+  const kept = await sameRows('problem-row', 'data-problem-id')
+  expect(kept.length, 'filas que siguen montadas tras el scroll').toBeGreaterThan(5)
+  expect(pick(after, kept), 'renders de las filas que no han cambiado').toEqual(pick(before, kept))
+  // Las nuevas sí se pintan (el contador está vivo).
+  const fresh = Object.keys(after).filter((id) => before[id] === undefined)
+  expect(fresh.length, 'filas nuevas tras el scroll').toBeGreaterThan(0)
+  for (const id of fresh) expect(after[id], `data-render-count de ${id}`).toBeGreaterThanOrEqual(1)
+
+  // Una fila que sí cambia (pasa a ser la del foco) se vuelve a pintar: el contador sube.
+  const target = page.locator(`[data-testid="problem-row"][data-index="12"]`)
+  const targetId = (await target.getAttribute('data-problem-id')) ?? ''
+  expect(kept).toContain(targetId)
+  await target.evaluate((el) => (el as HTMLElement).focus({ preventScroll: true }))
+  await expect(target).toHaveAttribute('tabindex', '0')
+  await expect
+    .poll(async () => (await rowRenders('problem-row', 'data-problem-id'))[targetId] ?? -1)
+    .toBeGreaterThan(after[targetId] ?? Number.MAX_SAFE_INTEGER)
+})
+
+test('CA2 (0059): escribir en el buscador de evidencias solo vuelve a pintar las filas que cambian', async () => {
+  await goToRoute(`/problems/${BIG_ID}`)
+  await expect(page.getByTestId('problem-page-title')).toContainText('P-778')
+  await expect(evidenceRows().first()).toHaveAttribute('data-event-id', 'big-299')
+
+  const before = await settledRowRenders('evidence-row', 'data-event-id')
+  const mounted = Object.keys(before)
+  expect(mounted.length, 'evidencias montadas').toBeGreaterThan(5)
+  for (const [id, count] of Object.entries(before)) {
+    expect(count, `data-render-count de ${id}`).toBeGreaterThanOrEqual(1)
+  }
+  await markRows('evidence-row', 'data-event-id')
+
+  // Letra a letra, un texto que cumplen las 300: ninguna fila cambia, así que ninguna se repinta.
+  const search = page.getByTestId('evidence-search')
+  await search.click()
+  await search.pressSequentially('Evidencia')
+  await expect(search).toHaveValue('Evidencia')
+  await expect(evidenceRows().first()).toHaveAttribute('data-event-id', 'big-299')
+  const after = await settledRowRenders('evidence-row', 'data-event-id')
+  expect(Object.keys(after).sort(), 'las mismas filas montadas').toEqual([...mounted].sort())
+  const kept = await sameRows('evidence-row', 'data-event-id')
+  expect(kept.sort(), 'ninguna fila se ha vuelto a montar').toEqual([...mounted].sort())
+  expect(after, 'renders de las filas que no han cambiado').toEqual(before)
+
+  // Una fila que sí cambia (se despliega) se vuelve a pintar: el contador sube.
+  const target = page.locator('[data-testid="evidence-row"][data-event-id="big-297"]')
+  await target.click()
+  await expect(target).toHaveAttribute('aria-expanded', 'true')
+  await expect
+    .poll(async () => (await rowRenders('evidence-row', 'data-event-id'))['big-297'] ?? -1)
+    .toBeGreaterThan(after['big-297'] ?? Number.MAX_SAFE_INTEGER)
+})
+
 test('v0.10.0: 300 evidencias en la tabla virtualizada; la vista responde', async () => {
   await goToRoute(`/problems/${BIG_ID}`)
   const detail = page.getByTestId('problem-page')
