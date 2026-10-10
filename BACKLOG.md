@@ -18,7 +18,20 @@ bueno de Dani o de peticiones en su nombre.
 
 ## Próximo
 
-- Flujo, parte 2 (ADR-0013), aprobada por Dani el 2026-10-10: el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
+- Cola aprobada por Dani el 2026-10-10 (flujo, parte 2 del ADR-0013), en este orden: lote
+  **flujo-herramientas** (A): [0067](tasks/0067-e2e-etiquetas-por-zona.md),
+  [0068](tasks/0068-e2e-afectados-sin-compilar.md), [0069](tasks/0069-e2e-vistas-arnes-comun.md),
+  [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md),
+  [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md),
+  [0073](tasks/0073-integracion-por-pr.md) y [0074](tasks/0074-medicion-automatica-ci.md); después,
+  lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md),
+  [0076](tasks/0076-e2e-poner-en-cuarentena.md),
+  [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) y
+  [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md). Tras la 0073, Dani instala `gh`
+  con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`.
+  Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`) y el lote C
+  (paralelismo).
+- Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
 
 ## Propuestas
 
