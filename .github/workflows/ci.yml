@@ -1,5 +1,4 @@
-# Puerta sin IA (ADR-0007): cada push a main pasa check, el e2e completo y el empaquetado en
-# Windows. Sin test:live ni secretos: los logs de un repositorio público son públicos. El zip no se
+# Puerta sin IA (ADR-0007) en Windows. Sin test:live ni secretos: los logs de un repositorio público son públicos. El zip no se
 # sube (publicarlo lo decide Dani).
 #
 # Ficha 0072: también corre en cada PR a main, sin filtro de rutas, para que el check «CI ok» exista
@@ -7,7 +6,12 @@
 # scripts/ci-changes.mjs si la PR trae algo más que documentos (la lista de lo que no cuenta vive
 # en ese script; el paths-ignore del push tiene que coincidir con ella), `windows` pasa check y el
 # e2e completo solo si hay código (el zip solo fuera de las PR) y `ci-ok` da verde si nada falló
-# ni se canceló. Hasta la ficha 0073, el push a main sigue igual que antes.
+# ni se canceló.
+#
+# Ficha 0073: se integra por PR (ramas integra/…, de 3 a 5 fichas). El e2e completo pasa en cada PR
+# (y a mano); el push a main, que solo llega al fusionar una PR, pasa check (para cazar dos PR que
+# pasaron cada una por su lado y fallan juntas) y dist:win, sin e2e. Las ramas integra/ no lanzan
+# el CI al subirlas: solo sus PR.
 #
 # Ficha 0056: cada acción va fijada por SHA de commit, con su versión en el comentario (una etiqueta
 # la puede mover su dueño o quien le robe la cuenta). Al subir una acción se cambia aquí, en
@@ -29,8 +33,8 @@ on:
 permissions:
   contents: read
 
-# En main los runs se encolan, no se cancelan: en una cola de fichas, el push de la siguiente no
-# debe cancelar el CI de la anterior (el aviso de Telegram enlaza a ese run). En una PR solo cuenta
+# En main los runs se encolan, no se cancelan: la fusión de una PR no debe cancelar el CI de la
+# fusión anterior (cada una puede romper con lo que ya había). En una PR solo cuenta
 # el último push: el nuevo cancela el run anterior de esa misma PR (github.ref es refs/pull/N/merge).
 concurrency:
   group: ci-${{ github.ref }}
@@ -86,7 +90,9 @@ jobs:
           key: electron-${{ runner.os }}-44.5.1
       - run: npx install-electron
       - run: npm run check
-      - run: npm run test:e2e
+      # El e2e completo, en las PR y a mano; en el push a main ya pasó en su PR.
+      - if: github.event_name != 'push'
+        run: npm run test:e2e
       # Solo test-results/ de Playwright (captura y final del log de main de e2e/failure-capture.ts).
       # Los e2e usan servidores simulados: no hay datos del tenant ni secretos (el CI no tiene
       # .env.live.local ni test:live).
