@@ -1,7 +1,7 @@
 ---
 id: '0073'
 titulo: 'Integración por PR: un commit por ficha, ramas de integración, PR de 3 a 5 fichas y dist:win solo en main'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -232,5 +232,11 @@ Decisiones del developer (2026-10-11):
 - Ronda 2 (punto 4): `git push origin main` queda solo para integrar esta ficha; desde la
   siguiente no es vía de integración aunque falte la protección, y sin `gh` se para y se avisa.
 - `/cerrar-version` integra su commit con una PR desde `integra/…` que fusiona el Orquestador.
+- Ronda 3 (ronda 2 del revisor): la PR solo de documentos cuenta lo que no va en ninguna PR
+  abierta (`git log --oneline main --not origin/main <integra/… con PR abierta>`); con cambios sin
+  commitear en el checkout principal no se empieza el merge, y con conflicto `merge --abort`,
+  parada y aviso, sin resolver en el checkout de otra sesión. Los merges de «Traer `main`» llevan
+  mensaje en español (`chore(git): trae origin/main` y `chore(git): trae main`). Mismo texto en
+  `docs/flujo.md`, `tarea.md` y `cerrar-version.md`.
 - En `ci.yml`, el e2e lleva `if: github.event_name != 'push'`: corre en las PR y a mano
   (`workflow_dispatch`), no en el push a `main`.
