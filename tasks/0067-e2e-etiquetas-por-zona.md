@@ -13,7 +13,7 @@ adrs: [6, 13] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -136,7 +136,26 @@ Normal (`ligera: no`). Es M, ya no cumple el requisito de tamaño.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1 a CA4 con su test en `scripts/e2e-tags.test.ts`; sin tocar tras `d68f89c` y
+  fallarían sin `scripts/e2e-tags.cjs`.
+- Specs sin cambios de fondo: comparados `main` y `HEAD` sin espacios ni las opciones `{tag: …}`,
+  idénticos en los seis specs; el resto del diff es el reformateo de Prettier.
+- Guarda pura sobre el compilador de TypeScript; solo cuenta tests y describes con título literal y
+  función; una etiqueta no literal sale como sin zona (falla visible). Portapapeles por
+  `clipboard` en el cuerpo o en auxiliares de nivel superior, con cierre transitivo.
+- `e2e/areas.json`: las 16 zonas y `@portapapeles`; `affected-e2e.cjs` no lee las claves nuevas.
+  Repasadas las asignaciones de los seis specs; encajan con «la pantalla donde está lo que se
+  comprueba».
+
+Opcional:
+
+1. «Abrir en Métricas» sin regla clara (unos a `@metricas`, otros a `@problema-detalle` o
+   `@servicio`): dejar escrita la regla antes de la 0070 y la 0071, por ejemplo «a `@metricas` si se
+   comprueba lo que pinta Métricas; a la zona de origen si se comprueba la consulta del gráfico».
+2. `usesClipboard` cruza nombres sin mirar el ámbito: una variable local con el nombre de una
+   auxiliar con portapapeles daría un falso positivo (seguro: pide una etiqueta de más).
 
 ## Verificación
 
