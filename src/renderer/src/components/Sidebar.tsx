@@ -81,8 +81,13 @@ export function Sidebar(): JSX.Element {
     metrics: useModuleAccess('metrics')
   }
   const ToggleIcon = collapsed ? PanelLeftOpen : PanelLeftClose
-  // Lo decide main (app.isPackaged): el renderer no lo deduce por su cuenta.
-  const appInfo = useQuery({ queryKey: ['appInfo'], queryFn: () => invoke('app:getInfo') })
+  // Lo decide main (app.isPackaged): el renderer no lo deduce por su cuenta. No cambia en la
+  // sesión: si main.tsx ya lo dejó en la caché al arrancar, no se vuelve a pedir (ficha 0064).
+  const appInfo = useQuery({
+    queryKey: ['appInfo'],
+    queryFn: () => invoke('app:getInfo'),
+    staleTime: Infinity
+  })
 
   return (
     <aside
