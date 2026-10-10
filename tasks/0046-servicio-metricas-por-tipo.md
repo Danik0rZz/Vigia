@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /entities/{entityId}` (`fields` con `+properties.serviceType`, `+properties.webServerName`, `+properties.remoteEndpoint` y `+properties.remoteServiceName`), `GET /entities` (`entitySelector=type("SERVICE"),serviceType("…")`, atributo de entidad según la OpenAPI), `GET /metrics/{metricId}` y `GET /metrics/query`; `..\API\Dynatrace Environment APIv2\APIv2.json`. Scopes `entities.read` y `metrics.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -95,7 +95,21 @@ comportamientos, nunca ids ni nombres. Resultado en "Resultado" y en `docs/notas
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA7 con su test. Tras `a66a0e9`: `d288168` solo pasa EXTERNAL a Cliente (decisión del
+Orquestador anotada), y el fixture de `service-charts.test.ts` (0009) gana tres campos sin tocar
+aserciones; el ajuste de la 0006 (de 2 a 3 peticiones) sigue exigiendo 2 consultas de métricas.
+Expresiones iguales al paso 0 en vivo por conjunto (Servidor, Cliente, Unificadas en ms con
+`splitBy("dt.entity.service")` y tasa en main, Solo actividad con una consulta), ≤ 9 por consulta.
+`null` en el esquema solo para Solo actividad, tratado en el renderer. Fallback a Servidor con aviso
+que solo lleva el código; ADR-0004; sin canal, CSP, dependencias ni migraciones; ids inventados.
+
+Sugerencias, no bloquean:
+
+- El texto de `warnings` es español fijo y llega a los metadatos de «Exportar» también en inglés:
+  campo estructurado en la 0047 (ya anotado) u omitirlo del aviso.
+- EXTERNAL → Cliente cambia una fila de la tabla de Dani: va en el resumen para Dani.
 
 ## Verificación
 
