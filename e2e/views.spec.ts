@@ -8360,7 +8360,7 @@ test('CA6 (0001): al desplegar un evento con descripción, «Descripción» sale
   expect(order).toContain('evidence-properties')
 
   // Los elementos renderizados, no los símbolos.
-  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Uso de CPU alto'])
+  await expect(section.locator('p[role="heading"]')).toHaveText(['Uso de CPU alto'])
   await expect(section.locator('li')).toHaveText(['primer paso', 'segundo paso'])
   await expect(section.locator('strong')).toHaveText(['negrita'])
   await expect(section.locator('code')).toHaveText(['código'])
@@ -8456,7 +8456,7 @@ test('CA10 (0001), actualizado por CA6 (0043): el HTML peligroso de la descripci
   // ejecutándose). Desde la 0043 no se exige verlo como texto.
   await expect(section).toContainText('Texto')
   await expect(section).toContainText('fin')
-  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Aviso'])
+  await expect(section.locator('p[role="heading"]')).toHaveText(['Aviso'])
   await expect(detail.locator('img, script, iframe')).toHaveCount(0)
   expect(
     await page.evaluate(() => (window as { __xssDesc?: unknown }).__xssDesc ?? null)
@@ -8535,7 +8535,7 @@ test('CA1 (0002): sin conmutador de modo; la descripción sale siempre renderiza
 
   // Renderizada: los elementos, no los símbolos de Markdown.
   const { section } = descriptionParts(await expandRow('Descripción con formato'))
-  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Uso de CPU alto'])
+  await expect(section.locator('p[role="heading"]')).toHaveText(['Uso de CPU alto'])
   await expect(section.locator('li')).toHaveText(['primer paso', 'segundo paso'])
   await expect(section.locator('strong')).toHaveText(['negrita'])
   await expect(section.locator('code')).toHaveText(['código'])
@@ -8701,7 +8701,7 @@ test('CA4 (0035): una evidencia METRIC con descripción enseña «Descripción»
   const { section, copy, truncated } = descriptionParts(detail)
   await expect(section).toBeVisible()
   await expect(section).toContainText('Descripción')
-  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Cambio en la métrica'])
+  await expect(section.locator('p[role="heading"]')).toHaveText(['Cambio en la métrica'])
   await expect(section.locator('li')).toHaveText(['subida brusca', 'revisar pool'])
   await expect(section.locator('strong')).toHaveText(['subida'])
   await expect(section.locator('code')).toHaveText(['pool'])
@@ -8719,7 +8719,7 @@ test('CA4 (0035): una evidencia AVAILABILITY_EVIDENCE con descripción también 
   await openAllDescriptionsProblem()
   const { section } = descriptionParts(await expandRow(ALL_AVAILABILITY))
   await expect(section).toBeVisible()
-  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Host caído'])
+  await expect(section.locator('p[role="heading"]')).toHaveText(['Host caído'])
   await expect(section.locator('ol li')).toHaveText(['reiniciar', 'comprobar'])
   await expectRenderedText(section)
 })
@@ -8755,7 +8755,7 @@ test('Decisión del Orquestador (0035): otra clave con «description» en un MET
   await expect(title).toBeVisible()
   const section = otherDescription(detail, OTHER_KEY)
   await expect(section).toBeVisible()
-  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Pasos'])
+  await expect(section.locator('p[role="heading"]')).toHaveText(['Pasos'])
   await expect(section.locator('li')).toHaveText(['reiniciar el pool', 'avisar al equipo'])
   await expect(section.locator('strong')).toHaveText(['reiniciar'])
   await expect(section.locator('code')).toHaveText(['equipo'])
@@ -8792,7 +8792,7 @@ test('Decisión del Orquestador (0035): en un EVENT sin dt.event.description, ot
   await expect(detail.getByTestId('evidence-description')).toHaveCount(0)
   await expect(detail.getByText(OTHER_KEY_EVENT, { exact: true })).toBeVisible()
   const section = otherDescription(detail, OTHER_KEY_EVENT)
-  await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText(['Pasos'])
+  await expect(section.locator('p[role="heading"]')).toHaveText(['Pasos'])
   await expect(section.locator('li')).toHaveText(['reiniciar el pool', 'avisar al equipo'])
   expect(await section.innerText()).not.toContain('**')
 
@@ -8809,9 +8809,7 @@ for (const name of [ALL_TRANSACTIONAL, ALL_EVENT]) {
     await openAllDescriptionsProblem()
     const { section, truncated } = descriptionParts(await expandRow(name))
     await expect(section).toBeVisible()
-    await expect(section.locator('h1, h2, h3, h4, h5, h6')).toHaveText([
-      'Configuración del despliegue'
-    ])
+    await expect(section.locator('p[role="heading"]')).toHaveText(['Configuración del despliegue'])
     // El bloque de código YAML, como bloque y sin las vallas.
     const block = section.locator('pre')
     await expect(block).toHaveCount(1)
