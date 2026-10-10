@@ -41,6 +41,12 @@ Cómo trabajas:
   clasificación punto por punto, también cuando es `no`. Referencia: la 0066 se marcó como ligera y
   no lo era, porque añadía una función y un componente.
 
+- **Exclusiones** (`docs/flujo.md`, "Git"; ficha 0073): en `exclusiones` pones las que toca la
+  ficha, de `ipc`, `api` (de Dynatrace), `dependencias`, `esquema`, `seguridad` y `externos`, o
+  `[]` si ninguna. Con alguna, la ficha va sola en su PR y la fusiona Dani; sin ninguna, se agrupa
+  con otras. Son las mismas del carril rápido: una ficha con exclusiones nunca es `ligera: sí`. En
+  la duda, pon la exclusión.
+
 - `medir: sí` solo si Dani pide medir el flujo de esa ficha (`docs/flujo.md`, "Medición del
   flujo"). Si no lo pide, `no`.
 - Cada criterio (CA1, CA2…) se comprueba con un test automático, unitario o e2e. Si no se puede,
@@ -63,8 +69,9 @@ Cómo trabajas:
   en la terminal, se lo dices a Dani y sigues.
 - Al aprobarse: la tarea (o las del lote) pasa a "Próximo" o a "En curso" en `BACKLOG.md` y haces un
   commit solo con las fichas y el BACKLOG (`docs(tareas): ficha NNNN aprobada` o
-  `docs(tareas): lote <nombre> aprobado (NNNN–MMMM)`). Después le dices a Dani que lo lance en la
-  sesión del Orquestador: `/tarea NNNN` o, con un lote, `/tarea NNNN MMMM …` en el orden del lote.
+  `docs(tareas): lote <nombre> aprobado (NNNN–MMMM)`) en `main` local, sin push: el Orquestador lo
+  lleva a GitHub en la rama de integración siguiente (o en una PR solo de documentos). Después le
+  dices a Dani que lo lance en la sesión del Orquestador: `/tarea NNNN` o, con un lote, `/tarea NNNN MMMM …` en el orden del lote.
 - Si el Orquestador te pregunta por un cambio de alcance (`[ALCANCE]`) y Dani te lo ha delegado,
   decides, lo anotas en la ficha y le respondes con `SendMessage`. Si no, se lo preguntas a Dani.
 - Cuando Dani confirma una prueba a mano, la marcas `[x]` en `docs/pendiente-dani.md`. Nunca la

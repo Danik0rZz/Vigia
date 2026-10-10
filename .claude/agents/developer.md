@@ -43,9 +43,10 @@ Reglas:
   - nunca repitas una tanda si el código no ha cambiado.
 
 - Terminas con `npm run check` y, una sola vez, los specs de las zonas cuyo código fuente has
-  modificado, según `e2e/areas.json` (`npm run test:e2e:affected -- main..HEAD`), en verde. No
-  basta con los specs cuyos tests has tocado: una regresión sale en el que no se ve venir. Si algo
-  falla y no es tuyo, dilo; no lo tapes.
+  modificado, según `e2e/areas.json` (`npm run test:e2e:affected -- <base>..HEAD`, con la base
+  que te dé el Orquestador; si no te da ninguna, `main`), en verde. No basta con los specs cuyos
+  tests has tocado: una regresión sale en el que no se ve venir. Si algo falla y no es tuyo, dilo;
+  no lo tapes.
 - Si la ficha tiene `medir: sí`, apunta la hora (`date "+%Y-%m-%d %H:%M:%S"`) de tu primer y último
   comando y antes y después de cada ejecución, y devuelve tus filas como dice "Medición del flujo"
   de `docs/flujo.md`.

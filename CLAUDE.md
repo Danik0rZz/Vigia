@@ -51,22 +51,27 @@ que no está escrito, para los agentes no existe.
 Petición → **Planificador** (sesión 1, `claude --agent planner`) → ficha en `borrador`, o un lote
 de fichas pequeñas si la petición es grande → la aprueba Dani (o peticiones, si Dani lo delega) →
 **Orquestador** (sesión 2, `/tarea NNNN [MMMM …]`, en cola): test-writer → developer → reviewer
-(máximo 3 rondas) → verifier → doc-writer → merge fast-forward a `main` y push → CI. Las fichas
-del carril rápido (`ligera: sí`) se saltan el test-writer y pasan delante en la cola; el CI no se
-espera, y si falla se para la cola hasta arreglarlo. Lo que espera a Dani se le avisa por Telegram
-y se contesta en la sesión (o desde el móvil con Remote Control). Las versiones se cierran con
-`/cerrar-version`. Los cambios de alcance (`[ALCANCE]`) los decide Dani. Detalle: `docs/flujo.md`
-y ADR-0007, ADR-0010 y ADR-0013.
+(máximo 3 rondas) → verifier → doc-writer → un commit por ficha (`git merge --squash`) en una rama
+`integra/AAAAMMDD-N` → PR a `main` con 3 a 5 fichas → CI de la PR → fusión con «CI ok» en verde.
+La ficha que toca IPC, API, dependencias, esquema, seguridad o servicios externos (`exclusiones`)
+va sola en su PR, y esa la fusiona Dani. Las fichas del carril rápido (`ligera: sí`) se saltan el
+test-writer y pasan delante en la cola; el CI no se espera, y si falla se para la cola hasta
+arreglarlo. Lo que espera a Dani se le avisa por Telegram y se contesta en la sesión (o desde el
+móvil con Remote Control). Las versiones se cierran con `/cerrar-version`. Los cambios de alcance
+(`[ALCANCE]`) los decide Dani. Detalle: `docs/flujo.md` y ADR-0007, ADR-0010, ADR-0013 y ADR-0014.
 
 ## Reglas que no se saltan
 
 - Se escala a Dani lo destructivo o irreversible, publicar algo nuevo hacia fuera, licencia, marca,
   temas legales, el qué de las funciones sin definir, la API cuando no se puede deducir y retomar
   Monaco. Solo lo decide Dani: force push, reescribir el historial publicado, borrar ramas remotas,
-  tags, releases y publicar el zip. El zip nunca se arranca en su perfil. (Lista completa en
-  `docs/flujo.md`, "Quién decide".)
-- Push: solo `git push origin main`, con el reviewer en APROBADO y el verifier en verde. Nunca
-  `--force`, `--force-with-lease` ni `--no-verify`.
+  fusionar la PR de una ficha sola, la configuración de GitHub, tags, releases y publicar el zip. El
+  zip nunca se arranca en su perfil. (Lista completa en `docs/flujo.md`, "Quién decide".)
+- Push: `git push origin integra/<nombre>` (solo ramas con ese prefijo), PR a `main` con
+  `gh pr create` y fusión de las PR agrupadas con `gh pr merge --merge` cuando «CI ok» está en
+  verde, con el reviewer en APROBADO y el verifier en verde en cada ficha. `git push origin main`
+  solo mientras no esté activa la protección de `main`. Nunca `--force`, `--force-with-lease` ni
+  `--no-verify`; los agentes no borran ramas remotas (las borra GitHub al fusionar).
 - Nunca escribir secretos, cabeceras `Authorization` ni cookies en logs, ficheros de configuración,
   mensajes de error ni en el repositorio.
 - Nada del tenant de pruebas (nombres, IDs, URLs, valores) ni nombres de clientes en el repositorio,

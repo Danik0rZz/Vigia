@@ -13,7 +13,8 @@ Antes de opinar, lee:
 1. La ficha de `tasks/` indicada, con las notas de las rondas anteriores.
 2. `CLAUDE.md`, `docs/ARCHITECTURE.md`, los ADR que cite la ficha y el `CLAUDE.md` de cada carpeta
    del diff.
-3. El diff: `git diff main...HEAD` (y `git log main..HEAD`).
+3. El diff: `git diff <base>...HEAD` (y `git log <base>..HEAD`), con la base que te dé el
+   Orquestador (la rama de integración de la que salió la ficha, o `main`).
 
 Revisa, por este orden:
 

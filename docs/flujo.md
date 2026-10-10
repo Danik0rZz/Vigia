@@ -6,19 +6,19 @@ leyendo. Si algo no está escrito, para ellos no existe.
 
 ## Quién es quién
 
-| Quién        | Dónde                                  | Qué hace                                                                                 |
-| ------------ | -------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Dani         | —                                      | Pide, decide y aprueba. Prueba a mano (`docs/pendiente-dani.md`).                        |
-| Planificador | Sesión 1 (antes, peticiones)           | Convierte peticiones en fichas, o en lotes. Decide en nombre de Dani si lo delega.       |
-| Orquestador  | Sesión 2 (worktree propio)             | `/tarea NNNN [MMMM …]` (en cola) y `/cerrar-version`. Coordina; no escribe código.       |
-| test-writer  | Subagente del Orquestador              | Tests desde la ficha, antes del código. Tienen que fallar.                               |
-| developer    | Subagente del Orquestador              | Implementa hasta verde. No toca los tests.                                               |
-| reviewer     | Subagente del Orquestador              | Revisa el diff sin contexto previo. Solo lectura. (Antes, senior.)                       |
-| verifier     | Subagente del Orquestador              | Repite `check` y los e2e afectados en un worktree limpio. (Antes, test.)                 |
-| doc-writer   | Subagente del Orquestador              | CHANGELOG, BACKLOG, ADR, ARCHITECTURE y el resultado de la ficha.                        |
-| Hooks de git | `.githooks/` (sin IA)                  | Pre-commit: lint, tipos, formato y unitarios relacionados. Pre-push: escaneo del tenant. |
-| CI           | GitHub Actions (sin IA)                | `check`, e2e completo y `dist:win` en Windows en cada push a `main`.                     |
-| Aviso        | `scripts/notify-telegram.mjs` (sin IA) | Mensaje a Telegram al terminar `/tarea` o `/cerrar-version`. Opcional.                   |
+| Quién        | Dónde                                  | Qué hace                                                                                   |
+| ------------ | -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Dani         | —                                      | Pide, decide y aprueba. Prueba a mano (`docs/pendiente-dani.md`).                          |
+| Planificador | Sesión 1 (antes, peticiones)           | Convierte peticiones en fichas, o en lotes. Decide en nombre de Dani si lo delega.         |
+| Orquestador  | Sesión 2 (worktree propio)             | `/tarea NNNN [MMMM …]` (en cola) y `/cerrar-version`. Coordina; no escribe código.         |
+| test-writer  | Subagente del Orquestador              | Tests desde la ficha, antes del código. Tienen que fallar.                                 |
+| developer    | Subagente del Orquestador              | Implementa hasta verde. No toca los tests.                                                 |
+| reviewer     | Subagente del Orquestador              | Revisa el diff sin contexto previo. Solo lectura. (Antes, senior.)                         |
+| verifier     | Subagente del Orquestador              | Repite `check` y los e2e afectados en un worktree limpio. (Antes, test.)                   |
+| doc-writer   | Subagente del Orquestador              | CHANGELOG, BACKLOG, ADR, ARCHITECTURE y el resultado de la ficha.                          |
+| Hooks de git | `.githooks/` (sin IA)                  | Pre-commit: lint, tipos, formato y unitarios relacionados. Pre-push: escaneo del tenant.   |
+| CI           | GitHub Actions (sin IA)                | En Windows: `check` y e2e completo en cada PR; `check` y `dist:win` al fusionar en `main`. |
+| Aviso        | `scripts/notify-telegram.mjs` (sin IA) | Mensaje a Telegram al terminar `/tarea` o `/cerrar-version`. Opcional.                     |
 
 Cada subagente es una instancia nueva: el reviewer de la ronda 2 no es el de la ronda 1. El encargo
 que les pasa el Orquestador es corto (la ruta de la ficha y, si acaso, una nota); el resto lo leen.
@@ -46,16 +46,19 @@ borrador ──(Dani o peticiones)──▶ aprobada ──test-writer──▶ 
    │ cambio de alcance                                            │ CAMBIOS (máx. 3 rondas)   ▼
    └──────────── [ALCANCE] lo decide Dani ◀──── reviewer ─────────┴──────────── APROBADO
                                                                                       │
-                     hecha ◀──doc-writer── verificada ◀──verifier (check + e2e)───────┘
-                       │
-                       └─▶ merge fast-forward a main ─▶ push (pre-push: scan:tenant) ─▶ CI
+      hecha ◀──merge --squash en integra/…── verificada ◀──verifier (check + e2e)─────┘
+        │                                    (y el doc-writer)
+        └─▶ push de integra/… (pre-push: scan:tenant) ─▶ PR a main (3 a 5 fichas) ─▶ CI ─▶ fusión
 ```
 
 - `bloqueada`: tres rondas sin aprobar, un test que el developer cree incorrecto, una decisión que
   no está en el repositorio o un fallo del verifier que no se arregla en dos intentos. El
   Orquestador para y se lo dice a Dani (o al Planificador, si Dani lo ha delegado).
-- `en_espera`: en una cola, la ficha espera una respuesta de Dani; su rama se queda y la cola sigue
-  con la siguiente que no dependa de ella. Se retoma con `/tarea NNNN`.
+- `en_espera`: en una cola, la ficha espera una respuesta de Dani (o que Dani fusione la PR de una
+  ficha de la que depende); su rama se queda y la cola sigue con la siguiente que no dependa de ella.
+  Se retoma con `/tarea NNNN`.
+- `hecha` quiere decir integrada en su rama de integración: la ficha pasa a `hecha` dentro de su
+  propio commit (ver "Git"). El doc-writer la deja `verificada`.
 - Una ficha por tarea, con su número correlativo (`tasks/NNNN-slug.md`, a partir de la plantilla).
 - Las ideas que surgen no se implementan: van a "Ideas surgidas" y el doc-writer las pasa al
   BACKLOG.
@@ -74,7 +77,7 @@ Para ir más rápido sin perder las puertas (ADR-0010):
   pequeñas: un fallo solo para la suya, el reviewer ve diffs que puede revisar bien y cada una se
   deshace sola.
 - **Colas.** `/tarea 0006 0007 0008` las hace en ese orden sin esperar a Dani entre una y otra,
-  cada una desde el `main` que dejó la anterior y con su aviso. Si una espera a Dani o se bloquea,
+  cada una desde la rama de integración en curso (o desde `main` si no hay ninguna) y con su aviso. Si una espera a Dani o se bloquea,
   se avisa y la cola sigue con las que no dependen de ella. Al final, un aviso con el resumen.
 - **Carril rápido o fichas ligeras** (`ligera: sí`, la marca el Planificador; ADR-0013): solo para
   fichas S que no tocan canales IPC, la API de Dynatrace, dependencias, el esquema, la seguridad ni
@@ -91,7 +94,8 @@ Para ir más rápido sin perder las puertas (ADR-0010):
   No hay test-writer: el developer escribe primero los tests (commit solo de tests) y después el
   código. El reviewer comprueba además dos cosas: que los tests cubren cada criterio tal como está
   escrito y que el diff respeta la clasificación. Si no la respeta, lo dice y se anota para afinar
-  el criterio; la ficha sigue. El verifier, los hooks y el CI no cambian.
+  el criterio; la ficha sigue. El verifier, los hooks y el CI no cambian, y la ficha se agrupa en
+  una PR como las normales.
 
 - **El carril rápido no espera detrás de las normales** que aún no han empezado: pasa delante en
   cuanto acaba la ficha en curso, sin interrumpirla. Hacerla a la vez que otra necesita paralelismo
@@ -109,14 +113,17 @@ Para ir más rápido sin perder las puertas (ADR-0010):
   fichas (`aprobada_por: peticiones`, con el motivo) y los `[ALCANCE]` que le pase el Orquestador
   (con `SendMessage` a la sesión del Planificador). Nunca lo que solo decide Dani.
 - **Luz verde sin preguntar:** lo recuperable con git que ya esté commiteado (código, dependencias
-  exactas, `node_modules`, `out`, `dist`, tests, empaquetar, commits, merge a `main` y push normal
-  con el visto bueno del reviewer y del verifier), lecturas del tenant de pruebas y matar procesos
-  del equipo.
+  exactas, `node_modules`, `out`, `dist`, tests, empaquetar, commits, `git merge --squash` en
+  una rama `integra/…`, `git push origin integra/…`, abrir PR a `main` y fusionar las PR
+  agrupadas con «CI ok» en verde y el visto bueno del reviewer y del verifier en cada ficha),
+  lecturas del tenant de pruebas y matar procesos del equipo.
 - **Se pregunta a peticiones:** borrar o mover lo que no está en git (`docs/especificacion.md`,
   `%APPDATA%\vigia`, `.env.live.local`, `..\API\` y nada fuera del repositorio), escrituras en el
   tenant, cambios globales en la máquina, y `git reset --hard`, `checkout --`, `clean` o
   `stash drop` con cambios sin commitear (salvo commit o stash previo).
-- **Solo lo decide Dani:** force push, reescribir el historial publicado, borrar ramas remotas,
+- **Solo lo decide Dani:** force push, reescribir el historial publicado, borrar ramas remotas
+  (las borra GitHub al fusionar la PR), fusionar la PR de una ficha sola (la que toca alguna
+  exclusión), la configuración de GitHub (protección de `main`, permisos del token de `gh`),
   tags, releases, publicar el zip, licencia y temas legales, y el qué de las funciones sin definir.
   El zip nunca se arranca en su perfil.
 - Antes de cada tanda grande de cambios en la spec, copia como
@@ -125,41 +132,86 @@ Para ir más rápido sin perder las puertas (ADR-0010):
 
 ## Git
 
-- Cada ficha en su rama local `feat/NNNN-slug`, creada desde `main` en el worktree del Orquestador.
-  Las ramas no se publican en GitHub.
-- Integración: `main` está en el checkout principal (otro worktree), así que se integra desde ahí:
-  `git -C <checkout principal> merge --ff-only feat/NNNN-slug` (la ruta sale de
-  `git worktree list`). Si no es fast-forward, se rebasa la rama sobre `main` en el worktree del
-  Orquestador, se repite el verifier y se vuelve a intentar. La rama se borra en local después.
-- Push: solo `git push origin main`, y solo con el reviewer en APROBADO y el verifier en verde.
-  Nunca `--force` ni `--force-with-lease`. Sin tags, releases ni subir el zip a GitHub.
+Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de integración, y una PR a
+`main` con 3 a 5 fichas.
+
+- **Rama de la ficha:** `feat/NNNN-slug` (o `fix/NNNN-ci`, con el campo `rama` de la ficha
+  cambiado), local y sin publicar, creada en el worktree del Orquestador desde la rama de
+  integración en curso, o desde `main` si no hay ninguna o si la ficha va sola. Los rangos de la
+  ficha (reviewer, verifier y e2e afectados) son `<base>..<rama>`, con la base de la que salió.
+- **Rama de integración:** `integra/AAAAMMDD-N` (N empieza en 1 cada día), creada desde `main` o
+  desde la rama de integración anterior si su PR aún no se ha fusionado. Se publica con
+  `git push origin integra/AAAAMMDD-N`; el push no lanza el CI (solo lo lanzan las PR y `main`).
+- **Un commit por ficha.** Con el doc-writer hecho (la ficha queda `verificada`), en la rama de la
+  ficha: `node scripts/integrate.mjs tasks/NNNN-slug.md <zona>` comprueba que la ficha está
+  `verificada`, que el árbol está limpio y que la rama es la suya, y escribe el mensaje
+  (`feat(zona): título (#NNNN)`, o `fix(…)` si la rama es `fix/`); si algo falla, da los motivos
+  y sale con 1. Se guarda el mensaje en un fichero, se cambia a la rama `integra/…`,
+  `git merge --squash <rama de la ficha>`, se pone `estado: hecha` en la ficha (`git add`) y
+  `git commit -F <fichero>`. Los commits del developer y el cierre del doc-writer van juntos en
+  ese commit. La rama de la ficha se borra en local con `git branch -D` (el squash no la marca como
+  fusionada).
+- **Qué va en cada PR** (`groupForPrs` de `scripts/integrate.mjs`, que el Orquestador usa para
+  decidir con `node scripts/integrate.mjs --agrupar <fichas en el orden de la cola>`): una ficha con alguna `exclusiones` (`ipc`, `api`, `dependencias`, `esquema`,
+  `seguridad` o `externos`), o sin el campo (las de antes de la 0073), va sola y **la fusiona
+  Dani**. Las demás, rápidas o normales, se juntan en el orden de la cola de 3 a 5: la PR se abre al
+  llegar a 5, al llegar a 3 si no quedan más agrupables en la cola, o al acabar la cola con las que
+  haya. Una ficha sola en medio no corta el grupo en curso.
+- **PR agrupada:** `gh pr create --base main --head integra/…`, con título «Fichas NNNN, MMMM…» y
+  en el cuerpo la lista de fichas con su título y el enlace a su fichero, sin nada del tenant. No se
+  espera al CI (ADR-0013): se sondea en segundo plano (`gh pr checks`) y, con «CI ok» en verde, se
+  fusiona con `gh pr merge --merge` («Create a merge commit»: `main` conserva un commit por ficha
+  con los mismos SHA; «Rebase» obligaría a un force push y «Squash» juntaría las fichas). GitHub
+  borra la rama remota al fusionar; los agentes no borran ramas remotas.
+- **PR de una ficha sola:** su rama `integra/…` sale de `main`, no de una rama de integración
+  pendiente. El Orquestador la abre, **no la fusiona** y avisa a Dani (`parada`, con el enlace de
+  la PR y el estado de «CI ok»). La cola sigue con las fichas que no dependan de ella; las que
+  dependen quedan `en_espera` hasta que Dani la fusione.
+- **Documentos sin código** (la ficha aprobada que commitea el Planificador en `main` local, la
+  medición del CI que llega después): van en la rama de integración en curso; si no hay ninguna, en
+  una PR solo de documentos, que «CI ok» deja pasar en segundos.
+- **Tras fusionar una PR:** `git fetch origin` y `git -C <checkout principal> merge --ff-only
+origin/main` (la ruta sale de `git worktree list`), para que la rama siguiente salga del `main`
+  de GitHub.
+- **Push:** `git push origin integra/<nombre>` (solo ramas con ese prefijo) y, mientras no esté
+  activa la protección de `main`, `git push origin main` con el reviewer en APROBADO y el verifier
+  en verde. Con la protección activa (`main` solo admite PR con «CI ok», también para
+  administradores), el push a `main` deja de usarse. Nunca `--force` ni `--force-with-lease`.
+  Sin tags, releases ni subir el zip a GitHub.
+- **`gh`** usa un token fine-grained de este repositorio (Contents y Pull requests de lectura y
+  escritura, sin administración) que configuró Dani; los agentes nunca lo ven, escriben ni guardan.
+  Si `gh pr checks` o `gh run view` no pueden leer el CI con esos permisos, se le dice a Dani y él
+  decide; no se amplía por cuenta propia.
 - Antes de cada push (el pre-push lo hace solo): `npm run scan:tenant`. Además, revisar el contenido
   sensible: autor y committer noreply, sin `docs/especificacion.md`, sin nombres de clientes,
   secretos, URLs o IDs de tenants reales, logs ni `.env`.
-- Commits pequeños por funcionalidad, en español, con el número de la ficha:
+- Commits pequeños por funcionalidad en la rama de la ficha, en español, con el número de la ficha:
   `feat(problemas): agrupa por clúster (#0003)`. Tests para la lógica de main.
 - En PowerShell, `git commit -F -` con un here-string no lee el mensaje de la entrada: escribir el
   mensaje en un fichero y usar `git commit -F <fichero>`.
 
 ### El CI, sin esperarlo (ADR-0013)
 
-El Orquestador no espera al CI para empezar la siguiente ficha. Lo sondea en segundo plano y manda
-el aviso de la ficha cuando acaba, con el enlace. **Si falla, se para la cola:**
+El Orquestador no espera al CI de una PR para empezar la siguiente ficha. Lo sondea en segundo
+plano y, cuando acaba, fusiona la PR (si es agrupada) y manda el aviso de sus fichas, con el enlace.
+Lo mismo con el CI de `main` que lanza cada fusión (`check` y `dist:win`). **Si falla,
+se para la cola** (con la PR, o la fusión en `main`, como run):
 
 1. No se lanza ningún subagente más. El que esté trabajando acaba su paso (no se corta a medias) y
    su ficha se queda en su rama, `en_espera`.
-2. Se localiza la ficha culpable. Hoy cada push es una ficha. Un run puede cubrir varias: GitHub
-   cancela el run en espera cuando llega un tercer push. En ese caso se busca por el test que falla
-   y el diff de cada ficha y, en la duda, el verifier pasa ese spec en el commit de cada una.
+2. Se localiza la ficha culpable. Una PR agrupada cubre de 3 a 5 fichas (y una fusión en `main`,
+   las de su PR más lo que ya había): se busca por el test que falla y el diff de cada ficha (un
+   commit cada una) y, en la duda, el verifier pasa ese spec en el commit de cada una.
 3. Se relanza el job que falló, una sola vez. Si pasa, el spec queda anotado en «Mejoras anotadas»
    del BACKLOG como sospechoso de inestable, con la fecha y el run. Son los datos de la cuarentena
    (ADR-0013, ficha B). La cola sigue.
-4. Si vuelve a fallar, se reabre la ficha culpable: `en_desarrollo`, rama `fix/NNNN-ci` desde
-   `main`. Developer con el fallo, reviewer y verifier; el doc-writer lo añade a su «Resultado» y se
-   integra. Si el arreglo se sale del alcance de la ficha, se para y se pregunta. Con dos intentos
+4. Si vuelve a fallar, se reabre la ficha culpable: `en_desarrollo`, rama `fix/NNNN-ci` (también en
+   su campo `rama`) desde la rama de integración de la PR que falló (o desde `main`, si ya estaba
+   fusionada). Developer con el fallo, reviewer y verifier; el doc-writer lo añade a su «Resultado» y
+   se integra con su commit `fix(…)` en esa misma rama, que actualiza la PR. Si el arreglo se sale del alcance de la ficha, se para y se pregunta. Con dos intentos
    sin verde, `bloqueada` y su aviso.
-5. Con el CI en verde, la cola sigue. La ficha que esperaba se rebasa sobre `main` y, si el rebase
-   toca algo más que documentos, se repite su verifier.
+5. Con el CI en verde, la cola sigue. La ficha que esperaba se rebasa sobre su base al día y, si el
+   rebase toca algo más que documentos, se repite su verifier.
 
 ## Niveles de prueba
 
@@ -219,13 +271,12 @@ Las reglas:
 - Las esperas de Dani y las de la cola van en su propia fila.
 - Los tiempos del CI se leen del propio CI (la API de GitHub o `gh run view`: inicio y fin de cada
   job y de cada paso, sin copiar logs).
-- La medición va en el commit de documentación. Los commits que solo tocan `tasks/`, `docs/` o
-  Markdown no disparan el CI (`paths-ignore`), así que no provocan otro run. Si uno tuviera que ir
-  con código, lleva `[skip ci]`.
-- Como el CI no se espera, sus horas llegan cuando la ficha ya está en `main`. No llevan rama
+- La medición va en el commit de documentación. En una PR, «CI ok» deja pasar en segundos lo que
+  solo toca `tasks/`, `docs/` o Markdown, y el push a `main` lo ignora (`paths-ignore`).
+- Como el CI no se espera, sus horas llegan cuando la ficha ya está integrada. No llevan rama
   propia. El Orquestador se las pasa al doc-writer de la ficha siguiente, que las añade a la ficha
-  medida en su commit de cierre, con los totales. Si no queda ninguna ficha detrás, van en un último
-  commit de documentación al acabar la cola.
+  medida en su commit de cierre, con los totales. Si no queda ninguna ficha detrás, van en la rama de
+  integración en curso o, si no hay, en una PR solo de documentos ("Git").
 - Los totales van en «Resultado»: reloj de la petición al CI en verde, tiempo por agente, esperas,
   número de ejecuciones y tests.
 
@@ -247,8 +298,9 @@ Lo hace `/cerrar-version` en la sesión 2 cuando Dani (o peticiones) lo pide:
 
 Opcional (ADR-0009). El Orquestador llama a `node scripts/notify-telegram.mjs <json>` al terminar:
 
-- `/tarea`: `hecha` (tras el push, con el enlace del CI), `bloqueada` (tres rondas sin aprobar, con
-  el motivo) o `parada` (esperando una decisión de Dani, con la pregunta). Un `[ALCANCE]` que
+- `/tarea`: `hecha` (con el CI de su PR acabado, con el enlace), `bloqueada` (tres rondas sin
+  aprobar, con el motivo) o `parada` (esperando una decisión de Dani, con la pregunta; también al
+  abrir la PR de una ficha sola, con su enlace y el estado de «CI ok»). Un `[ALCANCE]` que
   decide el Planificador por delegación no avisa.
 - `/cerrar-version`: `cerrada` o `fallida` (con el motivo).
 - Una cola de `/tarea`: un aviso por ficha y otro al final con el resumen (`parada` si alguna espera
@@ -298,13 +350,17 @@ informe local). Nunca van al CI.
   actual y, si no está, en el checkout principal (los worktrees de Orca no lo tienen). Sin nada que
   subir, deja pasar. `VIGIA_SCAN_TENANT_OPTIONAL=1` (solo ese valor) lo hace opcional, con 0 y un
   aviso: para clones sin tenant de pruebas; en la VPS no se usa.
-- **CI** (`.github/workflows/ci.yml`): en cada push a `main` y a mano, en `windows-latest`,
-  instalación del README, `npm run check`, `npm run test:e2e` y `npm run dist:win` (sin subir el
-  zip). No se lanza si el push solo toca Markdown, `docs/`, `tasks/` o `.claude/`
-  (`paths-ignore`). Sin `test:live` ni secretos: los logs del CI son públicos. Además: `npm audit`
+- **CI** (`.github/workflows/ci.yml`), en `windows-latest` con la instalación del README: en cada
+  PR a `main` (y a mano), `npm run check` y `npm run test:e2e` completo, sin `dist:win`; en el
+  push a `main` (al fusionar una PR), `npm run check` y `npm run dist:win` (sin subir el zip), sin
+  e2e, que ya pasó en la PR: el `check` caza dos PR que pasaron cada una por su lado y fallan
+  juntas. El check «CI ok» existe siempre (job `ci-ok`) y es el único que exige la protección de
+  `main`; en una PR solo de documentos pasa en segundos (`scripts/ci-changes.mjs`). El push a
+  `main` no se lanza si solo toca Markdown, `docs/`, `tasks/` o `.claude/` (`paths-ignore`), y
+  el push a las ramas `integra/` no lo lanza nunca. Sin `test:live` ni secretos: los logs del CI son públicos. Además: `npm audit`
   (producción `high` bloquea; desarrollo `critical` solo avisa); acciones fijadas por SHA de 40
-  hexadecimales con la versión en un comentario (lo exige `scripts/ci-workflow.test.ts`); runs
-  encolados, sin cancelar (`cancel-in-progress: false`); caché de Electron con su versión en la
+  hexadecimales con la versión en un comentario (lo exige `scripts/ci-workflow.test.ts`); en
+  `main`, runs encolados, sin cancelar (en una PR, el push nuevo cancela el run anterior); caché de Electron con su versión en la
   clave (al subir Electron, cambiarla); y `test-results/` como artefacto 7 días si fallan los e2e.
   `audit.yml` repite el audit cada lunes y a mano.
 - **Permisos de Claude Code** (`.claude/settings.json`): niegan force push, tags y releases, y leer

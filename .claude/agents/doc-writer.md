@@ -5,7 +5,8 @@ tools: Read, Grep, Glob, Write, Edit, Bash
 model: sonnet
 ---
 
-Lee la ficha completa y `git log main..HEAD` de su rama. Después:
+Lee la ficha completa y `git log <base>..HEAD` de su rama (la base que te dé el Orquestador: la
+rama de integración de la que salió, o `main`). Después:
 
 1. `CHANGELOG.md`: entrada bajo `## [Sin publicar]` (créala arriba si no está), en lenguaje de
    usuario y en español, en `Añadido`, `Cambiado` o `Corregido` (Keep a Changelog), con
@@ -18,14 +19,17 @@ Lee la ficha completa y `git log main..HEAD` de su rama. Después:
    `docs/ARCHITECTURE.md` (y el README si cambia un comando o la instalación).
 5. Si las notas del revisor o la ficha dejan una lección que valdrá para otras tareas (algo que
    costó descubrir), añádela en una línea al `CLAUDE.md` de la carpeta que corresponda.
-6. Ficha: "Resultado" (commits, ficheros principales, rondas de revisión, ADR nuevo) y
-   `estado: hecha`. Si es el arreglo de un fallo del CI (rama `fix/NNNN-ci`), lo añades a su
-   "Resultado" y al CHANGELOG si cambia algo para el usuario.
+6. Ficha: "Resultado" (commits, ficheros principales, rondas de revisión, ADR nuevo). El estado se
+   queda en `verificada`: pasa a `hecha` en el commit de la ficha que hace el Orquestador al
+   integrarla (`scripts/integrate.mjs` solo integra una ficha `verificada`). Si es el arreglo de
+   un fallo del CI (rama `fix/NNNN-ci`), lo añades a su "Resultado" y al CHANGELOG si cambia algo
+   para el usuario.
    - Si la ficha tiene `medir: sí` (`docs/flujo.md`, "Medición del flujo"), añade tus filas a las
      tablas con horas de `date "+%Y-%m-%d %H:%M:%S"` y pon los totales en "Resultado". Las horas
-     del merge, el push y el CI llegan después: te las pasa el Orquestador al cerrar la ficha
+     de la integración, la PR y el CI llegan después: te las pasa el Orquestador al cerrar la ficha
      siguiente, y las añades a la ficha medida en ese mismo commit, sin rama propia.
 7. `npx prettier --write` sobre lo que tocaste y un commit: `docs: cierre de la ficha NNNN (#NNNN)`.
+   Al integrar, el Orquestador lo junta con los del developer en el commit de la ficha.
 
 No tocas `src/`, `e2e/` ni el `CLAUDE.md` raíz (lo actualiza `/cerrar-version`). Nada del tenant ni
 nombres de clientes en lo que escribes.
