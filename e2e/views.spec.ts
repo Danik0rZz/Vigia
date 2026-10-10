@@ -3106,18 +3106,27 @@ const APPLICATION_RUM: Record<string, { series: (number | null)[]; total: number
   },
   [`${RUM_W}actionsPerSession:splitBy():avg`]: { series: [5.5, null, 6.25], total: 5.9 },
   [`${RUM_W}bouncedSessionRatio:splitBy()`]: { series: [25, null, 33.5], total: 28.4 },
+  // Ficha 0054: los totales de los Core Web Vitals caen en las tres calificaciones (LCP 2,3 s
+  // bueno, CLS 0,18 mejorable e INP 640 ms pobre).
   [`${RUM_W}largestContentfulPaint.load.browser:splitBy():percentile(75)`]: {
     series: [2_200, null, 2_640],
-    total: 2_480
+    total: 2_310
   },
   [`${RUM_W}cumulativeLayoutShift.load.browser:splitBy():percentile(75)`]: {
-    series: [0.04, null, 0.11],
-    total: 0.08
+    series: [0.04, null, 0.21],
+    total: 0.18
   },
   [`${RUM_W}interactionToNextPaint:splitBy():percentile(75)`]: {
-    series: [160, 210, null],
-    total: 190
+    series: [160, 720, null],
+    total: 640
   }
+}
+/**
+ * Ficha 0054: rage clicks, con datos solo con `sim.applicationRumRageClicks` (en vivo llegan sin
+ * series; así se prueba el «si hay datos»).
+ */
+const APPLICATION_RUM_RAGE: Record<string, { series: (number | null)[]; total: number }> = {
+  [`${RUM_W}event.count.rageClick:splitBy():sum`]: { series: [12, null, 25], total: 37 }
 }
 /** Errores por «Error type»: serie y total de cada tipo. */
 const APPLICATION_RUM_ERRORS: Record<string, { series: (number | null)[]; total: number }> = {
@@ -3255,7 +3264,8 @@ function applicationMetricResponse(query: URLSearchParams): [number, unknown] {
         ) {
           const rum =
             APPLICATION_RUM[expression] ??
-            (sim.applicationRumCustom ? APPLICATION_RUM_CUSTOM[expression] : undefined)
+            (sim.applicationRumCustom ? APPLICATION_RUM_CUSTOM[expression] : undefined) ??
+            (sim.applicationRumRageClicks ? APPLICATION_RUM_RAGE[expression] : undefined)
           const values = inf
             ? APPLICATION_TOTALS[expression] === undefined
               ? rum === undefined
@@ -4258,6 +4268,8 @@ const defaultSim = () => ({
   applicationRumCustom: false,
   /** Ficha 0053: los errores llegan en una sola serie sin «Error type» (sin separar). */
   applicationRumErrorsUntyped: false,
+  /** Ficha 0054: los rage clicks (`event.count.rageClick`) traen datos. */
+  applicationRumRageClicks: false,
   /** Ficha 0032: las consultas de métricas de los process groups inventados fallan con un 400. */
   processGroupMetricsFail: false,
   /** Ficha 0032: las expresiones por instancia del process group llegan recortadas (ratio > 1). */
@@ -15967,8 +15979,9 @@ test('CA5 (0051): el panel del modal entra con escala, desplazamiento y opacidad
  *   Apdex, dentro del marcador; los recuentos de problemas en `application-marker-open` y
  *   `application-marker-closed`.
  * - Secciones (ficha 0053): cada una en un `application-section` con `data-section` (activity,
- *   errors, apdex y key-actions, en ese orden, entre los marcadores e «Información») y su título
- *   en el primer encabezado.
+ *   errors, users, experience, apdex y key-actions, en ese orden, entre los marcadores e
+ *   «Información») y su título en el primer encabezado. Ficha 0054: users («Usuarios y
+ *   sesiones») y experience («Experiencia») van justo después de errors.
  * - Gráficos: cada uno en un `application-chart-panel` con `data-kind` y su título en un
  *   encabezado; dentro, el `Chart` con testid `application-chart-<kind>` (con `data-series`).
  *   «Actividad»: actionsByType y durationByType; «Errores»: errorsByType y affectedActions;
@@ -15996,8 +16009,15 @@ test('CA5 (0051): el panel del modal entra con escala, desplazamiento y opacidad
  */
 const APP_PAGE_TEST_ID = 'entity-page-application'
 type AppChartKind =
-  'apdex' | 'actionsByType' | 'durationByType' | 'errorsByType' | 'affectedActions'
-type AppSection = 'activity' | 'errors' | 'apdex' | 'key-actions'
+  | 'apdex'
+  | 'actionsByType'
+  | 'durationByType'
+  | 'errorsByType'
+  | 'affectedActions'
+  | 'activeUsers'
+  | 'sessions'
+  | 'vitals'
+type AppSection = 'activity' | 'errors' | 'users' | 'experience' | 'apdex' | 'key-actions'
 const APP_MARKERS = ['apdex', 'users', 'sessions', 'actions', 'errors', 'problems'] as const
 const APP_MARKER_LABELS: Record<string, string> = {
   apdex: 'Apdex',
@@ -16007,16 +16027,27 @@ const APP_MARKER_LABELS: Record<string, string> = {
   errors: 'Errores',
   problems: 'Problemas'
 }
-const APP_SECTIONS: AppSection[] = ['activity', 'errors', 'apdex', 'key-actions']
+const APP_SECTIONS: AppSection[] = [
+  'activity',
+  'errors',
+  'users',
+  'experience',
+  'apdex',
+  'key-actions'
+]
 const APP_SECTION_TITLES: Record<AppSection, string> = {
   activity: 'Actividad',
   errors: 'Errores',
+  users: 'Usuarios y sesiones',
+  experience: 'Experiencia',
   apdex: 'Apdex',
   'key-actions': 'Acciones clave'
 }
 const APP_SECTION_CHARTS: Record<AppSection, AppChartKind[]> = {
   activity: ['actionsByType', 'durationByType'],
   errors: ['errorsByType', 'affectedActions'],
+  users: ['activeUsers', 'sessions'],
+  experience: ['vitals'],
   apdex: ['apdex'],
   'key-actions': []
 }
@@ -16025,7 +16056,10 @@ const APP_CHART_TITLES: Record<AppChartKind, RegExp> = {
   actionsByType: /Acciones por tipo/,
   durationByType: /Duración por tipo/,
   errorsByType: /Errores por tipo/,
-  affectedActions: /Acciones afectadas por errores/
+  affectedActions: /Acciones afectadas por errores/,
+  activeUsers: /Usuarios activos/,
+  sessions: /Sesiones/,
+  vitals: /Core Web Vitals|LCP|Experiencia/
 }
 /** Los nombres de las series por tipo (es): load, XHR, custom, JavaScript, HTTP y otros. */
 const APP_SERIES = {
@@ -16213,6 +16247,71 @@ async function expectAppMarkers(): Promise<void> {
   await expectAppProblemsMarker()
 }
 
+/**
+ * Ficha 0054: secciones «Usuarios y sesiones» y «Experiencia». Nombres que fijan estos tests (la
+ * ficha no los da; decisión del test-writer, delegada por Dani y refinable):
+ * - Gráficos, como los de la 0053 (`application-chart-panel` con `data-kind`): activeUsers
+ *   (una serie de usuarios, con la nota de estimación `application-users-note` en el panel) y
+ *   sessions (series iniciadas, terminadas y duración media, en ese orden); vitals (LCP, CLS e
+ *   INP, en ese orden, con `data-thresholds` en los cortes de «bueno»: 2500 ms, 0,1 y 200 ms).
+ *   Ninguno lleva la franja de problemas (la ficha no la pide).
+ * - Datos pequeños bajo el gráfico de sesiones: `application-session-stat` con `data-stat`
+ *   (actionsPerSession, bounceRate y rageClicks, en ese orden), dentro del panel sessions, con
+ *   su valor en `application-session-stat-value`.
+ * - Tarjetas de Core Web Vitals, en la sección experience y encima del gráfico:
+ *   `application-vital` con `data-vital` (lcp, cls e inp, en ese orden), el valor del rango en
+ *   `application-vital-value` (LCP e INP con `formatDurationMs`, CLS con dos decimales) y la
+ *   calificación en `application-vital-rating`, con `data-rating` (good, needsImprovement o
+ *   poor), `data-level` (success, warning o error) y su texto.
+ * - Una sección sin nada con datos no sale (como en la 0053).
+ */
+type AppVital = 'lcp' | 'cls' | 'inp'
+const APP_VITALS: AppVital[] = ['lcp', 'cls', 'inp']
+/** Totales del simulador: LCP 2310 ms, CLS 0,18 e INP 640 ms. */
+const APP_VITAL_EXPECTED: Record<
+  AppVital,
+  { label: RegExp; value: RegExp; rating: string; level: string; text: string }
+> = {
+  lcp: {
+    label: /LCP/,
+    value: /(^|[^d,.])2,3ss/,
+    rating: 'good',
+    level: 'success',
+    text: 'Bueno'
+  },
+  cls: {
+    label: /CLS/,
+    value: /(^|[^d,.])0,18([^d,.]|$)/,
+    rating: 'needsImprovement',
+    level: 'warning',
+    text: 'Mejorable'
+  },
+  inp: {
+    label: /INP/,
+    value: /(^|[^d,.])640sms/,
+    rating: 'poor',
+    level: 'error',
+    text: 'Pobre'
+  }
+}
+const APP_SESSION_STATS = ['actionsPerSession', 'bounceRate', 'rageClicks'] as const
+const appVital = (vital: AppVital): Locator =>
+  appPage().locator(`[data-testid="application-vital"][data-vital="${vital}"]`)
+const appSessionStat = (stat: string): Locator =>
+  appChartPanel('sessions').locator(`[data-testid="application-session-stat"][data-stat="${stat}"]`)
+/** Ficha 0054: los `data-stat` de los datos pequeños de sesiones, en su orden. */
+async function appSessionStatIds(): Promise<string[]> {
+  return appChartPanel('sessions')
+    .getByTestId('application-session-stat')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-stat') ?? ''))
+}
+/** Ficha 0054: los `data-vital` de las tarjetas, en su orden. */
+async function appVitalIds(): Promise<string[]> {
+  return appPage()
+    .getByTestId('application-vital')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-vital') ?? ''))
+}
+
 /** Ficha 0053: las consultas del canal de RUM que ha recibido el simulador. */
 const appRumQueries = (): URLSearchParams[] => sim.applicationMetricQueries.filter(isRumQuery)
 
@@ -16316,9 +16415,10 @@ test('CA1 (0034), nota del Orquestador: sin acciones de usuario en el rango (lo 
     await expect(card, text).not.toContainText(text)
   }
 
-  // Marcadores y gráficos, como siempre (ficha 0053: seis marcadores y cinco gráficos).
+  // Marcadores y gráficos, como siempre (ficha 0053: seis marcadores y cinco gráficos; ficha
+  // 0054: tres más, usuarios, sesiones y Core Web Vitals).
   await expectAppMarkers()
-  await expect(appPage().getByTestId('application-chart-panel')).toHaveCount(5)
+  await expect(appPage().getByTestId('application-chart-panel')).toHaveCount(8)
 })
 
 test('CA3 (0034): con papeles sin datos (Apdex y errores), sus marcadores y gráficos no salen y el resto sí', async () => {
@@ -16332,8 +16432,16 @@ test('CA3 (0034): con papeles sin datos (Apdex y errores), sus marcadores y grá
   await expectAppActionsMarker()
   await expectAppProblemsMarker()
   expect(await appMarkerIds()).toEqual(['users', 'sessions', 'actions', 'problems'])
-  // Gráficos: la actividad entera y las acciones afectadas, con sus series.
-  expect(await appChartKinds()).toEqual(['actionsByType', 'durationByType', 'affectedActions'])
+  // Gráficos: la actividad entera y las acciones afectadas, con sus series (ficha 0054: y los de
+  // usuarios, sesiones y Core Web Vitals).
+  expect(await appChartKinds()).toEqual([
+    'actionsByType',
+    'durationByType',
+    'affectedActions',
+    'activeUsers',
+    'sessions',
+    'vitals'
+  ])
   for (const kind of ['actionsByType', 'durationByType', 'affectedActions'] as const) {
     expect((await appChartSeries(kind)).length, kind).toBeGreaterThan(0)
   }
@@ -16616,8 +16724,15 @@ test('CA4 (0053): con papeles sin datos (usuarios, acciones por tipo y acciones 
   await expectAppErrorsMarker()
   await expectAppProblemsMarker()
 
-  // Gráficos: sin acciones por tipo ni acciones afectadas; el resto con sus series.
-  expect(await appChartKinds()).toEqual(['durationByType', 'errorsByType', 'apdex'])
+  // Gráficos: sin acciones por tipo ni acciones afectadas (ni, ficha 0054, el de usuarios
+  // activos); el resto con sus series.
+  expect(await appChartKinds()).toEqual([
+    'durationByType',
+    'errorsByType',
+    'sessions',
+    'vitals',
+    'apdex'
+  ])
   for (const kind of ['actionsByType', 'affectedActions'] as const) {
     await expect(appChartPanel(kind), kind).toHaveCount(0)
     await expect(entityPage.getByTestId(`application-chart-${kind}`), kind).toHaveCount(0)
@@ -16705,6 +16820,153 @@ test('CA5 (0053): si falla el canal de RUM, sus marcadores y cada gráfico de «
   await expectAppChartSeries('errorsByType', [APP_SERIES.javascript, APP_SERIES.http])
   for (const kind of rumCharts) {
     await expect(appChartPanel(kind).getByRole('alert'), kind).toHaveCount(0)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Ficha 0054: secciones «Usuarios y sesiones» y «Experiencia» (Core Web Vitals) de la página de
+// la aplicación, con el canal entities:applicationRum de la 0052 (solo API clásica). Nombres y
+// decisiones, en el comentario de APP_VITALS.
+// ---------------------------------------------------------------------------
+
+test('CA1 (0054): la página de una aplicación enseña «Usuarios y sesiones» con sus dos gráficos y los tres datos pequeños bajo el de sesiones', async () => {
+  sim.applicationRumRageClicks = true
+  const entityPage = await openApplicationPage()
+
+  // La sección, con su título, justo después de «Errores».
+  const section = appSection('users')
+  await expect(section).toBeVisible()
+  await expect(section.getByRole('heading').first()).toContainText(APP_SECTION_TITLES.users)
+  expect(await appSectionIds()).toEqual(APP_SECTIONS)
+  expect(await appChartKinds('users')).toEqual(['activeUsers', 'sessions'])
+  for (const kind of ['activeUsers', 'sessions'] as const) {
+    await expect(appChartPanel(kind).getByRole('heading').first(), kind).toContainText(
+      APP_CHART_TITLES[kind]
+    )
+  }
+
+  // Usuarios activos: una línea, con la nota de que es una estimación.
+  await expectAppChartSeries('activeUsers', [/usuarios/i])
+  const note = appChartPanel('activeUsers').getByTestId('application-users-note')
+  await expect(note).toBeVisible()
+  await expect(note).toContainText(/estimad|aproximaci/i)
+
+  // Sesiones: iniciadas y terminadas, y la duración media (en su eje).
+  await expectAppChartSeries('sessions', [/iniciadas/i, /terminadas/i, /duración/i])
+
+  // Debajo, los tres datos del rango: 5,9 acciones por sesión, 28,4 % de rebote y 37 rage clicks.
+  expect(await appSessionStatIds()).toEqual([...APP_SESSION_STATS])
+  const stats: Record<(typeof APP_SESSION_STATS)[number], [RegExp, RegExp]> = {
+    actionsPerSession: [/acciones por sesión/i, /^\s*5,9\s*$/],
+    bounceRate: [/rebote/i, /^\s*28,4\s?%\s*$/],
+    rageClicks: [/frustración|rage/i, loneNumber('37')]
+  }
+  for (const [stat, [label, value]] of Object.entries(stats)) {
+    await expect(appSessionStat(stat), stat).toBeVisible()
+    await expect(appSessionStat(stat), stat).toContainText(label)
+    await expect(
+      appSessionStat(stat).getByTestId('application-session-stat-value'),
+      stat
+    ).toHaveText(value)
+  }
+  // Debajo del gráfico: el primer dato empieza donde acaba el canvas.
+  const plotBox = await settledBox(appChartPlot('sessions'))
+  const statBox = await settledBox(appSessionStat('actionsPerSession'))
+  expect(plotBox.y + plotBox.height).toBeLessThanOrEqual(statBox.y + 1)
+
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(section, text).not.toContainText(text)
+  }
+  // Nada de aviso: hay datos.
+  await expect(section.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  await expect(entityPage.getByTestId('entity-under-construction')).toHaveCount(0)
+})
+
+test('CA3 (0054): la sección «Experiencia» enseña las tarjetas de LCP, CLS e INP con su calificación y el gráfico con sus tres series y las líneas de umbral', async () => {
+  await openApplicationPage()
+
+  // La sección, con su título, después de «Usuarios y sesiones».
+  const section = appSection('experience')
+  await expect(section).toBeVisible()
+  await expect(section.getByRole('heading').first()).toContainText(APP_SECTION_TITLES.experience)
+  expect(await appSectionIds()).toEqual(APP_SECTIONS)
+
+  // Tres tarjetas, en su orden, con el valor del rango y su calificación (texto y color): LCP
+  // 2,3 s «Bueno», CLS 0,18 «Mejorable» e INP 640 ms «Pobre».
+  expect(await appVitalIds()).toEqual(APP_VITALS)
+  await expect(section.getByTestId('application-vital')).toHaveCount(3)
+  for (const vital of APP_VITALS) {
+    const expected = APP_VITAL_EXPECTED[vital]
+    const card = appVital(vital)
+    await expect(card, vital).toBeVisible()
+    await expect(card, vital).toContainText(expected.label)
+    await expect(card.getByTestId('application-vital-value'), vital).toContainText(expected.value)
+    const rating = card.getByTestId('application-vital-rating')
+    await expect(rating, vital).toHaveAttribute('data-rating', expected.rating)
+    await expect(rating, vital).toHaveAttribute('data-level', expected.level)
+    await expect(rating, vital).toHaveText(new RegExp(`^\\s*${expected.text}\\s*$`))
+  }
+
+  // El gráfico: un solo panel, con LCP, CLS e INP y las líneas en los cortes de «bueno».
+  expect(await appChartKinds('experience')).toEqual(['vitals'])
+  await expect(appChartPanel('vitals').getByRole('heading').first()).toContainText(
+    APP_CHART_TITLES.vitals
+  )
+  await expectAppChartSeries('vitals', [/LCP/, /CLS/, /INP/])
+  const plot = appChartPlot('vitals')
+  await expect(plot).toHaveAttribute('data-thresholds', /\[.+\]/)
+  const thresholds = JSON.parse((await plot.getAttribute('data-thresholds')) ?? '[]') as number[]
+  expect(thresholds.slice().sort((a, b) => a - b)).toEqual([0.1, 200, 2_500])
+
+  for (const text of ['undefined', 'null', 'NaN', '[object Object]']) {
+    await expect(section, text).not.toContainText(text)
+  }
+  await expect(section.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+})
+
+test('CA4 (0054): sin datos de experiencia (LCP, CLS e INP), la sección «Experiencia» no sale y el resto sí', async () => {
+  sim.applicationEmpty = [
+    `${RUM_W}largestContentfulPaint`,
+    `${RUM_W}cumulativeLayoutShift`,
+    `${RUM_W}interactionToNextPaint`
+  ]
+  const entityPage = await openApplicationPage()
+
+  // «Usuarios y sesiones» sale con sus dos gráficos; las demás secciones, en su orden.
+  await expect(appSection('users')).toBeVisible()
+  await expectAppChartSeries('activeUsers', [/usuarios/i])
+  await expectAppChartSeries('sessions', [/iniciadas/i, /terminadas/i, /duración/i])
+  expect(await appSectionIds()).toEqual(APP_SECTIONS.filter((id) => id !== 'experience'))
+
+  // Ni la sección, ni las tarjetas, ni el gráfico, ni un «—» en su lugar.
+  await expect(appSection('experience')).toHaveCount(0)
+  await expect(entityPage.getByTestId('application-vital')).toHaveCount(0)
+  await expect(appChartPanel('vitals')).toHaveCount(0)
+  await expect(entityPage.getByTestId('application-chart-vitals')).toHaveCount(0)
+
+  // Faltar datos no es un fallo.
+  await expect(entityPage.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  await expectAppMarkers()
+})
+
+test('CA4 (0054): sin rage clicks (lo habitual en vivo), su dato no sale y los otros dos sí', async () => {
+  // Por defecto, el simulador no trae rage clicks (como en vivo).
+  expect(sim.applicationRumRageClicks).toBe(false)
+  await openApplicationPage()
+  await expectAppChartSeries('sessions', [/iniciadas/i, /terminadas/i, /duración/i])
+
+  expect(await appSessionStatIds()).toEqual(['actionsPerSession', 'bounceRate'])
+  await expect(appSessionStat('rageClicks')).toHaveCount(0)
+  await expect(
+    appSessionStat('actionsPerSession').getByTestId('application-session-stat-value')
+  ).toHaveText(/^\s*5,9\s*$/)
+  await expect(
+    appSessionStat('bounceRate').getByTestId('application-session-stat-value')
+  ).toHaveText(/^\s*28,4\s?%\s*$/)
+  const panel = appChartPanel('sessions')
+  await expect(panel).not.toContainText(/frustración|rage/i)
+  for (const text of ['undefined', 'null', 'NaN']) {
+    await expect(panel, text).not.toContainText(text)
   }
 })
 
