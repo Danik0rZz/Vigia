@@ -10,11 +10,15 @@
   que se comprueba, y un canal por IPC va a la de su entidad. Si usa el portapapeles del sistema,
   además `@portapapeles` (`resourceTags`). Una zona nueva se añade a `zones` con su descripción.
   `scripts/e2e-tags.test.ts` lo vigila: detecta el portapapeles por `clipboard` en el cuerpo o en
-  una función del spec que el test llame, así que un test que solo pulsa un botón «Copiar» sin
+  una función del spec o del arnés que el test llame, así que un test que solo pulsa un botón «Copiar» sin
   leerlo se etiqueta a mano. Una zona se lanza con `npm run test:e2e:nobuild -- --grep @zona`.
 - Cada e2e usa su propia carpeta de datos (`VIGIA_USER_DATA_DIR`): el bloqueo de instancia única va
   por carpeta, así que no chocan con un `npm run dev` abierto. Con `VIGIA_E2E` las ventanas no
   toman el foco del sistema.
+- Los specs de vistas comparten el arnés de `e2e/views/` (simulador, fixtures, ayudantes y ganchos;
+  el reparto, en la cabecera de `harness.ts`): cada uno llama a `setupViewsApp()` una vez, en el
+  nivel superior, y no lanza la app por su cuenta. `scripts/e2e-views-harness.test.ts` lo vigila.
+  El estado (`page`, `app`, `exportDir`…) se importa tal cual: enlaces vivos de solo lectura. Ficha 0069.
 - Los e2e corren con 4 workers. `views` es el único spec que usa el portapapeles del sistema; sus
   tests corren en un mismo worker (sin `fullyParallel`), así que no necesitan modo serie. Otro spec
   que lo use va en un proyecto aparte. Con `--repeat-each`, `views` va con `--workers=1`: si no, dos
@@ -27,7 +31,7 @@
   e2e completo). `--repeat-each 3` solo si se toca temporización (esperas, animaciones,
   virtualización, navegación) o hubo un fallo intermitente.
 - Lo que dependa de la geometría se prueba con el contenido de la ventana fijado desde el test
-  (`withContentSize` y `withContentWidth`, en `views.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
+  (`withContentSize`, en el arnés, y `withContentWidth`, en `views.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
   ventana, así que sin fijarla ve otra geometría que la VPS.
 - Si la cabecera u otro elemento «intercepta» un clic, mirar antes si con esa ventana el control se
   ve de verdad: en la 0005 era un fallo de la app (la ruta quedaba en 0 px), no del test.
