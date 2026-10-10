@@ -1,7 +1,7 @@
 ---
 id: '0066'
 titulo: 'La disponibilidad del servicio sale en su propio marcador, a la izquierda (con medición del flujo)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -88,6 +88,18 @@ Depende de la 0065 porque las dos tocan los mismos textos y tests del servicio.
 ## Ideas surgidas (fuera de alcance)
 
 (ninguna)
+
+**Decisiones del developer (a revisar):**
+
+- Columnas: `lg:grid-cols-3 xl:grid-cols-6` en vez del `lg:grid-cols-6` de la especificación. Con
+  seis en lg, a 1024 px con el menú abierto cada tarjeta deja unos 77 px de contenido: «105 ms» y
+  p90/p99 se salen y el e2e de centrado de la 0012 (CA2 y CA3) falla. En lg van de tres en tres (dos
+  filas; «SLO» sigue el primero y a la izquierda de «Peticiones OK»), como `ApplicationMarkers`.
+  Afecta a la prueba a mano: los seis en una fila solo a partir de 1280 px de ventana. (developer)
+- Se quita la clave `entities.service.availability.marker` (es y en), que solo usaba la línea
+  de «Tasa de error», y el test de textos de la 0048 deja de pedirla. El título del marcador es
+  `availability.title` («SLO») y el texto crítico, `availability.markerCritical`. (developer)
+- `availabilityLevel` devuelve un `Level`: `normal` sin dato. (developer)
 
 ## Notas del revisor
 
