@@ -29,7 +29,8 @@ function SecretRow({
   const [value, setValue] = useState('')
   const [failed, setFailed] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const save = useTenantMutation('secrets:set')
+  // gcTime 0: tras reset(), la mutación (con el valor en sus variables) sale ya de la caché.
+  const save = useTenantMutation('secrets:set', { gcTime: 0 })
   const remove = useTenantMutation('secrets:delete')
   const configured = environment.secrets[kind]
   // Guardada pero ilegible (otro equipo o usuario de Windows): hay que volver a introducirla.
@@ -43,8 +44,10 @@ function SecretRow({
 
   // Quien abre el diálogo necesita saber si queda algo escrito sin guardar.
   const dirty = value.trim() !== ''
+  // Al desmontarse (el campo deja de existir, p. ej. al pasar a Managed), ya no queda nada sucio.
   useEffect(() => {
     onDirtyChange?.(kind, dirty)
+    return () => onDirtyChange?.(kind, false)
   }, [onDirtyChange, kind, dirty])
 
   const onSave = async (): Promise<void> => {

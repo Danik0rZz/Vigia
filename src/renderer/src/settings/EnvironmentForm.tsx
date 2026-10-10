@@ -19,6 +19,9 @@ import {
 import { ConnectionPanel } from './ConnectionPanel'
 import { SecretsPanel } from './SecretsPanel'
 
+/** Secretos que solo existen en SaaS (Managed no tiene plataforma). */
+const PLATFORM_KINDS: readonly SecretKind[] = ['oauthClientSecret', 'platformToken']
+
 /** Alta y edición de un entorno. Las credenciales se gestionan una vez guardado. */
 export function EnvironmentForm({
   clientId,
@@ -67,8 +70,14 @@ export function EnvironmentForm({
       return next
     })
   }, [])
-  const requestClose = (): void => {
-    if (dirtySecrets.size > 0) setConfirmClose(true)
+  /**
+   * `gone`: secretos cuyo campo deja de existir (al guardar el paso a Managed), que no cuentan
+   * como sin guardar. Hace falta además de la limpieza de `SecretRow` al desmontarse: tras el
+   * `await` de guardar, `requestClose` es la del render en que se pulsó Guardar y lee
+   * `dirtySecrets` de entonces (ficha 0064).
+   */
+  const requestClose = (gone: readonly SecretKind[] = []): void => {
+    if ([...dirtySecrets].some((kind) => !gone.includes(kind))) setConfirmClose(true)
     else onClose()
   }
 
@@ -92,7 +101,8 @@ export function EnvironmentForm({
           { id: environment.id, ...input, ...(dropPlatformSecrets ? { dropPlatformSecrets } : {}) }
         ])
       }
-      requestClose()
+      // En Managed no hay plataforma: lo escrito en sus campos se pierde con ellos (ficha 0064).
+      requestClose(values.deployment === 'managed' ? PLATFORM_KINDS : [])
     } catch (error) {
       // CONFLICT por secretos de plataforma (la vista estaba desfasada): no es el nombre.
       const platform = error instanceof IpcError && error.reason?.key === 'platformSecretsPresent'
@@ -107,9 +117,7 @@ export function EnvironmentForm({
   const onSubmit = form.handleSubmit(async (values) => {
     const platformKinds: SecretKind[] =
       environment !== null && environment.deployment === 'saas' && values.deployment === 'managed'
-        ? (['oauthClientSecret', 'platformToken'] as const).filter(
-            (kind) => environment.secrets[kind]
-          )
+        ? PLATFORM_KINDS.filter((kind) => environment.secrets[kind])
         : []
     if (platformKinds.length > 0) {
       // Nada se guarda hasta que se confirma.
@@ -289,7 +297,7 @@ export function EnvironmentForm({
           <button
             type="button"
             data-testid="form-cancel"
-            onClick={requestClose}
+            onClick={() => requestClose()}
             className={BUTTON_SECONDARY}
           >
             {t('form.cancel')}

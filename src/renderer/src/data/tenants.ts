@@ -171,13 +171,17 @@ export function changedEnvironment(channel: IpcChannel, input: unknown): string 
 
 /**
  * Mutación sobre un canal que cambia clientes, entornos o secretos: al terminar
- * se recargan la lista y el entorno activo.
+ * se recargan la lista y el entorno activo. `gcTime`: cuánto se queda la mutación (con sus
+ * variables) en la caché de mutaciones tras soltarla; la de un secreto pasa 0 para que su valor
+ * no se quede ahí tras `reset()` (ficha 0064).
  */
 export function useTenantMutation<C extends IpcChannel>(
-  channel: C
+  channel: C,
+  options: { gcTime?: number } = {}
 ): UseMutationResult<IpcOutput<C>, Error, IpcArgs<C>> {
   const client = useQueryClient()
   return useMutation<IpcOutput<C>, Error, IpcArgs<C>>({
+    ...(options.gcTime === undefined ? {} : { gcTime: options.gcTime }),
     mutationFn: (args) => invoke(channel, ...args),
     onSuccess: (_data, args) => {
       // Datos de módulo en caché de un entorno que ha cambiado (otra URL u otro
