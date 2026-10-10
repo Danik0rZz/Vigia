@@ -12,7 +12,7 @@ adrs: [2, 4, 5]
 adr_nuevo:
 api: v2, `GET /metrics/query` con las transformaciones `:sort` y `:limit` ("Metrics selector transformations", documentación oficial enlazada desde la OpenAPI) y `GET /entities` (`entitySelector=type("PROCESS_GROUP_INSTANCE"),fromRelationships.isInstanceOf(entityId("<grupo>"))`, `pageSize`, `totalCount`); `..\API\Dynatrace Environment APIv2\APIv2.json`. Scopes `metrics.read` y `entities.read` (ya en uso).
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -93,7 +93,26 @@ responde, también con un grupo recortado.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+CA1 a CA6 con sus tests: expresión exacta, orden por CPU, `pageSize=1`, 403 y 500 en `/entities`,
+recorte por ratio y por total, `reason` en los dos canales. Tras `27cbfe6` solo cambia
+`process-group-charts.test.ts` (0031/0032), que gana `totalKnown: true` para compilar sin cambiar
+lo que comprueba. Expresiones iguales a las probadas en vivo (`:sort(value(avg,descending))`, con
+`:limit(20)` en las de la página), 6 y 2 por consulta. `GET /entities` y `totalCount` en la OpenAPI;
+fallback del total solo ante `DtError`. Canal `entities:processGroupInstances` con Zod de entrada
+(id estricto) y salida, en la cobertura de canales; reutiliza `processGroupMetricsRejected`. Sin
+migración ni dependencias; nada del tenant. Lo no probado en vivo (más de ~500 instancias) está
+dicho en la ficha y en las notas.
+
+Sugerencias, no bloquean:
+
+- Para la 0051: `instancesTruncated` (`process-group-instances.ts:62`) solo mira `partial`; con
+  `totalKnown: true` el marcador diría «al menos 600» aunque sea exacto, y la tabla enseña 20 sin
+  avisar de que hay más hasta que entre la 0051.
+- `truncated` también es `true` si `totalCount` cuenta instancias sin series: el aviso del modal
+  podría hablar de recorte sin haberlo.
+- Añadir `totalKnown` a `entities:processGroupInstances` (idea del developer): lo decide la 0051.
 
 ## Verificación
 
