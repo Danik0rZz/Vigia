@@ -212,7 +212,12 @@ informe local). Nunca van al CI.
 
 - **Pre-commit** (`.githooks/pre-commit`): si el commit toca algo que no sea Markdown, lint, tipos,
   formato y los tests unitarios relacionados con lo que se commitea. Si falla, el commit no existe.
-- **Pre-push** (`.githooks/pre-push`): `npm run scan:tenant`.
+- **Pre-push** (`.githooks/pre-push`): `scan:tenant` sobre lo que se sube (`remote..local` de cada
+  ref que git pasa por la entrada estándar; rama remota nueva, `origin/main..local`). Falla cerrado:
+  sin `.env.live.local`, o con él vacío, sale con 2 y el push no se hace. Lo busca en el directorio
+  actual y, si no está, en el checkout principal (los worktrees de Orca no lo tienen). Sin nada que
+  subir, deja pasar. `VIGIA_SCAN_TENANT_OPTIONAL=1` (solo ese valor) lo hace opcional, con 0 y un
+  aviso: para clones sin tenant de pruebas; en la VPS no se usa.
 - **CI** (`.github/workflows/ci.yml`): en cada push a `main` y a mano, en `windows-latest`,
   instalación del README, `npm run check`, `npm run test:e2e` y `npm run dist:win` (sin subir el
   zip). Sin `test:live` ni secretos: los logs del CI son públicos.

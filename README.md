@@ -48,6 +48,11 @@ Electron. Se instala el redistribuible, o se descomprime a mano el zip de la cac
 pre-commit pasa lint, tipos, formato y los tests relacionados, y el pre-push busca restos del
 tenant de pruebas.
 
+El pre-push (`npm run scan:tenant`) falla cerrado: necesita `.env.live.local` y, si no lo encuentra
+o está vacío, para el push con el código 2. En un worktree usa el del checkout principal. Escanea lo
+que se sube (los refs que git le pasa) y, si no hay nada que subir, lo deja pasar. En un clon sin
+tenant de pruebas, `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional: sale con 0 y un aviso.
+
 ## Flujo de trabajo
 
 Se trabaja con fichas (`tasks/`) y agentes de Claude Code (`.claude/agents/`): ver

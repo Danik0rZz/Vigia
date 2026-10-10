@@ -1,7 +1,7 @@
 ---
 id: '0055'
 titulo: '`scan:tenant` falla cerrado: sin `.env.live.local` no da verde, y escanea lo que de verdad se sube'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -184,4 +184,12 @@ no se pone rojo por esto.
 
 ## Resultado
 
-(pendiente)
+- Commits (rama `feat/0055-scan-tenant-falla-cerrado`): tests `52b4de6`, `7742178` y `7efd813`;
+  código `ad1f206` (`findLiveEnv` común), `fa5d4b5` (falla cerrado y pre-push por refs) y `cbc98bf`
+  (`.env` vacío y entrada vacía); más los commits de la ficha y el de cierre.
+- Ficheros principales: `scripts/scan-tenant.mjs`, `scripts/lib/env-file.mjs`,
+  `scripts/notify-telegram.mjs`, `.githooks/pre-push` y sus tests.
+- Rondas de revisión: 2 (la 1 pidió la entrada vacía en 0; la 2 aprobó). Verifier en verde.
+- ADR nuevo: ninguno. Sin migraciones. Documentado en README, `docs/flujo.md` y CHANGELOG.
+- Ideas pasadas a «Mejoras anotadas»: `git log -p` por commit, etiquetas anotadas y test del `.env`
+  ilegible.
