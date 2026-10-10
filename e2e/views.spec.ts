@@ -1674,6 +1674,11 @@ const SVC_SET_ENTITY: Record<SvcSet, { serviceType: string; properties: Record<s
     unified: { serviceType: 'UNIFIED', properties: {} },
     activity: { serviceType: 'QUEUE_LISTENER_SERVICE', properties: {} }
   }
+/**
+ * Ficha 0047: un DATABASE_SERVICE (Cliente) para la página, con los datos del de Cliente. Va
+ * aparte de `SVC_SET_IDS` para no cambiar el recorrido de los cuatro conjuntos de la 0046.
+ */
+const SVC_DB_ID = 'SERVICE-00000000000E2E4A'
 type SvcSetKind = SvcKind | 'count'
 const SVC_SET_DATA: Record<
   string,
@@ -1714,6 +1719,8 @@ const SVC_SET_DATA: Record<
     markers: { count: 10 }
   }
 }
+// Ficha 0047: el DATABASE_SERVICE, con los mismos datos que el de Cliente.
+SVC_SET_DATA[SVC_DB_ID] = SVC_SET_DATA[SVC_SET_IDS.client] as (typeof SVC_SET_DATA)[string]
 
 /**
  * Ficha 0046: lo que devuelve /entities/{id} a entities:serviceMetrics (con
@@ -1740,7 +1747,9 @@ function serviceTypeBodies(): Record<string, Record<string, unknown>> {
         SVC_SET_IDS[set],
         body(SVC_SET_IDS[set], SVC_SET_ENTITY[set].serviceType, SVC_SET_ENTITY[set].properties)
       ])
-    )
+    ),
+    // Ficha 0047.
+    [SVC_DB_ID]: body(SVC_DB_ID, 'DATABASE_SERVICE')
   }
 }
 
@@ -9893,6 +9902,129 @@ test('CA5 (0009): «Abrir en Métricas» de cada gráfico abre Métricas con la 
     for (const part of expected[kind].has) expect(selector, `${kind}: ${part}`).toContain(part)
     for (const part of expected[kind].not) expect(selector, `${kind}: ${part}`).not.toContain(part)
   }
+})
+
+/**
+ * Ficha 0047: la página del servicio según el conjunto de métricas de la 0046 (servicios de
+ * `SVC_SET_IDS` y `SVC_DB_ID`). Nombres que fijan estos tests: la nota bajo los marcadores en
+ * `service-metric-set-note` (con su tooltip al pasar el ratón), el marcador `service-marker-requests`
+ * («Peticiones») de Solo actividad y la cabecera «Servicio · <nombre del tipo>» en
+ * `entity-page-type`.
+ */
+async function openServicePage(id: string): Promise<Locator> {
+  await goToRoute(`/entities/SERVICE/${id}`)
+  const servicePage = page.getByTestId('entity-page-service')
+  await expect(servicePage).toBeVisible()
+  await expect(servicePage.getByTestId('service-markers')).toBeVisible()
+  return servicePage
+}
+
+/** Ficha 0047: los marcadores completos de siempre (los de la 0008). */
+const FULL_MARKERS = ['ok', 'ko', 'error-rate', 'response-time', 'problems'] as const
+
+test('CA1 (0047): un QUEUE_LISTENER_SERVICE enseña solo Peticiones y Problemas, el gráfico de actividad sin KO y la nota; no tiempos, errores ni tasa', async () => {
+  const servicePage = await openServicePage(SVC_SET_IDS.activity)
+
+  // Marcadores: Peticiones (la suma del recuento, 10) y Problemas; ninguno de tiempos ni errores.
+  const requests = serviceMarker('requests')
+  await expect(requests).toBeVisible()
+  await expect(requests).toContainText('Peticiones')
+  await expect(requests.getByTestId('service-marker-value')).toHaveText(/^10$/)
+  await expect(serviceMarker('problems')).toBeVisible()
+  for (const id of ['ok', 'ko', 'error-rate', 'response-time']) {
+    await expect(serviceMarker(id), id).toHaveCount(0)
+  }
+  const markers = servicePage.getByTestId('service-markers')
+  await expect(markers).not.toContainText('Tiempo de respuesta')
+  await expect(markers).not.toContainText('Tasa de error')
+  await expect(markers).not.toContainText('Peticiones KO')
+
+  // La nota que lo explica.
+  const note = servicePage.getByTestId('service-metric-set-note')
+  await expect(note).toBeVisible()
+  await expect(note).toContainText('Este tipo de servicio solo mide actividad')
+
+  // Gráficos: solo el de actividad, con una serie (sin la parte KO).
+  const panels = page.getByTestId('service-chart-panel')
+  await expect(panels).toHaveCount(1)
+  await expect(panels.first()).toHaveAttribute('data-kind', 'activity')
+  const series = await chartSeries('activity')
+  expect(series).toHaveLength(1)
+  expect(series[0]).not.toMatch(/\bKO\b/)
+  for (const kind of ['response-time', 'error-rate', 'errors'] as const) {
+    await expect(chartPanel(kind), kind).toHaveCount(0)
+  }
+})
+
+test('CA2 (0047): un DATABASE_SERVICE enseña los marcadores y gráficos completos, la nota de cliente con su tooltip y «Base de datos» en la cabecera', async () => {
+  const servicePage = await openServicePage(SVC_DB_ID)
+
+  // Cabecera: el tipo de entidad y el del servicio.
+  await expect(servicePage.getByTestId('entity-page-type')).toHaveText('Servicio · Base de datos')
+
+  // Los cinco marcadores, con los datos de Cliente (60 peticiones, 4 KO, mediana 210 ms).
+  for (const id of FULL_MARKERS) await expect(serviceMarker(id), id).toBeVisible()
+  await expect(serviceMarker('requests')).toHaveCount(0)
+  await expect(serviceMarker('ok').getByTestId('service-marker-value')).toHaveText(/^56$/)
+  await expect(serviceMarker('ko').getByTestId('service-marker-value')).toHaveText(/^4$/)
+  await expect(serviceMarker('response-time').getByTestId('service-marker-median')).toContainText(
+    /210\sms/
+  )
+
+  // Los cuatro gráficos.
+  await expect(page.getByTestId('service-chart-panel')).toHaveCount(4)
+  for (const kind of CHART_KINDS) await expect(chartPanel(kind), kind).toHaveCount(1)
+
+  // La nota de cliente y su tooltip.
+  const note = servicePage.getByTestId('service-metric-set-note')
+  await expect(note).toBeVisible()
+  await expect(note).toContainText('Medido desde los clientes')
+  await note.scrollIntoViewIfNeeded()
+  await hoverFresh(page, note)
+  await expect(page.getByRole('tooltip')).toBeVisible()
+  await expect(page.getByRole('tooltip')).toContainText(/cliente/i)
+  await moveToNeutral(page)
+})
+
+test('CA3 (0047): «Abrir en Métricas» de los tiempos abre Métricas con la métrica de cliente o la unificada, no la de servidor', async () => {
+  const cases = [
+    {
+      id: SVC_DB_ID,
+      has: 'builtin:service.response.client',
+      not: 'builtin:service.response.server'
+    },
+    {
+      id: SVC_SET_IDS.unified,
+      has: SVC_UNIFIED_KEYS.time,
+      not: 'builtin:service.response.'
+    }
+  ]
+  for (const { id, has, not } of cases) {
+    await openServicePage(id)
+    await chartSeries('response-time')
+    const before = sim.metricsQueries
+    await chartPanel('response-time').getByTestId('service-chart-open').click()
+    await expect.poll(currentRoute, id).toBe('/metrics')
+    await expect.poll(() => sim.metricsQueries, id).toBeGreaterThan(before)
+    const selector = sim.lastMetricsQuery.get('metricSelector') ?? ''
+    await expect(page.getByTestId('metric-selector'), id).toHaveValue(selector)
+    expect(selector, id).toContain(id)
+    expect(selector, id).toContain(has)
+    expect(selector, `${id}: ${not}`).not.toContain(not)
+    for (const part of [':median', ':percentile(90', ':percentile(99']) {
+      expect(selector, `${id}: ${part}`).toContain(part)
+    }
+  }
+})
+
+test('CA4 (0047): un WEB_SERVICE se ve como hoy: marcadores y gráficos completos, sin nota y su tipo en la cabecera', async () => {
+  const servicePage = await openServicePage(SVC_ID)
+  await expect(servicePage.getByTestId('entity-page-type')).toHaveText('Servicio · Servicio web')
+  for (const id of FULL_MARKERS) await expect(serviceMarker(id), id).toBeVisible()
+  await expect(serviceMarker('requests')).toHaveCount(0)
+  await expect(page.getByTestId('service-chart-panel')).toHaveCount(4)
+  expect(await chartSeries('activity')).toHaveLength(2)
+  await expect(servicePage.getByTestId('service-metric-set-note')).toHaveCount(0)
 })
 
 /**
