@@ -8,19 +8,21 @@ import { serviceMetricSet } from './service-metric-set'
  */
 
 describe('CA2 (0046): serviceMetricSet da el conjunto de la tabla para cada serviceType', () => {
-  it.each([
-    'WEB_SERVICE',
-    'CUSTOM_SERVICE',
-    'BACKGROUND_ACTIVITY',
-    'SPAN',
-    'MESSAGING_SERVICE',
-    'EXTERNAL'
-  ])('%s → Servidor', (type) => {
-    expect(serviceMetricSet(type, {})).toBe('server')
-  })
+  it.each(['WEB_SERVICE', 'CUSTOM_SERVICE', 'BACKGROUND_ACTIVITY', 'SPAN', 'MESSAGING_SERVICE'])(
+    '%s → Servidor',
+    (type) => {
+      expect(serviceMetricSet(type, {})).toBe('server')
+    }
+  )
 
   it('DATABASE_SERVICE → Cliente', () => {
     expect(serviceMetricSet('DATABASE_SERVICE', {})).toBe('client')
+  })
+
+  it('EXTERNAL → Cliente (decisión del Orquestador: en vivo solo tiene datos de Cliente)', () => {
+    expect(serviceMetricSet('EXTERNAL', {})).toBe('client')
+    // Las propiedades de los otros casos no lo cambian.
+    expect(serviceMetricSet('EXTERNAL', { webServerName: 'servidor-web' })).toBe('client')
   })
 
   it('UNIFIED → Unificadas', () => {

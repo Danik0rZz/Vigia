@@ -81,7 +81,8 @@ function setOf(type: string, props: Record<string, unknown>): MetricSet {
   }
   if (type === 'UNIFIED') return 'unified'
   if (type === 'QUEUE_LISTENER_SERVICE') return 'activity'
-  if (type === 'DATABASE_SERVICE') return 'client'
+  // EXTERNAL, en Cliente por decisión del Orquestador (en vivo solo tiene datos de Cliente).
+  if (type === 'DATABASE_SERVICE' || type === 'EXTERNAL') return 'client'
   if (type === 'WEB_REQUEST_SERVICE') return has('webServerName') ? 'server' : 'client'
   if (type === 'RPC_SERVICE')
     return has('remoteEndpoint') || has('remoteServiceName') ? 'client' : 'server'
