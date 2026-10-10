@@ -1,7 +1,7 @@
 ---
 id: '0055'
 titulo: '`scan:tenant` falla cerrado: sin `.env.live.local` no da verde, y escanea lo que de verdad se sube'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -106,6 +106,25 @@ no se pone rojo por esto.
   fallando.
 - Sin fijar (la ficha no lo dice): qué hacer con una línea de borrado de rama (`sha local` a
   ceros) y con una entrada vacía. Lo decide el developer y lo anota aquí.
+
+**Decisiones del developer** (2026-10-10; Dani las delegó, opción conservadora):
+
+- Línea de borrado (`sha local` a ceros): no se escanea, porque no sube contenido. Si todas las
+  líneas son borrados, sale con 0 y lo dice («solo se borran ramas remotas»).
+- Entrada estándar vacía en `--pre-push`: sale con 2 («git no ha indicado qué se sube»). Git lanza
+  el hook con la entrada vacía cuando todo está al día, así que un `git push` sin nada que subir
+  termina en error en vez de en «Everything up-to-date». No publica nada y es la opción que no da
+  verde sin motivo.
+- Línea con otra forma (no son 4 campos o los sha no son hexadecimales): sale con 2.
+- El `.env` se comprueba antes de leer la entrada: sin él, 2 (o 0 con aviso y
+  `VIGIA_SCAN_TENANT_OPTIONAL=1`) en los dos modos.
+- El hook distingue el 1 (restos encontrados) del resto de códigos distintos de 0 («no ha podido
+  comprobar»). Los dos paran el push.
+- Sin `origin/main` local (rama nueva en un repositorio recién creado), git falla y el script sale
+  con 2. En Vigía `origin/main` siempre existe.
+- Tests propios en `scripts/scan-tenant.test.ts` › `0055 (developer): …` (commit `7742178`).
+  Probado también a mano con un push real a un remoto temporal, con datos inventados: fuga, limpio,
+  rama nueva, borrado, nada que subir y un worktree sin `.env`.
 
 ## Resultado
 
