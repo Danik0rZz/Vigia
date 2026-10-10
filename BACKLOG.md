@@ -11,8 +11,7 @@ bueno de Dani o de peticiones en su nombre.
   (0052, 0053 y 0054 hechas).
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
   **auditoria-publicacion** (0055 y 0056 hechas),
-  **auditoria-codigo-comun** (0057 y 0058 hechas,
-  [0059](tasks/0059-react-compiler.md)), **auditoria-robustez** ([0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md),
+  **auditoria-codigo-comun** (0057, 0058 y 0059 hechas), **auditoria-robustez** ([0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md),
   [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md), [0062](tasks/0062-limite-peticiones-simultaneas.md)),
   [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) y [0064](tasks/0064-reintentar-solo-su-panel.md).
 - Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
@@ -219,6 +218,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `usageBar` (`lib/host-format.ts`) calcula el ancho igual que `barWidth`. (surgió en 0058)
 - `EntityPageEnvs` (`entity-access.ts`): decir en su comentario que `canFetch` no es la condición de «Actualizar» (esa es `canRefresh`) y que ninguna página lo usa todavía. (surgió en 0058)
 - `BAR_CLASS` y `barWidth` podrían ir a un `entity-tables.ts`, como `host-tables.ts`, y quitar los tres `eslint-disable react-refresh` (los primeros del repo). (surgió en 0058)
+- React Compiler: `ExportMenu`, `EnvironmentForm`, `TenantsSection` (valores condicionales dentro de un `try/catch`) y `SecretsPanel` (`try` con `finally`) los salta el compilador sin romperlos; si algún día pesan, sacar la lógica del `try` a una función. (surgió en 0059)
+- Test unitario de `useRenderCount` (`lib/render-count.ts`): sin `enableRenderCount()` no escribe el atributo; con él cuenta. (surgió en 0059)
 
 ## Aparcado
 
@@ -308,3 +309,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0056](tasks/0056-ci-endurecido.md) (lote auditoria-publicacion): CI con acciones fijadas por SHA, `npm audit` en cada push y semanal (`audit.yml`), artefacto de los e2e fallidos, runs encolados y caché de Electron. Sin migraciones.
 - [0057](tasks/0057-main-metricas-codigo-comun.md) (lote auditoria-codigo-comun): los 11 canales de métricas de entidad en `main` comparten `metric-series.ts`, `createMetricsQuery`, `rethrowRejected` y `requireEnvironment`; sin cambios visibles. Sin migraciones.
 - [0058](tasks/0058-paginas-entidad-codigo-comun.md) (lote auditoria-codigo-comun): las páginas de entidad comparten `useEntityPageAccess`, `Level`/`LEVEL_CLASS`/`MarkerBody`/`BigValue`, `TableCard` y los comparadores de `@shared/grid-sort`, con un test de guardia; sin cambios visibles. Sin migraciones.
+- [0059](tasks/0059-react-compiler.md) (lote auditoria-codigo-comun): React Compiler en el build del renderer (ADR-0012): las tablas solo repintan las filas que cambian (scroll de Problemas y buscador de evidencias); contador de renders de fila solo en e2e. Sin migraciones.

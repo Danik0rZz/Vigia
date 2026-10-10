@@ -1,7 +1,7 @@
 ---
 id: '0059'
 titulo: 'Instalar el React Compiler para que las tablas no se vuelvan a pintar enteras'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -151,4 +151,11 @@ Decisiones del developer (Dani delegó; refinables):
 
 ## Resultado
 
-(pendiente)
+- Commits: `4d499eb` (tests), `6145be6` (compilador en el build), `0117b0b` (contador de renders),
+  `877a82d` (arreglo de `EvidenceSection`), más los de la ficha.
+- Ficheros principales: `electron.vite.config.ts`, `package.json`, `src/renderer/src/lib/render-count.ts`,
+  `src/renderer/src/components/DataGrid.tsx`, `src/renderer/src/components/EvidenceSection.tsx`,
+  `src/renderer/src/main.tsx`, `e2e/views.spec.ts`, `scripts/react-compiler.test.ts`.
+- Rondas de revisión: 1 (aprobada). Verifier en verde.
+- ADR nuevo: [ADR-0012](../docs/adr/0012-react-compiler-en-el-build-del-renderer.md).
+- Sin migraciones.

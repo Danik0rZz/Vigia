@@ -72,7 +72,8 @@ better-sqlite3 13.0.3, Drizzle ORM 0.45.3, drizzle-kit 0.31.11, TanStack Query 5
 Virtual 3.14.13, react-hook-form 7.89.0, selfsigned 5.5.0 (solo tests), ExcelJS 4.4.0 (main),
 ECharts 6.1.0, react-markdown 10.1.0, remark-gfm 4.0.1, rehype-raw 7.0.0 y rehype-sanitize 6.0.0 (MIT; interpretan el HTML de formato con lista blanca, ficha 0043, ADR-0011), lowlight 3.3.0 (MIT) y highlight.js 11.11.2
 (BSD-3-Clause) (renderer; los dos últimos colorean los bloques de código con nueve lenguajes, ficha
-0038, ADR-0008). Node 22 o superior.
+0038, ADR-0008). babel-plugin-react-compiler 1.0.0 (MIT, solo en el build del renderer, ficha 0059,
+ADR-0012). Node 22 o superior.
 
 - Dependencias con versión exacta: `npm install --save-exact <paquete>`. Una dependencia nueva
   necesita ficha y, si es de main o cambia el empaquetado, ADR.
