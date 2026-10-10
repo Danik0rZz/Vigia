@@ -1,7 +1,7 @@
 ---
 id: '0056'
 titulo: 'CI: acciones fijadas por SHA, npm audit, artefactos de e2e fallidos, sin cancelar runs y caché de Electron'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -80,7 +80,35 @@ Todo en `.github/workflows/` y su test (`scripts/ci-workflow.test.ts`):
 
 ## Verificación
 
-(pendiente)
+Tests (test-writer, 2026-10-10): commit `4962bea`, en `scripts/ci-workflow.test.ts` (lee los
+workflows como texto con un lector mínimo de pasos; no lanza el CI). El fallo seguía en `main`
+(`3590811`): acciones por etiqueta `@v7` y `cancel-in-progress: true`.
+
+- CA1 → `CA1 (0056): acciones fijadas por SHA de 40 hexadecimales con su versión` (cada `uses:` de
+  cada workflow, SHA y versión exactos de la tabla `PINNED`; `ci.yml` usa las cuatro acciones). El
+  test de `CA6 (0005)` pasa a leer la mayor del comentario.
+- CA2 → `CA2 (0056): npm audit en el CI y revisión semanal` (los dos `npm audit` tras
+  `npm ci --ignore-scripts` en `ci.yml` y `audit.yml`; `schedule` con un cron semanal y
+  `workflow_dispatch`).
+- CA3 → `CA3 (0056): ci.yml sube test-results/ solo si falla, 7 días`.
+- CA4 → `CA4 (0056): runs encolados y caché de Electron`.
+- CA5 → verifier (CI del push en verde).
+
+Decisiones del test-writer (Dani delegó; refinables):
+
+- SHA y versiones, sacados con `git ls-remote` el 2026-10-10 (etiquetas ligeras): las que apuntaba
+  la etiqueta mayor ya usada y, en las nuevas, la última mayor. `actions/checkout`
+  `3d3c42e5aac5ba805825da76410c181273ba90b1` (v7.0.1), `actions/setup-node`
+  `949feb2413d6458794dcd2491c4babbbce0c15c1` (v7.1.0), `actions/upload-artifact`
+  `cf430e030ddbb5b0abf93d22962f4752f3646cd9` (v7.0.2) y `actions/cache`
+  `55cc8345863c7cc4c66a329aec7e433d2d1c52a9` (v6.1.0).
+- `audit.yml` instala igual que `ci.yml` (`npm ci --ignore-scripts`) y lleva los mismos dos pasos;
+  su cron, uno solo con día de la semana fijo (`M H * * D`).
+- La clave de la caché de Electron lleva `runner.os` y la versión de Electron escrita tal cual (la
+  de `package.json`): al subir Electron, el test avisa si la clave se queda atrás. La caché va antes
+  de `npx install-electron` y su `path` menciona `electron`.
+- `npm audit --omit=dev --audit-level=high` y `npm audit --audit-level=critical` salen hoy en verde
+  en local: no hace falta anotar excepciones.
 
 ## Resultado
 
