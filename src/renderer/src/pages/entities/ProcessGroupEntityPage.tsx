@@ -106,7 +106,11 @@ export function ProcessGroupEntityPage(props: EntityPageProps): JSX.Element {
               />
             )
           }
-          cards={metricsEnv !== null && <ProcessGroupInstances metrics={metrics} />}
+          cards={
+            metricsEnv !== null && (
+              <ProcessGroupInstances metrics={metrics} envId={metricsEnv} groupId={groupId} />
+            )
+          }
           // Al final (0036): si falla, lo demás sigue.
           info={<ProcessGroupInfo access={entitiesAccess} info={info} />}
         />

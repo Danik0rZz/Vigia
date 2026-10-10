@@ -3,6 +3,7 @@ import {
   entityIdSchema,
   processEntityIdSchema,
   type ProcessGroupInstance,
+  type ProcessGroupInstancesResult,
   type ProcessGroupMetricsResult
 } from '@shared/modules'
 
@@ -54,11 +55,59 @@ export function hostLinkId(instance: ProcessGroupInstance): string | null {
   return id !== null && entityIdSchema.safeParse(id).success && id.startsWith('HOST-') ? id : null
 }
 
+/** Instancias que da `entities:processGroupMetrics` como mucho: las 20 de más CPU (ficha 0050). */
+export const TOP_INSTANCES = 20
+
 /**
- * ¿Llegan recortadas las instancias? Por encima de unas 498 instancias, Dynatrace recorta las
- * expresiones por instancia (tope de 1000 series) y main lo avisa en `partial` (nota del
- * Orquestador en la ficha 0032): la tabla y el total pueden estar incompletos.
+ * ¿Se presenta el número de instancias como mínimo y no como total? Solo si Dynatrace recortó las
+ * expresiones por instancia (`partial`) y no se pudo saber el total real: con `totalKnown`, el
+ * total sale de `totalCount` de `GET /entities` y es exacto aunque llegue `partial` (ficha 0051,
+ * nota del revisor de la 0050).
  */
 export function instancesTruncated(data: ProcessGroupMetricsResult): boolean {
-  return data.partial.length > 0
+  return data.partial.length > 0 && !data.instances.totalKnown
+}
+
+/** Aviso de que hay más instancias que las enseñadas: «N de total» o «N; puede haber más». */
+export type InstancesNotice =
+  { kind: 'of'; shown: number; total: number } | { kind: 'maybeMore'; shown: number }
+
+/**
+ * Aviso de la tabla de la página (ficha 0051): con el total real mayor que las enseñadas, «N de
+ * total»; sin el total real, «puede haber más» si llegan las 20 (el tope) o la respuesta vino
+ * recortada. Con todas a la vista, null (ni aviso ni «Ver todas»).
+ */
+export function instancesNotice(data: ProcessGroupMetricsResult): InstancesNotice | null {
+  const shown = data.instances.items.length
+  if (data.instances.totalKnown) {
+    return data.instances.total > shown ? { kind: 'of', shown, total: data.instances.total } : null
+  }
+  return shown >= TOP_INSTANCES || data.partial.length > 0 ? { kind: 'maybeMore', shown } : null
+}
+
+/**
+ * Aviso del modal con la lista completa (ficha 0051). `truncated` es true si Dynatrace recortó o
+ * si llegan menos que el total real, que también pasa si `totalCount` cuenta instancias sin
+ * datos en el rango (nota del revisor de la 0050): el texto no afirma un recorte, da los números.
+ */
+export function fullListNotice(data: ProcessGroupInstancesResult): InstancesNotice | null {
+  if (!data.truncated) return null
+  const shown = data.items.length
+  return data.total > shown
+    ? { kind: 'of', shown, total: data.total }
+    : { kind: 'maybeMore', shown }
+}
+
+/** Buscador del modal: por nombre o por host (su nombre o su id), sin distinguir mayúsculas. */
+export function filterInstances(
+  items: readonly ProcessGroupInstance[],
+  query: string
+): ProcessGroupInstance[] {
+  const needle = query.trim().toLocaleLowerCase()
+  if (needle === '') return [...items]
+  return items.filter(
+    (item) =>
+      item.name.toLocaleLowerCase().includes(needle) ||
+      (hostLabel(item) ?? '').toLocaleLowerCase().includes(needle)
+  )
 }

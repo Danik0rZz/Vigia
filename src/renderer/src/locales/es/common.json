@@ -1040,6 +1040,18 @@
         "label": "Instancias del Process group",
         "empty": "Sin instancias con datos en el rango",
         "partial": "Dynatrace ha recortado la consulta de instancias: la lista y el total pueden estar incompletos.",
+        "moreOf": "{{shown}} de {{total}} instancias, las de más CPU",
+        "moreUnknown": "{{shown}} instancias, las de más CPU; puede haber más",
+        "viewAll": "Ver todas",
+        "dialog": {
+          "title": "Instancias de {{name}}",
+          "search": "Buscar por nombre o host",
+          "truncatedOf": "Se muestran {{shown}} de {{total}} instancias. Dynatrace devuelve como mucho unas 498 por consulta y no incluye las que no tienen datos en el rango.",
+          "truncated": "Se muestran {{shown}} instancias y puede haber más: Dynatrace devuelve como mucho unas 498 por consulta.",
+          "noMatches": "Ninguna instancia coincide con la búsqueda.",
+          "loading": "Cargando las instancias…",
+          "close": "Cerrar"
+        },
         "columns": {
           "name": "Instancia",
           "host": "Host",

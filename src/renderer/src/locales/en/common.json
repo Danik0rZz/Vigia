@@ -1040,6 +1040,18 @@
         "label": "Process group instances",
         "empty": "No instances with data in the range",
         "partial": "Dynatrace truncated the instances query: the list and the total may be incomplete.",
+        "moreOf": "{{shown}} of {{total}} instances, the ones with the most CPU",
+        "moreUnknown": "{{shown}} instances, the ones with the most CPU; there may be more",
+        "viewAll": "View all",
+        "dialog": {
+          "title": "Instances of {{name}}",
+          "search": "Search by name or host",
+          "truncatedOf": "Showing {{shown}} of {{total}} instances. Dynatrace returns at most about 498 per query and leaves out those with no data in the range.",
+          "truncated": "Showing {{shown}} instances and there may be more: Dynatrace returns at most about 498 per query.",
+          "noMatches": "No instance matches the search.",
+          "loading": "Loading the instances…",
+          "close": "Close"
+        },
         "columns": {
           "name": "Instance",
           "host": "Host",

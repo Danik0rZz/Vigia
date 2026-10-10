@@ -430,6 +430,30 @@ export function useProcessGroupMetrics(
 }
 
 /**
+ * Lista completa de instancias de un process group en el rango global (canal de la ficha 0050),
+ * para el modal «Ver todas» de la 0051. Solo se pide con `enabled` (al abrir el modal: lo pide el
+ * usuario, ADR-0004); después queda en caché con la misma clave y volver a abrirlo no pide nada.
+ */
+export function useProcessGroupInstances(
+  envId: string | null,
+  entityId: string | null,
+  enabled: boolean
+): UseQueryResult<IpcOutput<'entities:processGroupInstances'>> {
+  const timeRange = useTimeRangeValue()
+  return useQuery({
+    queryKey: moduleKey(envId ?? '', 'entities', { processGroupInstances: entityId }, timeRange),
+    queryFn: () =>
+      invoke('entities:processGroupInstances', {
+        environmentId: envId ?? '',
+        entityId: entityId ?? '',
+        timeRange
+      }),
+    enabled: enabled && envId !== null && entityId !== null,
+    ...MANUAL
+  })
+}
+
+/**
  * Métricas de una aplicación web (APPLICATION) en el rango global (canal de la ficha 0033;
  * marcadores, gráficos y tabla de acciones de la 0034, una sola llamada). Con `entityId` null
  * (id que no es de una aplicación) no se pide nada.
