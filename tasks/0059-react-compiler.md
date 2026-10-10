@@ -1,7 +1,7 @@
 ---
 id: '0059'
 titulo: 'Instalar el React Compiler para que las tablas no se vuelvan a pintar enteras'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -138,6 +138,16 @@ Decisiones del developer (Dani delegó; refinables):
   patrón sí queda memoizado aparte (sin rama), así que no se tocó.
 - Los `useMemo` y `useCallback` existentes se dejan: no estorban al compilador y quitarlos no lo
   pide ningún criterio.
+
+### Verifier, 2026-10-10, commit `19abf81`, rango `main..feat/0059-react-compiler`: VERDE
+
+- `npm ci --ignore-scripts` con la dependencia nueva: bien.
+- check: 3341 tests en 188 ficheros, cobertura ok.
+- e2e completo (cambia la config del build): 355/355, sin intermitentes.
+- CA1 y CA2 (0059) ×3 con `--workers=1`: 6/6.
+- `npm run dist:win`: correcto, con el compilador activo en el bundle (109 `react.memo_cache_sentinel`).
+  `data-render-count` aparece una sola vez, dentro de `useRenderCount`, que solo se enciende con
+  `errorTrigger` (falso en la app empaquetada). Comprobación estática; el zip no se arrancó.
 
 ## Resultado
 
