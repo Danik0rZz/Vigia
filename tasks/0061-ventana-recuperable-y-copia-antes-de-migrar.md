@@ -1,7 +1,7 @@
 ---
 id: '0061'
 titulo: 'La ventana se recupera si el renderer cae, y copia de la base antes de migrar'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -164,6 +164,10 @@ Decisiones del developer (Dani delegó; conservadoras y refinables):
   `openLocalData`, dentro del mismo `try` del diálogo «No se pudo abrir la base de datos local».
 - `src/main/crash-policy.ts` va en `transversal` de `e2e/areas.json`, junto a `window.ts`
   (`backup.ts` ya entra por `src/main/db/**`).
+- Ronda 1: `killed` cuenta como caída (CA1 ajustado); solo `clean-exit` se ignora. `prune` recibe
+  la copia nueva y nunca la borra: se conservan ella y las 2 más recientes del resto (test propio en
+  `src/main/db/backup-prune.test.ts`, con el reloj hacia atrás). Opcionales hechos: la base de
+  origen se abre con `readonly: true` y `render-process-gone` llama antes a `hangs.responsive()`.
 
 ## Resultado
 
