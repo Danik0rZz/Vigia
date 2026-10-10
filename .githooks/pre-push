@@ -1,9 +1,20 @@
 #!/bin/sh
 # Puerta sin IA (ADR-0007): antes de publicar, restos del tenant de pruebas (sin mostrar valores).
 # Se activa una vez por clon: git config core.hooksPath .githooks
-# scan-tenant.mjs solo usa módulos de Node: no necesita node_modules. Lee .env.live.local de la
-# carpeta desde la que se hace el push (el checkout principal).
+# scan-tenant.mjs solo usa módulos de Node: no necesita node_modules. Con --pre-push lee de la
+# entrada estándar los refs que git va a subir y escanea remota..local de cada uno (ficha 0055).
+# Busca .env.live.local en la carpeta del push y, si no está, en el checkout principal; sin él,
+# falla (salvo con VIGIA_SCAN_TENANT_OPTIONAL=1, para clones sin tenant de pruebas).
 
 echo "pre-push › scan:tenant"
-node scripts/scan-tenant.mjs || { echo "pre-push: scan:tenant ha encontrado restos del tenant. No se publica."; exit 1; }
+node scripts/scan-tenant.mjs --pre-push
+status=$?
+if [ "$status" -eq 1 ]; then
+  echo "pre-push: scan:tenant ha encontrado restos del tenant. No se publica."
+  exit 1
+fi
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: scan:tenant no ha podido comprobar lo que se sube. No se publica."
+  exit 1
+fi
 exit 0

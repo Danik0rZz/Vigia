@@ -1,18 +1,25 @@
 // Busca restos del tenant real de pruebas en un rango de git antes de hacer push.
 //
 // Uso: npm run scan:tenant -- [rango]   (por defecto origin/main..HEAD)
+//      node scripts/scan-tenant.mjs --pre-push   (lo lanza .githooks/pre-push: lee de la
+//      entrada estándar las líneas que git pasa al hook y escanea lo que de verdad se sube)
 //
-// Lee .env.live.local en tiempo de ejecución y NUNCA imprime sus valores: solo
-// el tipo de coincidencia y fichero:línea (o el hash del commit). Busca en las
-// líneas añadidas del diff y en los mensajes de commit del rango. Sale con 1 si
-// encuentra algo, con 0 si no (o si no existe el .env) y con 2 si hay un error.
+// Lee .env.live.local (del directorio de trabajo o, si no está, del checkout principal) en
+// tiempo de ejecución y NUNCA imprime sus valores: solo el tipo de coincidencia y
+// fichero:línea (o el hash del commit). Busca en las líneas añadidas del diff y en los
+// mensajes de commit del rango. Sale con 1 si encuentra algo, con 0 si no y con 2 si no puede
+// comprobar: un error de git o la falta del .env (falla cerrado, ficha 0055), salvo con
+// VIGIA_SCAN_TENANT_OPTIONAL=1, que lo convierte en un aviso y sale con 0.
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { findLiveEnv, LIVE_ENV_FILE } from './lib/env-file.mjs'
 
 export const DEFAULT_RANGE = 'origin/main..HEAD'
-const DEFAULT_ENV = '.env.live.local'
+export const OPTIONAL_VAR = 'VIGIA_SCAN_TENANT_OPTIONAL'
+const NEW_BRANCH_BASE = 'origin/main'
+const ZERO_SHA = /^0+$/
 
 /**
  * Valores a buscar a partir del contenido de un .env: host y id de entorno de
@@ -60,14 +67,27 @@ function git(cwd, args) {
 }
 
 /**
- * Busca los valores del .env en el rango. Devuelve { envFound: false } si no
- * hay .env, o { envFound: true, kinds, hits } con hits = ['tipo: fichero:línea', …].
+ * Busca los valores del .env en el rango (o en varios, con `ranges`). Sin
+ * `envPath`, el .env se busca con findLiveEnv (cwd y, si no, checkout
+ * principal). Devuelve { envFound: false } si no hay .env, o
+ * { envFound: true, kinds, count, hits } con hits = ['tipo: fichero:línea', …].
  */
-export function scan({ cwd = process.cwd(), range = DEFAULT_RANGE, envPath = DEFAULT_ENV } = {}) {
-  const fullEnvPath = resolve(cwd, envPath)
-  if (!existsSync(fullEnvPath)) return { envFound: false }
+export function scan({ cwd = process.cwd(), range = DEFAULT_RANGE, ranges, envPath } = {}) {
+  const fullEnvPath = envPath === undefined ? findLiveEnv(cwd) : resolve(cwd, envPath)
+  if (fullEnvPath === undefined || !existsSync(fullEnvPath)) return { envFound: false }
 
   const needles = extractNeedles(readFileSync(fullEnvPath, 'utf8'))
+  const hits = []
+  for (const one of ranges ?? [range]) hits.push(...scanRange(cwd, one, needles))
+  return {
+    envFound: true,
+    kinds: [...new Set(needles.map((n) => n.kind))],
+    count: needles.length,
+    hits
+  }
+}
+
+function scanRange(cwd, range, needles) {
   const hits = []
 
   let file = ''
@@ -97,20 +117,87 @@ export function scan({ cwd = process.cwd(), range = DEFAULT_RANGE, envPath = DEF
     for (const needle of needles)
       if (lower.includes(needle.value)) hits.push(`${needle.kind}: mensaje de commit ${hash}`)
   }
-
-  return {
-    envFound: true,
-    kinds: [...new Set(needles.map((n) => n.kind))],
-    count: needles.length,
-    hits
-  }
+  return hits
 }
 
-export function main(argv) {
-  const range = argv[0] ?? DEFAULT_RANGE
+/**
+ * Rangos a escanear a partir de la entrada estándar del pre-push de git
+ * (`<ref local> <sha local> <ref remota> <sha remota>` por línea): `remota..local`,
+ * o `origin/main..local` si la rama remota no existe (sha a ceros). Las líneas de
+ * borrado (sha local a ceros) no suben nada y no dan rango. Una línea con otra
+ * forma lanza: mejor parar que dar por bueno algo que no se ha entendido.
+ */
+export function prePushRanges(input) {
+  const ranges = []
+  for (const raw of String(input).split(/\r?\n/)) {
+    const line = raw.trim()
+    if (line === '') continue
+    const parts = line.split(/\s+/)
+    const [, local, , remote] = parts
+    if (parts.length !== 4 || !/^[0-9a-f]+$/i.test(local) || !/^[0-9a-f]+$/i.test(remote))
+      throw new Error('línea de la entrada estándar con un formato inesperado')
+    if (ZERO_SHA.test(local)) continue
+    ranges.push(ZERO_SHA.test(remote) ? `${NEW_BRANCH_BASE}..${local}` : `${remote}..${local}`)
+  }
+  return ranges
+}
+
+/** Lee la entrada estándar del pre-push y la convierte en rangos; código 2 si no se puede. */
+function prePushInput() {
+  let input
+  try {
+    input = readFileSync(0, 'utf8')
+  } catch (error) {
+    return { error: `no se ha podido leer la entrada estándar: ${error.message.split('\n')[0]}` }
+  }
+  let ranges
+  try {
+    ranges = prePushRanges(input)
+  } catch (error) {
+    return { error: error.message }
+  }
+  // Entrada vacía: git no ha dicho qué se sube. No se da por bueno sin mirar.
+  if (input.trim() === '')
+    return { error: 'la entrada estándar está vacía: git no ha indicado qué se sube.' }
+  return { ranges }
+}
+
+export function main(argv, env = process.env) {
+  const prePush = argv[0] === '--pre-push'
+  if (findLiveEnv(process.cwd()) === undefined) {
+    if (env[OPTIONAL_VAR] === '1') {
+      console.warn(
+        `AVISO: scan:tenant sin ${LIVE_ENV_FILE} (ni aquí ni en el checkout principal) y con ${OPTIONAL_VAR}=1: la revisión del tenant NO está activa.`
+      )
+      return 0
+    }
+    console.error(
+      `scan:tenant: falta ${LIVE_ENV_FILE} (ni aquí ni en el checkout principal): no se puede comprobar y no se da por bueno. En un clon sin tenant de pruebas, ${OPTIONAL_VAR}=1 lo deja pasar con un aviso.`
+    )
+    return 2
+  }
+
+  let ranges
+  if (prePush) {
+    const parsed = prePushInput()
+    if (parsed.error) {
+      console.error(`scan:tenant: ${parsed.error}`)
+      return 2
+    }
+    ranges = parsed.ranges
+    if (ranges.length === 0) {
+      // Solo borrados de ramas remotas: no se sube contenido nuevo.
+      console.log('scan:tenant: solo se borran ramas remotas; no se sube nada que revisar.')
+      return 0
+    }
+  } else {
+    ranges = [argv[0] ?? DEFAULT_RANGE]
+  }
+  const range = ranges.join(', ')
+
   let result
   try {
-    result = scan({ range })
+    result = scan({ ranges })
   } catch (error) {
     // El mensaje de git no lleva valores del .env: solo el rango o la ruta.
     console.error(
@@ -119,8 +206,9 @@ export function main(argv) {
     return 2
   }
   if (!result.envFound) {
-    console.log('scan:tenant: sin .env.live.local: no hay nada que buscar.')
-    return 0
+    // Ha desaparecido entre la comprobación y la lectura.
+    console.error(`scan:tenant: falta ${LIVE_ENV_FILE}: no se puede comprobar.`)
+    return 2
   }
   if (result.count === 0) {
     // Existe pero sin valores: no se ha revisado nada y no debe parecer que sí.
