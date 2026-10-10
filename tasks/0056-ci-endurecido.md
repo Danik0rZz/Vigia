@@ -1,7 +1,7 @@
 ---
 id: '0056'
 titulo: 'CI: acciones fijadas por SHA, npm audit, artefactos de e2e fallidos, sin cancelar runs y caché de Electron'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-publicacion
@@ -72,7 +72,8 @@ Todo en `.github/workflows/` y su test (`scripts/ci-workflow.test.ts`):
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `persist-credentials: false` en `actions/checkout`: ningún paso necesita el token en
+  `.git/config` tras el checkout.
 
 ## Notas del revisor
 
@@ -109,6 +110,20 @@ Decisiones del test-writer (Dani delegó; refinables):
   de `npx install-electron` y su `path` menciona `electron`.
 - `npm audit --omit=dev --audit-level=high` y `npm audit --audit-level=critical` salen hoy en verde
   en local: no hace falta anotar excepciones.
+
+Decisiones del developer (Dani delegó; refinables):
+
+- Caché de Electron: `path: ~\AppData\Local\electron\Cache` (la caché por defecto de
+  `@electron/get`, vía `env-paths`, que usan `install-electron` y `electron-builder`) y
+  `key: electron-${{ runner.os }}-44.5.1`, sin `restore-keys` (otra versión no sirve).
+- Artefacto `e2e-test-results` con `if-no-files-found: ignore` (si falla `check`, `if: failure()`
+  también corre y aún no hay `test-results/`). Solo sube `test-results/`: capturas y final de
+  `main.log` de los e2e con simulador; el CI no tiene `.env.live.local` ni `test:live`.
+- `audit.yml`: cron `17 6 * * 1` (lunes, 06:17 UTC; minuto no redondo porque a en punto GitHub
+  retrasa los cron), `windows-latest` como `ci.yml`, `permissions: contents: read` y sin
+  `concurrency`.
+- `npm audit` hoy: el de producción sale con código 0 (solo los 2 `moderate` de `uuid` por ExcelJS,
+  por debajo de `high`): sin excepciones.
 
 ## Resultado
 
