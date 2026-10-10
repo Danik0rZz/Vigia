@@ -1,7 +1,7 @@
 ---
 id: '0046'
 titulo: 'SERVICE: las métricas dependen del serviceType (servidor, cliente, unificadas o solo actividad)'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -234,3 +234,12 @@ Decisiones del developer (refinables):
   En el renderer, solo lo mínimo para compilar: `service-charts.ts` pinta una serie `null` sin
   puntos y el fixture de `service-charts.test.ts` gana los tres campos nuevos (sin tocar sus
   aserciones). La vista por tipo es de la 0047.
+
+**Cierre (doc-writer, 2026-10-10):** commits `d288168` (EXTERNAL a Cliente en los tests),
+`e8ed5f9` (`serviceMetricSet`), `c19bfb0` (canal y consultas por conjunto) y `c8348ef` (notas en
+vivo), más los de tests y fichas. Ficheros principales: `src/main/modules/service-metric-set.ts`,
+`src/main/modules/service-metrics.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/modules.ts`
+y `docs/notas-api-v2.md`. Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Migraciones: no.
+Verifier en verde (3088 unitarios, 318 e2e). Pendiente de Dani: confirmar EXTERNAL → Cliente.
+Sugerencia del revisor (avisos en español fijo en «Exportar») anotada en `BACKLOG.md` (surgió en
+0046).

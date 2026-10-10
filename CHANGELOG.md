@@ -3,6 +3,14 @@
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
 [versionado semántico](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+Sin migraciones nuevas.
+
+### Cambiado
+
+- **Las métricas de un servicio dependen ahora de su tipo (`serviceType`).** Antes todos los servicios usaban las métricas de servidor. Ahora la app lee primero la entidad y elige el conjunto: **Servidor** (WEB_SERVICE, CUSTOM_SERVICE, BACKGROUND_ACTIVITY, SPAN, MESSAGING_SERVICE, y WEB_REQUEST_SERVICE con servidor web o RPC_SERVICE sin extremo remoto), **Cliente** (WEB_REQUEST_SERVICE sin servidor web, DATABASE_SERVICE, RPC_SERVICE con extremo o servicio remoto), **Unificadas** (UNIFIED, con la tasa de error calculada por la app) y **Solo actividad** (QUEUE_LISTENER_SERVICE: solo peticiones, sin tiempos ni errores). Un tipo desconocido, o si no se puede leer la entidad (por ejemplo sin `entities.read`), usa Servidor y deja un aviso. **Decisión pendiente de que Dani la confirme:** EXTERNAL va a **Cliente**, no a Servidor como decía la tabla inicial, porque en vivo solo tiene datos de Cliente y con Servidor saldría vacío; es cambiar una fila si Dani lo prefiere distinto. Por dentro, `entities:serviceMetrics` devuelve además `serviceType`, `metricSet` y `metricKeys`, y en Solo actividad los tiempos y errores llegan vacíos. La vista por tipo llega en la ficha 0047. Sin migraciones nuevas. (ficha 0046)
+
 ## [0.11.0] - 2026-10-10
 
 Análisis de entidades: páginas propias para servicio, host, disco, proceso, grupo de procesos,
