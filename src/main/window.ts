@@ -1,6 +1,13 @@
-import { app, BrowserWindow, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, nativeTheme } from 'electron'
 import { APP_ENTRY_URL, APP_NAME } from '@shared/app'
+import {
+  crashLanguageFromLocale,
+  createCrashPolicy,
+  createUnresponsivePolicy,
+  type CrashLanguage
+} from './crash-policy'
 import { E2E_ENV, isE2eMode } from './e2e-mode'
+import { log } from './logging'
 import { preloadPath } from './paths'
 import { titleBarColors } from './theme'
 
@@ -31,6 +38,52 @@ export function focusMainWindow(): void {
   const e2e = e2eMode()
   showWindow(mainWindow, e2e)
   if (!e2e) mainWindow.focus()
+}
+
+/**
+ * Caídas y cuelgues del proceso de la interfaz (ficha 0061): la lógica está en
+ * `crash-policy.ts`; aquí solo se le pasa lo de Electron.
+ */
+function watchRenderer(window: BrowserWindow): void {
+  const language = (): CrashLanguage => crashLanguageFromLocale(app.getLocale())
+  const crashes = createCrashPolicy({
+    now: () => Date.now(),
+    logger: log,
+    reload: () => {
+      if (!window.isDestroyed()) window.webContents.reload()
+    },
+    showErrorBox: (title, content) => dialog.showErrorBox(title, content),
+    quit: () => app.quit(),
+    language
+  })
+  const hangs = createUnresponsivePolicy({
+    logger: log,
+    schedule: (fn, ms) => setTimeout(fn, ms),
+    cancel: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+    ask: async (texts) => {
+      if (window.isDestroyed()) return 'wait'
+      const { response } = await dialog.showMessageBox(window, {
+        type: 'warning',
+        title: APP_NAME,
+        message: texts.unresponsiveMessage,
+        buttons: [texts.wait, texts.close],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true
+      })
+      return response === 1 ? 'close' : 'wait'
+    },
+    // destroy y no close: una interfaz colgada no contestaría a beforeunload.
+    close: () => {
+      if (!window.isDestroyed()) window.destroy()
+    },
+    language
+  })
+  window.webContents.on('render-process-gone', (_event, details) =>
+    crashes.renderProcessGone(details)
+  )
+  window.on('unresponsive', () => hangs.unresponsive())
+  window.on('responsive', () => hangs.responsive())
 }
 
 /**
@@ -74,6 +127,8 @@ export function createMainWindow(devServerUrl: string | undefined): BrowserWindo
     nativeTheme.off('updated', applyTheme)
     if (mainWindow === window) mainWindow = null
   })
+
+  watchRenderer(window)
 
   void window.loadURL(devServerUrl ?? APP_ENTRY_URL)
 

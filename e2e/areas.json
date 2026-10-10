@@ -28,6 +28,7 @@
     "src/main/security/**",
     "src/main/index.ts",
     "src/main/window.ts",
+    "src/main/crash-policy.ts",
     "src/main/paths.ts",
     "src/main/protocol.ts",
     "src/main/user-agent.ts",
