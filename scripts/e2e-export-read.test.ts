@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -13,6 +13,10 @@ import { describe, expect, it } from 'vitest'
  * También la espera copiada a mano: un `readFileSync` cuyo argumento usa `exportDir` (por ejemplo,
  * `join(exportDir, created)`) o llama a una función propia del spec que busca en `exportDir` (como
  * `exportTo`), salvo `exportSaved`, o una variable declarada con esa llamada.
+ *
+ * Ficha 0069: `exportTo`, `exportSaved` y `exportDir` viven en el arnés de vistas
+ * (`e2e/views/harness.ts`). Se miran todos los `.ts` de `e2e/` (también las subcarpetas), y las
+ * funciones de cualquiera de ellos que buscan en `exportDir` cuentan como copias en todos.
  */
 
 const E2E_DIR = 'e2e'
@@ -97,9 +101,14 @@ function comesFromHelper(node: ts.Node, name: string, helpers: Set<string>): boo
 }
 
 /** Líneas (desde 1) de cada `readFileSync` que lee el resultado de `exportTo(...)`. */
-function exportToReads(code: string, fileName = 'spec.ts'): number[] {
+function exportToReads(
+  code: string,
+  fileName = 'spec.ts',
+  extraHelpers: ReadonlySet<string> = new Set()
+): number[] {
   const source = ts.createSourceFile(fileName, code, ts.ScriptTarget.Latest, true)
-  const helpers = exportDirHelpers(source)
+  const helpers = new Set([...exportDirHelpers(source), ...extraHelpers])
+  helpers.delete(SAVED_HELPER)
   const lines: number[] = []
   const visit = (node: ts.Node): void => {
     if (
@@ -179,6 +188,20 @@ const csv = readFileSync(await exportSaved('t'))`
     expect(exportToReads(code)).toEqual([])
   })
 
+  it('CA2 (0069): marca la lectura con una función de otro módulo que busca en exportDir', () => {
+    const harness = `export async function saveTo(option: string): Promise<string> {
+  return join(exportDir, option)
+}`
+    const extra = exportDirHelpers(
+      ts.createSourceFile('h.ts', harness, ts.ScriptTarget.Latest, true)
+    )
+    const spec = `const file = await saveTo('export-csv')
+readFileSync(file)
+readFileSync(await exportSaved('t', 'export-xlsx'))`
+    expect(exportToReads(spec, 'spec.ts', extra)).toEqual([2])
+    expect(exportToReads(spec, 'spec.ts', new Set(['exportSaved']))).toEqual([])
+  })
+
   it('CA2 (0030): acepta exportSaved y otras lecturas', () => {
     const code = `const file = await exportSaved('t', 'export-csv')
 const buffer = readFileSync(file)
@@ -189,13 +212,31 @@ const png = await exportTo('t', 'capture-save')`
   })
 })
 
-describe('specs de e2e', () => {
-  const specs = readdirSync(E2E_DIR).filter((name) => name.endsWith('.spec.ts'))
+/** Ficheros `.ts` de `e2e/` (recursivo), con rutas posix desde `e2e/`. */
+function e2eFiles(dir = ''): string[] {
+  const files: string[] = []
+  for (const name of readdirSync(join(E2E_DIR, dir))) {
+    const relative = dir === '' ? name : `${dir}/${name}`
+    if (statSync(join(E2E_DIR, relative)).isDirectory()) files.push(...e2eFiles(relative))
+    else if (name.endsWith('.ts')) files.push(relative)
+  }
+  return files
+}
 
-  it.each(specs)(
+describe('specs de e2e', () => {
+  const files = e2eFiles()
+  const read = (name: string): string => readFileSync(join(E2E_DIR, name), 'utf8')
+  // Las funciones de cualquier fichero de e2e/ que buscan en exportDir (exportTo, en el arnés).
+  const shared = new Set(
+    files.flatMap((name) => [
+      ...exportDirHelpers(ts.createSourceFile(name, read(name), ts.ScriptTarget.Latest, true))
+    ])
+  )
+
+  it.each(files)(
     'CA2 (0030): %s lee las exportaciones con exportSaved, no con exportTo',
     (name) => {
-      const lines = exportToReads(readFileSync(join(E2E_DIR, name), 'utf8'), name)
+      const lines = exportToReads(read(name), name, shared)
       expect(lines, 'readFileSync de una exportación sin exportSaved (líneas)').toEqual([])
     }
   )

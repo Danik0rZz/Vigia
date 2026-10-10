@@ -93,6 +93,9 @@ function ownTags(call) {
  * función del propio spec que el test llame (directa o indirectamente, como `clipboardText`).
  * Las funciones son las de nivel superior del spec: `function f()` y `const f = () => …`. No mira
  * los hooks (`beforeAll`, `afterAll`…): guardar y restaurar el portapapeles no es un test.
+ *
+ * Ficha 0069: también cuentan las funciones de los módulos de `e2e/` que no son specs (el arnés de
+ * vistas, `e2e/views/`) y que el spec importa: `checkTags` las recibe en `modules`.
  */
 function mentionsClipboard(node) {
   let found = false
@@ -142,9 +145,14 @@ function topLevelFunctions(source) {
   return functions
 }
 
-/** Nombres de las funciones del spec que usan el portapapeles, también a través de otras. */
-function clipboardFunctions(source) {
-  const functions = topLevelFunctions(source)
+/**
+ * Nombres de las funciones de `sources` que usan el portapapeles, también a través de otras de
+ * ellas o de `seed` (las de los módulos que importa el spec).
+ */
+function clipboardFunctions(sources, seed = new Set()) {
+  const functions = new Map()
+  for (const source of sources)
+    for (const [name, body] of topLevelFunctions(source)) functions.set(name, body)
   const calls = new Map()
   const using = new Set()
   for (const [name, body] of functions) {
@@ -156,13 +164,30 @@ function clipboardFunctions(source) {
     changed = false
     for (const [name, names] of calls) {
       if (using.has(name)) continue
-      if ([...names].some((other) => using.has(other))) {
+      if ([...names].some((other) => using.has(other) || seed.has(other))) {
         using.add(name)
         changed = true
       }
     }
   }
   return using
+}
+
+/**
+ * Nombres locales con los que el spec importa funciones de `imported` (nombre exportado): las del
+ * arnés que usan el portapapeles, con el alias que les dé el spec.
+ */
+function importedNames(source, imported) {
+  const names = new Set()
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement)) continue
+    const bindings = statement.importClause?.namedBindings
+    if (bindings === undefined || !ts.isNamedImports(bindings)) continue
+    for (const element of bindings.elements) {
+      if (imported.has((element.propertyName ?? element.name).text)) names.add(element.name.text)
+    }
+  }
+  return names
 }
 
 function usesClipboard(body, helpers) {
@@ -174,10 +199,12 @@ function usesClipboard(body, helpers) {
 /**
  * @param {{ file: string, code: string }[]} specs
  * @param {{ zones: Record<string, string>, resourceTags: Record<string, string> }} config
+ * @param {{ file: string, code: string }[]} [modules] módulos de `e2e/` que no son specs (sus tests
+ *   no se comprueban; sus funciones cuentan como auxiliares de los specs que las importan)
  * @returns {{ kind: 'sin-zona' | 'dos-zonas' | 'desconocida' | 'portapapeles' | 'zona-muerta',
  *   file?: string, test?: string, tag?: string, message: string }[]}
  */
-function checkTags(specs, config) {
+function checkTags(specs, config, modules = []) {
   if (config === null || typeof config !== 'object' || typeof config.zones !== 'object') {
     throw new TypeError('checkTags necesita zones y resourceTags de e2e/areas.json')
   }
@@ -185,10 +212,15 @@ function checkTags(specs, config) {
   const resources = new Set(Object.keys(config.resourceTags ?? {}))
   const used = new Set()
   const problems = []
+  const moduleSources = modules.map(({ file, code }) =>
+    ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  )
+  const moduleClipboard = clipboardFunctions(moduleSources)
 
   for (const { file, code } of specs) {
     const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-    const helpers = clipboardFunctions(source)
+    const seed = importedNames(source, moduleClipboard)
+    const helpers = new Set([...clipboardFunctions([source], seed), ...seed])
 
     /** @param {string[]} inherited etiquetas de los describe que lo contienen */
     const visit = (node, inherited) => {

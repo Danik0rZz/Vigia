@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -8,19 +8,37 @@ import { describe, expect, it } from 'vitest'
  * nada más arrancar la app, llama a `useCiWindow` (e2e/window-size.ts): la sentencia siguiente a
  * la que lanza Electron tiene que ser `await useCiWindow(...)`. Si la app se lanza dentro de una
  * función propia del spec (el lanzador común de tenants), la regla se aplica dentro de ella.
+ *
+ * Ficha 0069: la app también se lanza desde módulos de `e2e/` que no son specs (el arnés de vistas,
+ * `e2e/views/harness.ts`, la lanza para `views.spec.ts`), así que se miran todos los `.ts` de
+ * `e2e/`, también los de sus subcarpetas.
  */
 
 const E2E_DIR = 'e2e'
 
-/** Specs que arrancan la app hoy: si alguno deja de hacerlo, este test se revisa. */
-const LAUNCHING_SPECS = [
+/**
+ * Ficheros de `e2e/` que arrancan la app hoy (rutas desde `e2e/`): si alguno deja de hacerlo o
+ * aparece otro, este test se revisa. Los specs de vistas la arrancan a través del arnés.
+ */
+const LAUNCHING_FILES = [
   'errors.spec.ts',
   'shell.spec.ts',
   'smoke.spec.ts',
   'tenants.spec.ts',
   'tls.spec.ts',
-  'views.spec.ts'
+  'views/harness.ts'
 ]
+
+/** Ficheros `.ts` de `e2e/` (recursivo), con rutas posix desde `e2e/`. */
+function e2eFiles(dir = ''): string[] {
+  const files: string[] = []
+  for (const name of readdirSync(join(E2E_DIR, dir))) {
+    const relative = dir === '' ? name : `${dir}/${name}`
+    if (statSync(join(E2E_DIR, relative)).isDirectory()) files.push(...e2eFiles(relative))
+    else if (name.endsWith('.ts')) files.push(relative)
+  }
+  return files
+}
 
 interface LaunchCheck {
   /** Línea (desde 1) de cada `launch` de Electron. */
@@ -137,16 +155,16 @@ const other = await browser.launch({})`
 })
 
 describe('specs de e2e', () => {
-  const specs = readdirSync(E2E_DIR).filter((name) => name.endsWith('.spec.ts'))
+  const files = e2eFiles()
 
-  it('CA1 (0021): los specs que arrancan la app son los conocidos', () => {
-    const launching = specs.filter(
+  it('CA1 (0021): los ficheros de e2e/ que arrancan la app son los conocidos', () => {
+    const launching = files.filter(
       (name) => checkCiWindow(readFileSync(join(E2E_DIR, name), 'utf8'), name).launches.length > 0
     )
-    expect(launching.sort()).toEqual([...LAUNCHING_SPECS].sort())
+    expect(launching.sort()).toEqual([...LAUNCHING_FILES].sort())
   })
 
-  it.each(specs)('CA1 (0021): %s llama a useCiWindow justo después de arrancar la app', (name) => {
+  it.each(files)('CA1 (0021): %s llama a useCiWindow justo después de arrancar la app', (name) => {
     const { missing } = checkCiWindow(readFileSync(join(E2E_DIR, name), 'utf8'), name)
     expect(missing, `launch sin useCiWindow justo después (líneas)`).toEqual([])
   })

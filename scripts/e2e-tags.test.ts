@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -11,6 +11,10 @@ import { describe, expect, it } from 'vitest'
  *
  * La lógica es `checkTags` (`scripts/e2e-tags.cjs`), pura: recibe el texto de los specs y la config
  * y devuelve los problemas. Se prueba con specs de ejemplo y, además, sobre los specs reales.
+ *
+ * Ficha 0069: los ayudantes de las vistas viven en módulos de `e2e/` que no son specs (el arnés,
+ * `e2e/views/`). `checkTags` los recibe aparte: sus funciones que usan el portapapeles cuentan
+ * para los specs que las importan.
  */
 
 type Kind = 'sin-zona' | 'dos-zonas' | 'desconocida' | 'portapapeles' | 'zona-muerta'
@@ -41,10 +45,23 @@ interface Spec {
 
 const require = createRequire(import.meta.url)
 const { checkTags } = require(join(__dirname, 'e2e-tags.cjs')) as {
-  checkTags: (specs: Spec[], config: TagConfig) => Problem[]
+  checkTags: (specs: Spec[], config: TagConfig, modules?: Spec[]) => Problem[]
 }
 
 const E2E_DIR = 'e2e'
+
+/** Módulos `.ts` de `e2e/` (recursivo) que no son specs ni tests: el arnés y los ayudantes. */
+function e2eModules(dir = E2E_DIR): Spec[] {
+  const modules: Spec[] = []
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name)
+    if (statSync(path).isDirectory()) modules.push(...e2eModules(path))
+    else if (name.endsWith('.ts') && !/\.(spec|test)\.ts$/.test(name)) {
+      modules.push({ file: path.replace(/\\/g, '/'), code: readFileSync(path, 'utf8') })
+    }
+  }
+  return modules
+}
 
 const config: TagConfig = {
   zones: { '@shell': 'menú y barra', '@metricas': 'Métricas' },
@@ -153,6 +170,48 @@ test('CA3 (0005): no copia', { tag: '@metricas' }, async () => {
       ['portapapeles', 'auxiliar.spec.ts', 'CA1 (0005): copia por la auxiliar']
     ])
   })
+
+  it('CA2 (0069): falla si el test usa el portapapeles a través de una función del arnés que importa', () => {
+    const harness: Spec = {
+      file: 'views/harness.ts',
+      code: `export async function readClipboard(): Promise<string> {
+  return app.evaluate(({ clipboard }) => clipboard.readText())
+}
+export async function clipboardText(): Promise<string> {
+  return readClipboard()
+}
+export async function noClipboard(): Promise<void> {}
+`
+    }
+    const code = `${header}import { clipboardText as copied, noClipboard } from './views/harness'
+async function local(): Promise<string> {
+  return copied()
+}
+test('CA1 (0006): copia por el arnés', { tag: '@metricas' }, async () => {
+  expect(await copied()).toBe('x')
+})
+test('CA2 (0006): copia por una auxiliar del spec que usa el arnés', { tag: '@metricas' }, async () => {
+  expect(await local()).toBe('x')
+})
+test('CA3 (0006): con etiqueta', { tag: ['@metricas', '@portapapeles'] }, async () => {
+  expect(await copied()).toBe('x')
+})
+test('CA4 (0006): otra función del arnés', { tag: '@metricas' }, async () => {
+  await noClipboard()
+})
+`
+    const problems = checkTags([{ file: 'arnes.spec.ts', code }, filler], config, [harness])
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['portapapeles', 'arnes.spec.ts', 'CA1 (0006): copia por el arnés'],
+      [
+        'portapapeles',
+        'arnes.spec.ts',
+        'CA2 (0006): copia por una auxiliar del spec que usa el arnés'
+      ]
+    ])
+    // Sin el arnés no hay de dónde saberlo: por eso los specs reales se comprueban con sus módulos.
+    expect(checkTags([{ file: 'arnes.spec.ts', code }, filler], config)).toEqual([])
+  })
 })
 
 describe('CA3 (0067): zona heredada de test.describe', () => {
@@ -230,7 +289,7 @@ describe('CA1 (0067): specs reales de e2e', () => {
       .filter((name) => name.endsWith('.spec.ts'))
       .map((name) => ({ file: `e2e/${name}`, code: readFileSync(join(E2E_DIR, name), 'utf8') }))
     expect(specs.length).toBeGreaterThan(0)
-    const problems = checkTags(specs, areas)
+    const problems = checkTags(specs, areas, e2eModules())
     expect(problems.map((p) => p.message)).toEqual([])
   })
 })
