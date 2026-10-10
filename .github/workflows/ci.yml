@@ -1,6 +1,10 @@
 # Puerta sin IA (ADR-0007): cada push a main pasa check, el e2e completo y el empaquetado en
 # Windows. Sin test:live ni secretos: los logs de un repositorio público son públicos. El zip no se
 # sube (publicarlo lo decide Dani).
+#
+# Ficha 0056: cada acción va fijada por SHA de commit, con su versión en el comentario (una etiqueta
+# la puede mover su dueño o quien le robe la cuenta). Al subir una acción se cambia aquí, en
+# audit.yml y en la tabla PINNED de scripts/ci-workflow.test.ts.
 name: CI
 
 on:
@@ -16,26 +20,53 @@ on:
 permissions:
   contents: read
 
+# Los runs se encolan, no se cancelan: en una cola de fichas, el push de la siguiente no debe
+# cancelar el CI de la anterior (el aviso de Telegram enlaza a ese run).
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # affected-e2e y sus tests leen el historial.
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
       # Instalación del README: sin scripts (better-sqlite3 no necesita compilar) y Electron aparte.
       - run: npm ci --ignore-scripts
+      # Lo que va dentro del zip: bloqueante desde "high".
+      - name: npm audit (producción)
+        run: npm audit --omit=dev --audit-level=high
+      # Dependencias de desarrollo: solo para ver el ruido, no para el CI.
+      - name: npm audit (desarrollo)
+        run: npm audit --audit-level=critical
+        continue-on-error: true
+      # Caché de @electron/get (%LOCALAPPDATA%\electron\Cache): el zip de Electron, unos 100 MB, que
+      # usan install-electron y electron-builder. La clave lleva la versión de package.json.
+      - name: Caché de Electron
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~\AppData\Local\electron\Cache
+          key: electron-${{ runner.os }}-44.5.1
       - run: npx install-electron
       - run: npm run check
       - run: npm run test:e2e
+      # Solo test-results/ de Playwright (captura y final del log de main de e2e/failure-capture.ts).
+      # Los e2e usan servidores simulados: no hay datos del tenant ni secretos (el CI no tiene
+      # .env.live.local ni test:live).
+      - name: Artefactos de e2e fallidos
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
       - run: npm run dist:win
