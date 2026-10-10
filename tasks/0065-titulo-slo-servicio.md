@@ -1,7 +1,7 @@
 ---
 id: '0065'
 titulo: 'El gráfico de disponibilidad del servicio se titula «SLO» (con medición del flujo)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -106,6 +106,13 @@ exacto (regla de `e2e/CLAUDE.md`).
 
 (pendiente)
 
+### Verifier, 2026-10-10, commit `bb1b955`, rango `main..feat/0065-titulo-slo-servicio`: VERDE
+
+- check: 3448 tests en 200 ficheros, cobertura ok (líneas 93,43 %, ramas 89,98 %).
+- e2e afectados (`views.spec.ts` y las áreas de `locales/en/common.json`): 301/301, con «CA2
+  (0065) y CA5 (0048)».
+- Sin `--repeat-each`: el diff solo cambia un título y su traducción.
+
 ## Resultado
 
 (pendiente)
@@ -116,19 +123,22 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 
 ### Pasos
 
-| Paso                                                   | Agente       | Ronda | Inicio              | Fin                 | Duración    | Notas                                                                                                            |
-| ------------------------------------------------------ | ------------ | ----- | ------------------- | ------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
-| Redacción de la ficha                                  | Planificador | —     | 2026-10-10 12:44:08 | 2026-10-10 12:44:50 | 0 min 42 s  | Desde el primer comando; la llegada del mensaje no se puede medir                                                |
-| Espera de la aprobación de Dani                        | Dani         | —     | 2026-10-10 12:44:50 | 2026-10-10 12:48:24 | 3 min 34 s  | Desde el aviso hasta su «1» (ligera)                                                                             |
-| Aprobación, BACKLOG, commit y envío al Orquestador     | Planificador | —     | 2026-10-10 12:48:24 | 2026-10-10 12:48:32 | 0 min 8 s   | Hasta antes del commit; el commit y el SendMessage tardan unos segundos más                                      |
-| Espera en la cola del Orquestador (0064 en curso)      | —            | —     | 2026-10-10 12:48:33 | 2026-10-10 13:16:32 | 27 min 59 s | Desde el commit de la aprobación hasta crear la rama; la 0064 estaba en cierre e integración                     |
-| Rama y lanzamiento del developer                       | Orquestador  | —     | 2026-10-10 13:16:32 | 2026-10-10 13:16:45 | 0 min 13 s  | Incluye leer la ficha; lanzado entre 13:16:36 y 13:16:45                                                         |
-| Tests, texto, check, e2e afectados y ficha en revisión | developer    | —     | 2026-10-10 13:16:46 | 2026-10-10 13:25:09 | 8 min 23 s  | Desde su primer comando; no se puede medir lo que tarda en arrancar el subagente ni la redacción de su respuesta |
-| Vuelta del developer al Orquestador                    | Orquestador  | —     | 2026-10-10 13:25:09 | 2026-10-10 13:25:27 | 0 min 18 s  | Del último comando del developer a mi primer comando tras su respuesta                                           |
-| Filas del developer en la ficha y commit               | Orquestador  | —     | 2026-10-10 13:25:27 | 2026-10-10 13:25:43 | 0 min 16 s  |                                                                                                                  |
-| Lanzamiento del reviewer                               | Orquestador  | 1     | 2026-10-10 13:25:43 | 2026-10-10 13:25:50 | 0 min 7 s   |                                                                                                                  |
-| Revisión                                               | reviewer     | 1     | 2026-10-10 13:25:54 | 2026-10-10 13:26:14 | 0 min 20 s  | APROBADO. Desde su primer comando al último; el arranque y la redacción de la respuesta no se pueden medir       |
-| Vuelta del reviewer al Orquestador                     | Orquestador  | 1     | 2026-10-10 13:26:14 | 2026-10-10 13:26:35 | 0 min 21 s  | Incluye la redacción de su respuesta                                                                             |
+| Paso                                                    | Agente       | Ronda | Inicio              | Fin                 | Duración    | Notas                                                                                                            |
+| ------------------------------------------------------- | ------------ | ----- | ------------------- | ------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| Redacción de la ficha                                   | Planificador | —     | 2026-10-10 12:44:08 | 2026-10-10 12:44:50 | 0 min 42 s  | Desde el primer comando; la llegada del mensaje no se puede medir                                                |
+| Espera de la aprobación de Dani                         | Dani         | —     | 2026-10-10 12:44:50 | 2026-10-10 12:48:24 | 3 min 34 s  | Desde el aviso hasta su «1» (ligera)                                                                             |
+| Aprobación, BACKLOG, commit y envío al Orquestador      | Planificador | —     | 2026-10-10 12:48:24 | 2026-10-10 12:48:32 | 0 min 8 s   | Hasta antes del commit; el commit y el SendMessage tardan unos segundos más                                      |
+| Espera en la cola del Orquestador (0064 en curso)       | —            | —     | 2026-10-10 12:48:33 | 2026-10-10 13:16:32 | 27 min 59 s | Desde el commit de la aprobación hasta crear la rama; la 0064 estaba en cierre e integración                     |
+| Rama y lanzamiento del developer                        | Orquestador  | —     | 2026-10-10 13:16:32 | 2026-10-10 13:16:45 | 0 min 13 s  | Incluye leer la ficha; lanzado entre 13:16:36 y 13:16:45                                                         |
+| Tests, texto, check, e2e afectados y ficha en revisión  | developer    | —     | 2026-10-10 13:16:46 | 2026-10-10 13:25:09 | 8 min 23 s  | Desde su primer comando; no se puede medir lo que tarda en arrancar el subagente ni la redacción de su respuesta |
+| Vuelta del developer al Orquestador                     | Orquestador  | —     | 2026-10-10 13:25:09 | 2026-10-10 13:25:27 | 0 min 18 s  | Del último comando del developer a mi primer comando tras su respuesta                                           |
+| Filas del developer en la ficha y commit                | Orquestador  | —     | 2026-10-10 13:25:27 | 2026-10-10 13:25:43 | 0 min 16 s  |                                                                                                                  |
+| Lanzamiento del reviewer                                | Orquestador  | 1     | 2026-10-10 13:25:43 | 2026-10-10 13:25:50 | 0 min 7 s   |                                                                                                                  |
+| Revisión                                                | reviewer     | 1     | 2026-10-10 13:25:54 | 2026-10-10 13:26:14 | 0 min 20 s  | APROBADO. Desde su primer comando al último; el arranque y la redacción de la respuesta no se pueden medir       |
+| Vuelta del reviewer al Orquestador                      | Orquestador  | 1     | 2026-10-10 13:26:14 | 2026-10-10 13:26:35 | 0 min 21 s  | Incluye la redacción de su respuesta                                                                             |
+| Revisión en la ficha, commit y lanzamiento del verifier | Orquestador  | 1     | 2026-10-10 13:26:35 | 2026-10-10 13:26:58 | 0 min 23 s  | Commit con hook de 13:26:49 a 13:26:50                                                                           |
+| Verificación (modo ficha)                               | verifier     | 1     | 2026-10-10 13:27:00 | 2026-10-10 13:35:10 | 8 min 10 s  | VERDE. Worktree limpio, `npm ci`, `install-electron`, check, e2e afectados y limpieza                            |
+| Vuelta del verifier al Orquestador                      | Orquestador  | 1     | 2026-10-10 13:35:10 | 2026-10-10 13:35:30 | 0 min 20 s  | Incluye la redacción de su respuesta                                                                             |
 
 ### Ejecuciones
 
@@ -142,3 +152,11 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 | developer    | npm run check                                                                   | 2026-10-10 13:18:17 | 2026-10-10 13:18:59 | 42 s       | ok                            | unit 3448 / 0 / 0                                                         |
 | developer    | npm run test:e2e:affected -- main..HEAD (con compilación; shell, smoke y views) | 2026-10-10 13:19:04 | 2026-10-10 13:24:48 | 5 min 44 s | ok                            | e2e 301 / 0 / 0 (Playwright: 5,4 min; la compilación no se puede separar) |
 | developer    | git commit (ficha; hook: prettier)                                              | 2026-10-10 13:25:06 | 2026-10-10 13:25:07 | 1 s        | ok                            | hook sin tests                                                            |
+| Orquestador  | git commit (medición del developer; hook: prettier)                             | 2026-10-10 13:25:42 | 2026-10-10 13:25:43 | 1 s        | ok                            | hook sin tests                                                            |
+| Orquestador  | git commit (ronda 1; hook: prettier)                                            | 2026-10-10 13:26:49 | 2026-10-10 13:26:50 | 1 s        | ok                            | hook sin tests                                                            |
+| verifier     | git worktree add --detach (bb1b955)                                             | 2026-10-10 13:27:00 | 2026-10-10 13:27:00 | < 1 s      | ok                            | —                                                                         |
+| verifier     | npm ci --ignore-scripts                                                         | 2026-10-10 13:27:02 | 2026-10-10 13:27:17 | 15 s       | ok                            | —                                                                         |
+| verifier     | npx install-electron                                                            | 2026-10-10 13:27:17 | 2026-10-10 13:27:20 | 3 s        | ok                            | —                                                                         |
+| verifier     | npm run check                                                                   | 2026-10-10 13:27:22 | 2026-10-10 13:28:53 | 1 min 31 s | ok                            | unit 3448 / 0 / 0                                                         |
+| verifier     | npm run test:e2e:affected -- main..bb1b955 (con compilación)                    | 2026-10-10 13:28:56 | 2026-10-10 13:34:48 | 5 min 52 s | ok                            | e2e 301 / 0 / 0                                                           |
+| verifier     | limpieza del worktree (ruta larga, con reintentos)                              | 2026-10-10 13:34:52 | 2026-10-10 13:35:10 | 18 s       | ok                            | —                                                                         |
