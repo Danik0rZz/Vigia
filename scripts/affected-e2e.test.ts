@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -18,8 +19,18 @@ type Config = {
 }
 
 const require = createRequire(import.meta.url)
-const { decide } = require(join(__dirname, 'affected-e2e.cjs')) as {
+// Contrato de 0068: parseArgs devuelve las opciones (con `range`) o, para
+// --help y los errores, { exit, message }; plan devuelve los comandos y, si no
+// se puede seguir, también { exit, message }. Las opciones son opacas para plan.
+type Command = { command: string; args: string[] }
+type Options = { range: string; exit?: undefined }
+type Exit = { exit: number; message: string }
+type Plan = { commands: Command[]; exit?: number; message?: string }
+
+const { decide, parseArgs, plan } = require(join(__dirname, 'affected-e2e.cjs')) as {
   decide: (files: string[], config: Config) => Decision
+  parseArgs: (argv: string[]) => Options | Exit
+  plan: (decision: Decision, options: Options | Exit, env: { outExists: boolean }) => Plan
 }
 
 const SMOKE = 'e2e/smoke.spec.ts'
@@ -255,4 +266,173 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
   ])('%s solo → none', (file) => {
     expect(specsFor(file).mode).toBe('none')
   })
+})
+
+// --- Ficha 0068: opciones --no-build, -g/--grep, --last-failed y --help ---
+
+const BUILD: Command = { command: 'npx', args: ['electron-vite', 'build'] }
+const playwright = (...args: string[]): Command => ({
+  command: 'npx',
+  args: ['playwright', 'test', ...args]
+})
+const SOME: Decision = {
+  mode: 'some',
+  specs: [SMOKE, 'e2e/views.spec.ts'],
+  reasons: ['src/renderer/src/pages/X.tsx → views']
+}
+const ALL: Decision = { mode: 'all', specs: [], reasons: ['transversal: src/shared/ipc.ts'] }
+const NONE: Decision = { mode: 'none', specs: [], reasons: [] }
+const SCRIPT = join(__dirname, 'affected-e2e.cjs')
+
+function options(argv: string[]): Options {
+  const parsed = parseArgs(argv)
+  expect(parsed.exit, `parseArgs(${JSON.stringify(argv)}) no debería salir`).toBeUndefined()
+  return parsed as Options
+}
+
+function expectUsage(text: string): void {
+  expect(text).toContain('test:e2e:affected')
+  for (const option of ['--no-build', '-g', '--grep', '--last-failed', '--help']) {
+    expect(text, `el uso menciona ${option}`).toContain(option)
+  }
+}
+
+describe('CA1 (0068): sin opciones, el plan es el de hoy', () => {
+  it('rango por defecto origin/main..HEAD', () => {
+    expect(options([]).range).toBe('origin/main..HEAD')
+  })
+
+  it('some → compila y lanza Playwright con los specs decididos', () => {
+    const p = plan(SOME, options([]), { outExists: true })
+    expect(p.commands).toEqual([BUILD, playwright(...SOME.specs)])
+    expect(p.exit ?? 0).toBe(0)
+  })
+
+  it('all → compila y lanza Playwright sin specs (e2e completo)', () => {
+    expect(plan(ALL, options([]), { outExists: true }).commands).toEqual([BUILD, playwright()])
+  })
+
+  it('sin --no-build compila aunque no exista out/', () => {
+    expect(plan(SOME, options([]), { outExists: false }).commands).toEqual([
+      BUILD,
+      playwright(...SOME.specs)
+    ])
+  })
+})
+
+describe('CA2 (0068): --no-build', () => {
+  it('con out/ presente → no compila, solo Playwright', () => {
+    const p = plan(SOME, options(['--no-build']), { outExists: true })
+    expect(p.commands).toEqual([playwright(...SOME.specs)])
+    expect(p.exit ?? 0).toBe(0)
+  })
+
+  it('con out/ presente y all → Playwright sin specs, sin compilar', () => {
+    expect(plan(ALL, options(['--no-build']), { outExists: true }).commands).toEqual([playwright()])
+  })
+
+  it.each([
+    ['some', SOME],
+    ['all', ALL]
+  ])('sin out/ (%s) → código 2, el mensaje y ningún comando', (_mode, decision) => {
+    const p = plan(decision, options(['--no-build']), { outExists: false })
+    expect(p.commands).toEqual([])
+    expect(p.exit).toBe(2)
+    expect(p.message).toMatch(/falta .?out\/.?: compila con .?npm run build.? o quita .?--no-build/)
+  })
+})
+
+describe('CA3 (0068): -g, --grep y --last-failed llegan a Playwright después de los specs', () => {
+  it.each([[['-g', '(0070)']], [['--grep', '(0070)']], [['--last-failed']]])(
+    '%j tal cual, tras los specs',
+    (extra) => {
+      expect(plan(SOME, options(extra), { outExists: true }).commands).toEqual([
+        BUILD,
+        playwright(...SOME.specs, ...extra)
+      ])
+    }
+  )
+
+  it('con all, también tras playwright test', () => {
+    expect(plan(ALL, options(['-g', '(0070)']), { outExists: true }).commands).toEqual([
+      BUILD,
+      playwright('-g', '(0070)')
+    ])
+  })
+
+  it('junto con --no-build', () => {
+    expect(
+      plan(SOME, options(['--no-build', '--last-failed']), { outExists: true }).commands
+    ).toEqual([playwright(...SOME.specs, '--last-failed')])
+  })
+
+  it.each([
+    [['main..HEAD', '--no-build', '-g', '(0070)']],
+    [['--no-build', '-g', '(0070)', 'main..HEAD']],
+    [['-g', '(0070)', 'main..HEAD', '--no-build']],
+    [['--grep', '(0070)', 'main..HEAD']],
+    [['--last-failed', 'main..HEAD']],
+    [['main..HEAD', '--last-failed']]
+  ])('el rango se lee igual antes o después de las opciones: %j', (argv) => {
+    const parsed = options(argv)
+    expect(parsed.range).toBe('main..HEAD')
+    const last = plan(SOME, parsed, { outExists: true }).commands.at(-1)
+    expect(last?.args.slice(0, 2 + SOME.specs.length)).toEqual([
+      'playwright',
+      'test',
+      ...SOME.specs
+    ])
+    expect(last?.args).not.toContain('main..HEAD')
+  })
+
+  it('el valor de -g no se toma por el rango', () => {
+    const parsed = options(['-g', '(0070)'])
+    expect(parsed.range).toBe('origin/main..HEAD')
+    expect(plan(SOME, parsed, { outExists: true }).commands.at(-1)).toEqual(
+      playwright(...SOME.specs, '-g', '(0070)')
+    )
+  })
+})
+
+describe('CA4 (0068): opción desconocida y --help', () => {
+  it.each([['--no-buidl'], ['-x'], ['--grpe']])('%s → uso y código 2', (bad) => {
+    const parsed = parseArgs(['main..HEAD', bad]) as Exit
+    expect(parsed.exit).toBe(2)
+    expectUsage(parsed.message)
+  })
+
+  it('--help → uso y código 0 (también con otras opciones)', () => {
+    for (const argv of [['--help'], ['main..HEAD', '--help'], ['--no-build', '--help']]) {
+      const parsed = parseArgs(argv) as Exit
+      expect(parsed.exit, JSON.stringify(argv)).toBe(0)
+      expectUsage(parsed.message)
+    }
+  })
+
+  it('el uso habla de out/ (--no-build no comprueba si está al día)', () => {
+    expect((parseArgs(['--help']) as Exit).message).toContain('out/')
+  })
+
+  it('el script con --no-buidl sale con 2 y el uso, sin compilar ni lanzar Playwright', () => {
+    const result = spawnSync(process.execPath, [SCRIPT, '--no-buidl'], {
+      cwd: join(__dirname, '..'),
+      encoding: 'utf8',
+      timeout: 30_000
+    })
+    expect(result.status).toBe(2)
+    const output = `${result.stdout}${result.stderr}`
+    expectUsage(output)
+    expect(output).not.toMatch(/electron-vite|Running \d+ tests?/)
+  })
+})
+
+describe('CA5 (0068): con la decisión «ninguno», el plan está vacío', () => {
+  it.each([[[]], [['-g', '(0070)']], [['--last-failed']], [['--no-build', '--grep', '(0070)']]])(
+    '%j → sin comandos',
+    (argv) => {
+      const p = plan(NONE, options(argv), { outExists: true })
+      expect(p.commands).toEqual([])
+      expect(p.exit ?? 0).toBe(0)
+    }
+  )
 })
