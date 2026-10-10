@@ -2,15 +2,20 @@
 'use strict'
 /**
  * e2e afectados por un rango de commits (más los cambios sin commitear):
- *   npm run test:e2e:affected -- [rango]   (por defecto origin/main..HEAD)
+ *   npm run test:e2e:affected -- [rango] [--no-build] [-g <patrón>] [--last-failed]
+ *   (rango por defecto origin/main..HEAD; opciones en cualquier orden, --help para el uso)
+ *
+ * --no-build no compila y usa el out/ que haya (sin comprobar si está al día);
+ * -g/--grep y --last-failed se pasan a Playwright tras los specs.
  *
  * Con e2e/areas.json decide qué specs ejecutar (siempre con smoke), si hace
  * falta el e2e completo (un fichero transversal o sin área) o si no hace falta
  * ninguno (solo docs o tests unitarios). Imprime la decisión y el motivo,
- * compila una vez y lanza Playwright. La decisión es `decide`, pura y probada.
+ * compila una vez y lanza Playwright. La decisión (`decide`), la lectura de
+ * argumentos (`parseArgs`) y el plan de comandos (`plan`) son puras y probadas.
  */
 const { execFileSync, spawnSync } = require('node:child_process')
-const { readFileSync } = require('node:fs')
+const { existsSync, readFileSync } = require('node:fs')
 const { join, posix } = require('node:path')
 
 const toPosix = (file) => file.replace(/\\/g, '/')
@@ -63,6 +68,76 @@ function decide(files, config) {
   return { mode: 'some', specs: [...specs].sort(), reasons }
 }
 
+const DEFAULT_RANGE = 'origin/main..HEAD'
+
+const USAGE = `Uso: npm run test:e2e:affected -- [rango] [opciones]
+
+  rango               commits a comparar (por defecto ${DEFAULT_RANGE}), antes o después de las opciones
+  --no-build          no compila: usa el out/ que haya. No comprueba si out/ está al día; si has
+                      cambiado algo fuera de e2e/, compila antes con npm run build
+  -g, --grep <patrón> se pasa a Playwright (por ejemplo -g "(0070)")
+  --last-failed       se pasa a Playwright: solo los tests que fallaron en la última tanda
+  --help              muestra este uso`
+
+const usageError = (problem) => ({
+  exit: 2,
+  message: `test:e2e:affected: ${problem}
+
+${USAGE}`
+})
+
+/**
+ * @param {string[]} argv argumentos tras el nombre del script
+ * @returns {{ range: string, build: boolean, playwright: string[] } | { exit: number, message: string }}
+ */
+function parseArgs(argv) {
+  if (argv.includes('--help')) return { exit: 0, message: USAGE }
+  let range
+  let build = true
+  const playwright = []
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (arg === '--no-build') build = false
+    else if (arg === '--last-failed') playwright.push(arg)
+    else if (arg === '-g' || arg === '--grep') {
+      const pattern = argv[i + 1]
+      if (pattern === undefined) return usageError(`${arg} necesita un patrón`)
+      playwright.push(arg, pattern)
+      i++
+    } else if (arg.startsWith('-')) return usageError(`opción desconocida: ${arg}`)
+    else if (range !== undefined)
+      return usageError(`sobra un argumento: ${arg} (el rango ya es ${range})`)
+    else range = arg
+  }
+  return { range: range ?? DEFAULT_RANGE, build, playwright }
+}
+
+/**
+ * Comandos a ejecutar, en orden. Si no se puede seguir, también `exit` y `message`.
+ * @param {{ mode: 'all' | 'some' | 'none', specs: string[] }} decision
+ * @param {{ build: boolean, playwright: string[] }} options
+ * @param {{ outExists: boolean }} env
+ * @returns {{ commands: { command: string, args: string[] }[], exit?: number, message?: string }}
+ */
+function plan(decision, options, { outExists }) {
+  if (decision.mode === 'none') return { commands: [] }
+  if (!options.build && !outExists) {
+    return {
+      commands: [],
+      exit: 2,
+      message: 'test:e2e:affected: falta `out/`: compila con `npm run build` o quita `--no-build`.'
+    }
+  }
+  const commands = []
+  // La misma compilación que test:e2e (sin tipos: eso ya lo hace check).
+  if (options.build) commands.push({ command: 'npx', args: ['electron-vite', 'build'] })
+  commands.push({
+    command: 'npx',
+    args: ['playwright', 'test', ...decision.specs, ...options.playwright]
+  })
+  return { commands }
+}
+
 function gitLines(args) {
   return execFileSync('git', args, { encoding: 'utf8' })
     .split(/\r?\n/)
@@ -76,7 +151,12 @@ function run(command, args) {
 }
 
 function main() {
-  const range = process.argv[2] ?? 'origin/main..HEAD'
+  const options = parseArgs(process.argv.slice(2))
+  if (options.exit !== undefined) {
+    ;(options.exit === 0 ? console.log : console.error)(options.message)
+    return options.exit
+  }
+  const { range } = options
   const files = [
     ...gitLines(['diff', '--name-only', '--relative', range]),
     // Cambios sin commitear (en el índice o no) y ficheros nuevos sin seguimiento.
@@ -97,12 +177,15 @@ function main() {
       ? 'test:e2e:affected: e2e COMPLETO.'
       : `test:e2e:affected: ${decision.specs.join(' ')}`
   )
-  // La misma compilación que test:e2e (sin tipos: eso ya lo hace check).
-  const built = run('npx', ['electron-vite', 'build'])
-  if (built !== 0) return built
-  return run('npx', ['playwright', 'test', ...decision.specs])
+  const steps = plan(decision, options, { outExists: existsSync(join(__dirname, '..', 'out')) })
+  if (steps.message) console.error(steps.message)
+  for (const { command, args } of steps.commands) {
+    const status = run(command, args)
+    if (status !== 0) return status
+  }
+  return steps.exit ?? 0
 }
 
-module.exports = { decide }
+module.exports = { decide, parseArgs, plan }
 
 if (require.main === module) process.exitCode = main()
