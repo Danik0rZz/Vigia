@@ -1,7 +1,7 @@
 ---
 id: '0072'
 titulo: 'CI en las PR a main con el e2e completo y un check «CI ok» que se ejecuta siempre'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -119,7 +119,15 @@ Normal (`ligera: no`). Toca un servicio externo (GitHub Actions), ya no entra.
 
 ## Verificación
 
-(pendiente)
+Tests (commit 275846b), que fallan hasta implementar:
+
+- CA1: `scripts/ci-changes.test.ts`, «CA1 (0072): classifyChanges decide si una PR trae código». Contrato fijado: `classifyChanges(files) → { codigo }` y `NON_CODE_PATTERNS` exportada; el `paths-ignore` del push tiene que coincidir con ella y `ci.yml` no repite los globs en otro sitio.
+- CA2: `scripts/ci-workflow.test.ts`, «CA2 (0072): pull_request a main sin paths-ignore; push a main lo conserva».
+- CA3: `scripts/ci-workflow.test.ts`, «CA3 (0072): windows depende de cambios y en las PR no empaqueta» (el `if` de `dist:win` usa `github.event_name != 'pull_request'` o `== 'push'`).
+- CA4: `scripts/ci-workflow.test.ts`, «CA4 (0072): ci-ok («CI ok») siempre se ejecuta y falla si algún job falló» (sobre el texto de sus pasos: `needs`, `failure` y `cancelled`).
+- CA5: `scripts/ci-workflow.test.ts`, «CA5 (0072): concurrencia que cancela en las PR y encola en main». El test de la 0056 «cancel-in-progress es false» pasa a «nunca es true sin condición».
+
+Comprobación en GitHub: (pendiente)
 
 ## Resultado
 
