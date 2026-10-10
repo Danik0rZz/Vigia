@@ -16274,21 +16274,21 @@ const APP_VITAL_EXPECTED: Record<
 > = {
   lcp: {
     label: /LCP/,
-    value: /(^|[^d,.])2,3ss/,
+    value: /(^|[^\d,.])2,3\ss/,
     rating: 'good',
     level: 'success',
     text: 'Bueno'
   },
   cls: {
     label: /CLS/,
-    value: /(^|[^d,.])0,18([^d,.]|$)/,
+    value: /(^|[^\d,.])0,18([^\d,.]|$)/,
     rating: 'needsImprovement',
     level: 'warning',
     text: 'Mejorable'
   },
   inp: {
     label: /INP/,
-    value: /(^|[^d,.])640sms/,
+    value: /(^|[^\d,.])640\sms/,
     rating: 'poor',
     level: 'error',
     text: 'Pobre'
