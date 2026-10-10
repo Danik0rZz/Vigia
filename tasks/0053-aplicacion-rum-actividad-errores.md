@@ -1,7 +1,7 @@
 ---
 id: '0053'
 titulo: 'APPLICATION (RUM): marcadores nuevos y secciones «Actividad» y «Errores»'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -80,7 +80,9 @@ Textos en es y en.
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `application-charts.ts` conserva los tipos `actions`, `duration` y `errors` de la
+  0034, que la página ya no pinta (sus tests unitarios de la 0034 siguen): se podrían quitar, con
+  sus textos `charts.series.*` y `charts.units.*`, en una ficha de limpieza.
 
 ## Notas del revisor
 
@@ -145,4 +147,28 @@ datos) y `sim.applicationRumErrorsUntyped` (errores en una sola serie sin «Erro
 
 ## Resultado
 
-(pendiente)
+**Decisiones del developer (delegadas por Dani, refinables):**
+
+- **Piezas:** `useApplicationRum` (`data/modules.ts`, con la clave del módulo `entities`:
+  «Actualizar» la repite); `application-rum-charts.ts` (puro, con sus tests) y
+  `ApplicationRumCharts.tsx` para «Actividad» y «Errores»; `ApplicationSection.tsx` para las cuatro
+  secciones; `ApplicationCharts.tsx` queda solo con la sección «Apdex». `EntityChartPanel` admite
+  `note` (la nota de errores sin separar, bajo el título).
+- **Una sección sin gráficos con datos no sale** (como un gráfico sin datos); mientras carga, o si
+  falla, salen todas con su aviso. «Acciones clave» sale siempre que hay acceso a Métricas.
+- **Marcadores:** el Apdex ya no lleva «Media del rango» debajo (la ficha pone «—»). Sesiones:
+  «Duración media 45,6 s · Rebote 28,4 %» (sin la parte que no tiene dato). Acciones y errores:
+  los tipos con datos, «Carga 9.640 · XHR 21.400» y «JavaScript 5 · HTTP 9» (con «Otros» si trae
+  datos y se pueden separar). «estimado» con tooltip (ratón y foco). La fila va de tres en tres
+  por debajo de 1280 px (los seis, en dos filas) y en una sola fila por encima.
+- **Series:** en es, «Carga», «XHR», «Personalizadas», «JavaScript», «HTTP» y «Otros» (en: Load,
+  XHR, Custom, JavaScript, HTTP y Other): load y custom no están en el glosario, así que se
+  traducen. Errores sin separar: una serie «Errores» en el color de error. Colores: carga
+  `accent`, XHR `series2`, custom `series3`; JavaScript `danger`, HTTP `series4`, otros `series5`.
+- **«Abrir en Métricas»:** una expresión por tipo pintado, con
+  `:filter(eq("dt.entity.application",…))` y las métricas y agregaciones de main; los errores, con
+  `:splitBy("Error type")`.
+- **Textos:** la tabla pasa a titularse «Acciones clave» (`actions.title`) y su tarjeta ya no
+  repite el título (lo pone la sección). Salen las claves que ya nada usa: `markers.duration`, los
+  `*Caption`, `charts.title`, `charts.label`, `charts.actions`, `charts.duration` y
+  `charts.errors`.
