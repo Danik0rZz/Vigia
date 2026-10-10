@@ -1,4 +1,4 @@
-import type { Comparator, GridSort } from '@shared/grid-sort'
+import { compareNullable, type Comparator, type GridSort } from '@shared/grid-sort'
 import type { ApplicationAction } from '@shared/modules'
 
 /*
@@ -11,14 +11,6 @@ export type ActionColumnId = (typeof ACTION_COLUMN_IDS)[number]
 
 /** De más a menos acciones, como llegan de main (top 10 por volumen). */
 export const DEFAULT_ACTION_SORT: GridSort<ActionColumnId> = { key: 'count', direction: 'desc' }
-
-/** Números ascendentes; sin dato va por debajo de todo (al final en el orden descendente). */
-function compareNullable(a: number | null, b: number | null): number {
-  if (a === b) return 0
-  if (a === null) return -1
-  if (b === null) return 1
-  return a - b
-}
 
 /** Comparadores de la tabla, con el texto en el orden del idioma. */
 export function actionComparators(

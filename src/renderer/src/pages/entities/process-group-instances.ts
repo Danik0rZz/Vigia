@@ -1,4 +1,4 @@
-import type { Comparator, GridSort } from '@shared/grid-sort'
+import { compareNullable, type Comparator, type GridSort } from '@shared/grid-sort'
 import {
   entityIdSchema,
   processEntityIdSchema,
@@ -17,14 +17,6 @@ export type InstanceColumnId = (typeof INSTANCE_COLUMN_IDS)[number]
 
 /** De más a menos CPU media, como llegan de main. */
 export const DEFAULT_INSTANCE_SORT: GridSort<InstanceColumnId> = { key: 'cpu', direction: 'desc' }
-
-/** Números ascendentes; sin dato va por debajo de todo (al final en el orden descendente). */
-function compareNullable(a: number | null, b: number | null): number {
-  if (a === b) return 0
-  if (a === null) return -1
-  if (b === null) return 1
-  return a - b
-}
 
 /** Comparadores de la tabla, con el texto en el orden del idioma. */
 export function instanceComparators(

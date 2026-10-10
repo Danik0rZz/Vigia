@@ -1,4 +1,4 @@
-import { compareCodes, type Comparator, type GridSort } from '@shared/grid-sort'
+import { byNumber, compareCodes, type Comparator, type GridSort } from '@shared/grid-sort'
 import {
   diskEntityIdSchema,
   entityIdSchema,
@@ -20,19 +20,6 @@ export type ProcessColumnId = (typeof PROCESS_COLUMN_IDS)[number]
 /** Del más lleno al menos (último dato, como lo da main) y por CPU media. */
 export const DEFAULT_DISK_SORT: GridSort<DiskColumnId> = { key: 'usage', direction: 'desc' }
 export const DEFAULT_PROCESS_SORT: GridSort<ProcessColumnId> = { key: 'cpu', direction: 'desc' }
-
-/** Números ascendentes; sin dato va por debajo de todo (al final en el orden descendente). */
-function compareNullable(a: number | null, b: number | null): number {
-  if (a === b) return 0
-  if (a === null) return -1
-  if (b === null) return 1
-  return a - b
-}
-
-const byNumber =
-  <T>(value: (item: T) => number | null): Comparator<T> =>
-  (a, b) =>
-    compareNullable(value(a), value(b))
 
 /** Comparadores de la tabla de discos, con el texto en el orden del idioma. */
 export function diskComparators(language: string): Record<DiskColumnId, Comparator<HostDisk>> {

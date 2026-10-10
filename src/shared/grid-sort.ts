@@ -35,3 +35,21 @@ export function sortRows<T, K extends string>(
     return 0
   })
 }
+
+/**
+ * Números ascendentes; sin dato va por debajo de todo. Como `sortRows` invierte el comparador
+ * en descendente (el orden por defecto de las tablas de entidad), allí va al final y en
+ * ascendente, al principio (ficha 0058).
+ */
+export function compareNullable(a: number | null, b: number | null): number {
+  if (a === b) return 0
+  if (a === null) return -1
+  if (b === null) return 1
+  return a - b
+}
+
+/** Comparador por un número que puede faltar (`compareNullable`). */
+export const byNumber =
+  <T>(value: (item: T) => number | null): Comparator<T> =>
+  (a, b) =>
+    compareNullable(value(a), value(b))
