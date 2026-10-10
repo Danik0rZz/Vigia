@@ -1,7 +1,7 @@
 ---
 id: '0050'
 titulo: 'PROCESS_GROUP: las 20 instancias de más CPU con :sort/:limit, el total real y la lista completa a demanda'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -193,6 +193,11 @@ el simulador ampliado.
   `totalKnown: true` para que compile con el contrato nuevo (no cambia lo que comprueba).
 - Lo observado en el paso 0 está en `docs/notas-api-v2.md`, "Las instancias de más CPU de un
   process group (ficha 0050)".
+
+### Verifier, 2026-10-10, commit `6fda8ca`, rango `main..feat/0050-grupo-procesos-top-instancias-datos`: VERDE
+
+- check: 3168 tests en 174 ficheros, cobertura ok.
+- e2e completo (toca `src/shared/ipc.ts`): 331/331, sin intermitentes.
 
 ## Resultado
 
