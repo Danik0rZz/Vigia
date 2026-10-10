@@ -345,19 +345,20 @@ body {
   .md-text :where(p, li) {
     overflow-wrap: break-word;
   }
-  .md-text h1 {
+  /* Títulos: `p` con role="heading" y su clase md-h<nivel> (MarkdownText.tsx, ficha 0064). */
+  .md-text .md-h1 {
     @apply mt-1 text-lg leading-snug font-semibold;
   }
-  .md-text h2 {
+  .md-text .md-h2 {
     @apply mt-1 border-b border-border pb-1 text-base leading-snug font-semibold;
   }
-  .md-text h3 {
+  .md-text .md-h3 {
     @apply mt-0.5 text-sm font-semibold;
   }
-  .md-text :where(h4, h5, h6) {
+  .md-text :where(.md-h4, .md-h5, .md-h6) {
     @apply text-xs font-semibold;
   }
-  .md-text h6 {
+  .md-text .md-h6 {
     @apply text-muted-foreground;
   }
   .md-text ul {

@@ -1,4 +1,4 @@
-import { useState, type JSX, type ReactNode } from 'react'
+import { useState, type CSSProperties, type JSX, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import Markdown, { type Components, type Options, type UrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -171,7 +171,42 @@ function Blockquote({
   )
 }
 
+/**
+ * Título del Markdown del tenant (ficha 0064): un `p` con `role="heading"` y no un `h1`…`h6`
+ * real, para que no entre en la jerarquía de títulos de la página (lectores de pantalla). El
+ * nivel accesible queda en 5 o 6, por debajo de los de la app; el aspecto, por la clase
+ * `md-h<nivel>` de `main.css`.
+ */
+interface HeadingProps {
+  children?: ReactNode
+  className?: string | undefined
+  style?: CSSProperties | undefined
+  title?: string | undefined
+}
+
+function heading(level: 1 | 2 | 3 | 4 | 5 | 6): (props: HeadingProps) => JSX.Element {
+  return function MarkdownHeading({ children, className, style, title }: HeadingProps) {
+    return (
+      <p
+        role="heading"
+        aria-level={Math.min(6, 4 + level)}
+        className={className === undefined ? `md-h${level}` : `md-h${level} ${className}`}
+        style={style}
+        title={title}
+      >
+        {children}
+      </p>
+    )
+  }
+}
+
 const components: Components = {
+  h1: heading(1),
+  h2: heading(2),
+  h3: heading(3),
+  h4: heading(4),
+  h5: heading(5),
+  h6: heading(6),
   a: ({ href, children }) =>
     typeof href === 'string' && isWebUrl(href) ? (
       <a
