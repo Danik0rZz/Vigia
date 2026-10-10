@@ -1,7 +1,7 @@
 ---
 id: '0064'
 titulo: '«Reintentar» de un panel solo vuelve a pedir lo suyo (y arreglos pequeños de la interfaz)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-interfaz
@@ -124,6 +124,29 @@ Decisiones del test-writer (la cola está delegada; se pueden afinar):
   cuentan ahora el `p` con `role="heading"`.
 - **Aviso para el developer (CA3):** `requestClose` de `EnvironmentForm` lee `dirtySecrets` del render
   en el que se pulsó Guardar. Si ese valor se queda viejo, la limpieza del efecto puede no bastar.
+
+Decisiones del developer (la cola está delegada; se pueden afinar):
+
+- **Mini gráfico de evidencia:** su `PanelBoundary` con `refetch` va dentro de `EvidenceMetricChart`,
+  alrededor del `Chart`: ahí la consulta sigue montada y `query.refetch()` pide solo su clave. El
+  límite de fuera (en `EvidenceDetail`) se queda con el comportamiento por defecto.
+- **Problemas:** la línea de tiempo y la tabla reintentan con `query.refetch()` de la lista. Métricas
+  pasa `onRetry` a `MetricChartPanel` solo si hay consulta lanzada. `RouteError` ya no pide datos:
+  navega a la misma ruta y pinta con la caché.
+- **CA3:** además de la limpieza del efecto, `requestClose` recibe los secretos cuyo campo desaparece
+  (`PLATFORM_KINDS` al guardar en Managed) y no los cuenta: tras el `await`, el `dirtySecrets` del
+  cierre es el de antes de desmontar las filas. Un ref no valía (el lint `react-hooks/refs` lo
+  rechaza dentro de `handleSubmit`).
+- **C-10:** `main.tsx` siembra `['appInfo']` en la caché al llegar la respuesta (aunque llegue tarde)
+  y la consulta de `Sidebar` lleva `staleTime: Infinity` para no repetirla al montarse.
+- **C-14:** los títulos llevan la clase `md-h<nivel>` y `main.css` pasa de `.md-text h1` a
+  `.md-text .md-h1` (mismo aspecto). Los e2e de las fichas 0001 y 0035 que buscaban `h1…h6` en la
+  descripción buscan ahora `p[role="heading"]` (commit propio).
+- **Bloqueo (CA6):** `MarkdownText.test.ts`, `CA6 (0064)`, «`# a` sale con nivel 5…», exige
+  `visibleText(html) === 'ab'`, pero react-markdown deja un `\n` entre bloques (con `h1` reales
+  también: `<h1>a</h1>\n<h6>b</h6>`), así que da `'a\nb'` con cualquier implementación. No se toca:
+  lo decide el Orquestador. El cambio de C-14 y el de los e2e quedan sin commitear hasta entonces
+  (el pre-commit no deja pasar el test).
 
 ## Resultado
 
