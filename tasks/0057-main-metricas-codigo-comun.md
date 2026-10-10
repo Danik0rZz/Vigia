@@ -1,7 +1,7 @@
 ---
 id: '0057'
 titulo: 'Main: un solo código para consultar y transformar métricas en todos los canales de entidad'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -73,7 +73,45 @@ que cada expresión sea exactamente la probada en vivo):**
 
 ## Verificación
 
-(pendiente)
+Tests escritos en el commit `7080d03` (test-writer, 2026-10-10). Antes se comprobó en `main` que el
+problema sigue: `modules.ts` repite el `query` y el `catch` de `BAD_REQUEST`/`NOT_FOUND` en 11
+canales y llama 23 veces a `repo.getEnvironment(environmentId)` sin usar el resultado; 9 módulos
+definen su `seriesAt`/`single`/`lastValue` (18 definiciones) y 2 su `byEntity`/`entitiesOf`.
+
+- CA1 → `src/main/modules/metric-series.test.ts`: `seriesAt` casa por posición (el `metricId` no
+  sirve, ficha 0040), serie vacía, posición fuera de rango o `undefined`; `singleValue` (null y
+  nunca `undefined`, 0 es dato); `lastValue` con último punto `null`; `seriesByDimension` con
+  dimensión ausente o vacía; `namesOf`; `ascending`/`descending` con los null al final;
+  `mergeMeta` con avisos duplicados y recortes (solo ratio > 1, de todas las respuestas).
+- CA2 → `src/main/ipc/handlers/metrics-query.test.ts` (`createMetricsQuery` y `rethrowRejected`)
+  y `src/main/tenants/require-environment.test.ts` (`requireEnvironment` lanza `NOT_FOUND` con
+  `environmentMissing`, más una guardia: ninguna línea de `modules.ts` empieza por
+  `repo.getEnvironment(`).
+- CA3 → `src/main/modules/metric-series-guard.test.ts`: ningún `.ts` de `src/main/modules/` salvo
+  `metric-series.ts` define `seriesAt`, `single`, `singleValue` ni `lastValue`.
+- CA4 → los tests existentes, sin tocar: `src/main/ipc/handlers/{service-metrics,
+service-metric-set,host-metrics,host-breakdown,process-metrics,process-group-metrics,
+disk-metrics,application-metrics,application-rum,monitor-metrics,monitor-breakdown}.test.ts`,
+  los de `src/main/modules/` y los e2e de `e2e/views.spec.ts`. El límite de 10 expresiones por
+  consulta ya lo vigilan los de host, disco, RUM y conjunto de servicio (el simulador da 400 con
+  más): no se añade otro test para eso.
+
+Decisiones del test-writer (Dani las delegó; razonables y refinables):
+
+- `lastValue` recibe la lista de valores (`lastValue(series.values)`), no la serie, para que
+  sirva también a los desgloses por dimensión.
+- `seriesByDimension(data, index, dimension)` da `Map<id, { name, values }>` (el desglose de
+  monitores, que guardaba `value`, usa `singleValue`/`values[0]`); `namesOf(maps)` da
+  `Map<id, nombre o id>`.
+- Comparadores: `ascending` y `descending`, con los null al final.
+- `createMetricsQuery` y `rethrowRejected` van en `src/main/ipc/handlers/metrics-query.ts`.
+  `createMetricsQuery(client, envId, range)` mete en la consulta todo lo que traiga `range`: el
+  canal con `entitySelector` lo pasa ahí (`{ ...timeRangeToDt(t), entitySelector }`), sin un
+  cuarto parámetro.
+- `rethrowRejected` siempre lanza (`never`): conserva código, mensaje y estado, y pone
+  `params.status` a 0 si no llega estado (como hoy).
+- `requireEnvironment` se añade al repositorio; `getEnvironment` sigue para quien usa el
+  resultado (servicios, conexión, exportación).
 
 ## Resultado
 
