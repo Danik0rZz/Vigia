@@ -31,6 +31,24 @@ export function tagText(tag: EntityTag): string {
   return tag.value === null ? `${prefix}${tag.key}` : `${prefix}${tag.key}:${tag.value}`
 }
 
+/** Tonos de la paleta de la mitad de la clave (`--tag-0` a `--tag-7` en `main.css`, ficha 0049). */
+export const TAG_TONE_COUNT = 8
+
+/**
+ * Tono de la clave (ficha 0049): un hash FNV-1a de 32 bits de la clave en minúsculas, módulo la
+ * paleta. Pura y estable: la misma clave (sin distinguir mayúsculas) da siempre el mismo color,
+ * así que las etiquetas de la misma familia se reconocen de un vistazo.
+ */
+export function tagTone(key: string): number {
+  const text = key.toLowerCase()
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0) % TAG_TONE_COUNT
+}
+
 /** Margen al decidir si algo cabe en la línea: los anchos medidos llevan decimales. */
 const FIT_SLACK = 1
 

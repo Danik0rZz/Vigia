@@ -4,10 +4,34 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import type { EntityData, EntityTag } from '@shared/modules'
 import { formatNumber } from '@shared/format-number'
 import type { ModuleAccess } from '../../data/modules'
-import { fittingTags, hasTagContext, sortTags, tagText } from './entity-tags'
+import {
+  TAG_TONE_COUNT,
+  fittingTags,
+  hasTagContext,
+  sortTags,
+  tagText,
+  tagTone
+} from './entity-tags'
 
+// Cápsula (ficha 0049): borde oscuro alrededor y entre las mitades; realce ligero al pasar el
+// ratón, sin transición (nada que cambie con «reducir el movimiento»).
 const PILL =
-  'inline-flex max-w-full min-w-0 items-baseline gap-1 rounded-full border border-border bg-hover px-2.5 py-0.5 text-xs'
+  'inline-flex max-w-full min-w-0 overflow-hidden rounded-full border border-tag-border text-xs leading-5 shadow-sm hover:shadow-md hover:brightness-110'
+const KEY_PART =
+  'capsule-gloss inline-flex min-w-0 items-baseline gap-1 px-2.5 font-semibold text-tag-key-foreground'
+const VALUE_PART =
+  'capsule-gloss inline-flex min-w-0 border-l border-tag-border bg-tag-value-bg px-2.5 font-medium text-tag-value-foreground'
+// Clases literales para que Tailwind las genere; el orden es el de `tagTone`.
+const TONE_BACKGROUNDS = [
+  'bg-tag-0',
+  'bg-tag-1',
+  'bg-tag-2',
+  'bg-tag-3',
+  'bg-tag-4',
+  'bg-tag-5',
+  'bg-tag-6',
+  'bg-tag-7'
+] as const satisfies readonly string[] & { length: typeof TAG_TONE_COUNT }
 const MORE =
   'rounded-full border border-border px-2.5 py-0.5 text-xs font-medium hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring'
 
@@ -103,30 +127,38 @@ function TagRow({ tags }: { tags: EntityTag[] }): JSX.Element {
   )
 }
 
-/** Una píldora: contexto (si lo hay), clave y, si hay valor, «: valor» en otro tono. */
+/**
+ * Una cápsula (ficha 0049): mitad de la clave del tono de su clave (con el contexto como prefijo
+ * apagado, si lo hay) y, si hay valor, la mitad clara del valor. Los dos puntos quedan solo para
+ * los lectores de pantalla.
+ */
 function TagPill({ tag, withTestIds }: { tag: EntityTag; withTestIds: boolean }): JSX.Element {
   const id = (name: string): string | undefined => (withTestIds ? name : undefined)
   return (
     <li data-testid={id('entity-tag')} title={tagText(tag)} className={PILL}>
-      {hasTagContext(tag) && (
-        <span
-          data-testid={id('entity-tag-context')}
-          className="shrink-0 text-[0.625rem] text-muted-foreground"
-        >
-          {`[${tag.context}]`}
+      <span
+        data-testid={id('entity-tag-key-part')}
+        className={`${KEY_PART} ${TONE_BACKGROUNDS[tagTone(tag.key)] ?? ''}`}
+      >
+        {hasTagContext(tag) && (
+          <span
+            data-testid={id('entity-tag-context')}
+            className="shrink-0 text-[0.625rem] font-normal opacity-85"
+          >
+            {`${tag.context} ·`}
+          </span>
+        )}
+        <span data-testid={id('entity-tag-key')} className="min-w-0 truncate">
+          {tag.key}
         </span>
-      )}
-      <span data-testid={id('entity-tag-key')} className="min-w-0 truncate text-muted-foreground">
-        {tag.key}
       </span>
       {tag.value !== null && (
         <>
-          <span className="-ml-1 text-muted-foreground">{':'}</span>
-          <span
-            data-testid={id('entity-tag-value')}
-            className="min-w-0 truncate font-medium text-foreground"
-          >
-            {tag.value}
+          <span className="sr-only">{':'}</span>
+          <span data-testid={id('entity-tag-value-part')} className={VALUE_PART}>
+            <span data-testid={id('entity-tag-value')} className="min-w-0 truncate">
+              {tag.value}
+            </span>
           </span>
         </>
       )}

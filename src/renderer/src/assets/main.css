@@ -78,6 +78,23 @@
   --md-alert-warning: #8a4a00;
   --md-alert-caution: #c42b1c;
 
+  /* Cápsula de etiquetas (ficha 0049). Mitad de la clave: un tono de --tag-0 a --tag-7 (según la
+     clave, `tagTone`) con --tag-key-foreground, ≥ 4,5 también al 85 % (prefijo del contexto);
+     los tonos y su texto valen para los dos temas. Mitad del valor: --tag-value-foreground sobre
+     --tag-value-bg (src/main/env-colors.test.ts). */
+  --tag-0: #1d5fd6;
+  --tag-1: #6d35d6;
+  --tag-2: #0f6e66;
+  --tag-3: #17713a;
+  --tag-4: #b23c0a;
+  --tag-5: #b5123a;
+  --tag-6: #0b6a85;
+  --tag-7: #9a1aa6;
+  --tag-key-foreground: #ffffff;
+  --tag-value-bg: #f4f6fa;
+  --tag-value-foreground: #1b2130;
+  --tag-border: rgb(27 33 48 / 0.4);
+
   --motion-duration: 200ms;
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
 }
@@ -135,6 +152,9 @@
   --md-alert-important: #c084fc;
   --md-alert-warning: #fcd34d;
   --md-alert-caution: #ff6b6b;
+  --tag-value-bg: #252c39;
+  --tag-value-foreground: #e6e9ef;
+  --tag-border: #05070b;
 }
 
 /* Movimiento reducido: todas las transiciones y animaciones CSS pasan a casi 0. */
@@ -177,7 +197,31 @@
   --color-env-integration: var(--env-integration);
   --color-env-development: var(--env-development);
   --color-env-other: var(--env-other);
+  --color-tag-0: var(--tag-0);
+  --color-tag-1: var(--tag-1);
+  --color-tag-2: var(--tag-2);
+  --color-tag-3: var(--tag-3);
+  --color-tag-4: var(--tag-4);
+  --color-tag-5: var(--tag-5);
+  --color-tag-6: var(--tag-6);
+  --color-tag-7: var(--tag-7);
+  --color-tag-key-foreground: var(--tag-key-foreground);
+  --color-tag-value-bg: var(--tag-value-bg);
+  --color-tag-value-foreground: var(--tag-value-foreground);
+  --color-tag-border: var(--tag-border);
   --font-sans: var(--font-sans);
+}
+
+/* Volumen de la cápsula de etiquetas (ficha 0049): degradado muy suave de arriba abajo sobre el
+   color de fondo y un brillo fino arriba. Sin transición ni animación. */
+@utility capsule-gloss {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.16),
+    rgb(255 255 255 / 0) 55%,
+    rgb(0 0 0 / 0.07)
+  );
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3);
 }
 
 /* Panel de cristal translúcido. */
