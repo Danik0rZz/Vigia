@@ -1,7 +1,7 @@
 ---
 id: '0048'
 titulo: 'SERVICE: gráfico de disponibilidad (SLO calculado) con umbral crítico del 90 %'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -68,6 +68,16 @@ con un umbral crítico del 90 %.
 - Umbral configurable o de aviso (solo el crítico del 90 %).
 - Crear o leer SLOs de Dynatrace desde esta página.
 
+## Decisiones del developer (Dani delegó; refinables)
+
+- Testids: panel `service-slo-panel` (dentro de `service-charts`, encima de la rejilla; aparte de `service-chart-panel` para no cambiar los recuentos de la 0009 y la 0047), `service-slo-chart` y `service-slo-title`; línea del marcador `service-marker-availability` con `data-critical`.
+- El umbral se ve en e2e por `data-thresholds` del `Chart` (valores `yAxis` de los `markLine` de la opción, JSON), como ya hacía `data-mark-lines` con las verticales.
+- Mínimo del eje Y: 5 puntos por debajo del valor más bajo, a múltiplos de 5, entre 0 y 85 (así la línea del 90 % siempre queda dentro); máximo 100.
+- Tramos sombreados con `markArea` (ya registrado), medio paso antes y después de cada tramo seguido bajo el 90 % para que un punto suelto se vea; color `danger` al 15 %.
+- Formato con un decimal, como la tasa de error («85,3 %»). Por debajo del 90 %, la línea del marcador va en `text-danger` y añade «· por debajo del 90 %» (el color no es la única señal).
+- El panel sale solo con datos cargados y serie de errores (mientras carga o en Solo actividad, no); la exportación va sin consulta (no hay selector de Dynatrace).
+- `EntityChartPanel` admite `selector` opcional (sin él, sin «Abrir en Métricas»), `titleHint` (tooltip del título con ratón y foco) y `testIds` propios.
+
 ## Ideas surgidas (fuera de alcance)
 
 (ninguna)
@@ -78,7 +88,13 @@ con un umbral crítico del 90 %.
 
 ## Verificación
 
-(pendiente)
+Tests en 51962dc (ficha ligera, escritos por el developer antes del código):
+
+- CA1 y CA2: `src/renderer/src/pages/entities/service-availability.test.ts`.
+- CA3, CA4 y CA5: `e2e/views.spec.ts` (`CA3 (0048)` x2, `CA4 (0048)`, `CA5 (0048)`), con el servicio `SVC_SLO_ID` del simulador.
+- CA6: `src/renderer/src/locales/service-availability-view.test.ts`.
+
+Código en 515dfac.
 
 ## Resultado
 
