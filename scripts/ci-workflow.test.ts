@@ -557,3 +557,95 @@ describe('CA5 (0072): concurrencia que cancela en las PR y encola en main', () =
     )
   })
 })
+
+/**
+ * Ficha 0073: integración por PR. El e2e completo ya pasa en cada PR, así que el push a main solo
+ * pasa `npm run check` (para cazar dos PR que fallan juntas) y `dist:win`. Cada condición es la del
+ * job y la del paso juntas.
+ */
+
+/** El `if` excluye el push (solo deja pasar las PR). */
+function excludesPush(condition: string): boolean {
+  return (
+    /github\.event_name\s*==\s*'pull_request'/.test(condition) ||
+    /github\.event_name\s*!=\s*'push'/.test(condition)
+  )
+}
+
+interface JobStep {
+  job: string
+  /** Condición del job y del paso, juntas (vacía si no hay ninguna). */
+  condition: string
+  step: Step
+}
+
+/** Los pasos de todos los jobs, cada uno con su job y su condición completa. */
+function jobSteps(workflow: string): JobStep[] {
+  const names = [
+    ...(topBlock(workflow, 'jobs') ?? '').matchAll(/^ {2}['"]?([\w-]+)['"]?:\s*$/gm)
+  ].map((match) => match[1] ?? '')
+  return names.flatMap((job) => {
+    const block = jobBlock(workflow, job)
+    const jobIf = jobField(block, 'if')
+    return stepsOf(block).map((step) => ({
+      job,
+      condition: [jobIf, stripExpression(step.fields.if)].filter(Boolean).join(' && '),
+      step
+    }))
+  })
+}
+
+describe('CA3 (0073): check en el push a main y en las PR; e2e solo en las PR; dist:win solo en main', () => {
+  const steps = jobSteps(read(CI))
+  const running = (command: string): JobStep[] => steps.filter(({ step }) => isRun(step, command))
+
+  it('npm run check se ejecuta en el push a main y en pull_request', () => {
+    const check = running('npm run check')
+    expect(check.length, 'paso npm run check').toBeGreaterThan(0)
+    expect(
+      check.some(({ condition }) => !excludesPush(condition)),
+      'en el push'
+    ).toBe(true)
+    expect(
+      check.some(({ condition }) => !excludesPullRequest(condition)),
+      'en la PR'
+    ).toBe(true)
+  })
+
+  it('npm run test:e2e (completo) se ejecuta en pull_request y nunca en el push a main', () => {
+    const e2e = running('npm run test:e2e')
+    expect(e2e.length, 'paso npm run test:e2e').toBeGreaterThan(0)
+    expect(
+      e2e.some(({ condition }) => !excludesPullRequest(condition)),
+      'en la PR'
+    ).toBe(true)
+    for (const { job, condition } of e2e) {
+      expect(excludesPush(condition), `test:e2e en ${job}: «${condition}»`).toBe(true)
+    }
+  })
+
+  it('ningún job usa los e2e afectados en lugar del completo', () => {
+    expect(read(CI)).not.toMatch(/test:e2e:affected/)
+  })
+
+  it('npm run dist:win se ejecuta en el push a main y nunca en pull_request', () => {
+    const dist = running('npm run dist:win')
+    expect(dist.length, 'paso npm run dist:win').toBeGreaterThan(0)
+    expect(
+      dist.some(({ condition }) => !excludesPush(condition)),
+      'en el push'
+    ).toBe(true)
+    for (const { job, condition } of dist) {
+      expect(excludesPullRequest(condition), `dist:win en ${job}: «${condition}»`).toBe(true)
+    }
+  })
+
+  it('ci-ok sigue como en la 0072: «CI ok», if: always() y necesita a todos los demás jobs', () => {
+    const workflow = read(CI)
+    const ciOk = jobBlock(workflow, 'ci-ok')
+    const others = [...new Set(steps.map(({ job }) => job))].filter((job) => job !== 'ci-ok')
+    expect(jobField(ciOk, 'name')).toBe('CI ok')
+    expect(jobField(ciOk, 'if')).toBe('always()')
+    expect([...needsOf(ciOk)].sort()).toEqual([...others].sort())
+  })
+})
