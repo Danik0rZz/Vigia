@@ -1,7 +1,7 @@
 ---
 id: '0067'
 titulo: 'e2e: una etiqueta de zona en cada test, con una guarda que falla si falta'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -177,6 +177,13 @@ fichero y el título (o la zona muerta). En el ejemplo de función auxiliar, la 
   describe y describe sin zona.
 - CA4: «CA4 (0067): zonas de la lista»: zona muerta, y forma de `zones` y `resourceTags` en
   `e2e/areas.json`.
+
+### Verifier, 2026-10-10, commit `868cad8`, rango `main..feat/0067-e2e-etiquetas-por-zona`: VERDE
+
+- check: 3463 tests, cobertura ok (líneas 93,43 %, ramas 89,98 %).
+- e2e completo (toca `e2e/areas.json`, transversal), un único pase: 362/362 en 5,2 min; AUD-03 y
+  AUD-21 no fallaron.
+- `npx playwright test --list --grep @portapapeles`: 6 tests, todos en `views.spec.ts`.
 
 ## Resultado
 
