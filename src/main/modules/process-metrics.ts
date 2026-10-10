@@ -1,5 +1,6 @@
-import type { ProcessMetricsResult, ProcessSeries } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import type { ProcessMetricsResult } from '@shared/modules'
+import { mergeMeta, seriesAt, singleValue } from './metric-series'
+import type { MetricData } from './metrics'
 
 /**
  * Métricas de una entidad PROCESS_GROUP_INSTANCE (ficha 0027, canal
@@ -58,20 +59,6 @@ export const PROCESS_MARKER_SELECTOR = [
   `${RESOURCES}:max`
 ].join(',')
 
-const EMPTY: ProcessSeries = { timestamps: [], values: [] }
-
-/** La serie del resultado en la posición `index` (la única: el selector deja un proceso). */
-function seriesAt(data: MetricData, index: number): ProcessSeries {
-  const series = data.result[index]?.data[0]
-  return series === undefined ? EMPTY : { timestamps: series.timestamps, values: series.values }
-}
-
-/** Único valor de la serie de un punto (consulta con `resolution=Inf`). */
-function single(data: MetricData, index: number): number | null {
-  const value = seriesAt(data, index).values[0]
-  return value === undefined ? null : value
-}
-
 /** Junta las dos respuestas en series y marcadores por papel para la interfaz. */
 export function toProcessMetrics(series: MetricData, markers: MetricData): ProcessMetricsResult {
   return {
@@ -85,13 +72,12 @@ export function toProcessMetrics(series: MetricData, markers: MetricData): Proce
       resources: seriesAt(series, 6)
     },
     totals: {
-      cpu: { avg: single(markers, 0), max: single(markers, 1) },
-      memory: { avg: single(markers, 2), max: single(markers, 3) },
-      network: { in: single(markers, 4), out: single(markers, 5) },
-      availability: single(markers, 6),
-      resources: single(markers, 7)
+      cpu: { avg: singleValue(markers, 0), max: singleValue(markers, 1) },
+      memory: { avg: singleValue(markers, 2), max: singleValue(markers, 3) },
+      network: { in: singleValue(markers, 4), out: singleValue(markers, 5) },
+      availability: singleValue(markers, 6),
+      resources: singleValue(markers, 7)
     },
-    warnings: [...new Set([...(series.warnings ?? []), ...(markers.warnings ?? [])])],
-    partial: [...truncatedResults(series), ...truncatedResults(markers)]
+    ...mergeMeta([series, markers])
   }
 }

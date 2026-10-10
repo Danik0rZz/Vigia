@@ -1,5 +1,6 @@
-import type { DiskMetricsResult, DiskSeries } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import type { DiskMetricsResult } from '@shared/modules'
+import { lastValue, mergeMeta, seriesAt, singleValue } from './metric-series'
+import type { MetricData } from './metrics'
 
 /**
  * Métricas de una entidad DISK (ficha 0040, canal `entities:diskMetrics`). Lo observado en vivo
@@ -66,32 +67,9 @@ export function diskMarkerSelector(entityId: string): string {
 const S = Object.fromEntries(SERIES_METRICS.map((metric, index) => [metric, index]))
 const M = Object.fromEntries(MARKER_METRICS.map(([metric], index) => [metric, index]))
 
-const EMPTY: DiskSeries = { timestamps: [], values: [] }
-
 /** ¿Trae Dynatrace alguna serie en la posición `index`? */
 function hasSeries(data: MetricData, index: number | undefined): boolean {
   return index !== undefined && (data.result[index]?.data.length ?? 0) > 0
-}
-
-/** La serie del resultado en la posición `index` (la única: el filtro deja un disco). */
-function seriesAt(data: MetricData, index: number | undefined): DiskSeries {
-  const series = index === undefined ? undefined : data.result[index]?.data[0]
-  return series === undefined ? EMPTY : { timestamps: series.timestamps, values: series.values }
-}
-
-/** Único valor de la serie de un punto (consulta con `resolution=Inf`). */
-function single(data: MetricData, index: number | undefined): number | null {
-  const value = seriesAt(data, index).values[0]
-  return value === undefined ? null : value
-}
-
-/** Último punto con dato de una serie (el último suele llegar a null). */
-function lastValue(series: DiskSeries): number | null {
-  for (let index = series.values.length - 1; index >= 0; index -= 1) {
-    const value = series.values[index]
-    if (value !== null && value !== undefined) return value
-  }
-  return null
 }
 
 /** Junta las dos respuestas en series y marcadores por papel para la interfaz. */
@@ -118,15 +96,14 @@ export function toDiskMetrics(series: MetricData, markers: MetricData): DiskMetr
       inodes: hasInodes ? seriesAt(series, S[INODES]) : null
     },
     totals: {
-      usage: single(markers, M[USED_PCT]),
-      free: lastValue(free),
-      throughput: { read: single(markers, M[READ]), write: single(markers, M[WRITE]) },
+      usage: singleValue(markers, M[USED_PCT]),
+      free: lastValue(free.values),
+      throughput: { read: singleValue(markers, M[READ]), write: singleValue(markers, M[WRITE]) },
       latency: hasLatency
-        ? { read: single(markers, M[READ_TIME]), write: single(markers, M[WRITE_TIME]) }
+        ? { read: singleValue(markers, M[READ_TIME]), write: singleValue(markers, M[WRITE_TIME]) }
         : null,
-      queue: hasQueue ? single(markers, M[QUEUE]) : null
+      queue: hasQueue ? singleValue(markers, M[QUEUE]) : null
     },
-    warnings: [...new Set([...(series.warnings ?? []), ...(markers.warnings ?? [])])],
-    partial: [...truncatedResults(series), ...truncatedResults(markers)]
+    ...mergeMeta([series, markers])
   }
 }

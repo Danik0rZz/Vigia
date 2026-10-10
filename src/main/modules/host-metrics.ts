@@ -1,5 +1,6 @@
-import type { HostMetricsResult, HostSeries } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import type { HostMetricsResult } from '@shared/modules'
+import { lastValue, mergeMeta, seriesAt, singleValue } from './metric-series'
+import type { MetricData } from './metrics'
 
 /**
  * Métricas de una entidad HOST (ficha 0016, canal `entities:hostMetrics`).
@@ -62,29 +63,6 @@ export const HOST_SERIES_SELECTORS = [
 /** Consulta 2 (marcadores, con `resolution=Inf`), en este orden. */
 export const HOST_MARKER_SELECTOR = [CPU, `${CPU}:max`, MEM, NET_IN, NET_OUT, DISK, LOAD].join(',')
 
-const EMPTY: HostSeries = { timestamps: [], values: [] }
-
-/** La serie del resultado en la posición `index` (la única: el selector deja un host). */
-function seriesAt(data: MetricData, index: number): HostSeries {
-  const series = data.result[index]?.data[0]
-  return series === undefined ? EMPTY : { timestamps: series.timestamps, values: series.values }
-}
-
-/** Valor del último punto con dato de la serie; null si no hay ninguno. */
-function lastValue(series: HostSeries): number | null {
-  for (let i = series.values.length - 1; i >= 0; i -= 1) {
-    const value = series.values[i]
-    if (value !== null && value !== undefined) return value
-  }
-  return null
-}
-
-/** Único valor de la serie de un punto (consulta con `resolution=Inf`). */
-function single(data: MetricData, index: number): number | null {
-  const value = seriesAt(data, index).values[0]
-  return value === undefined ? null : value
-}
-
 /**
  * Junta las respuestas en series y totales para la interfaz: las de series son las de
  * `HOST_SERIES_SELECTORS`, en su orden (CPU, red y disco; memoria).
@@ -112,18 +90,17 @@ export function toHostMetrics(
       disk: seriesAt(main, 6)
     },
     totals: {
-      cpu: { avg: single(markers, 0), max: single(markers, 1) },
+      cpu: { avg: singleValue(markers, 0), max: singleValue(markers, 1) },
       memory: {
-        avg: single(markers, 2),
-        used: lastValue(used),
-        total: lastValue(total),
-        reclaimable: lastValue(reclaimable)
+        avg: singleValue(markers, 2),
+        used: lastValue(used.values),
+        total: lastValue(total.values),
+        reclaimable: lastValue(reclaimable.values)
       },
-      network: { in: single(markers, 3), out: single(markers, 4) },
-      disk: { max: single(markers, 5) },
-      load: { avg: single(markers, 6) }
+      network: { in: singleValue(markers, 3), out: singleValue(markers, 4) },
+      disk: { max: singleValue(markers, 5) },
+      load: { avg: singleValue(markers, 6) }
     },
-    warnings: [...new Set([main, memory, markers].flatMap((data) => data.warnings ?? []))],
-    partial: [main, memory, markers].flatMap(truncatedResults)
+    ...mergeMeta([main, memory, markers])
   }
 }

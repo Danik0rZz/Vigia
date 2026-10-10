@@ -5,6 +5,7 @@ import type {
   ProcessGroupMetricsResult,
   ProcessSeries
 } from '@shared/modules'
+import { descending, mergeMeta, seriesAt, singleValue } from './metric-series'
 import { truncatedResults, type MetricData } from './metrics'
 
 /**
@@ -93,20 +94,6 @@ export const entityCountSchema = z.looseObject({
 })
 export type EntityCount = z.output<typeof entityCountSchema>
 
-const EMPTY: ProcessSeries = { timestamps: [], values: [] }
-
-/** La serie del resultado en la posición `index` (la única: `splitBy()` deja una). */
-function seriesAt(data: MetricData, index: number): ProcessSeries {
-  const series = data.result[index]?.data[0]
-  return series === undefined ? EMPTY : { timestamps: series.timestamps, values: series.values }
-}
-
-/** Único valor de la serie de un punto (consulta con `resolution=Inf`). */
-function single(data: MetricData, index: number): number | null {
-  const value = seriesAt(data, index).values[0]
-  return value === undefined ? null : value
-}
-
 /** Máximo de los valores con dato de una serie; null si no tiene ninguno. */
 function maxOf(series: ProcessSeries): number | null {
   const values = series.values.filter((value): value is number => value !== null)
@@ -147,12 +134,7 @@ function instancesOf(
   }
   collect(cpuIndex, 'cpu')
   collect(memoryIndex, 'memory')
-  const items = [...byId.values()].sort((a, b) => {
-    if (a.cpu === null) return b.cpu === null ? 0 : 1
-    if (b.cpu === null) return -1
-    return b.cpu - a.cpu
-  })
-  return items
+  return [...byId.values()].sort((a, b) => descending(a.cpu, b.cpu))
 }
 
 /**
@@ -194,13 +176,12 @@ export function toProcessGroupMetrics(
       network: { in: seriesAt(series, 2), out: seriesAt(series, 3) }
     },
     totals: {
-      cpu: { avg: single(markers, 0), max: maxOf(cpu) },
-      memory: { avg: single(markers, 1) },
-      network: { in: single(markers, 2), out: single(markers, 3) }
+      cpu: { avg: singleValue(markers, 0), max: maxOf(cpu) },
+      memory: { avg: singleValue(markers, 1) },
+      network: { in: singleValue(markers, 2), out: singleValue(markers, 3) }
     },
     instances: topInstancesOf(markers, totalCount),
-    warnings: [...new Set([...(series.warnings ?? []), ...(markers.warnings ?? [])])],
-    partial: [...truncatedResults(series), ...truncatedResults(markers)]
+    ...mergeMeta([series, markers])
   }
 }
 

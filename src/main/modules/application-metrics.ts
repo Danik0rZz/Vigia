@@ -1,5 +1,6 @@
-import type { ApplicationAction, ApplicationMetricsResult, ProcessSeries } from '@shared/modules'
-import { truncatedResults, type MetricData } from './metrics'
+import type { ApplicationAction, ApplicationMetricsResult } from '@shared/modules'
+import { descending, mergeMeta, seriesAt, singleValue } from './metric-series'
+import type { MetricData } from './metrics'
 
 /**
  * Métricas de una aplicación web, entidad APPLICATION (ficha 0033, canal
@@ -62,19 +63,6 @@ export function applicationActionsEntitySelector(entityId: string): string {
   return `type("APPLICATION_METHOD"),fromRelationships.isApplicationMethodOf(entityId("${entityId}"))`
 }
 
-const EMPTY: ProcessSeries = { timestamps: [], values: [] }
-
-/** La serie del resultado en la posición `index` (la única: `splitBy()` deja una). */
-function seriesAt(data: MetricData, index: number): ProcessSeries {
-  const series = data.result[index]?.data[0]
-  return series === undefined ? EMPTY : { timestamps: series.timestamps, values: series.values }
-}
-
-/** Único valor de la serie de un punto (consulta con `resolution=Inf`). */
-function single(data: MetricData, index: number): number | null {
-  return seriesAt(data, index).values[0] ?? null
-}
-
 /**
  * Las acciones de los tres tipos juntas, casadas por id: de más a menos recuento (las
  * de recuento null, al final; en empate, en el orden de la API) y solo las 10
@@ -95,13 +83,7 @@ function topActionsOf(actions: MetricData): ApplicationAction[] {
       byId.set(id, action)
     }
   })
-  return [...byId.values()]
-    .sort((a, b) => {
-      if (a.count === null) return b.count === null ? 0 : 1
-      if (b.count === null) return -1
-      return b.count - a.count
-    })
-    .slice(0, TOP_ACTIONS)
+  return [...byId.values()].sort((a, b) => descending(a.count, b.count)).slice(0, TOP_ACTIONS)
 }
 
 /** Junta las tres respuestas en series, totales y acciones para la interfaz. */
@@ -119,19 +101,8 @@ export function toApplicationMetrics(
   return {
     resolution: series.resolution,
     series: pick((index) => seriesAt(series, index)),
-    totals: pick((index) => single(totals, index)),
+    totals: pick((index) => singleValue(totals, index)),
     topActions: topActionsOf(actions),
-    warnings: [
-      ...new Set([
-        ...(series.warnings ?? []),
-        ...(totals.warnings ?? []),
-        ...(actions.warnings ?? [])
-      ])
-    ],
-    partial: [
-      ...truncatedResults(series),
-      ...truncatedResults(totals),
-      ...truncatedResults(actions)
-    ]
+    ...mergeMeta([series, totals, actions])
   }
 }
