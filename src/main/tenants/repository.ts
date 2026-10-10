@@ -47,6 +47,8 @@ export interface TenantRepository {
   updateEnvironment(id: string, input: EnvironmentInput): Environment
   deleteEnvironment(id: string): void
   getEnvironment(id: string): Environment
+  /** Comprueba que el entorno existe (lanza `NOT_FOUND` con `environmentMissing` si no). */
+  requireEnvironment(id: string): void
   /** Entorno activo (se guarda en los ajustes); vuelve a `null` si se borra. */
   getActiveEnvironmentId(): string | null
   setActiveEnvironmentId(id: string | null): void
@@ -169,6 +171,10 @@ export function createTenantRepository(db: AppDatabase): TenantRepository {
     },
 
     getEnvironment: requireEnvironment,
+
+    requireEnvironment(id: string): void {
+      requireEnvironment(id)
+    },
 
     getActiveEnvironmentId(): string | null {
       return getSetting(ACTIVE_ENVIRONMENT)

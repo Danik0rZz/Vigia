@@ -8,7 +8,6 @@ import {
   metricDataSchema,
   metricDescriptorSchema,
   metricSearchRawPageSchema,
-  type MetricData,
   toMetricInfo,
   toMetricSeries
 } from '../../modules/metrics'
@@ -108,6 +107,7 @@ import type { SavedQueryStore } from '../../modules/saved-queries'
 import { sloSchema, toSloSummary } from '../../modules/slos'
 import type { TenantRepository } from '../../tenants/repository'
 import type { IpcImplementations } from '../handler'
+import { createMetricsQuery, rethrowRejected } from './metrics-query'
 
 type ModuleChannels =
   | 'problems:list'
@@ -196,7 +196,7 @@ export function createModuleHandlers(
 
   return {
     'problems:list': async ({ environmentId, timeRange, status, severity, impact, text }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const page = await client.paginate({
         envId: environmentId,
         api: 'classic',
@@ -223,7 +223,7 @@ export function createModuleHandlers(
     },
 
     'problems:get': async ({ environmentId, problemId }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       try {
         const problem = await client.dtRequest({
           envId: environmentId,
@@ -248,7 +248,7 @@ export function createModuleHandlers(
     },
 
     'problems:comments': async ({ environmentId, problemId }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const page = await client.paginate({
         envId: environmentId,
         api: 'classic',
@@ -266,7 +266,7 @@ export function createModuleHandlers(
     },
 
     'entities:problemCounts': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       // Solo el recuento: pageSize=1 y totalCount, una petición por estado (status
       // admite un solo valor).
       const count = async (status: 'open' | 'closed'): Promise<number | null> => {
@@ -309,7 +309,7 @@ export function createModuleHandlers(
     },
 
     'entities:problems': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       try {
         // Una sola página: si hay más, se dice (truncated) y no se pide el resto.
         const page = await client.paginate({
@@ -352,7 +352,7 @@ export function createModuleHandlers(
     },
 
     'entities:get': async ({ environmentId, entityId }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       try {
         const entity = await client.dtRequest({
           envId: environmentId,
@@ -375,7 +375,7 @@ export function createModuleHandlers(
     },
 
     'entities:names': async ({ environmentId, entityIds }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const ids = [...new Set(entityIds)]
       try {
         // Sin from: el de por defecto (now-3d) resolvió todos los ids en el paso 0.
@@ -405,7 +405,7 @@ export function createModuleHandlers(
     },
 
     'metrics:query': async ({ environmentId, timeRange, metricSelector, resolution }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const data = await client.dtRequest({
         envId: environmentId,
         api: 'classic',
@@ -417,16 +417,8 @@ export function createModuleHandlers(
     },
 
     'entities:serviceMetrics': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
-      const range = timeRangeToDt(timeRange)
-      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      repo.requireEnvironment(environmentId)
+      const query = createMetricsQuery(client, environmentId, timeRangeToDt(timeRange))
       // Ficha 0046: primero la entidad, para elegir las métricas por su serviceType. Si falla
       // (sin entities.read, 404…), las de Servidor, como antes, y un aviso: la página sigue.
       const warnings: string[] = []
@@ -471,31 +463,16 @@ export function createModuleHandlers(
         ])
         return toServiceMetrics(context, series, markers)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'serviceMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'serviceMetricsRejected')
       }
     },
 
     'entities:hostMetrics': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
-      const range = timeRangeToDt(timeRange)
-      const entitySelector = hostEntitySelector(entityId)
-      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, entitySelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      repo.requireEnvironment(environmentId)
+      const query = createMetricsQuery(client, environmentId, {
+        ...timeRangeToDt(timeRange),
+        entitySelector: hostEntitySelector(entityId)
+      })
       try {
         // Series con la resolución que elija la API, en dos consultas (como mucho 10
         // expresiones cada una, ficha 0039); marcadores del rango con Inf (sin fold:
@@ -507,31 +484,16 @@ export function createModuleHandlers(
         ])
         return toHostMetrics([main, memory], markers)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'hostMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'hostMetricsRejected')
       }
     },
 
     'entities:processMetrics': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
-      const range = timeRangeToDt(timeRange)
-      const entitySelector = processEntitySelector(entityId)
-      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, entitySelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      repo.requireEnvironment(environmentId)
+      const query = createMetricsQuery(client, environmentId, {
+        ...timeRangeToDt(timeRange),
+        entitySelector: processEntitySelector(entityId)
+      })
       try {
         // Series con la resolución que elija la API; marcadores del rango con Inf
         // (sin fold: mezclarlos da 400).
@@ -541,32 +503,15 @@ export function createModuleHandlers(
         ])
         return toProcessMetrics(series, markers)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'processMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'processMetricsRejected')
       }
     },
 
     'entities:diskMetrics': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
-      const range = timeRangeToDt(timeRange)
+      repo.requireEnvironment(environmentId)
       // Sin entitySelector: la entidad de estas métricas es el HOST y con entityId del disco no
       // llega ninguna serie (paso 0 de la 0040). El disco va en el filtro de cada expresión.
-      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      const query = createMetricsQuery(client, environmentId, timeRangeToDt(timeRange))
       try {
         // Series con la resolución que elija la API; marcadores del rango con Inf (sin fold ni
         // last: dan 400). Las dos en paralelo y ninguna pasa de 10 expresiones.
@@ -576,31 +521,15 @@ export function createModuleHandlers(
         ])
         return toDiskMetrics(series, markers)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'diskMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'diskMetricsRejected')
       }
     },
 
     'entities:processGroupMetrics': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const range = timeRangeToDt(timeRange)
       const entitySelector = processGroupEntitySelector(entityId)
-      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, entitySelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      const query = createMetricsQuery(client, environmentId, { ...range, entitySelector })
       try {
         // Series del total con la resolución que elija la API; medias del total y por
         // instancia con Inf (sin fold: mezclarlos da 400); y el total real de instancias.
@@ -611,107 +540,59 @@ export function createModuleHandlers(
         ])
         return toProcessGroupMetrics(series, markers, totalCount)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'processGroupMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'processGroupMetricsRejected')
       }
     },
 
     'entities:processGroupInstances': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const range = timeRangeToDt(timeRange)
       const entitySelector = processGroupEntitySelector(entityId)
+      const query = createMetricsQuery(client, environmentId, { ...range, entitySelector })
       try {
         // Una consulta con Inf (CPU de todas, ordenada, y memoria de todas) y el total real.
         const [data, totalCount] = await Promise.all([
-          client.dtRequest({
-            envId: environmentId,
-            api: 'classic',
-            path: '/metrics/query',
-            query: {
-              metricSelector: PROCESS_GROUP_INSTANCES_SELECTOR,
-              entitySelector,
-              resolution: 'Inf',
-              ...range
-            },
-            schema: metricDataSchema
-          }),
+          query(PROCESS_GROUP_INSTANCES_SELECTOR, 'Inf'),
           processGroupTotal(environmentId, entitySelector, range)
         ])
         return toProcessGroupInstances(data, totalCount)
       } catch (error) {
         // El mismo motivo que las métricas del grupo: es la misma consulta, más larga.
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'processGroupMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'processGroupMetricsRejected')
       }
     },
 
     'entities:applicationMetrics': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const range = timeRangeToDt(timeRange)
-      const query = (
-        metricSelector: string,
-        entitySelector: string,
-        resolution?: 'Inf'
-      ): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, entitySelector, resolution, ...range },
-          schema: metricDataSchema
-        })
-      const app = applicationEntitySelector(entityId)
+      const appQuery = createMetricsQuery(client, environmentId, {
+        ...range,
+        entitySelector: applicationEntitySelector(entityId)
+      })
+      const actionsQuery = createMetricsQuery(client, environmentId, {
+        ...range,
+        entitySelector: applicationActionsEntitySelector(entityId)
+      })
       try {
         // Series con la resolución que elija la API; totales y acciones con Inf (sin
         // fold: mezclarlos da 400). Las acciones, con el selector de sus acciones.
         const [series, totals, actions] = await Promise.all([
-          query(APPLICATION_SELECTOR, app),
-          query(APPLICATION_SELECTOR, app, 'Inf'),
-          query(APPLICATION_ACTIONS_SELECTOR, applicationActionsEntitySelector(entityId), 'Inf')
+          appQuery(APPLICATION_SELECTOR),
+          appQuery(APPLICATION_SELECTOR, 'Inf'),
+          actionsQuery(APPLICATION_ACTIONS_SELECTOR, 'Inf')
         ])
         return toApplicationMetrics(series, totals, actions)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'applicationMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'applicationMetricsRejected')
       }
     },
 
     'entities:applicationRum': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
-      const range = timeRangeToDt(timeRange)
-      const entitySelector = applicationEntitySelector(entityId)
-      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, entitySelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      repo.requireEnvironment(environmentId)
+      const query = createMetricsQuery(client, environmentId, {
+        ...timeRangeToDt(timeRange),
+        entitySelector: applicationEntitySelector(entityId)
+      })
       try {
         // Todas en paralelo, de 10 en 10 (límite de la API): series con la resolución que
         // elija la API y totales con Inf (sin fold: mezclarlos da 400).
@@ -722,32 +603,17 @@ export function createModuleHandlers(
         return toApplicationRum(series, totals)
       } catch (error) {
         // El texto de la 0033 («la consulta de métricas de la aplicación») vale aquí.
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'applicationMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'applicationMetricsRejected')
       }
     },
 
     'entities:monitorMetrics': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const kind = monitorKind(entityId)
-      const range = timeRangeToDt(timeRange)
-      const entitySelector = monitorEntitySelector(entityId)
-      const query = (metricSelector: string, resolution?: 'Inf'): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, entitySelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      const query = createMetricsQuery(client, environmentId, {
+        ...timeRangeToDt(timeRange),
+        entitySelector: monitorEntitySelector(entityId)
+      })
       try {
         // Series con la resolución que elija la API; marcadores del rango con Inf
         // (sin fold: mezclarlos da 400). Cada tipo, con su catálogo.
@@ -757,21 +623,12 @@ export function createModuleHandlers(
         ])
         return toMonitorMetrics(kind, series, markers)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'monitorMetricsRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'monitorMetricsRejected')
       }
     },
 
     'entities:monitorBreakdown': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const kind = monitorKind(entityId)
       const range = timeRangeToDt(timeRange)
       // Cada consulta, con las expresiones y el ámbito confirmados en vivo (ficha 0023):
@@ -781,71 +638,45 @@ export function createModuleHandlers(
       try {
         const responses = await Promise.all(
           queries.map(({ metricSelector, entitySelector }) =>
-            client.dtRequest({
-              envId: environmentId,
-              api: 'classic',
-              path: '/metrics/query',
-              query: { metricSelector, entitySelector, resolution: 'Inf', ...range },
-              schema: metricDataSchema
-            })
+            createMetricsQuery(client, environmentId, { ...range, entitySelector })(
+              metricSelector,
+              'Inf'
+            )
           )
         )
         return toMonitorBreakdown(kind, queries, responses)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'monitorBreakdownRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'monitorBreakdownRejected')
       }
     },
 
     'entities:hostBreakdown': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const range = timeRangeToDt(timeRange)
-      const query = (
-        metricSelector: string,
-        entitySelector: string,
-        resolution?: 'Inf'
-      ): Promise<MetricData> =>
-        client.dtRequest({
-          envId: environmentId,
-          api: 'classic',
-          path: '/metrics/query',
-          query: { metricSelector, entitySelector, resolution, ...range },
-          schema: metricDataSchema
-        })
+      const diskQuery = createMetricsQuery(client, environmentId, {
+        ...range,
+        entitySelector: hostEntitySelector(entityId)
+      })
+      const processQuery = createMetricsQuery(client, environmentId, {
+        ...range,
+        entitySelector: hostProcessSelector(entityId)
+      })
       try {
         // Discos acotados con entityId del host; procesos, por la relación isProcessOf
         // (sus métricas no tienen la dimensión del host). Último dato de la serie
         // (:last con Inf da 400); máximo y medias del rango con Inf.
         const [diskSeries, diskRange, processRange] = await Promise.all([
-          query(DISK_SERIES_SELECTOR, hostEntitySelector(entityId)),
-          query(DISK_RANGE_SELECTOR, hostEntitySelector(entityId), 'Inf'),
-          query(PROCESS_RANGE_SELECTOR, hostProcessSelector(entityId), 'Inf')
+          diskQuery(DISK_SERIES_SELECTOR),
+          diskQuery(DISK_RANGE_SELECTOR, 'Inf'),
+          processQuery(PROCESS_RANGE_SELECTOR, 'Inf')
         ])
         return toHostBreakdown(diskSeries, diskRange, processRange)
       } catch (error) {
-        if (
-          error instanceof DtError &&
-          (error.code === 'BAD_REQUEST' || error.code === 'NOT_FOUND')
-        ) {
-          throw new DtError(error.code, error.message, error.status, {
-            key: 'hostBreakdownRejected',
-            params: { status: error.status ?? 0, detail: error.message }
-          })
-        }
-        throw error
+        rethrowRejected(error, 'hostBreakdownRejected')
       }
     },
-
     'entities:hostLogs': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       try {
         // Con nextPageKey, la página siguiente lleva solo la clave (OpenAPI; DT_ENDPOINTS).
         const page = await client.paginate({
@@ -880,7 +711,7 @@ export function createModuleHandlers(
     },
 
     'entities:hostEvents': async ({ environmentId, entityId, timeRange }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       try {
         // 1. Las relaciones del host: de ahí salen los ids de lo que corre en él.
         const host = await client.dtRequest({
@@ -924,7 +755,7 @@ export function createModuleHandlers(
     },
 
     'metrics:search': async ({ environmentId, text }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const page = await client.dtRequest({
         envId: environmentId,
         api: 'classic',
@@ -943,7 +774,7 @@ export function createModuleHandlers(
     },
 
     'slos:list': async ({ environmentId }) => {
-      repo.getEnvironment(environmentId)
+      repo.requireEnvironment(environmentId)
       const page = await client.paginate({
         envId: environmentId,
         api: 'classic',
