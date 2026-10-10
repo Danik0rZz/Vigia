@@ -1,7 +1,7 @@
 ---
 id: '0068'
 titulo: 'test:e2e:affected: opción de no compilar y de pasar -g y --last-failed a Playwright'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -120,6 +120,15 @@ aún no existen. Contrato que fijan: `parseArgs(argv)` devuelve las opciones con
 - CA4 → `describe('CA4 (0068): opción desconocida y --help')` (incluye lanzar el script con
   `--no-buidl`: código 2 y el uso).
 - CA5 → `describe('CA5 (0068): con la decisión «ninguno», el plan está vacío')`.
+
+### Verifier, 2026-10-10, commit `1fbd329`, rango `main..feat/0068-e2e-afectados-sin-compilar`: VERDE
+
+- check: 3493 tests, cobertura ok (líneas 93,43 %, ramas 89,98 %).
+- e2e afectados: «ninguno» (solo scripts y docs), salida 0.
+- A mano en el worktree limpio: `--help` da el uso y 0; con un rango que toca `src`
+  (`b122dba~1..b122dba`), `--no-build` sin `out/` sale con 2 y el mensaje de la ficha; tras
+  `npm run build`, `--no-build -g "(0001)"` lanza solo los 7 tests «(0001)» de views, en verde, sin
+  compilar. Con un rango sin e2e, `--no-build` sale con 0 antes de mirar `out/` (CA5).
 
 ## Resultado
 
