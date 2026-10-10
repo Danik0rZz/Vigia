@@ -1,7 +1,7 @@
 ---
 id: '0050'
 titulo: 'PROCESS_GROUP: las 20 instancias de más CPU con :sort/:limit, el total real y la lista completa a demanda'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -201,4 +201,8 @@ el simulador ampliado.
 
 ## Resultado
 
-(pendiente)
+- Commits (`main..HEAD`): `27cbfe6` tests, `3bdcddc` código, `a29b815` notas de la API y las fichas de revisión y verificación.
+- Ficheros principales: `src/main/modules/process-group-metrics.ts`, `src/main/ipc/handlers/modules.ts`, `src/shared/ipc.ts` y `src/shared/modules.ts`; tests en `process-group-metrics.test.ts`, `ipc.test.ts` y `e2e/views.spec.ts`; prueba en vivo `process-group-top-instances-explore.live.test.ts`; `docs/notas-api-v2.md`.
+- Rondas de revisión: 1 (aprobada). Verifier en verde (3168 unitarios, 331 e2e).
+- ADR nuevo: ninguno. Sin migraciones.
+- Pendiente para la 0051: lo del revisor sobre `instancesTruncated` y `truncated`, anotado en su ficha. Sin comprobar en vivo el corte de la lista completa con más de unas 500 instancias.

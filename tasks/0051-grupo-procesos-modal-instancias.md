@@ -44,6 +44,7 @@ En la tabla «Instancias» de la página del process group (0032):
     instancias por consulta: se muestran N de M»), con el número real si se conoce.
 - Pulsar un proceso o un host en el modal cierra el modal y navega; «Volver» regresa al grupo.
 - Textos en es y en.
+- Del revisor de la 0050: `instancesTruncated` (`process-group-instances.ts`) solo mira `partial`; con `totalKnown: true` el marcador diría «al menos N» aunque el total sea exacto, hay que usar `total` y `totalKnown`. Y `truncated` de `processGroupInstances` también es `true` si `totalCount` cuenta instancias sin series: el aviso del modal no debe afirmar un recorte de Dynatrace sin más.
 
 ## Criterios de aceptación
 
