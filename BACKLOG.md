@@ -20,7 +20,7 @@ bueno de Dani o de peticiones en su nombre.
 
 - Cola aprobada por Dani el 2026-10-10 (flujo, parte 2 del ADR-0013), en este orden: lote
   **flujo-herramientas** (A): [0067](tasks/0067-e2e-etiquetas-por-zona.md) (hecha),
-  [0068](tasks/0068-e2e-afectados-sin-compilar.md), [0069](tasks/0069-e2e-vistas-arnes-comun.md),
+  [0068](tasks/0068-e2e-afectados-sin-compilar.md) (hecha), [0069](tasks/0069-e2e-vistas-arnes-comun.md),
   [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md),
   [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md),
   [0073](tasks/0073-integracion-por-pr.md) y [0074](tasks/0074-medicion-automatica-ci.md); después,
@@ -248,6 +248,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Dos comentarios pasan de 100 columnas: el JSDoc de `ServiceMarkers.tsx` y el bloque de nombres de `e2e/views.spec.ts`; reajustarlos. (surgió en 0066)
 - Escribir la regla de zona de los «Abrir en Métricas» de `e2e/views.spec.ts` (unos van a `@metricas`, otros a `@problema-detalle` o `@servicio`), por ejemplo: a `@metricas` si se comprueba lo que pinta Métricas; a la zona de origen si se comprueba la consulta del gráfico. **A resolver antes de la 0070 y la 0071.** (surgió en 0067)
 - `usesClipboard` de `scripts/e2e-tags.cjs` cruza nombres sin mirar el ámbito: una variable local con el nombre de una auxiliar con portapapeles da un falso positivo (seguro: pide una etiqueta de más). (surgió en 0067)
+- `scripts/affected-e2e.cjs`: `-g` toma como patrón el siguiente argumento aunque empiece por `-` (`-g --no-build` filtra por «--no-build» y compila); rechazarlo con el mismo error de uso. (surgió en 0068)
+- `scripts/affected-e2e.cjs`: `--grep=<patrón>`, que Playwright acepta, sale como opción desconocida con código 2 (fallo seguro); admitirlo si se echa en falta. (surgió en 0068)
 
 ## Aparcado
 
@@ -346,3 +348,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0065](tasks/0065-titulo-slo-servicio.md): el gráfico de disponibilidad de la página del servicio se titula «SLO» en español e inglés (`entities.service.availability.title`); el tooltip, la serie y el marcador no cambian. Sin migraciones.
 - [0066](tasks/0066-marcador-slo-servicio.md): la disponibilidad del servicio sale en su propio marcador «SLO», el primero de la fila (rojo por debajo del 90 % con su texto, verde desde el 90 %, «—» sin peticiones; no sale en servicios de solo actividad); «Tasa de error» se queda solo con su valor. La fila de seis marcadores va en una fila desde 1280 px (`lg:grid-cols-3 xl:grid-cols-6`). Sin migraciones.
 - [0067](tasks/0067-e2e-etiquetas-por-zona.md) (lote flujo-herramientas): cada test de `e2e/*.spec.ts` lleva una etiqueta de zona (16 en `e2e/areas.json`, clave `zones`) y `@portapapeles` si usa el portapapeles; la guarda `scripts/e2e-tags.cjs` (dentro de `npm run check`) falla si falta, sobra o es desconocida. Sin migraciones.
+- [0068](tasks/0068-e2e-afectados-sin-compilar.md) (lote flujo-herramientas): `npm run test:e2e:affected` con `--no-build`, `-g`/`--grep`, `--last-failed` y `--help` (`parseArgs` y `plan` puras en `scripts/affected-e2e.cjs`); una opción desconocida sale con 2 sin lanzar nada. Sin migraciones.
