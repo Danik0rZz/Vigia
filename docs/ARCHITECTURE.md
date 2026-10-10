@@ -15,7 +15,7 @@ src/
     ipc/         Registro de canales (handler.ts) y sus implementaciones (handlers/)
     modules/     Transformación de métricas y entidades (metric-series.ts es el código común de series)
     security/    CSP, orígenes de confianza, navegación y rutas del protocolo app://
-    dynatrace/   Cliente de Dynatrace, red y particiones por entorno
+    dynatrace/   Cliente de Dynatrace (con límite de 6 peticiones simultáneas por entorno), red y particiones
     db/          Esquema de SQLite (Drizzle) y migraciones
   preload/     Puente mínimo: expone window.vigia.invoke y nada más
   renderer/    Interfaz (React). No importa Electron ni Node

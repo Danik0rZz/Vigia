@@ -1,7 +1,7 @@
 ---
 id: '0062'
 titulo: 'Main limita las peticiones simultáneas a Dynatrace por entorno'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -114,6 +114,8 @@ pueden fallar, y vigilan que no se rompan cuando lo haya).
 - e2e completo: 355/355, sin intermitentes.
 
 ## Resultado
+
+Commits: `df6eb44` (tests), `bb31a67` (implementación) y los de ficha. Ficheros principales: `src/main/dynatrace/concurrency.ts`, `client.ts`, `services.ts` y los tests `client.concurrency.test.ts` y `concurrency.test.ts`. Rondas de revisión: 1 (aprobada). ADR nuevo: ninguno. Sin migraciones.
 
 Implementado en `src/main/dynatrace/concurrency.ts` (limitador por entorno, puro) y `client.ts`, que
 lo usa alrededor de cada intento. Pruebas propias en `concurrency.test.ts`.

@@ -12,7 +12,7 @@ bueno de Dani o de peticiones en su nombre.
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
   **auditoria-publicacion** (0055 y 0056 hechas),
   **auditoria-codigo-comun** (0057, 0058 y 0059 hechas), **auditoria-robustez** (0060 hecha,
-  0061 hecha, [0062](tasks/0062-limite-peticiones-simultaneas.md)),
+  0061 y 0062 hechas),
   [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) y [0064](tasks/0064-reintentar-solo-su-panel.md).
 - Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
 
@@ -224,6 +224,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - La guarda en vivo CA1 (0014), `entity-detail-explore.live.test.ts`, falla ahora: probable falso positivo de la comparación de texto con los datos del tenant (un valor observado corto que coincide con una clave de la API). Revisarla sin imprimir valores. (surgió en 0060)
 - Test unitario de `useRenderCount` (`lib/render-count.ts`): sin `enableRenderCount()` no escribe el atributo; con él cuenta. (surgió en 0059)
 - Idioma de los diálogos de main (caída y cuelgue de la interfaz): hoy sale de `app.getLocale()`, no del idioma elegido en la app, que vive en el `localStorage` del renderer. Afinarlo pediría guardar el idioma en main por IPC. (surgió en 0061)
+- Cancelación de consultas desde la interfaz: ningún handler pasa aún `signal`; cuando el renderer cancele una (TanStack Query da su `AbortSignal`), main podría propagarlo por IPC hasta `dtRequest` y sacarla de la cola. Habrá que traducir el `AbortError` a un `DtError` con `reason`. (surgió en 0062)
+- El reintento de un 429 podría frenar a todo el entorno (no solo a esa petición) mientras dura el `Retry-After`. (surgió en 0062)
+- Cancelar el cuerpo del 401 de OAuth antes de reintentar, como ya se hace con el 429. (surgió en 0062)
 
 ## Aparcado
 
@@ -316,3 +319,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0059](tasks/0059-react-compiler.md) (lote auditoria-codigo-comun): React Compiler en el build del renderer (ADR-0012): las tablas solo repintan las filas que cambian (scroll de Problemas y buscador de evidencias); contador de renders de fila solo en e2e. Sin migraciones.
 - [0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md) (lote auditoria-robustez): el token y el `client_secret` no siguen redirecciones (`redirect: 'error'`, `reason` `redirectRefused`) y el log tiene un filtro final de secretos (`log-mask.ts`). Sin migraciones.
 - [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md) (lote auditoria-robustez): la ventana se recarga si la interfaz cae o la matan (`crash-policy.ts`, con límite de una recarga por minuto) y avisa si se cuelga; copia de `vigia.db` en `%APPDATA%\vigia\backups` antes de migrar (3 copias). Sin migraciones.
+- [0062](tasks/0062-limite-peticiones-simultaneas.md) (lote auditoria-robustez): main limita a 6 las peticiones simultáneas a Dynatrace por entorno (`dynatrace/concurrency.ts`), con cola en orden, cancelación y aviso `debug` al pasar de 20 pendientes. Sin migraciones.
