@@ -12,7 +12,7 @@ adrs: [7]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -60,6 +60,10 @@ Un control de seguridad tiene que **fallar cerrado**: si no puede comprobar, par
   `remote..local`; con `remote` a ceros, `origin/main..local`.
 - CA4 (unitario): `notify-telegram.mjs` usa la función común y sus tests siguen pasando.
 - CA5 (unitario): ninguna salida contiene un valor del `.env` de prueba (inventado).
+- CA6 (unitario, añadido por la decisión del Orquestador en la ronda 1): un `.env.live.local` vacío
+  o sin valores reconocibles da 2 («no se puede comprobar»), también cuando en un worktree tapa al
+  del checkout principal; con `VIGIA_SCAN_TENANT_OPTIONAL=1`, 0 con aviso. Lo cubren los tests
+  «0055 (ronda 1)» de `scripts/scan-tenant.test.ts`.
 
 ## Pruebas a mano para Dani
 
@@ -99,6 +103,20 @@ Opcional, fuera de esta ficha (BACKLOG): `scanRange` usa `git diff <rango>`, que
 extremos; un valor añadido y borrado dentro de los commits que se suben se publica en el historial y
 no se detecta (ya pasaba antes). `git log -p` por commit lo cubriría; tampoco se escanean las
 etiquetas anotadas. Documentar `VIGIA_SCAN_TENANT_OPTIONAL` en README y `docs/flujo.md` (doc-writer).
+
+### Ronda 2: APROBADO
+
+El CAMBIO de la ronda 1, bien hecho: con la entrada vacía en `--pre-push`, 0 y «git no indica ningún
+ref que subir»; el `.env` se comprueba antes (sin `.env`, 2 aunque la entrada esté vacía); las
+líneas mal formadas, en 2. La decisión del Orquestador también: `.env` vacío o sin valores da 2 (0
+con aviso con `VIGIA_SCAN_TENANT_OPTIONAL=1`) en los dos modos y en el worktree que tapa al
+principal, con `expectNoSecrets`. Invertir el test anterior a la ficha (`.env` vacío → 0) es
+legítimo por esa decisión; los tests de CA1 a CA5 y de la 0004 no se tocan. No se imprime ningún
+valor; el hook no cambia.
+
+Opcional: escribir la decisión como CA6 (hecho por el Orquestador); test del `.env` ilegible (difícil
+en Windows, riesgo bajo); `git log -p` y etiquetas anotadas al BACKLOG; documentar la variable
+(doc-writer).
 
 ## Verificación
 
