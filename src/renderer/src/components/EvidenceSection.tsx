@@ -629,6 +629,10 @@ export function EvidenceSection({
     })
   }
 
+  // Fuera del JSX: dentro de la rama de la tabla, el React Compiler la memoizaría junto con
+  // `rows` y cambiaría con cada letra del buscador, repintando todas las filas (ficha 0059).
+  const toggleRow = (view: EvidenceView): void => toggleExpanded(key, view.id)
+
   const status = (view: EvidenceView): RowStatus => ({
     open: view.status === 'OPEN',
     value: view.status,
@@ -918,7 +922,7 @@ export function EvidenceSection({
             // Solo ordenan las columnas con `sortable`, todas con clave de EvidenceSortKey.
             onSortChange={(next) => update(key, { sort: next as EvidenceSort })}
             status={status}
-            onActivate={(view) => toggleExpanded(key, view.id)}
+            onActivate={toggleRow}
             selected={null}
             rowTestId="evidence-row"
             rowData={evidenceRowData}
@@ -930,7 +934,7 @@ export function EvidenceSection({
             detail={{
               expanded,
               testId: 'evidence-detail',
-              onCollapse: (view) => toggleExpanded(key, view.id),
+              onCollapse: toggleRow,
               render: (view) => <EvidenceDetail view={view} problem={problem} />
             }}
           />
