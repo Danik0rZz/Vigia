@@ -60,7 +60,13 @@ Cómo añadir un canal IPC: ver el README.
 | Datos en desarrollo (`npm run dev`) | `%APPDATA%\vigia-dev\`                      |
 | Datos de cada e2e                   | Carpeta temporal (`VIGIA_USER_DATA_DIR`)    |
 | Logs                                | `%APPDATA%\vigia\logs\main.log`             |
+| Copias de la base                   | `%APPDATA%\vigia\backups\` (3 últimas)      |
 | Migraciones                         | `src/main/db/` → `resources/migrations` zip |
+
+Antes de migrar, `src/main/db/backup.ts` copia `vigia.db` con `sqlite.backup()` si hay migraciones
+pendientes (`vigia-<fecha UTC>-<migración>.db`); si la copia falla, no se migra. Restaurar: cerrar la
+app y copiar la copia encima de `vigia.db`. La caída o el cuelgue de la interfaz los trata la política
+pura `src/main/crash-policy.ts`, a la que `window.ts` solo le pasa lo de Electron.
 
 ## Versiones fijadas
 

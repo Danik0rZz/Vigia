@@ -1,7 +1,7 @@
 ---
 id: '0061'
 titulo: 'La ventana se recupera si el renderer cae, y copia de la base antes de migrar'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -189,4 +189,12 @@ Decisiones del developer (Dani delegó; conservadoras y refinables):
 
 ## Resultado
 
-(pendiente)
+- Commits: tests `ce9fd08`, `a1cdeb7`; política de caída `c0eaed2`; copia previa `4f40ed4`; ronda 1
+  `4ac7b9c` y `133ca20`.
+- Ficheros principales: `src/main/crash-policy.ts`, `src/main/window.ts`, `src/main/db/backup.ts`,
+  `src/main/index.ts`, `src/main/paths.ts`, `e2e/areas.json` y sus tests.
+- Rondas de revisión: 2 (la 1 pidió que la poda no borrara la copia nueva y llevó a ajustar CA1 con
+  `killed`; la 2 aprobó). Verifier en verde (3403 tests, e2e 355/355).
+- ADR nuevo: ninguno. Sin migraciones.
+- Pendiente de Dani: la prueba a mano (matar la interfaz y ver que se recarga) y revisar la decisión
+  del Planificador de que `killed` también recargue.

@@ -139,7 +139,11 @@ valida la salida y nunca devuelve al renderer el detalle de un error interno.
 | ----------------------------------- | ------------------------------- |
 | Datos de la app                     | `%APPDATA%\vigia\`              |
 | Logs                                | `%APPDATA%\vigia\logs\main.log` |
+| Copias de la base (3 últimas)       | `%APPDATA%\vigia\backups\`      |
 | Datos en desarrollo (`npm run dev`) | `%APPDATA%\vigia-dev\`          |
+
+Antes de aplicar migraciones pendientes, Vigía copia `vigia.db` a `backups\`. Para restaurar una a
+mano: cerrar Vigía y copiar la copia elegida encima de `%APPDATA%\vigia\vigia.db`.
 
 Regla del proyecto: nunca se escriben secretos, cabeceras `Authorization` ni cookies en logs,
 ficheros de configuración, mensajes de error ni en el repositorio.

@@ -12,7 +12,7 @@ bueno de Dani o de peticiones en su nombre.
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
   **auditoria-publicacion** (0055 y 0056 hechas),
   **auditoria-codigo-comun** (0057, 0058 y 0059 hechas), **auditoria-robustez** (0060 hecha,
-  [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md), [0062](tasks/0062-limite-peticiones-simultaneas.md)),
+  0061 hecha, [0062](tasks/0062-limite-peticiones-simultaneas.md)),
   [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) y [0064](tasks/0064-reintentar-solo-su-panel.md).
 - Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
 
@@ -223,6 +223,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [ALCANCE] (lo decide Dani) Que `maskLogMessage` enmascare también los objetos anidados y la `cause` de un `Error` (el fichero de log escribe con `depth: 5`); hoy solo cubre el primer nivel y cambiaría CA3 de la 0060. (surgió en 0060)
 - La guarda en vivo CA1 (0014), `entity-detail-explore.live.test.ts`, falla ahora: probable falso positivo de la comparación de texto con los datos del tenant (un valor observado corto que coincide con una clave de la API). Revisarla sin imprimir valores. (surgió en 0060)
 - Test unitario de `useRenderCount` (`lib/render-count.ts`): sin `enableRenderCount()` no escribe el atributo; con él cuenta. (surgió en 0059)
+- Idioma de los diálogos de main (caída y cuelgue de la interfaz): hoy sale de `app.getLocale()`, no del idioma elegido en la app, que vive en el `localStorage` del renderer. Afinarlo pediría guardar el idioma en main por IPC. (surgió en 0061)
 
 ## Aparcado
 
@@ -314,3 +315,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0058](tasks/0058-paginas-entidad-codigo-comun.md) (lote auditoria-codigo-comun): las páginas de entidad comparten `useEntityPageAccess`, `Level`/`LEVEL_CLASS`/`MarkerBody`/`BigValue`, `TableCard` y los comparadores de `@shared/grid-sort`, con un test de guardia; sin cambios visibles. Sin migraciones.
 - [0059](tasks/0059-react-compiler.md) (lote auditoria-codigo-comun): React Compiler en el build del renderer (ADR-0012): las tablas solo repintan las filas que cambian (scroll de Problemas y buscador de evidencias); contador de renders de fila solo en e2e. Sin migraciones.
 - [0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md) (lote auditoria-robustez): el token y el `client_secret` no siguen redirecciones (`redirect: 'error'`, `reason` `redirectRefused`) y el log tiene un filtro final de secretos (`log-mask.ts`). Sin migraciones.
+- [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md) (lote auditoria-robustez): la ventana se recarga si la interfaz cae o la matan (`crash-policy.ts`, con límite de una recarga por minuto) y avisa si se cuelga; copia de `vigia.db` en `%APPDATA%\vigia\backups` antes de migrar (3 copias). Sin migraciones.
