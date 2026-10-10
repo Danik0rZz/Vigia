@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -87,7 +87,20 @@ después el texto.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1: el `describe('CA1 (0065)…')` de `locales/service-availability-view.test.ts` exige «SLO» en
+  es y en y que `hint` siga nombrando peticiones, errores y Vigía; fallaba antes del código.
+- CA2: el CA3 de la 0048 en `e2e/views.spec.ts` exige el texto exacto «SLO» y el antiguo CA5,
+  ahora «CA2 (0065) y CA5 (0048)», sigue abriendo el tooltip con ratón y con foco. Nada tocó los
+  tests después de `ca7dff9`.
+- El cambio del test de la 0048 (sacar `title` de «en distinto de es») es correcto: la ficha pide
+  actualizar esos tests, «SLO» está en el glosario como término igual en los dos idiomas, el
+  comentario lo explica y las demás claves siguen comprobadas.
+- Solo cambia un texto; nada del tenant ni secretos.
+
+Opcional: añadir «CA2 (0065)» al nombre del test «CA3 (0048)», que es el que comprueba el texto
+exacto (regla de `e2e/CLAUDE.md`).
 
 ## Verificación
 
@@ -112,6 +125,10 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 | Rama y lanzamiento del developer                       | Orquestador  | —     | 2026-10-10 13:16:32 | 2026-10-10 13:16:45 | 0 min 13 s  | Incluye leer la ficha; lanzado entre 13:16:36 y 13:16:45                                                         |
 | Tests, texto, check, e2e afectados y ficha en revisión | developer    | —     | 2026-10-10 13:16:46 | 2026-10-10 13:25:09 | 8 min 23 s  | Desde su primer comando; no se puede medir lo que tarda en arrancar el subagente ni la redacción de su respuesta |
 | Vuelta del developer al Orquestador                    | Orquestador  | —     | 2026-10-10 13:25:09 | 2026-10-10 13:25:27 | 0 min 18 s  | Del último comando del developer a mi primer comando tras su respuesta                                           |
+| Filas del developer en la ficha y commit               | Orquestador  | —     | 2026-10-10 13:25:27 | 2026-10-10 13:25:43 | 0 min 16 s  |                                                                                                                  |
+| Lanzamiento del reviewer                               | Orquestador  | 1     | 2026-10-10 13:25:43 | 2026-10-10 13:25:50 | 0 min 7 s   |                                                                                                                  |
+| Revisión                                               | reviewer     | 1     | 2026-10-10 13:25:54 | 2026-10-10 13:26:14 | 0 min 20 s  | APROBADO. Desde su primer comando al último; el arranque y la redacción de la respuesta no se pueden medir       |
+| Vuelta del reviewer al Orquestador                     | Orquestador  | 1     | 2026-10-10 13:26:14 | 2026-10-10 13:26:35 | 0 min 21 s  | Incluye la redacción de su respuesta                                                                             |
 
 ### Ejecuciones
 
