@@ -1,7 +1,7 @@
 ---
 id: '0061'
 titulo: 'La ventana se recupera si el renderer cae, y copia de la base antes de migrar'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -180,6 +180,12 @@ Decisiones del developer (Dani delegó; conservadoras y refinables):
   la copia nueva y nunca la borra: se conservan ella y las 2 más recientes del resto (test propio en
   `src/main/db/backup-prune.test.ts`, con el reloj hacia atrás). Opcionales hechos: la base de
   origen se abre con `readonly: true` y `render-process-gone` llama antes a `hangs.responsive()`.
+
+### Verifier, 2026-10-10, commit `f3b6e85`, rango `main..feat/0061-ventana-recuperable-y-copia-antes-de-migrar`: VERDE
+
+- check: 3403 tests en 195 ficheros, typecheck sin errores, cobertura ok.
+- e2e completo (toca main transversal): 355/355, sin intermitentes.
+- Sin usar `%APPDATA%\vigia` real.
 
 ## Resultado
 
