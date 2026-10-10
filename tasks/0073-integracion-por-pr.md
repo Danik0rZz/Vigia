@@ -1,7 +1,7 @@
 ---
 id: '0073'
 titulo: 'Integración por PR: un commit por ficha, ramas de integración, PR de 3 a 5 fichas y dist:win solo en main'
-estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -194,7 +194,8 @@ Decisiones del developer (2026-10-11):
 
 - `hecha` pasa a significar «integrada en su rama `integra/…`»: el doc-writer deja la ficha
   `verificada` (`integrate.mjs` solo integra una `verificada`, y el test rechaza `hecha`) y el
-  Orquestador pone `estado: hecha` dentro del propio commit de la ficha, tras el `git merge --squash`.
+  Orquestador pone `estado: hecha` dentro del propio commit de la ficha, tras el
+  `git merge --squash`.
 - `integrate.mjs` no toca git más que para leer (`status --porcelain` y `branch --show-current`):
   escribe el mensaje en la salida y el squash y el commit los hace el Orquestador. Además,
   `--agrupar <fichas>` da en JSON el resultado de `groupForPrs` (test propio en
@@ -202,9 +203,25 @@ Decisiones del developer (2026-10-11):
   grupo al cerrarse, así que la PR sola puede salir antes que el grupo que la rodea.
 - La rama de la ficha sale de la rama de integración en curso, así que reviewer, verifier, developer
   y doc-writer usan `<base>..HEAD` con la base que les pasa el Orquestador (`main` por defecto).
-- Al reabrir una ficha por el CI, su campo `rama` pasa a `fix/NNNN-ci` (el tipo del commit sale de él).
-- La ficha aprobada del Planificador sigue en un commit en `main` local, sin push; la rama de
-  integración siguiente, que sale de `main`, la lleva a GitHub.
+- Al reabrir una ficha por el CI, su campo `rama` pasa a `fix/NNNN-ci` (el tipo del commit sale
+  de él).
+- La ficha aprobada del Planificador sigue en un commit en `main` local, sin push. Ronda 2 (punto
+  2 del revisor), un solo camino, «Traer `main`» (`docs/flujo.md`, «Git»; `tarea.md`,
+  `cerrar-version.md` y `planner.md` lo citan igual): `git fetch origin` y
+  `git -C <checkout principal> merge --no-edit origin/main` (avanza si puede; si el Planificador
+  commiteó después, deja un merge en `main` local, sin push), y `git merge --no-edit main` en la
+  `integra/…` en curso si `integra/…..main` no está vacío; sin ninguna en curso, la siguiente
+  sale de `main` o recibe ese merge, y al acabar la cola, si `origin/main..main` no está vacío,
+  PR solo de documentos. Se hace al empezar cada ficha, antes de abrir una PR y tras fusionar una.
+  Respeta la regla de la ficha (los documentos van en la `integra/…` en curso) sin cambiarla.
+- Ronda 2 (punto 3): la `integra/…` en curso es la que no tiene PR; si no hay ninguna al empezar
+  una ficha agrupable, el Orquestador la crea antes (`git branch`, desde la que tenga la PR sin
+  fusionar o desde `main`), para que la rama de la ficha salga siempre de ella. Los conflictos con
+  `main` se resuelven con `git merge --no-edit origin/main` en la `integra/…`, sin rebase.
+- Ronda 2 (punto 1): `exclusiones` que no es lista (vacío o escalar) hace fallar `groupForPrs`
+  con un error que lo explica, en vez de ir sola: es un fallo de la ficha y conviene verlo.
+- Ronda 2 (punto 4): `git push origin main` queda solo para integrar esta ficha; desde la
+  siguiente no es vía de integración aunque falte la protección, y sin `gh` se para y se avisa.
 - `/cerrar-version` integra su commit con una PR desde `integra/…` que fusiona el Orquestador.
 - En `ci.yml`, el e2e lleva `if: github.event_name != 'push'`: corre en las PR y a mano
   (`workflow_dispatch`), no en el push a `main`.
