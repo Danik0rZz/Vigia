@@ -1,7 +1,7 @@
 ---
 id: '0066'
 titulo: 'La disponibilidad del servicio sale en su propio marcador, a la izquierda (con medición del flujo)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote:
@@ -125,6 +125,12 @@ columnas (JSDoc de `ServiceMarkers.tsx` y el bloque de nombres de `e2e/views.spe
 
 (pendiente)
 
+### Verifier, 2026-10-10, commit `2129de6`, rango `main..feat/0066-marcador-slo-servicio`: VERDE
+
+- check: 3451 tests en 200 ficheros, cobertura ok (líneas 93,43 %, ramas 89,98 %).
+- e2e afectados: 304/304.
+- Los e2e «(0066)» y «(0012)» de `views.spec.ts` ×3 con `--workers=1`: 27/27; sin intermitentes.
+
 ## Resultado
 
 (pendiente)
@@ -147,6 +153,9 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 | Filas del developer en la ficha, commit y lanzamiento del reviewer | Orquestador  | 1     | 2026-10-10 14:16:00 | 2026-10-10 14:16:17 | 0 min 17 s  | Commit con hook de 14:16:09 a 14:16:10                                                                                                                                                |
 | Revisión                                                           | reviewer     | 1     | 2026-10-10 14:16:20 | 2026-10-10 14:17:03 | 0 min 43 s  | APROBADO. Desde su primer comando al último; el arranque y la redacción de la respuesta no se pueden medir                                                                            |
 | Vuelta del reviewer al Orquestador                                 | Orquestador  | 1     | 2026-10-10 14:17:03 | 2026-10-10 14:17:32 | 0 min 29 s  | Incluye la redacción de su respuesta                                                                                                                                                  |
+| Revisión en la ficha, commit y lanzamiento del verifier            | Orquestador  | 1     | 2026-10-10 14:17:32 | 2026-10-10 14:17:48 | 0 min 16 s  | Commit con hook de 14:17:40 a 14:17:41                                                                                                                                                |
+| Verificación (modo ficha)                                          | verifier     | 1     | 2026-10-10 14:17:51 | 2026-10-10 14:25:45 | 7 min 54 s  | VERDE. Worktree limpio, npm ci, install-electron, check, e2e afectados, repeticiones ×3 de la 0066 y la 0012 y limpieza                                                               |
+| Vuelta del verifier al Orquestador                                 | Orquestador  | 1     | 2026-10-10 14:25:45 | 2026-10-10 14:26:05 | 0 min 20 s  | Incluye la redacción de su respuesta                                                                                                                                                  |
 
 ### Ejecuciones
 
@@ -164,3 +173,11 @@ Horas en local (Europa/Madrid, +02:00). Duración en minutos y segundos.
 | developer   | git commit (ficha; hook: prettier)                                                                 | 2026-10-10 14:15:28 | 2026-10-10 14:15:29 | 1 s        | ok                                                  | hook sin tests                        |
 | developer   | npx tsc y npx prettier sueltos                                                                     | sin hora            | sin hora            | —          | ok                                                  | no se midieron (lo dice el developer) |
 | Orquestador | git commit (medición del developer; hook: prettier)                                                | 2026-10-10 14:16:09 | 2026-10-10 14:16:10 | 1 s        | ok                                                  | hook sin tests                        |
+| Orquestador | git commit (ronda 1; hook: prettier)                                                               | 2026-10-10 14:17:40 | 2026-10-10 14:17:41 | 1 s        | ok                                                  | hook sin tests                        |
+| verifier    | git worktree add --detach (2129de6)                                                                | 2026-10-10 14:17:51 | 2026-10-10 14:17:51 | < 1 s      | ok                                                  | —                                     |
+| verifier    | npm ci --ignore-scripts                                                                            | 2026-10-10 14:17:54 | 2026-10-10 14:18:08 | 14 s       | ok                                                  | —                                     |
+| verifier    | npx install-electron                                                                               | 2026-10-10 14:18:08 | 2026-10-10 14:18:11 | 3 s        | ok                                                  | —                                     |
+| verifier    | npm run check                                                                                      | 2026-10-10 14:18:11 | 2026-10-10 14:19:44 | 1 min 33 s | ok                                                  | unit 3451 / 0 / 0                     |
+| verifier    | npm run test:e2e:affected -- main..feat/0066-marcador-slo-servicio (con compilación)               | 2026-10-10 14:19:47 | 2026-10-10 14:25:01 | 5 min 14 s | ok                                                  | e2e 304 / 0 / 0                       |
+| verifier    | npx playwright test e2e/views.spec.ts --workers=1 --repeat-each 3 -g "(0066\|0012)"                | 2026-10-10 14:25:07 | 2026-10-10 14:25:25 | 18 s       | ok                                                  | e2e 27 / 0 / 0                        |
+| verifier    | limpieza del worktree (ruta larga, con reintentos) y git worktree prune                            | 2026-10-10 14:25:28 | 2026-10-10 14:25:45 | 17 s       | ok                                                  | —                                     |
