@@ -53,12 +53,36 @@ export interface XlsxInfo {
 const MIN_WIDTH = 8
 const MAX_WIDTH = 60
 
+/**
+ * Fecha para una celda de Excel en hora local (decisión de Dani, ficha 0063). ExcelJS pasa un
+ * `Date` a número de Excel en UTC, y Excel no tiene zona: enseña ese número tal cual. Se construye
+ * el instante con los componentes locales (con los getters locales, que ya aplican el horario de
+ * verano que tocaba en esa fecha) como si fueran UTC, y así Excel enseña la hora local, la misma
+ * zona que dice la fila «Zona horaria» de Info. Se conservan los milisegundos.
+ */
+export function toExcelLocal(date: Date): Date {
+  return new Date(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds(),
+      date.getMilliseconds()
+    )
+  )
+}
+
 function cellValue(
   column: ExportColumn,
   value: string | number | null | undefined
 ): ExcelJS.CellValue {
   if (value === null || value === undefined) return null
-  if (column.type === 'date') return toDate(value) ?? String(value)
+  if (column.type === 'date') {
+    const date = toDate(value)
+    return date === null ? String(value) : toExcelLocal(date)
+  }
   if (column.type === 'number') {
     // Un texto que no es número (o NaN o infinito) deja la celda vacía, no NaN.
     const number = typeof value === 'number' ? value : Number(value)
@@ -156,12 +180,12 @@ export async function buildWorkbook(
     [labels.environment, info.environment],
     [labels.module, info.module],
     [labels.query, info.query ?? ''],
-    [labels.exported, info.exportedAt],
+    [labels.exported, toExcelLocal(info.exportedAt)],
     [labels.timeZone, info.timeZone]
   ]
   if (info.range !== undefined) entries.push([labels.range, info.range])
-  if (info.from !== undefined) entries.push([labels.from, info.from])
-  if (info.to !== undefined) entries.push([labels.to, info.to])
+  if (info.from !== undefined) entries.push([labels.from, toExcelLocal(info.from)])
+  if (info.to !== undefined) entries.push([labels.to, toExcelLocal(info.to)])
   if (info.note !== undefined) {
     entries.push([labels.note ?? DEFAULT_XLSX_LABELS.note ?? '', info.note])
   }
