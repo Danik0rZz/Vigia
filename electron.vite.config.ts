@@ -24,6 +24,12 @@ export default defineConfig({
         '@shared': shared
       }
     },
-    plugins: [react(), tailwindcss()]
+    plugins: [
+      // React Compiler (ficha 0059): memoiza componentes y valores en el build, para que una
+      // fila del DataGrid solo se vuelva a pintar si cambia. Lo que no cumple sus reglas se lo
+      // salta él solo (aviso de lint) o va con "use no memo" y su motivo.
+      react({ babel: { plugins: ['babel-plugin-react-compiler'] } }),
+      tailwindcss()
+    ]
   }
 })
