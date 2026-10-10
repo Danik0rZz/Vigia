@@ -52,3 +52,47 @@ export function formatApdex(value: number | null, language: string): string {
   if (value === null || !Number.isFinite(value)) return NO_DATA
   return formatNumber(value, language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+/** Los Core Web Vitals que pinta la página de una aplicación web (ficha 0054). */
+export const WEB_VITALS = ['lcp', 'cls', 'inp'] as const
+export type WebVital = (typeof WEB_VITALS)[number]
+
+/** Calificaciones de un Core Web Vital, de mejor a peor. */
+export type WebVitalRating = 'good' | 'needsImprovement' | 'poor'
+
+/**
+ * Umbrales públicos de Google, en la unidad del canal de la 0052 (LCP e INP en ms, CLS sin
+ * unidad): hasta el primero (incluido), «bueno»; hasta el segundo (incluido), «mejorable»; por
+ * encima, «pobre».
+ */
+export const WEB_VITAL_THRESHOLDS: Record<WebVital, readonly [good: number, poor: number]> = {
+  lcp: [2_500, 4_000],
+  cls: [0.1, 0.25],
+  inp: [200, 500]
+}
+
+/** Calificación de un Core Web Vital; sin dato, null. */
+export function webVitalRating(vital: WebVital, value: number | null): WebVitalRating | null {
+  if (value === null || !Number.isFinite(value)) return null
+  const [good, poor] = WEB_VITAL_THRESHOLDS[vital]
+  if (value <= good) return 'good'
+  return value <= poor ? 'needsImprovement' : 'poor'
+}
+
+const RATING_LEVEL: Record<WebVitalRating, ApdexLevel> = {
+  good: 'success',
+  needsImprovement: 'warning',
+  poor: 'error'
+}
+
+/** Color de la calificación (siempre va con su texto); sin dato, normal. */
+export function webVitalLevel(vital: WebVital, value: number | null): ApdexLevel {
+  const rating = webVitalRating(vital, value)
+  return rating === null ? 'normal' : RATING_LEVEL[rating]
+}
+
+/** CLS con dos decimales siempre: «0,18», «0,05». */
+export function formatCls(value: number | null, language: string): string {
+  if (value === null || !Number.isFinite(value)) return NO_DATA
+  return formatNumber(value, language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}

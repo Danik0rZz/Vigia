@@ -1085,6 +1085,8 @@
       "sections": {
         "activity": "Activity",
         "errors": "Errors",
+        "users": "Users and sessions",
+        "experience": "Experience",
         "apdex": "Apdex",
         "keyActions": "Key actions"
       },
@@ -1107,6 +1109,9 @@
         "durationByType": "Duration by type",
         "errorsByType": "Errors by type",
         "affectedActions": "Actions affected by errors",
+        "activeUsers": "Active users",
+        "sessions": "Sessions",
+        "vitals": "Core Web Vitals",
         "errorsNotSeparated": "Dynatrace does not split these errors by type (JavaScript, HTTP…): they are shown together.",
         "series": {
           "apdex": "Apdex",
@@ -1119,11 +1124,39 @@
           "javascript": "JavaScript",
           "http": "HTTP",
           "other": "Other",
-          "affectedActions": "Actions with errors"
+          "affectedActions": "Actions with errors",
+          "activeUsers": "Active users",
+          "startedSessions": "Started sessions",
+          "endedSessions": "Ended sessions",
+          "sessionDuration": "Average session duration",
+          "lcp": "LCP",
+          "cls": "CLS",
+          "inp": "INP"
         },
         "units": {
           "actions": "actions",
-          "errors": "errors"
+          "errors": "errors",
+          "sessions": "sessions"
+        }
+      },
+      "sessionStats": {
+        "label": "Session figures for the range",
+        "actionsPerSession": "Actions per session",
+        "bounceRate": "Bounce rate",
+        "rageClicks": "Rage clicks"
+      },
+      "vitals": {
+        "label": "Core Web Vitals for the range (75th percentile)",
+        "lcp": "LCP",
+        "lcpHint": "Largest Contentful Paint: how long the largest visible element takes to render when the page loads.",
+        "cls": "CLS",
+        "clsHint": "Cumulative Layout Shift: how much the page content moves while it loads, unitless.",
+        "inp": "INP",
+        "inpHint": "Interaction to Next Paint: how long the page takes to respond visibly to a click, tap or key press.",
+        "rating": {
+          "good": "Good",
+          "needsImprovement": "Needs improvement",
+          "poor": "Poor"
         }
       },
       "apdex": {

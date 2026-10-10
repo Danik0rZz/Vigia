@@ -1085,6 +1085,8 @@
       "sections": {
         "activity": "Actividad",
         "errors": "Errores",
+        "users": "Usuarios y sesiones",
+        "experience": "Experiencia",
         "apdex": "Apdex",
         "keyActions": "Acciones clave"
       },
@@ -1107,6 +1109,9 @@
         "durationByType": "Duración por tipo",
         "errorsByType": "Errores por tipo",
         "affectedActions": "Acciones afectadas por errores",
+        "activeUsers": "Usuarios activos",
+        "sessions": "Sesiones",
+        "vitals": "Core Web Vitals",
         "errorsNotSeparated": "Dynatrace no separa estos errores por tipo (JavaScript, HTTP…): salen juntos.",
         "series": {
           "apdex": "Apdex",
@@ -1119,11 +1124,39 @@
           "javascript": "JavaScript",
           "http": "HTTP",
           "other": "Otros",
-          "affectedActions": "Acciones con errores"
+          "affectedActions": "Acciones con errores",
+          "activeUsers": "Usuarios activos",
+          "startedSessions": "Sesiones iniciadas",
+          "endedSessions": "Sesiones terminadas",
+          "sessionDuration": "Duración media de sesión",
+          "lcp": "LCP",
+          "cls": "CLS",
+          "inp": "INP"
         },
         "units": {
           "actions": "acciones",
-          "errors": "errores"
+          "errors": "errores",
+          "sessions": "sesiones"
+        }
+      },
+      "sessionStats": {
+        "label": "Datos de las sesiones del rango",
+        "actionsPerSession": "Acciones por sesión",
+        "bounceRate": "Tasa de rebote",
+        "rageClicks": "Clics de frustración (rage clicks)"
+      },
+      "vitals": {
+        "label": "Core Web Vitals del rango (percentil 75)",
+        "lcp": "LCP",
+        "lcpHint": "Largest Contentful Paint: lo que tarda en pintarse el elemento más grande visible al cargar la página.",
+        "cls": "CLS",
+        "clsHint": "Cumulative Layout Shift: cuánto se mueve el contenido de la página mientras carga, sin unidad.",
+        "inp": "INP",
+        "inpHint": "Interaction to Next Paint: lo que tarda la página en responder visiblemente a un clic, un toque o una tecla.",
+        "rating": {
+          "good": "Bueno",
+          "needsImprovement": "Mejorable",
+          "poor": "Pobre"
         }
       },
       "apdex": {
