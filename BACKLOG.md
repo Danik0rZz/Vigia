@@ -11,7 +11,7 @@ bueno de Dani o de peticiones en su nombre.
   (0052, 0053 y 0054 hechas).
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
   **auditoria-publicacion** (0055 y 0056 hechas),
-  **auditoria-codigo-comun** (0057 hecha, [0058](tasks/0058-paginas-entidad-codigo-comun.md),
+  **auditoria-codigo-comun** (0057 y 0058 hechas,
   [0059](tasks/0059-react-compiler.md)), **auditoria-robustez** ([0060](tasks/0060-token-sin-redirecciones-y-log-filtrado.md),
   [0061](tasks/0061-ventana-recuperable-y-copia-antes-de-migrar.md), [0062](tasks/0062-limite-peticiones-simultaneas.md)),
   [0063](tasks/0063-exportacion-hora-local-y-txt-grande.md) y [0064](tasks/0064-reintentar-solo-su-panel.md).
@@ -202,7 +202,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - e2e de «Eventos» del host: filtrar por `HOST_EVENTS_HOST` dejaría sin comprobar los trozos sin el host si el fixture necesitara varias consultas (hoy cabe en una). (surgió en 0042)
 - `application-charts.ts` conserva los tipos `actions`, `duration` y `errors` de la 0034, que la página ya no pinta (con sus textos `charts.series.*` y `charts.units.*`): quitarlos en una ficha de limpieza. (surgió en 0053)
 - Página de la aplicación: hay dos `<section>` anidadas con el mismo `aria-label` («Acciones clave»); quitarlo a la de dentro. (surgió en 0053)
-- `LEVEL_CLASS` de `ApplicationUserSections.tsx` repite el de `ApplicationMarkers.tsx`: sacarlo a `application-format.ts`. (surgió en 0054)
+- ~~`LEVEL_CLASS` de `ApplicationUserSections.tsx` repite el de `ApplicationMarkers.tsx`: sacarlo a `application-format.ts`.~~ Resuelta en la 0058: `LEVEL_CLASS` es uno solo, en `EntityMarkers.tsx`. (surgió en 0054)
 - Reajustar el JSDoc de `WebApplicationEntityPage.tsx` (línea 31, más de 100 columnas) y el de `ApplicationSection.tsx` (líneas 8 a 11). (surgió en 0054)
 - `scan:tenant`: `scanRange` usa `git diff <rango>`, que compara solo los extremos; un valor añadido y borrado dentro de los commits que se suben se publica en el historial sin detectarse. Escanear commit a commit con `git log -p`. (surgió en 0055)
 - `scan:tenant`: tampoco escanea el contenido de las etiquetas anotadas; cubrirlas. (surgió en 0055)
@@ -214,6 +214,11 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `connection.ts` también llama a `repo.getEnvironment(environmentId)` sin usar el resultado (3 veces): podría pasar a `requireEnvironment`. (surgió en 0057)
 - `metrics:query` (el explorador) sigue con su `dtRequest` propio porque admite cualquier `resolution`; `createMetricsQuery` podría aceptarla. (surgió en 0057)
 - `instancesOf` (process group) y `topActionsOf` (aplicación) repiten «casar series por id de dimensión con su nombre»; no encajan en `seriesByDimension` y se dejaron como estaban. (surgió en 0057)
+- `UsageLevel` (`lib/host-format.ts`), `AvailabilityLevel` (`lib/monitor-format.ts`) y `ApdexLevel` (`lib/application-format.ts`) siguen en `lib/` aunque las páginas ya usan `Level` de `EntityMarkers.tsx`; unificarlos dispara el e2e completo (`lib/` es transversal), así que va en una ficha pequeña. (surgió en 0058)
+- `ApplicationActions.tsx` y la tabla de instancias del process group pintan su propio estado de carga y error; podrían pasar a `TableCard`, con cuidado con sus `data-testid`. (surgió en 0058)
+- `usageBar` (`lib/host-format.ts`) calcula el ancho igual que `barWidth`. (surgió en 0058)
+- `EntityPageEnvs` (`entity-access.ts`): decir en su comentario que `canFetch` no es la condición de «Actualizar» (esa es `canRefresh`) y que ninguna página lo usa todavía. (surgió en 0058)
+- `BAR_CLASS` y `barWidth` podrían ir a un `entity-tables.ts`, como `host-tables.ts`, y quitar los tres `eslint-disable react-refresh` (los primeros del repo). (surgió en 0058)
 
 ## Aparcado
 
@@ -302,3 +307,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0055](tasks/0055-scan-tenant-falla-cerrado.md) (lote auditoria-publicacion): `scan:tenant` falla cerrado (sin `.env.live.local`, o vacío, sale con 2; en un worktree usa el del checkout principal), el pre-push escanea los refs que se suben y `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional. Sin migraciones.
 - [0056](tasks/0056-ci-endurecido.md) (lote auditoria-publicacion): CI con acciones fijadas por SHA, `npm audit` en cada push y semanal (`audit.yml`), artefacto de los e2e fallidos, runs encolados y caché de Electron. Sin migraciones.
 - [0057](tasks/0057-main-metricas-codigo-comun.md) (lote auditoria-codigo-comun): los 11 canales de métricas de entidad en `main` comparten `metric-series.ts`, `createMetricsQuery`, `rethrowRejected` y `requireEnvironment`; sin cambios visibles. Sin migraciones.
+- [0058](tasks/0058-paginas-entidad-codigo-comun.md) (lote auditoria-codigo-comun): las páginas de entidad comparten `useEntityPageAccess`, `Level`/`LEVEL_CLASS`/`MarkerBody`/`BigValue`, `TableCard` y los comparadores de `@shared/grid-sort`, con un test de guardia; sin cambios visibles. Sin migraciones.

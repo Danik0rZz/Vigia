@@ -1,7 +1,7 @@
 ---
 id: '0058'
 titulo: 'Páginas de entidad: un solo código para acceso, marcadores, niveles y tablas'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-codigo-comun
@@ -168,3 +168,10 @@ Decisiones del developer (Dani las delegó; refinables):
   los mismos valores).
 - **`e2e/areas.json` no cambia:** `src/renderer/src/pages/**` (área `views`) ya cubre
   `entity-access.ts` y `EntityTables.tsx`, y `src/shared/grid-sort.ts` ya estaba.
+
+Cierre (doc-writer): commits `3c1dc19` (tests), `c349ff1`, `e91a399`, `55a93cf` y `c27ca1a`
+(código) y los de documentación. Ficheros principales: `pages/entities/entity-access.ts`,
+`EntityMarkers.tsx`, `EntityTables.tsx`, `src/shared/grid-sort.ts` y las páginas, marcadores y
+tablas de host, servicio, proceso, process group, disco, monitores y aplicación web. Una ronda de
+revisión (aprobada); sin ADR nuevo; sin migraciones. Las sugerencias del revisor y las ideas del
+developer están en «Mejoras anotadas» del `BACKLOG.md`.
