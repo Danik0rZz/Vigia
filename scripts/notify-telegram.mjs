@@ -11,14 +11,14 @@
 // .env.live.local, con las mismas reglas que scan:tenant; si coincide, no se
 // envía.
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { join, win32 } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { win32 } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { findLiveEnv, LIVE_ENV_FILE } from './lib/env-file.mjs'
 import { extractNeedles } from './scan-tenant.mjs'
 
 export const MAX_LENGTH = 1500
 const PREFIX = '[aviso telegram]'
-const ENV_FILE = '.env.live.local'
 const TOKEN_VAR = 'VIGIA_TELEGRAM_TOKEN'
 const CHAT_VAR = 'VIGIA_TELEGRAM_CHAT_ID'
 const TIMEOUT_MS = 10_000
@@ -159,20 +159,6 @@ async function credential(name, deps) {
   }
 }
 
-function findEnvFile(deps) {
-  const local = join(deps.cwd, ENV_FILE)
-  if (existsSync(local)) return local
-  let main
-  try {
-    main = deps.mainCheckout()
-  } catch {
-    main = undefined
-  }
-  if (!main) return undefined
-  const other = join(main, ENV_FILE)
-  return existsSync(other) ? other : undefined
-}
-
 function readInput(path) {
   const datos = JSON.parse(readFileSync(path, 'utf8'))
   if (datos === null || typeof datos !== 'object' || Array.isArray(datos))
@@ -212,10 +198,13 @@ export async function main(argv, deps) {
 
     const message = buildMessage(datos)
 
-    const envFile = findEnvFile(deps)
+    // Sin deps.mainCheckout, findLiveEnv pregunta a git por el checkout principal.
+    const envFile = findLiveEnv(deps.cwd, { mainCheckout: deps.mainCheckout })
     const needles = envFile ? extractNeedles(readFileSync(envFile, 'utf8')) : []
     if (needles.length === 0) {
-      warn(`sin ${ENV_FILE} con valores: no se ha podido filtrar el texto; se envía igualmente.`)
+      warn(
+        `sin ${LIVE_ENV_FILE} con valores: no se ha podido filtrar el texto; se envía igualmente.`
+      )
     } else {
       // Sobre el mensaje y sobre los campos completos: el recorte a 1 500
       // caracteres podría partir un valor y dejarlo pasar a medias.
@@ -261,28 +250,12 @@ export function readRegistry(name, { execFile = execFileSync, env = process.env 
   }
 }
 
-/** Ruta del checkout principal: la primera entrada de `git worktree list`. */
-function mainCheckout() {
-  try {
-    const output = execFileSync('git', ['worktree', 'list', '--porcelain'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true
-    })
-    const first = output.split(/\r?\n/).find((l) => l.startsWith('worktree '))
-    return first ? first.slice('worktree '.length).trim() : undefined
-  } catch {
-    return undefined
-  }
-}
-
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exitCode = await main(process.argv.slice(2), {
     env: process.env,
     platform: process.platform,
     readRegistry,
     cwd: process.cwd(),
-    mainCheckout,
     fetchImpl: (url, init) => fetch(url, init),
     stdout: (message) => process.stdout.write(`${message}\n`),
     stderr: (message) => process.stderr.write(`${message}\n`)
