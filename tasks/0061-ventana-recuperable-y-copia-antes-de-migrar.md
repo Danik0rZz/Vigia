@@ -1,7 +1,7 @@
 ---
 id: '0061'
 titulo: 'La ventana se recupera si el renderer cae, y copia de la base antes de migrar'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -12,7 +12,7 @@ adrs: []
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -71,7 +71,28 @@ migración que "acaba bien" y deja datos mal solo se ve después.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Datos] `src/main/db/backup.ts:853-865` (`prune`, llamada en la línea 913): ordena las copias por
+   nombre (que empieza por la fecha) y borra todas menos las 3 últimas. Si el reloj va hacia atrás,
+   la copia recién hecha queda la primera y se borra justo después de crearse: se migraría sin
+   copia, contra la regla de la ficha. `prune` recibe `destination` y nunca la borra (se conservan
+   la nueva y las 2 más recientes del resto); test propio del developer con tres copias posteriores
+   y una nueva con `now` anterior.
+2. [ALCANCE] La prueba a mano («matar la interfaz desde el Administrador de tareas y ver que se
+   recarga») no puede salir: en Windows «Finalizar tarea» da `reason: 'killed'`, que según la ficha y
+   CA1 no recarga; Dani vería la ventana en blanco (C-05). Opciones: que `killed` también recargue con
+   el mismo límite (cambia CA1) o cambiar la prueba a mano. Enviado al Planificador.
+
+Bien: CA1 a CA4 con su test; tras `ce9fd08` solo `09eccec` (tipo, sin debilitar) y tests propios
+del developer. Ningún camino migra sin la copia previa (`await` en el mismo `try` del diálogo);
+migraciones pendientes como Drizzle; `sqlite.backup()` sobre la base abierta; no pisa ficheros y solo
+borra su copia a medias; la poda solo toca `BACKUP_NAME`. Sin bucle de recargas (dos caídas en un
+minuto → diálogo y cierre); «Cerrar» con `window.destroy()`; textos en es y en; sin IPC, dependencias,
+CSP ni esquema; nada del tenant.
+
+Opcional: llamar a `hangs.responsive()` desde `render-process-gone` para no arrastrar el estado de
+cuelgue tras una recarga; abrir la base de origen con `readonly: true` en la copia.
 
 ## Verificación
 
