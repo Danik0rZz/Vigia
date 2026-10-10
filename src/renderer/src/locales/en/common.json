@@ -1136,7 +1136,8 @@
         "units": {
           "actions": "actions",
           "errors": "errors",
-          "sessions": "sessions"
+          "sessions": "sessions",
+          "users": "users"
         }
       },
       "sessionStats": {

@@ -1,11 +1,13 @@
 import type { JSX, ReactNode } from 'react'
 
-/** Las secciones de la página de una aplicación web, en su orden (ficha 0053). */
-export type ApplicationSectionId = 'activity' | 'errors' | 'apdex' | 'key-actions'
+/** Las secciones de la página de una aplicación web, en su orden (fichas 0053 y 0054). */
+export type ApplicationSectionId =
+  'activity' | 'errors' | 'users' | 'experience' | 'apdex' | 'key-actions'
 
 /**
  * Una sección con título de la página de una aplicación web (ficha 0053): «Actividad»,
- * «Errores», «Apdex» y «Acciones clave», entre los marcadores e «Información». Los gráficos van
+ * «Errores», «Usuarios y sesiones», «Experiencia» (ficha 0054), «Apdex» y «Acciones clave», entre
+ * los marcadores e «Información». Los gráficos van
  * de dos en dos con la ventana ancha (una columna por debajo de 1024 px).
  */
 export function ApplicationSection({

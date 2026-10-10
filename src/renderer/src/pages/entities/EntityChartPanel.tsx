@@ -37,6 +37,8 @@ export interface PanelQuery<T> {
 export interface PanelSeries {
   name: string
   points: [number, number | null][]
+  /** Unidad de esta serie en la exportación, si no es la del panel (otro eje, ficha 0054). */
+  unit?: string
 }
 
 /** Testids propios de un panel que no sigue el patrón `<prefijo>-chart-…` (ficha 0048). */
@@ -67,7 +69,8 @@ export function EntityChartPanel<T extends ChartData>({
   problemList,
   titleHint,
   testIds,
-  note
+  note,
+  footer
 }: {
   testIdPrefix: BandTestIdPrefix
   /** Nombre del gráfico en `data-kind` y en los testids. */
@@ -90,6 +93,8 @@ export function EntityChartPanel<T extends ChartData>({
   testIds?: PanelTestIds | undefined
   /** Nota bajo el título (por ejemplo, errores sin separar por tipo, ficha 0053). */
   note?: ReactNode
+  /** Contenido bajo el gráfico (por ejemplo, los datos pequeños de sesiones, ficha 0054). */
+  footer?: ReactNode
 }): JSX.Element {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -115,7 +120,12 @@ export function EntityChartPanel<T extends ChartData>({
   const exportRows = useMemo(
     () =>
       series.flatMap((item) =>
-        item.points.map(([time, value]) => ({ time, series: item.name, value, unit }))
+        item.points.map(([time, value]) => ({
+          time,
+          series: item.name,
+          value,
+          unit: item.unit ?? unit
+        }))
       ),
     [series, unit]
   )
@@ -208,6 +218,7 @@ export function EntityChartPanel<T extends ChartData>({
           />
         </PanelBoundary>
       )}
+      {footer}
     </section>
   )
 }

@@ -19,6 +19,7 @@ import { ApplicationInfo } from './ApplicationInfo'
 import { ApplicationMarkers } from './ApplicationMarkers'
 import { ApplicationRumSections } from './ApplicationRumCharts'
 import { ApplicationSection } from './ApplicationSection'
+import { ApplicationUserSections } from './ApplicationUserSections'
 import { EntityTags } from './EntityTags'
 import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityPageFrame'
 
@@ -27,7 +28,7 @@ import { EntityPageFrame, EntitySections, type EntityPageProps } from './EntityP
  * del servicio y el orden de las fichas 0036 y 0037, con las secciones de la 0053: marcadores
  * del rango global (Apdex, usuarios activos, sesiones, acciones, errores y problemas), las
  * secciones «Actividad» y «Errores» (gráficos por tipo, de `entities:applicationRum`, 0052),
- * «Apdex» (con la franja de problemas) y «Acciones clave» (la tabla), y, al final, la tarjeta
+ * «Usuarios y sesiones» y «Experiencia» (Core Web Vitals, ficha 0054, del mismo canal), «Apdex» (con la franja de problemas) y «Acciones clave» (la tabla), y, al final, la tarjeta
  * «Información». El Apdex y la tabla salen de `entities:applicationMetrics` (0033). Solo pide
  * datos con «Actualizar» o con un rango nuevo (ADR-0004).
  */
@@ -102,6 +103,7 @@ export function WebApplicationEntityPage(props: EntityPageProps): JSX.Element {
                   rum={rum}
                   problemList={problemsEnv !== null ? problemList : null}
                 />
+                <ApplicationUserSections applicationId={applicationId} rum={rum} />
                 <ApplicationApdexSection
                   applicationId={applicationId}
                   metrics={metrics}

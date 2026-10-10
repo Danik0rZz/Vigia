@@ -77,11 +77,13 @@ interface AxisTooltipParam {
 
 /**
  * Tooltip de eje: la fecha completa arriba y una fila por serie. Los nombres
- * de serie vienen de Dynatrace: se escapan (el tooltip es HTML).
+ * de serie vienen de Dynatrace: se escapan (el tooltip es HTML). Con `formatOf`, una serie
+ * puede llevar su propio formato (la de otro eje, ficha 0054); si no da ninguno, el común.
  */
 export function axisTooltip(
   lang: string,
-  formatValue: (value: number) => string
+  formatValue: (value: number) => string,
+  formatOf?: (seriesName: string) => ((value: number) => string) | undefined
 ): {
   trigger: 'axis'
   className: string
@@ -97,7 +99,8 @@ export function axisTooltip(
       const header = Number.isFinite(at) ? echartsFormat.encodeHTML(tooltipTime(at, lang)) : ''
       const rows = list.map((item) => {
         const value = Array.isArray(item.value) ? item.value[1] : item.value
-        const shown = typeof value === 'number' && Number.isFinite(value) ? formatValue(value) : '-'
+        const format = formatOf?.(String(item.seriesName ?? '')) ?? formatValue
+        const shown = typeof value === 'number' && Number.isFinite(value) ? format(value) : '-'
         const marker = typeof item.marker === 'string' ? item.marker : ''
         return `${marker}${echartsFormat.encodeHTML(String(item.seriesName ?? ''))}: ${echartsFormat.encodeHTML(shown)}`
       })
