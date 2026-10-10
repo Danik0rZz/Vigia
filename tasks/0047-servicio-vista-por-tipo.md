@@ -1,7 +1,7 @@
 ---
 id: '0047'
 titulo: 'SERVICE: la página se adapta al conjunto de métricas del serviceType'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: servicio-tipos
@@ -109,6 +109,8 @@ En el simulador, un DATABASE_SERVICE nuevo (`SVC_DB_ID`, con los datos del de Cl
 - e2e afectados: 265/265, sin intermitentes.
 
 ## Resultado
+
+Commits: `2dc0b18` (tests), `0452da5` (código), `2ddd4b6`, `6469def` y `6e9d5a4` (fichas). Una ronda de revisión (aprobada a la primera). ADR nuevo: ninguno. Sugerencias del revisor y la deuda de `warnings` pasadas a «Mejoras anotadas» del BACKLOG.
 
 **Developer (2026-10-10):** commit `0452da5`. `service-type.ts` (nombres legibles y nota),
 `ServiceMarkers.tsx` (marcador «Peticiones» y nota con tooltip), `ServiceCharts.tsx` y
