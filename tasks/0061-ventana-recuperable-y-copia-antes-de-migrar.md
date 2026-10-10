@@ -107,8 +107,10 @@ Tests escritos en `ce9fd08` (`test(main): criterios de la ficha 0061`); fallan p
 
 - CA1: `src/main/crash-policy.test.ts`, «CA1 (0061)» (primera caída recarga y deja `reason` y
   `exitCode` en el log; segunda antes de un minuto, diálogo y después cierre; pasado el minuto,
-  recarga otra vez; el minuto cuenta desde la última recarga; `clean-exit` y `killed` no hacen nada
-  ni cuentan).
+  recarga otra vez; el minuto cuenta desde la última recarga; `clean-exit` no hace nada ni cuenta).
+  Tras el ajuste de CA1, en el commit `test(main): CA1 con killed como caída`: `killed` recarga la
+  primera vez, cierra con diálogo si se repite (o llega otra caída) antes de un minuto y vuelve a
+  recargar pasado el minuto.
 - CA2: `src/main/db/backup.test.ts`, «CA2 (0061)» (base en carpeta temporal migrada con un journal
   sin la última migración: copia con el nombre de la migración pendiente, con los datos de antes, la
   ruta en el log y la base se migra después; sin pendientes o sin fichero, nada; si la copia falla,

@@ -5,8 +5,8 @@ import { createCrashPolicy, crashTexts, type CrashLanguage } from './crash-polic
  * Ficha 0061 (C-05): política ante la caída del proceso de la interfaz. Es
  * pura: recibe el reloj, el log y las acciones de Electron inyectados, y
  * `window.ts` solo la llama. Primera caída → log y recarga; otra antes de un
- * minuto → diálogo que remite al log y cierre. `clean-exit` y `killed` no
- * cuentan como caída.
+ * minuto → diálogo que remite al log y cierre. `killed` es una caída más
+ * (CA1 ajustado por el Planificador); `clean-exit` no cuenta como caída.
  */
 
 const MINUTE = 60_000
@@ -117,23 +117,63 @@ describe('CA1 (0061): la política recarga una vez y cierra si vuelve a caer ant
     expect(deps.quit).toHaveBeenCalledTimes(1)
   })
 
-  it.each(['clean-exit', 'killed'])('%s: no hace nada', (reason) => {
+  it('clean-exit: no hace nada', () => {
     const { deps, policy } = setup()
-    policy.renderProcessGone({ reason, exitCode: 0 })
-    policy.renderProcessGone({ reason, exitCode: 0 })
+    policy.renderProcessGone({ reason: 'clean-exit', exitCode: 0 })
+    policy.renderProcessGone({ reason: 'clean-exit', exitCode: 0 })
 
     expect(deps.reload).not.toHaveBeenCalled()
     expect(deps.showErrorBox).not.toHaveBeenCalled()
     expect(deps.quit).not.toHaveBeenCalled()
   })
 
-  it('clean-exit y killed no cuentan como caída para el minuto', () => {
+  it('clean-exit no cuenta como caída para el minuto', () => {
     const { deps, policy, advance } = setup()
-    policy.renderProcessGone({ reason: 'killed', exitCode: 0 })
+    policy.renderProcessGone({ reason: 'clean-exit', exitCode: 0 })
     advance(1_000)
     policy.renderProcessGone({ reason: 'crashed', exitCode: 1 })
 
     expect(deps.reload).toHaveBeenCalledTimes(1)
+    expect(deps.quit).not.toHaveBeenCalled()
+  })
+
+  it('killed (Finalizar tarea, antivirus): primera vez recarga, sin diálogo ni cierre', () => {
+    const { deps, policy } = setup()
+    policy.renderProcessGone({ reason: 'killed', exitCode: 1 })
+
+    expect(deps.reload).toHaveBeenCalledTimes(1)
+    expect(deps.showErrorBox).not.toHaveBeenCalled()
+    expect(deps.quit).not.toHaveBeenCalled()
+  })
+
+  it('killed repetido antes de un minuto: diálogo y cierre, sin recargar otra vez', () => {
+    const { deps, policy, advance } = setup()
+    policy.renderProcessGone({ reason: 'killed', exitCode: 1 })
+    advance(10_000)
+    policy.renderProcessGone({ reason: 'killed', exitCode: 1 })
+
+    expect(deps.reload).toHaveBeenCalledTimes(1)
+    expect(deps.showErrorBox).toHaveBeenCalledTimes(1)
+    expect(deps.quit).toHaveBeenCalledTimes(1)
+  })
+
+  it('killed cuenta como caída para el minuto: killed y después crashed a los 10 s cierra', () => {
+    const { deps, policy, advance } = setup()
+    policy.renderProcessGone({ reason: 'killed', exitCode: 1 })
+    advance(10_000)
+    policy.renderProcessGone({ reason: 'crashed', exitCode: 1 })
+
+    expect(deps.reload).toHaveBeenCalledTimes(1)
+    expect(deps.quit).toHaveBeenCalledTimes(1)
+  })
+
+  it('killed pasado más de un minuto: vuelve a recargar', () => {
+    const { deps, policy, advance } = setup()
+    policy.renderProcessGone({ reason: 'killed', exitCode: 1 })
+    advance(MINUTE + 1_000)
+    policy.renderProcessGone({ reason: 'killed', exitCode: 1 })
+
+    expect(deps.reload).toHaveBeenCalledTimes(2)
     expect(deps.quit).not.toHaveBeenCalled()
   })
 })
