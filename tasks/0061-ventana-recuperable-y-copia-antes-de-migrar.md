@@ -1,7 +1,7 @@
 ---
 id: '0061'
 titulo: 'La ventana se recupera si el renderer cae, y copia de la base antes de migrar'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-robustez
@@ -115,6 +115,29 @@ Decisiones del test-writer (Dani delegó; conservadoras y refinables):
   fallo a mitad: queda para el reviewer). Se conservan 3 y solo se borran ficheros creados como
   copia, nunca otros de la carpeta.
 - Sin espacio en disco no se simula: es el mismo camino que cualquier fallo de la copia.
+
+Decisiones del developer (Dani delegó; conservadoras y refinables):
+
+- Idioma de los diálogos de main: `crashLanguageFromLocale(app.getLocale())`: `en*` → inglés, el
+  resto → español (el mismo valor por defecto que la interfaz). No lee el idioma elegido en la app
+  (vive en el `localStorage` del renderer); afinarlo pediría guardarlo en main por IPC.
+- Caída: el minuto se cuenta desde la última recarga; tras decidir cerrar se ignoran más avisos.
+  `reload` es `webContents.reload()`; `quit`, `app.quit()`.
+- `unresponsive`: `createUnresponsivePolicy` en `crash-policy.ts`, con tests propios en
+  `src/main/crash-policy-unresponsive.test.ts`. Espera 5 s (`UNRESPONSIVE_DELAY_MS`); si sigue
+  colgada, `showMessageBox` con «Esperar» (por defecto y al cancelar) y «Cerrar»; con «Esperar»
+  vuelve a preguntar a los 5 s si sigue colgada; si responde entre medias, no pregunta. «Cerrar» hace
+  `window.destroy()` (una interfaz colgada no contestaría a `beforeunload`), y la app se cierra por
+  `window-all-closed`.
+- Copia: nombre `vigia-<AAAAMMDDThhmmssmmmZ>-<última migración pendiente>.db` (fecha UTC primero,
+  orden alfabético = cronológico) en `<userData>\backups` (`databaseBackupsDir()` en `paths.ts`).
+  Pendientes = entradas del journal con `when` mayor que el último `created_at` de
+  `__drizzle_migrations` (lo mismo que compara Drizzle). Nunca pisa un fichero existente; una copia a
+  medias (solo la suya) se borra; la poda solo mira ficheros con ese patrón y, si falla, se registra
+  y se arranca igual (la copia buena ya está). El arranque (`index.ts`) espera a la copia antes de
+  `openLocalData`, dentro del mismo `try` del diálogo «No se pudo abrir la base de datos local».
+- `src/main/crash-policy.ts` va en `transversal` de `e2e/areas.json`, junto a `window.ts`
+  (`backup.ts` ya entra por `src/main/db/**`).
 
 ## Resultado
 
