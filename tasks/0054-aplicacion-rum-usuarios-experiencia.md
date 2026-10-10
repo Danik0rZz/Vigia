@@ -1,7 +1,7 @@
 ---
 id: '0054'
 titulo: 'APPLICATION (RUM): secciones «Usuarios y sesiones» y «Experiencia» (Core Web Vitals)'
-estado: tests_escritos # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -137,3 +137,38 @@ defecto está apagado como en vivo.
 ## Resultado
 
 (pendiente)
+
+**Aviso del developer al Orquestador: test de CA3 (0054) mal escrito, sin tocar.** En
+`e2e/views.spec.ts` (`APP_VITAL_EXPECTED`, líneas 16277, 16284 y 16291) los patrones perdieron
+las barras invertidas al escribirlos: `/(^|[^d,.])2,3ss/` y `/(^|[^d,.])640sms/` piden el texto
+literal «2,3ss» y «640sms», y `[^d,.]` es «ni la letra d». La app enseña «2,3 s» y «640 ms», así que
+CA3 falla por el test. Lo que se quiso escribir: `/(^|[^\d,.])2,3\ss/`,
+`/(^|[^\d,.])0,18([^\d,.]|$)/` y `/(^|[^\d,.])640\sms/`. Con ese cambio en local (no commiteado),
+CA3 (0054) pasa. Lo decide el Orquestador.
+
+**Decisiones del developer (delegadas por Dani, refinables):**
+
+- **Piezas:** `application-rum-users.ts` (puro, con sus tests: series, opción, unidades, consultas
+  de «Abrir en Métricas» y datos pequeños) y `ApplicationUserSections.tsx` (las dos secciones, las
+  tarjetas y los datos pequeños), entre las secciones de la 0053 y la del Apdex.
+  `webVitalRating`, `webVitalLevel`, `WEB_VITAL_THRESHOLDS` y `formatCls` en
+  `lib/application-format.ts`.
+- **`EntityChartPanel`** admite `footer` (bajo el gráfico; los datos pequeños de sesiones) y cada
+  serie puede llevar su `unit` en la exportación (sesiones y ms en el de sesiones; ms y CLS sin
+  unidad en el de Core Web Vitals). `axisTooltip` admite un formato por serie: en el tooltip, la
+  duración sale en tiempo y CLS con dos decimales.
+- **Sesiones:** iniciadas y terminadas en barras una al lado de la otra (no apiladas: no se
+  suman) y la duración media en línea en el eje derecho, pasada de µs a ms. Datos pequeños:
+  acciones por sesión con un decimal, rebote con un decimal y «%», rage clicks como recuento; cada
+  uno solo si trae dato.
+- **Usuarios activos:** la nota de estimación reutiliza el texto del tooltip del marcador
+  (`markers.usersEstimatedHint`).
+- **Experiencia:** las tarjetas salen solo con los datos cargados (mientras carga o si falla, el
+  gráfico enseña su estado y Reintentar; no se repite el aviso en tres tarjetas). Una tarjeta por
+  vital con datos. El valor lleva el color de su calificación y la calificación va siempre con su
+  texto. El nombre (LCP, CLS, INP) abre el tooltip con ratón y foco. En el gráfico, LCP e INP en el
+  eje izquierdo (tiempo) y CLS en el derecho; la línea discontinua de cada umbral, en el color de
+  su serie y sin etiqueta.
+- **Textos nuevos además de los de la ficha:** `charts.series.activeUsers`,
+  `charts.units.{users,sessions}` (exportación), `sessionStats.label` y `vitals.label` (nombres
+  accesibles de los grupos). En: «Good», «Needs improvement» y «Poor».
