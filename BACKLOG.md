@@ -7,8 +7,7 @@ bueno de Dani o de peticiones en su nombre.
 ## En curso
 
 - Cola aprobada por Dani el 2026-10-10, en este orden: lote **servicio-tipos**
-  (0046, 0047 y 0048 hechas), 0049 hecha (etiquetas en cápsula), **grupo-procesos-2** ([0050](tasks/0050-grupo-procesos-top-instancias-datos.md),
-  [0051](tasks/0051-grupo-procesos-modal-instancias.md)) y **aplicacion-rum**
+  (0046, 0047 y 0048 hechas), 0049 hecha (etiquetas en cápsula), **grupo-procesos-2** (0050 y 0051 hechas) y **aplicacion-rum**
   ([0052](tasks/0052-aplicacion-rum-datos.md), [0053](tasks/0053-aplicacion-rum-actividad-errores.md),
   [0054](tasks/0054-aplicacion-rum-usuarios-experiencia.md)).
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
@@ -169,7 +168,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `process-group-metrics.ts`: escribir en la cabecera el límite efectivo (unas 498 instancias, por el tope de 1000 series: 4 + 2·N). (surgió en 0031) Resuelta en parte en la 0050 (cabecera y notas con el tope de la lista completa, unas 500; sin comprobar en vivo más allá de 150 instancias).
 - Test de `entities:processGroupMetrics` con `dimensionCountRatio` > 1 en las expresiones por instancia que compruebe `partial`. (surgió en 0031)
 - ~~Instancias del process group: con más de unas 498, quedarse con las de más CPU (`:sort`/`:limit`)~~ Resuelta en la 0050: la consulta lleva `:sort(value(avg,descending)):limit(20)`. (surgió en 0031)
-- `entities:processGroupInstances` no dice si su `total` es el real (sin `totalCount` es el número recibido); si la 0051 lo necesita, añadir `totalKnown` al canal. (surgió en 0050)
+- `entities:processGroupInstances` no dice si su `total` es el real (sin `totalCount` es el número recibido); la 0051 no lo necesitó (dice «puede haber más»), añadir `totalKnown` solo si hace falta. (surgió en 0050 y 0051)
+- Process group: el pie del marcador «Instancias» sigue diciendo «Con datos en el rango», pero con `totalKnown` el número es el total del grupo (tengan datos o no); cambiar el pie según `totalKnown`. (surgió en 0051)
+- Process group: partir a mano el comentario de `ProcessGroupMarkers.tsx` (~línea 24), que pasa de 100 columnas. (surgió en 0051)
 - Process group (0032): en «CPU por instancia», dos instancias con el mismo nombre se juntan en la leyenda; añadir el host al nombre de la serie cuando se repite. (surgió en 0032)
 - Tablas «Instancias» (process group) y «Procesos» (host): el enlace del host lleva `tabIndex={-1}` y no se alcanza con el teclado; revisar las dos a la vez. (surgió en 0032)
 - Live de solo lectura: añadir una pasada del selector de «Abrir en Métricas» del process group con `isInstanceOf` (hoy solo está probado `isProcessOf`). (surgió en 0032)
@@ -278,3 +279,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0048](tasks/0048-servicio-grafico-slo.md) (lote servicio-tipos): gráfico «Disponibilidad (SLO calculado)» encima de la rejilla del servicio, con la línea del 90 % y los tramos por debajo sombreados, y su valor del rango en el marcador (en color de error y con texto por debajo del 90 %). Sin migraciones.
 - [0049](tasks/0049-etiquetas-capsula.md): las etiquetas de las páginas de entidad son una cápsula de dos mitades (clave de color, valor claro), con el color fijo por clave entre 8 tonos y contexto apagado. Sin migraciones.
 - [0050](tasks/0050-grupo-procesos-top-instancias-datos.md) (lote grupo-procesos-2): `entities:processGroupMetrics` trae las 20 instancias de más CPU (`:sort`/`:limit`) con el total real (`totalCount`) y `totalKnown`; canal nuevo `entities:processGroupInstances` con la lista completa y `truncated`. Sin interfaz hasta la 0051. Sin migraciones.
+- [0051](tasks/0051-grupo-procesos-modal-instancias.md) (lote grupo-procesos-2): la tabla de instancias del process group enseña las 20 de más CPU con el aviso «20 de N» y el botón «Ver todas», que abre un modal centrado con transición de entrada, la lista completa, buscador, orden y aviso de recorte; modal genérico `ShowcaseDialog`. Sin migraciones.

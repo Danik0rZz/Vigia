@@ -1,7 +1,7 @@
 ---
 id: '0051'
 titulo: 'PROCESS_GROUP: tabla con las 20 de más CPU, aviso y modal «Ver todas» con transición de entrada'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: grupo-procesos-2
@@ -198,4 +198,4 @@ del «7+» solo existe sin `totalCount`. El unitario de `instancesTruncated` (00
 
 ## Resultado
 
-(pendiente)
+Commits: `afb7cf3` y `309b9a0` (tests), `ef2fcb2` y `ef2ac8c` (código). Ficheros principales: `ProcessGroupInstances.tsx`, `ProcessGroupInstancesTable.tsx` y `ProcessGroupInstancesDialog.tsx` (`pages/entities`), `process-group-instances.ts`, `ShowcaseDialog` en `components/dialogs.tsx`, `main.css` (animación), textos es y en y `e2e/views.spec.ts`. Rondas de revisión: 2 (CAMBIOS y APROBADO). ADR nuevo: ninguno. Sin migraciones. Verifier en verde (check 3178 tests; e2e completo 339/339).
