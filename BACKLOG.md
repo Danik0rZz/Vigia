@@ -15,6 +15,7 @@ bueno de Dani o de peticiones en su nombre.
   0061 y 0062 hechas), **auditoria-exportacion** (0063 hecha) y
   [0064](tasks/0064-reintentar-solo-su-panel.md).
 - Después, [0065](tasks/0065-titulo-slo-servicio.md) (título «SLO» del servicio, ligera, con medición del flujo), aprobada por Dani el 2026-10-10.
+- Después, [0066](tasks/0066-marcador-slo-servicio.md) (marcador «SLO» propio en el servicio, ligera, con medición del flujo; depende de la 0065), aprobada por Dani el 2026-10-10.
 - Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
 
 ## Próximo
