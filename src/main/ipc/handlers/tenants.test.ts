@@ -684,3 +684,67 @@ describe('contrato IPC de secretos', () => {
     expect(suspicious).toEqual([])
   })
 })
+
+describe('CA3 (0063): el nombre del fichero de configuración lleva la fecha local', () => {
+  const machineZone = process.env['TZ']
+
+  afterEach(() => {
+    process.env['TZ'] = machineZone
+  })
+
+  /** Nombre que `config:export` propone al diálogo de guardar, con el reloj en `instant`. */
+  async function proposedName(instant: Date): Promise<string> {
+    const names: string[] = []
+    const handlers = createTenantHandlers({
+      repo: createTenantRepository(db),
+      secrets: createSecretStore(db, fakeCrypto({ available: true })),
+      dialogs: {
+        chooseSaveFile: async (defaultName: string) => {
+          names.push(defaultName)
+          return null
+        },
+        chooseOpenFile: async () => null
+      },
+      statFile: async () => ({ size: 0 }),
+      readFile: async () => '',
+      writeFile: async () => undefined,
+      now: () => instant
+    })
+    expect(await call(handlers, 'config:export')).toEqual({
+      ok: true,
+      data: { status: 'cancelled' }
+    })
+    expect(names).toHaveLength(1)
+    return names[0] ?? ''
+  }
+
+  it('a las 00:30 en Madrid (22:30 UTC del día anterior) sale el día local', async () => {
+    process.env['TZ'] = 'Europe/Madrid'
+    // 04/10/2026 00:30 CEST = 03/10/2026 22:30 UTC.
+    expect(await proposedName(new Date(Date.UTC(2026, 9, 3, 22, 30)))).toBe(
+      'vigia-config-20261004.json'
+    )
+    // Invierno: 15/01/2026 00:30 CET = 14/01/2026 23:30 UTC.
+    expect(await proposedName(new Date(Date.UTC(2026, 0, 14, 23, 30)))).toBe(
+      'vigia-config-20260115.json'
+    )
+  })
+
+  it('a las 00:30 en Nueva York sale el día local, no el de UTC', async () => {
+    process.env['TZ'] = 'America/New_York'
+    // 04/10/2026 00:30 EDT = 04/10/2026 04:30 UTC (mismo día) y 03/10 23:30 EDT = 04/10 03:30 UTC.
+    expect(await proposedName(new Date(Date.UTC(2026, 9, 4, 4, 30)))).toBe(
+      'vigia-config-20261004.json'
+    )
+    expect(await proposedName(new Date(Date.UTC(2026, 9, 4, 3, 30)))).toBe(
+      'vigia-config-20261003.json'
+    )
+  })
+
+  it('con la máquina en UTC, las 00:30 UTC dan ese mismo día', async () => {
+    process.env['TZ'] = 'UTC'
+    expect(await proposedName(new Date(Date.UTC(2026, 9, 4, 0, 30)))).toBe(
+      'vigia-config-20261004.json'
+    )
+  })
+})

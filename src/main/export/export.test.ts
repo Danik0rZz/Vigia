@@ -212,6 +212,52 @@ describe('buildTxt', () => {
   })
 })
 
+describe('CA2 (0063): buildTxt con tablas grandes', () => {
+  const big: Column[] = [
+    { key: 'name', header: 'Nombre', type: 'string' },
+    { key: 'value', header: 'Valor', type: 'number' },
+    { key: 'code', header: 'Código', type: 'string' }
+  ]
+  /** Filas deterministas; la más ancha de cada columna está en mitad de la tabla. */
+  function bigRows(count: number): Record<string, string | number>[] {
+    return Array.from({ length: count }, (_, i) => ({
+      name: i === Math.floor(count / 2) ? 'servicio-muy-largo' : `s${i % 10}`,
+      value: i === Math.floor(count / 2) ? 1234567 : i % 10,
+      code: i === Math.floor(count / 2) ? 'código-ancho' : 'c'
+    }))
+  }
+  /** Primeras líneas sin leer el texto entero dos veces. */
+  function head(buffer: Buffer, count: number): string[] {
+    return buffer.subarray(0, 4096).toString('utf8').split(/\r?\n/).slice(0, count)
+  }
+
+  it('100 000 filas y tres columnas: no lanza y da la cabecera y la regla esperadas', () => {
+    const rows = bigRows(100_000)
+    let buffer: Buffer = Buffer.alloc(0)
+    expect(() => {
+      buffer = buildTxt(big, rows, { tabs: false })
+    }).not.toThrow()
+    const [header, rule] = head(buffer, 2)
+    // Anchos: el más largo de cada columna, cabecera incluida, separados por dos espacios.
+    expect(header).toBe(`${'Nombre'.padEnd(18)}  ${'Valor'.padEnd(7)}  Código`)
+    expect(rule).toBe(`${'-'.repeat(18)}  ${'-'.repeat(7)}  ${'-'.repeat(12)}`)
+    const lines = buffer
+      .toString('utf8')
+      .split(/\r?\n/)
+      .filter((line) => line.length > 0)
+    expect(lines).toHaveLength(100_002)
+  })
+
+  it('complemento: por encima del margen de argumentos de Node (300 000 filas) tampoco lanza', () => {
+    // Con 100 000 filas Node aún admite el spread en Math.max (falla hacia 120 000-130 000, según
+    // la pila): este caso fuerza el error del spread y comprueba que el ancho sale de un bucle.
+    const buffer = buildTxt(big, bigRows(300_000), { tabs: false })
+    const [header, rule] = head(buffer, 2)
+    expect(header).toBe(`${'Nombre'.padEnd(18)}  ${'Valor'.padEnd(7)}  Código`)
+    expect(rule).toBe(`${'-'.repeat(18)}  ${'-'.repeat(7)}  ${'-'.repeat(12)}`)
+  })
+})
+
 describe('exportFileName', () => {
   // Fecha construida en hora local: el resultado no depende de la zona del equipo.
   const date = new Date(2026, 9, 3, 9, 5)
