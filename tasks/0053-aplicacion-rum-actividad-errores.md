@@ -1,7 +1,7 @@
 ---
 id: '0053'
 titulo: 'APPLICATION (RUM): marcadores nuevos y secciones «Actividad» y «Errores»'
-estado: verificada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: aplicacion-rum
@@ -165,6 +165,8 @@ datos) y `sim.applicationRumErrorsUntyped` (errores en una sola serie sin «Erro
 - Los e2e de la 0053 ×3 con `--workers=1`: 24/24.
 
 ## Resultado
+
+Commits: `bb216f9` (tests), `ac7fe2f`, `b9e17e5`, `5f58b2b` (código), revisión y verificación `e1bbe34`, `6757059`, `879e9ff`. Ficheros principales: `ApplicationSection.tsx`, `ApplicationRumCharts.tsx`, `application-rum-charts.ts`, `ApplicationCharts.tsx`, `EntityChartPanel`, `useApplicationRum` en `data/modules.ts` y `e2e/views.spec.ts`. Rondas de revisión: 1. ADR nuevo: ninguno.
 
 **Decisiones del developer (delegadas por Dani, refinables):**
 

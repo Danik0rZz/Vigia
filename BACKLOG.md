@@ -8,7 +8,7 @@ bueno de Dani o de peticiones en su nombre.
 
 - Cola aprobada por Dani el 2026-10-10, en este orden: lote **servicio-tipos**
   (0046, 0047 y 0048 hechas), 0049 hecha (etiquetas en cápsula), **grupo-procesos-2** (0050 y 0051 hechas) y **aplicacion-rum**
-  (0052 hecha, [0053](tasks/0053-aplicacion-rum-actividad-errores.md),
+  (0052 y 0053 hechas,
   [0054](tasks/0054-aplicacion-rum-usuarios-experiencia.md)).
 - Después, cola de la revisión de código del 2026-10-09, aprobada por Dani el 2026-10-10:
   **auditoria-publicacion** ([0055](tasks/0055-scan-tenant-falla-cerrado.md), [0056](tasks/0056-ci-endurecido.md)),
@@ -201,6 +201,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Errores de RUM: `countOfErrors` también tiene `Error origin` (`First party`, `Third party`); un desglose de errores propios frente a terceros podría servir en la vista. (surgió en 0052)
 - Etiquetas en cápsula: añadir `--tag-border` a la lista del test de exposición de tokens a Tailwind. (surgió en 0049)
 - e2e de «Eventos» del host: filtrar por `HOST_EVENTS_HOST` dejaría sin comprobar los trozos sin el host si el fixture necesitara varias consultas (hoy cabe en una). (surgió en 0042)
+- `application-charts.ts` conserva los tipos `actions`, `duration` y `errors` de la 0034, que la página ya no pinta (con sus textos `charts.series.*` y `charts.units.*`): quitarlos en una ficha de limpieza. (surgió en 0053)
+- Página de la aplicación: hay dos `<section>` anidadas con el mismo `aria-label` («Acciones clave»); quitarlo a la de dentro. (surgió en 0053)
 
 ## Aparcado
 
@@ -284,3 +286,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0050](tasks/0050-grupo-procesos-top-instancias-datos.md) (lote grupo-procesos-2): `entities:processGroupMetrics` trae las 20 instancias de más CPU (`:sort`/`:limit`) con el total real (`totalCount`) y `totalKnown`; canal nuevo `entities:processGroupInstances` con la lista completa y `truncated`. Sin interfaz hasta la 0051. Sin migraciones.
 - [0051](tasks/0051-grupo-procesos-modal-instancias.md) (lote grupo-procesos-2): la tabla de instancias del process group enseña las 20 de más CPU con el aviso «20 de N» y el botón «Ver todas», que abre un modal centrado con transición de entrada, la lista completa, buscador, orden y aviso de recorte; modal genérico `ShowcaseDialog`. Sin migraciones.
 - [0052](tasks/0052-aplicacion-rum-datos.md) (lote aplicacion-rum): canal `entities:applicationRum` con las métricas RUM de la API clásica de una aplicación web (acciones y duración por tipo, errores por tipo con HTTP separados, usuarios, sesiones y Core Web Vitals); sin interfaz hasta la 0053. Sin migraciones.
+- [0053](tasks/0053-aplicacion-rum-actividad-errores.md) (lote aplicacion-rum): la página de la aplicación web pasa a seis marcadores y secciones Actividad, Errores, Apdex y Acciones clave, con los datos de RUM de la 0052 (API clásica). Sin migraciones.
