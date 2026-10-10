@@ -1,7 +1,7 @@
 ---
 id: '0064'
 titulo: '«Reintentar» de un panel solo vuelve a pedir lo suyo (y arreglos pequeños de la interfaz)'
-estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_desarrollo # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # sí solo si es S y no toca IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos
 lote: auditoria-interfaz
@@ -12,7 +12,7 @@ adrs: [4]
 adr_nuevo:
 api: ninguna
 migracion: no
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -82,7 +82,23 @@ cliente en contra del ADR-0004, justo cuando algo falla.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Accesibilidad] `src/renderer/src/components/MarkdownText.tsx:181-199` (`MarkdownHeading`) solo
+   reenvía `children`, `className`, `style` y `title`, y pierde el `id` del título `footnote-label`
+   que genera GFM: las referencias de las notas al pie (`aria-describedby="footnote-label"`) apuntan
+   a un `id` que ya no existe. No es riesgo de lista blanca (el saneado ya quita `id` del HTML del
+   tenant). Reenviar también `id` (o todas las props menos `node`) y un unitario con
+   `texto[^1]\n\n[^1]: nota` que compruebe que el `aria-describedby` apunta a un `id` existente.
+
+Bien: «Reintentar» solo ejecuta el `refetch` de su panel (`PanelBoundary`, `EntityChartPanel`,
+`MetricChartPanel`, `ProblemsPage`, `EvidenceMetricChart`); los límites de fuera sin `onRetry` se
+recuperan al repintar o con «Actualizar». Tests tocados legítimos: `c680e67` (siguen contando un
+título), `a73b351` (error del propio test) y `aec8b83` (8 e2e: mismo texto y un solo título; el
+nivel lo cubre CA6). Sin choque con el ADR-0011. CA3 y CA4 correctos; C-10 solo en el renderer;
+C-13 con `cancelAnimationFrame`. Sin endpoints, textos, dependencias ni esquema; nada del tenant.
+
+Opcional: `main.tsx:575` sobra `request.catch(() => undefined)`.
 
 ## Verificación
 
