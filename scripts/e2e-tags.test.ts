@@ -441,3 +441,191 @@ test('CA2 (0011): con otra anotación', {
     expect(areas.resourceTags['@inestable']?.length ?? 0).toBeGreaterThan(0)
   })
 })
+
+// --- Ficha 0070: cada spec de vistas solo tiene tests de su zona y el portapapeles va aparte ---
+
+/**
+ * Contrato que fija la ficha 0070 (punto 2, guarda ampliada): `checkPlacement`
+ * (`scripts/e2e-tags.cjs`), pura como `checkTags` y con los mismos specs y config, comprueba dónde
+ * está cada test:
+ * - `otra-zona`: un test de `views-<zona>.spec.ts` cuya zona (propia o de su `describe`) no es
+ *   `@<zona>` (`tag` es la zona del test);
+ * - `portapapeles-fuera`: un test con `@portapapeles` en cualquier spec que no sea
+ *   `views-portapapeles.spec.ts`;
+ * - `sin-portapapeles`: un test de `views-portapapeles.spec.ts` sin `@portapapeles`.
+ * En `views-portapapeles.spec.ts` cada test conserva su zona, sea cual sea. El fichero se reconoce
+ * por su nombre, con o sin carpeta delante (`e2e/views-servicio.spec.ts`). Los mensajes nombran el
+ * fichero y el test. Va aparte de `checkTags` para que sus specs de ejemplo (con `@portapapeles`
+ * en ficheros cualesquiera) sigan valiendo.
+ */
+type PlacementKind = 'otra-zona' | 'portapapeles-fuera' | 'sin-portapapeles'
+
+interface PlacementProblem {
+  kind: PlacementKind
+  file: string
+  test: string
+  tag?: string
+  message: string
+}
+
+const { checkPlacement } = require(join(__dirname, 'e2e-tags.cjs')) as {
+  checkPlacement: (specs: Spec[], config: TagConfig) => PlacementProblem[]
+}
+
+const placementConfig: TagConfig = {
+  zones: { '@servicio': 'servicio', '@host': 'host', '@problemas': 'problemas', '@shell': 'shell' },
+  resourceTags: { '@portapapeles': 'usa el portapapeles del sistema' }
+}
+
+/** Los specs como los dejaría la 0070, sin ningún problema de reparto. */
+const goodSpecs: Spec[] = [
+  {
+    file: 'e2e/views-servicio.spec.ts',
+    code: `${header}test('CA1 (0001): servicio', { tag: '@servicio' }, async () => {})
+test.describe('servicio en grupo', { tag: '@servicio' }, () => {
+  test('CA2 (0001): hereda la zona', async () => {})
+})
+`
+  },
+  {
+    file: 'e2e/views-host.spec.ts',
+    code: `${header}test('CA1 (0002): host', { tag: '@host' }, async () => {})
+`
+  },
+  {
+    file: 'e2e/views-portapapeles.spec.ts',
+    code: `${header}test('CA1 (0003): copia en problemas', { tag: ['@problemas', '@portapapeles'] }, async () => {
+  await app.evaluate(({ clipboard }) => clipboard.clear())
+})
+test.describe('servicio con portapapeles', { tag: '@servicio' }, () => {
+  test('CA2 (0003): copia en el servicio', { tag: '@portapapeles' }, async () => {
+    await app.evaluate(({ clipboard }) => clipboard.clear())
+  })
+})
+`
+  },
+  {
+    file: 'e2e/shell.spec.ts',
+    code: `${header}test('CA1 (0004): shell', { tag: '@shell' }, async () => {})
+`
+  }
+]
+
+/** Los specs buenos con uno cambiado (o añadido). */
+function placement(changed: Spec): PlacementProblem[] {
+  const specs = goodSpecs.map((spec) => (spec.file === changed.file ? changed : spec))
+  if (!specs.includes(changed)) specs.push(changed)
+  return checkPlacement(specs, placementConfig)
+}
+
+describe('CA2 (0070): checkPlacement (la propia comprobación)', () => {
+  it('CA2 (0070): acepta specs de vistas con solo su zona y el portapapeles aparte', () => {
+    expect(checkPlacement(goodSpecs, placementConfig)).toEqual([])
+  })
+
+  it('CA2 (0070): falla y nombra fichero, test y zona si un test está en el spec de otra zona', () => {
+    const problems = placement({
+      file: 'e2e/views-servicio.spec.ts',
+      code: `${header}test('CA1 (0001): servicio', { tag: '@servicio' }, async () => {})
+test('CA9 (0001): «host» (en el spec del servicio)', { tag: '@host' }, async () => {})
+test.describe('host en grupo', { tag: '@host' }, () => {
+  test('CA10 (0001): hereda otra zona', async () => {})
+})
+`
+    })
+    expect(problems.map((p) => [p.kind, p.file, p.test, p.tag])).toEqual([
+      [
+        'otra-zona',
+        'e2e/views-servicio.spec.ts',
+        'CA9 (0001): «host» (en el spec del servicio)',
+        '@host'
+      ],
+      ['otra-zona', 'e2e/views-servicio.spec.ts', 'CA10 (0001): hereda otra zona', '@host']
+    ])
+    for (const p of problems) {
+      expect(p.message).toContain('e2e/views-servicio.spec.ts')
+      expect(p.message).toContain(p.test)
+    }
+  })
+
+  it('CA2 (0070): reconoce la zona por el nombre del fichero también sin carpeta delante', () => {
+    const problems = checkPlacement(
+      [
+        {
+          file: 'views-host.spec.ts',
+          code: `${header}test('CA1 (0005): del servicio', { tag: '@servicio' }, async () => {})
+`
+        }
+      ],
+      placementConfig
+    )
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['otra-zona', 'views-host.spec.ts', 'CA1 (0005): del servicio']
+    ])
+  })
+
+  it('CA2 (0070): falla si un @portapapeles está en el spec de su zona', () => {
+    const problems = placement({
+      file: 'e2e/views-servicio.spec.ts',
+      code: `${header}test('CA1 (0001): servicio', { tag: '@servicio' }, async () => {})
+test('CA3 (0001): copia en el servicio', { tag: ['@servicio', '@portapapeles'] }, async () => {
+  await app.evaluate(({ clipboard }) => clipboard.clear())
+})
+`
+    })
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['portapapeles-fuera', 'e2e/views-servicio.spec.ts', 'CA3 (0001): copia en el servicio']
+    ])
+    expect(problems[0]?.message).toContain('e2e/views-servicio.spec.ts')
+    expect(problems[0]?.message).toContain('CA3 (0001): copia en el servicio')
+  })
+
+  it('CA2 (0070): falla si un @portapapeles está en un spec que no es de vistas', () => {
+    const problems = placement({
+      file: 'e2e/shell.spec.ts',
+      code: `${header}test('CA1 (0004): shell', { tag: '@shell' }, async () => {})
+test.describe('copia en shell', { tag: '@shell' }, () => {
+  test('CA2 (0004): copia', { tag: '@portapapeles' }, async () => {
+    await app.evaluate(({ clipboard }) => clipboard.clear())
+  })
+})
+`
+    })
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['portapapeles-fuera', 'e2e/shell.spec.ts', 'CA2 (0004): copia']
+    ])
+  })
+
+  it('CA2 (0070): falla si views-portapapeles.spec.ts tiene un test sin @portapapeles', () => {
+    const problems = placement({
+      file: 'e2e/views-portapapeles.spec.ts',
+      code: `${header}test('CA1 (0003): copia en problemas', { tag: ['@problemas', '@portapapeles'] }, async () => {
+  await app.evaluate(({ clipboard }) => clipboard.clear())
+})
+test('CA4 (0003): no copia nada', { tag: '@problemas' }, async () => {})
+test.describe('servicio sin recurso', { tag: '@servicio' }, () => {
+  test('CA5 (0003): tampoco', async () => {})
+})
+`
+    })
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['sin-portapapeles', 'e2e/views-portapapeles.spec.ts', 'CA4 (0003): no copia nada'],
+      ['sin-portapapeles', 'e2e/views-portapapeles.spec.ts', 'CA5 (0003): tampoco']
+    ])
+    for (const p of problems) {
+      expect(p.message).toContain('e2e/views-portapapeles.spec.ts')
+      expect(p.message).toContain(p.test)
+    }
+  })
+})
+
+describe('CA2 (0070): reparto de los specs reales de e2e', () => {
+  it('CA2 (0070): cada views-<zona>.spec.ts solo tiene su zona y los @portapapeles están en views-portapapeles.spec.ts', () => {
+    const areas = JSON.parse(readFileSync(join(E2E_DIR, 'areas.json'), 'utf8')) as TagConfig
+    const specs = readdirSync(E2E_DIR)
+      .filter((name) => name.endsWith('.spec.ts'))
+      .map((name) => ({ file: `e2e/${name}`, code: readFileSync(join(E2E_DIR, name), 'utf8') }))
+    expect(specs.map((spec) => spec.file)).toContain('e2e/views-portapapeles.spec.ts')
+    expect(checkPlacement(specs, areas).map((p) => p.message)).toEqual([])
+  })
+})

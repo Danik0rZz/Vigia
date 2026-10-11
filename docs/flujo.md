@@ -298,7 +298,8 @@ se para la cola** (con la PR, o la fusión en `main`, como run):
   `build/` o se saca del ignore.
 - `--repeat-each 3` solo en specs concretos sospechosos de ser inestables: uno cuyo diff toca
   temporización (esperas, animaciones, virtualización, navegación), uno que falló una vez o uno
-  anotado como inestable en el BACKLOG. Nunca la suite entera. `views` va con `--workers=1`.
+  anotado como inestable en el BACKLOG. Nunca la suite entera. `views-portapapeles` va con
+  `--workers=1`.
 - **Al cerrar una versión:** e2e completo dos veces, `--repeat-each 3` en los specs cambiados desde
   la versión anterior y `npm run dist:win`.
 - **Clon limpio** (en el scratchpad, con la instalación del README, `npm run check`,

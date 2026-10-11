@@ -20,9 +20,8 @@ bueno de Dani o de peticiones en su nombre.
 - Cola aprobada por Dani el 2026-10-10 (flujo, parte 2 del ADR-0013), en este orden: lote
   **flujo-herramientas** (A): [0067](tasks/0067-e2e-etiquetas-por-zona.md) (hecha),
   [0068](tasks/0068-e2e-afectados-sin-compilar.md) (hecha), [0069](tasks/0069-e2e-vistas-arnes-comun.md) (hecha),
-  [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (en espera: antes va la ficha de bug
-  [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md), aprobada por Dani el 2026-10-11,
-  sola en su PR por la exclusión `seguridad`; después la 0070 repite los tres pases con 8 workers),
+  [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (hecha, tras la ficha de bug
+  [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md); tres pases en verde con 8 workers),
   [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md) (hecha),
   [0073](tasks/0073-integracion-por-pr.md) (hecha) y [0074](tasks/0074-medicion-automatica-ci.md) (hecha); después,
   lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md) (hecha),
@@ -30,7 +29,7 @@ bueno de Dani o de peticiones en su nombre.
   [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (hecha) y
   [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (hecha). Tras la 0073, Dani instala `gh`
   con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`
-  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079 (hecha), 0070 (reviewer, ronda 1) y 0071.
+  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079 y 0070 (hechas) y 0071.
   Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`, abajo) y el
   lote C (paralelismo).
 - Detrás, aprobados por Dani el 2026-10-11, en este orden: lote **medicion-control**
@@ -267,12 +266,13 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Cerrar el entorno con secretos sin guardar: `dirtySecrets` de `EnvironmentForm` es un `useState` con un `Set` mutado en el sitio; `useRef(new Set())` sería lo habitual y evitaría quejas de una futura regla de inmutabilidad. (surgió en 0077)
 - El test «CA3 (0048)» de `e2e/views.spec.ts` es el que comprueba el texto exacto «SLO»: poner «CA2 (0065)» en su nombre (regla de `e2e/CLAUDE.md`). (surgió en 0065)
 - Dos comentarios pasan de 100 columnas: el JSDoc de `ServiceMarkers.tsx` y el bloque de nombres de `e2e/views.spec.ts`; reajustarlos. (surgió en 0066)
-- Escribir la regla de zona de los «Abrir en Métricas» de `e2e/views.spec.ts` (unos van a `@metricas`, otros a `@problema-detalle` o `@servicio`), por ejemplo: a `@metricas` si se comprueba lo que pinta Métricas; a la zona de origen si se comprueba la consulta del gráfico. **A resolver antes de la 0070 y la 0071.** (surgió en 0067)
 - `usesClipboard` de `scripts/e2e-tags.cjs` cruza nombres sin mirar el ámbito: una variable local con el nombre de una auxiliar con portapapeles da un falso positivo (seguro: pide una etiqueta de más). (surgió en 0067)
 - `scripts/affected-e2e.cjs`: `-g` toma como patrón el siguiente argumento aunque empiece por `-` (`-g --no-build` filtra por «--no-build» y compila); rechazarlo con el mismo error de uso. (surgió en 0068)
 - `scripts/affected-e2e.cjs`: `--grep=<patrón>`, que Playwright acepta, sale como opción desconocida con código 2 (fallo seguro); admitirlo si se echa en falta. (surgió en 0068)
-- `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo en la 0070. (surgió en 0069)
-- El comentario de `e2e/views.spec.ts` (≈ línea 5472) dice «y sus problemas para los recuentos», que ahora viven en `e2e/views/fixtures.ts`: retocarlo en la 0070. (surgió en 0069)
+- `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo (la 0070 no lo tocó). (surgió en 0069)
+- `e2e/inicio-arranque.spec.ts` (0079) debería estar también en las áreas `vistas-comun` e `inicio` de `e2e/areas.json`, porque usa `setupViewsApp`. (surgió en 0070)
+- `e2e/views/harness.ts`: al cerrar, borrar las carpetas del worker antes de soltar el puerto del simulador. (surgió en 0070)
+- `splitList` vive en `pages/entities/service-info.ts` y la usan el host y el proceso: por eso `service-info.ts` va también en las áreas `host` y `proceso`. Sacarla a un módulo común lo dejaría solo en `servicio`. (surgió en 0070)
 - Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069) No reproducido el 2026-10-11, 5 de 5 aislado y `views` entero con `--workers=1` (ficha 0076).
 - Permisos de `.claude/settings.json`: negar `gh pr merge --squash`, `--rebase` y `--delete-branch` y `git push origin :<rama>`, como ya se niegan el force push y los tags (hoy que fusione solo Dani las PR de una ficha y que nadie borre ramas remotas está solo escrito en `docs/flujo.md`). Ficha propia; lo decide Dani. (surgió en 0073)
 - `/cerrar-version`: que se pare si hay una PR de `integra/…` sin fusionar. (surgió en 0073)
@@ -390,3 +390,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0076](tasks/0076-e2e-poner-en-cuarentena.md) (lote e2e-inestables): medición de los cinco sospechosos de inestables con `--repeat-each 5`; AUD-03 falla 3 de 5 con `--workers=1` y se arregla en la 0077 (no va a cuarentena, depende del modo serie); AUD-21 y los de `views` no se reprodujeron (0078 en espera). Ningún test queda en cuarentena. Sin migraciones.
 - [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (lote e2e-inestables): AUD-21 (Ctrl+K con un diálogo abierto) fallaba a veces porque Radix pinta la paleta un fotograma con `pointer-events: none` antes de registrar la capa; el test ahora espera con `expect.poll` a que reciba el puntero y el foco. No era un defecto de la app. Sin migraciones.
 - [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md): la primera petición a cada host de cada sesión va sola (`fetchFor`, `network.ts`) para que dos conexiones nuevas a la vez no se salten el verificador de certificados; cubre también el SSO y cierra la ventana de «fijada». Va sola en su PR (exclusión `seguridad`). Resto conocido: ficha de seguimiento pendiente del Planificador.
+- [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (lote flujo-herramientas): `views.spec.ts` se parte en 11 `views-<zona>.spec.ts` y `views-portapapeles.spec.ts`; `areas.json` con un área por zona; la guarda `checkPlacement` vigila el reparto; cada worker tiene su puerto del simulador y sus carpetas (`workerResources`, `listenOn`); `workers` es 4 con `CI` y 8 sin él (tres pases en verde). Sin migraciones.

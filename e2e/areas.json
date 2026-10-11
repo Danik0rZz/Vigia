@@ -116,57 +116,204 @@
       ],
       "specs": ["e2e/tls.spec.ts", "e2e/inicio-arranque.spec.ts"]
     },
-    "views": {
+    "vistas-comun": {
       "globs": [
         "e2e/views/**",
-        "src/renderer/src/pages/**",
+        "src/renderer/src/pages/SectionPage.tsx",
+        "src/renderer/src/pages/SettingsPage.tsx",
         "src/renderer/src/components/Chart.tsx",
         "src/renderer/src/components/chart-time.ts",
         "src/renderer/src/components/ExportMenu.tsx",
         "src/renderer/src/components/ModuleState.tsx",
-        "src/renderer/src/components/ProblemsTable.tsx",
         "src/renderer/src/components/DataGrid.tsx",
-        "src/renderer/src/components/EvidenceSection.tsx",
-        "src/renderer/src/components/EvidenceMetricChart.tsx",
-        "src/renderer/src/components/EvidenceDescription.tsx",
-        "src/renderer/src/components/MarkdownText.tsx",
-        "src/renderer/src/components/markdown-plugins.ts",
-        "src/renderer/src/components/markdown-html.ts",
-        "src/renderer/src/components/markdown-color.ts",
         "src/renderer/src/components/PanelBoundary.tsx",
-        "src/renderer/src/app/evidence-table.ts",
-        "src/renderer/src/app/entity-route.ts",
         "src/renderer/src/components/TopBar.tsx",
-        "src/renderer/src/app/problem-filters.ts",
-        "src/renderer/src/app/page-crumb.ts",
         "src/renderer/src/components/PageHeader.tsx",
         "src/renderer/src/components/TimeRangeSelector.tsx",
         "src/renderer/src/components/CommandPalette.tsx",
         "src/renderer/src/data/modules.ts",
         "src/renderer/src/data/query-list.ts",
         "src/renderer/src/app/time-range.ts",
+        "src/renderer/src/app/i18n-numbers.ts",
         "src/renderer/src/settings/ExportSettingsSection.tsx",
         "src/main/export/**",
-        "src/main/modules/**",
         "src/main/ipc/handlers/modules.ts",
         "src/main/ipc/handlers/metrics-query.ts",
         "src/main/ipc/handlers/export.ts",
         "src/main/dynatrace/**",
+        "src/main/modules/metrics.ts",
+        "src/main/modules/metric-series.ts",
+        "src/main/modules/problems.ts",
         "src/shared/dynatrace.ts",
         "src/shared/modules.ts",
-        "src/shared/problem-row.ts",
         "src/shared/format-date.ts",
         "src/shared/time-range.ts",
         "src/shared/dt-endpoints.ts",
-        "src/shared/problem-sort.ts",
         "src/shared/grid-sort.ts",
         "src/shared/problem-evidence.ts",
         "src/shared/event-metric.ts",
         "src/shared/format-number.ts",
-        "src/renderer/src/app/i18n-numbers.ts",
+        "src/shared/metric-points.ts",
         "src/shared/error-reasons.ts"
       ],
-      "specs": ["e2e/views.spec.ts"]
+      "specs": [
+        "e2e/views-vistas-comun.spec.ts",
+        "e2e/views-inicio.spec.ts",
+        "e2e/views-problemas.spec.ts",
+        "e2e/views-problema-detalle.spec.ts",
+        "e2e/views-metricas.spec.ts",
+        "e2e/views-entidad.spec.ts",
+        "e2e/views-servicio.spec.ts",
+        "e2e/views-host.spec.ts",
+        "e2e/views-proceso.spec.ts",
+        "e2e/views-monitor.spec.ts",
+        "e2e/views-aplicacion.spec.ts",
+        "e2e/views-portapapeles.spec.ts"
+      ]
+    },
+    "inicio": {
+      "globs": [
+        "src/renderer/src/pages/HomePage.tsx",
+        "src/shared/service-health.ts",
+        "src/main/modules/slos.ts"
+      ],
+      "specs": ["e2e/views-inicio.spec.ts"]
+    },
+    "problemas": {
+      "globs": [
+        "src/renderer/src/pages/ProblemsPage.tsx",
+        "src/renderer/src/components/ProblemsTable.tsx",
+        "src/renderer/src/components/ClusterFilter.tsx",
+        "src/renderer/src/components/MultiFilter.tsx",
+        "src/renderer/src/app/problem-filters.ts",
+        "src/shared/problem-sort.ts",
+        "src/shared/problem-row.ts"
+      ],
+      "specs": [
+        "e2e/views-problemas.spec.ts",
+        "e2e/views-problema-detalle.spec.ts",
+        "e2e/views-vistas-comun.spec.ts",
+        "e2e/views-portapapeles.spec.ts"
+      ]
+    },
+    "problema-detalle": {
+      "globs": [
+        "src/renderer/src/pages/ProblemDetailPage.tsx",
+        "src/renderer/src/components/EvidenceSection.tsx",
+        "src/renderer/src/components/EvidenceMetricChart.tsx",
+        "src/renderer/src/components/EvidenceDescription.tsx",
+        "src/renderer/src/components/CommentsSection.tsx",
+        "src/renderer/src/components/MarkdownText.tsx",
+        "src/renderer/src/components/markdown-plugins.ts",
+        "src/renderer/src/components/markdown-html.ts",
+        "src/renderer/src/components/markdown-color.ts",
+        "src/renderer/src/app/evidence-table.ts",
+        "src/renderer/src/app/page-crumb.ts",
+        "src/renderer/src/app/problem-clock.ts",
+        "src/renderer/src/app/entity-route.ts",
+        "src/shared/problem-row.ts"
+      ],
+      "specs": [
+        "e2e/views-problema-detalle.spec.ts",
+        "e2e/views-problemas.spec.ts",
+        "e2e/views-entidad.spec.ts",
+        "e2e/views-servicio.spec.ts",
+        "e2e/views-vistas-comun.spec.ts",
+        "e2e/views-portapapeles.spec.ts"
+      ]
+    },
+    "metricas": {
+      "globs": [
+        "src/renderer/src/pages/MetricsPage.tsx",
+        "src/renderer/src/pages/metrics/**",
+        "src/main/modules/saved-queries.ts"
+      ],
+      "specs": [
+        "e2e/views-metricas.spec.ts",
+        "e2e/views-problema-detalle.spec.ts",
+        "e2e/views-servicio.spec.ts",
+        "e2e/views-portapapeles.spec.ts"
+      ]
+    },
+    "entidad": {
+      "globs": [
+        "src/renderer/src/pages/entities/EntityPage.tsx",
+        "src/renderer/src/pages/entities/registry.ts",
+        "src/renderer/src/pages/entities/GenericEntityPage.tsx",
+        "src/renderer/src/pages/entities/EnvironmentEntityPage.tsx",
+        "src/renderer/src/pages/entities/CloudApplicationEntityPage.tsx",
+        "src/renderer/src/pages/entities/EntityPageFrame.tsx",
+        "src/renderer/src/pages/entities/EntityChartPanel.tsx",
+        "src/renderer/src/pages/entities/EntityInfoCard.tsx",
+        "src/renderer/src/pages/entities/EntityMarkers.tsx",
+        "src/renderer/src/pages/entities/EntityTables.tsx",
+        "src/renderer/src/pages/entities/EntityTags.tsx",
+        "src/renderer/src/pages/entities/entity-*.ts",
+        "src/renderer/src/pages/entities/ProblemBand.tsx",
+        "src/renderer/src/pages/entities/problem-band.ts",
+        "src/renderer/src/app/entity-route.ts",
+        "src/main/modules/entities.ts",
+        "src/main/modules/entity-secrets.ts"
+      ],
+      "specs": [
+        "e2e/views-entidad.spec.ts",
+        "e2e/views-servicio.spec.ts",
+        "e2e/views-host.spec.ts",
+        "e2e/views-proceso.spec.ts",
+        "e2e/views-monitor.spec.ts",
+        "e2e/views-aplicacion.spec.ts"
+      ]
+    },
+    "servicio": {
+      "globs": [
+        "src/renderer/src/pages/entities/Service*.tsx",
+        "src/renderer/src/pages/entities/service-*.ts",
+        "src/main/modules/service-metrics.ts",
+        "src/main/modules/service-metric-set.ts"
+      ],
+      "specs": ["e2e/views-servicio.spec.ts"]
+    },
+    "host": {
+      "globs": [
+        "src/renderer/src/pages/entities/Host*.tsx",
+        "src/renderer/src/pages/entities/host-*.ts",
+        "src/renderer/src/pages/entities/Disk*.tsx",
+        "src/renderer/src/pages/entities/disk-*.ts",
+        "src/renderer/src/pages/entities/service-info.ts",
+        "src/renderer/src/pages/entities/process-info.ts",
+        "src/main/modules/host-*.ts",
+        "src/main/modules/disk-metrics.ts"
+      ],
+      "specs": ["e2e/views-host.spec.ts"]
+    },
+    "proceso": {
+      "globs": [
+        "src/renderer/src/pages/entities/Process*.tsx",
+        "src/renderer/src/pages/entities/process-*.ts",
+        "src/renderer/src/pages/entities/service-info.ts",
+        "src/main/modules/process-metrics.ts",
+        "src/main/modules/process-group-metrics.ts"
+      ],
+      "specs": ["e2e/views-proceso.spec.ts"]
+    },
+    "monitor": {
+      "globs": [
+        "src/renderer/src/pages/entities/*Monitor*.tsx",
+        "src/renderer/src/pages/entities/monitor-*.ts",
+        "src/renderer/src/pages/entities/host-tables.ts",
+        "src/main/modules/monitor-*.ts"
+      ],
+      "specs": ["e2e/views-monitor.spec.ts"]
+    },
+    "aplicacion": {
+      "globs": [
+        "src/renderer/src/pages/entities/Application*.tsx",
+        "src/renderer/src/pages/entities/WebApplicationEntityPage.tsx",
+        "src/renderer/src/pages/entities/application-*.ts",
+        "src/renderer/src/pages/entities/process-info.ts",
+        "src/main/modules/application-*.ts"
+      ],
+      "specs": ["e2e/views-aplicacion.spec.ts"]
     },
     "errors": {
       "globs": [
@@ -179,7 +326,7 @@
         "src/shared/error-report.ts",
         "src/shared/mask.ts"
       ],
-      "specs": ["e2e/errors.spec.ts"]
+      "specs": ["e2e/errors.spec.ts", "e2e/views-portapapeles.spec.ts"]
     },
     "shell": {
       "globs": [

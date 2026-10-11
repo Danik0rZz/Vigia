@@ -1,5 +1,4 @@
 import { createServer, type Server } from 'node:https'
-import type { AddressInfo } from 'node:net'
 import {
   applicationBandProblems,
   applicationMetricResponse,
@@ -62,12 +61,15 @@ import {
 } from './fixtures'
 import { sim } from './sim-state'
 import { generate } from 'selfsigned'
+import { listenOn } from '../worker-resources'
 
 /**
  * Arnés de las vistas (ficha 0069): el Dynatrace simulado, un servidor HTTPS en 127.0.0.1 con un
  * certificado propio (los entornos usan el nivel 'ignore'). Responde con los datos de
  * `fixtures.ts` según el estado de `sim`. `server` y `port` los asigna `startServer`; desde
- * fuera se leen (enlaces vivos de los módulos, ver `harness.ts`).
+ * fuera se leen (enlaces vivos de los módulos, ver `harness.ts`). Ficha 0070: escucha en el puerto
+ * de su worker (`workerResources`, en `e2e/worker-resources.ts`) y, si está ocupado, falla
+ * nombrándolo (`listenOn`).
  */
 
 export let server: Server
@@ -105,7 +107,7 @@ export function applySelector(problems: FakeProblem[], selector: string | null):
   )
 }
 
-export async function startServer(): Promise<void> {
+export async function startServer(workerPort: number): Promise<void> {
   const pems = await generate([{ name: 'commonName', value: '127.0.0.1' }], {
     keySize: 2048,
     algorithm: 'sha256',
@@ -527,6 +529,6 @@ export async function startServer(): Promise<void> {
       send(404, { error: { code: 404, message: 'No existe' } })
     })
   })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  port = (server.address() as AddressInfo).port
+  await listenOn(server, workerPort)
+  port = workerPort
 }

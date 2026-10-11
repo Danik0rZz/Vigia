@@ -89,7 +89,8 @@ describe('CA1 (0075): playwright.config.ts tiene los proyectos e2e e inestables'
     expect(config.testDir).toBe('e2e')
     expect(config.retries).toBe(0)
     expect(config.forbidOnly).toBe(true)
-    expect(config.workers).toBe(4)
+    // `workers` lo fija la 0070 según `CI` (4 con él; sin él, el medido): lo prueba
+    // scripts/playwright-workers.test.ts.
   })
 })
 

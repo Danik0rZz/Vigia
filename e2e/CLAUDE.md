@@ -19,10 +19,29 @@
   el reparto, en la cabecera de `harness.ts`): cada uno llama a `setupViewsApp()` una vez, en el
   nivel superior, y no lanza la app por su cuenta. `scripts/e2e-views-harness.test.ts` lo vigila.
   El estado (`page`, `app`, `exportDir`…) se importa tal cual: enlaces vivos de solo lectura. Ficha 0069.
-- Los e2e corren con 4 workers. `views` es el único spec que usa el portapapeles del sistema; sus
-  tests corren en un mismo worker (sin `fullyParallel`), así que no necesitan modo serie. Otro spec
-  que lo use va en un proyecto aparte. Con `--repeat-each`, `views` va con `--workers=1`: si no, dos
-  copias se pisan el portapapeles.
+- Specs de vistas (ficha 0070): uno por zona de vistas, `views-<zona>.spec.ts`, con solo tests de
+  esa zona, y `views-portapapeles.spec.ts` con todos los `@portapapeles` (cada uno con su zona) y
+  nada más. Un spec corre en un solo worker y sus tests de uno en uno (sin `fullyParallel`), así que
+  los del portapapeles no se pisan y no necesitan modo serie. La guarda es `checkPlacement`
+  (`scripts/e2e-tags.cjs`). Un ayudante que usan varios specs va a `e2e/views/helpers.ts`; uno de
+  un solo spec, en él. Un spec no añade datos al simulador al cargarse (`detailOnly.push`…): un
+  worker que no lo cargue no los tendría; van en `e2e/views/fixtures.ts`.
+- Workers: 4 en el CI y el número medido sin él (`playwright.config.ts`, ficha 0070). Cada worker
+  de vistas usa su puerto del simulador y sus carpetas de datos y de exportación
+  (`workerResources(workerIndex)`, `e2e/worker-resources.ts`); si el puerto está ocupado, el arnés
+  falla nombrándolo. Los demás specs usan el puerto 0 y `mkdtempSync`. Con
+  `--repeat-each`, `views-portapapeles` va con `--workers=1`: si no, dos copias se pisan el
+  portapapeles.
+- «Abrir en Métricas» (ficha 0070): el test va a la zona de la página del botón (`@problema-detalle`,
+  `@servicio`…), aunque compruebe lo que llega a Métricas; lo que hace Métricas con su URL por su
+  cuenta («Métricas por URL»), a `@metricas`.
+- Áreas de vistas en `areas.json` (ficha 0070): un fichero va en el área de la zona que lo pinta o
+  cuyo canal sirve, y en la de cada zona que lo comparte; lo común a casi todas, en `vistas-comun`,
+  que lanza todos los specs de vistas. Un área lanza además los specs de las zonas cuyos tests
+  entran por esa pantalla para llegar a lo que comprueban (la lista de Problemas al detalle, el
+  detalle a las páginas de entidad con «Analizar entidad», «Abrir en Métricas» a Métricas); un
+  enlace que solo comprueba adónde lleva no cuenta. Si una de esas zonas tiene tests en
+  `views-portapapeles.spec.ts`, ese spec también.
 - Cambios hechos por IPC directo (`window.vigia.invoke`) no actualizan la interfaz: TanStack Query
   solo se entera de las mutaciones que hace el renderer. Recargar tras preparar datos por IPC.
 - Datos de Dynatrace solo del simulador: nada del tenant (nombres, IDs, URLs, valores) en specs ni
@@ -31,7 +50,7 @@
   e2e completo). `--repeat-each 3` solo si se toca temporización (esperas, animaciones,
   virtualización, navegación) o hubo un fallo intermitente.
 - Lo que dependa de la geometría se prueba con el contenido de la ventana fijado desde el test
-  (`withContentSize`, en el arnés, y `withContentWidth`, en `views.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
+  (`withContentSize`, en el arnés, y `withContentWidth`, en `views-servicio.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
   ventana, así que sin fijarla ve otra geometría que la VPS.
 - Si la cabecera u otro elemento «intercepta» un clic, mirar antes si con esa ventana el control se
   ve de verdad: en la 0005 era un fallo de la app (la ruta quedaba en 0 px), no del test.

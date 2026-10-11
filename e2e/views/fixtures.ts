@@ -7,8 +7,9 @@ import { sim } from './sim-state'
  * Las respuestas leen el estado del simulador (`sim`, en `sim-state.ts`) en el momento de cada
  * petición. Todo es inventado: nada del tenant de pruebas (ver `e2e/CLAUDE.md`).
  *
- * Los specs pueden añadir datos al cargarse (`detailOnly.push(...)`, `Object.assign(ENTITY_NAMES,
- * ...)`): se comparten los mismos arrays y objetos, y el simulador no arranca hasta el `beforeAll`.
+ * Aquí se añaden también datos a otros (`detailOnly.push(...)`, `Object.assign(ENTITY_NAMES, ...)`),
+ * al cargar el módulo, y nunca desde un spec (ficha 0070): un worker que no cargue ese spec no los
+ * tendría. Por eso los problemas solo del detalle de los specs de vistas están al final.
  */
 
 export const tok = (name: string): string =>
@@ -4205,3 +4206,280 @@ export function markerProblems(): FakeProblem[] {
     problemFilters: []
   }))
 }
+
+// --- Problemas solo del detalle que antes añadía views.spec.ts al cargarse (ficha 0070) ---
+
+/**
+ * Ficha 0035: la descripción (dt.event.description) en todas las evidencias, no solo en EVENT.
+ * Problema ABIERTO (P-835) con seis evidencias: un METRIC y un AVAILABILITY_EVIDENCE con
+ * descripción en Markdown, un TRANSACTIONAL y un EVENT con una descripción de 12 000 caracteres
+ * con un bloque de código YAML, un METRIC sin descripción y un EVENT con solo otra clave con
+ * «description» (decisión del Orquestador: claves inventadas, nada del tenant). La OpenAPI solo documenta `data`
+ * en EventEvidence; en las demás, la descripción va en el mismo sitio que en vivo
+ * (`data.properties[]`), como anota la ficha.
+ */
+export const ALL_ID = 'pd-desc-all'
+export const ALL_SERVICE = { entityId: { id: 'SERVICE-DA1', type: 'SERVICE' }, name: 'svc-todas' }
+export const ALL_METRIC_MD = [
+  '## Cambio en la métrica',
+  '',
+  '- **subida** brusca',
+  '- revisar `pool`',
+  '',
+  '> Avisado por el equipo'
+].join('\n')
+export const ALL_AVAILABILITY_MD = '### Host caído\n\n1. reiniciar\n2. comprobar'
+/** Fin de la descripción larga: si se ve, ha llegado entera. */
+export const LONG_END = 'FIN-DE-LA-DESCRIPCION-0035'
+export const LONG_HEAD = [
+  '# Configuración del despliegue',
+  '',
+  'Antes del bloque.',
+  '',
+  '```yaml',
+  'servicio:',
+  '  nombre: pagos',
+  '  replicas: 3',
+  '```',
+  '',
+  ''
+].join('\n')
+export const LONG_TAIL = `\n\n${LONG_END}`
+/** 12 000 caracteres exactos, con el bloque de código al principio y la marca al final. */
+export const DESC_12K =
+  LONG_HEAD +
+  'relleno '.repeat(2000).slice(0, 12_000 - LONG_HEAD.length - LONG_TAIL.length) +
+  LONG_TAIL
+export const ALL_METRIC = 'Métrica con descripción'
+export const ALL_AVAILABILITY = 'Disponibilidad con descripción'
+export const ALL_TRANSACTIONAL = 'Transacción con descripción larga'
+export const ALL_EVENT = 'Evento con descripción larga'
+export const ALL_PLAIN = 'Métrica sin descripción'
+export const ALL_OTHER_EVENT = 'Evento con otra descripción'
+/** Otras claves con «description» (inventadas) y su Markdown. */
+export const OTHER_KEY = 'custom.description'
+export const OTHER_KEY_EVENT = 'Runbook.Description'
+export const OTHER_MD = '### Pasos\n\n- **reiniciar** el pool\n- avisar al `equipo`'
+detailOnly.push({
+  problemId: ALL_ID,
+  displayId: 'P-835',
+  title: 'Problema con descripciones en todas las evidencias',
+  status: 'OPEN',
+  severityLevel: 'PERFORMANCE',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [ALL_SERVICE],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 6,
+    details: [
+      {
+        evidenceType: 'METRIC',
+        displayName: ALL_METRIC,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: true,
+        startTime: NOW - 90 * MIN,
+        endTime: -1,
+        metricId: 'builtin:service.response.time',
+        unit: 'MicroSecond',
+        valueBeforeChangePoint: 100_000,
+        valueAfterChangePoint: 300_000,
+        data: {
+          properties: [
+            { key: 'paso.0', value: 'valor-0' },
+            { key: 'dt.event.description', value: ALL_METRIC_MD },
+            { key: OTHER_KEY, value: OTHER_MD },
+            { key: 'custom.owner', value: 'equipo-pagos' }
+          ]
+        }
+      },
+      {
+        evidenceType: 'AVAILABILITY_EVIDENCE',
+        displayName: ALL_AVAILABILITY,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: false,
+        startTime: NOW - 85 * MIN,
+        endTime: NOW - 80 * MIN,
+        data: { properties: [{ key: 'dt.event.description', value: ALL_AVAILABILITY_MD }] }
+      },
+      {
+        evidenceType: 'TRANSACTIONAL',
+        displayName: ALL_TRANSACTIONAL,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: false,
+        startTime: NOW - 75 * MIN,
+        endTime: NOW - 70 * MIN,
+        unit: 'Percent',
+        valueBeforeChangePoint: 0,
+        valueAfterChangePoint: 12.5,
+        data: { properties: [{ key: 'dt.event.description', value: DESC_12K }] }
+      },
+      descEvent(ALL_EVENT, 35, [{ key: 'dt.event.description', value: DESC_12K }], {
+        eventId: 'desc-all-35'
+      }),
+      {
+        evidenceType: 'METRIC',
+        displayName: ALL_PLAIN,
+        entity: ALL_SERVICE,
+        rootCauseRelevant: false,
+        startTime: NOW - 65 * MIN,
+        endTime: -1,
+        metricId: 'builtin:service.errors.total.rate',
+        unit: 'Percent',
+        valueBeforeChangePoint: 1,
+        valueAfterChangePoint: 4
+      },
+      descEvent(ALL_OTHER_EVENT, 36, [
+        { key: OTHER_KEY_EVENT, value: OTHER_MD },
+        { key: 'custom.owner', value: 'equipo-pagos' }
+      ])
+    ]
+  }
+})
+
+/**
+ * Ficha 0003: página de análisis de la entidad. Problema ABIERTO (P-786) con cuatro evidencias:
+ * un EVENT sobre un HOST (sin selector de métrica: desplegarlo no pide nada), un METRIC sobre un
+ * SERVICE, un EVENT sin entidad y uno con entidad sin tipo. Solo tipos estándar.
+ */
+export const ENT_ID = 'pd-entity'
+export const ENT_HOST_ID = 'HOST-AN1'
+export const ENT_HOST_NAME = 'host-analisis'
+export const ENT_HOST = { entityId: { id: ENT_HOST_ID, type: 'HOST' }, name: ENT_HOST_NAME }
+export const ENT_SERVICE = {
+  entityId: { id: 'SERVICE-AN1', type: 'SERVICE' },
+  name: 'servicio-analisis'
+}
+export const ENT_EV_HOST = 'Evento en el host'
+export const ENT_EV_METRIC = 'Métrica del servicio'
+export const ENT_EV_NONE = 'Evento sin entidad'
+export const ENT_EV_NOTYPE = 'Entidad sin tipo'
+export const entityEvent = (
+  name: string,
+  index: number,
+  entity: Record<string, unknown> | null
+): Record<string, unknown> => ({
+  evidenceType: 'EVENT',
+  displayName: name,
+  eventType: 'CUSTOM_ALERT',
+  ...(entity === null ? {} : { entity }),
+  startTime: NOW - (60 + index) * 60_000,
+  endTime: -1,
+  data: {
+    eventId: `ent-${index}`,
+    status: 'OPEN',
+    endTime: -1,
+    title: name,
+    ...noFlags,
+    properties: [{ key: 'paso', value: `valor-${index}` }]
+  }
+})
+detailOnly.push({
+  problemId: ENT_ID,
+  displayId: 'P-786',
+  title: 'Problema para analizar entidades',
+  status: 'OPEN',
+  severityLevel: 'AVAILABILITY',
+  impactLevel: 'INFRASTRUCTURE',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [ENT_HOST],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 4,
+    details: [
+      entityEvent(ENT_EV_HOST, 1, ENT_HOST),
+      {
+        evidenceType: 'METRIC',
+        displayName: ENT_EV_METRIC,
+        entity: ENT_SERVICE,
+        startTime: NOW - 70 * 60_000,
+        endTime: -1,
+        metricId: 'builtin:service.response.time',
+        unit: 'MicroSecond',
+        valueBeforeChangePoint: 100_000,
+        valueAfterChangePoint: 300_000
+      },
+      entityEvent(ENT_EV_NONE, 3, null),
+      entityEvent(ENT_EV_NOTYPE, 4, { entityId: { id: 'HOST-AN2' }, name: 'sin-tipo' })
+    ]
+  }
+})
+
+/**
+ * Ficha 0008: marcadores de la página de un SERVICE. Un problema solo del detalle (P-791) con una
+ * evidencia por cada uno de los tres servicios inventados (SVC_ID con errores, SVC_BIG_ID sin
+ * errores y con miles de peticiones, SVC_EMPTY_ID sin datos) y otra en un host: desde su «Analizar
+ * entidad» se llega a sus páginas. Los problemas de sus recuentos (affectedEntities) son los de
+ * `markerProblems`. Los tests, en `views-servicio.spec.ts`.
+ */
+export const MK_PROBLEM_ID = 'pd-markers'
+export const MK_EV_ERRORS = 'Errores en el servicio'
+export const MK_EV_BIG = 'Servicio con mucho tráfico'
+export const MK_EV_EMPTY = 'Servicio sin datos'
+export const MK_EV_HOST = 'Evento en otro host'
+detailOnly.push({
+  problemId: MK_PROBLEM_ID,
+  displayId: 'P-791',
+  title: 'Problema para los marcadores de servicio',
+  status: 'OPEN',
+  severityLevel: 'ERROR',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: {
+    totalCount: 4,
+    details: [
+      entityEvent(MK_EV_ERRORS, 11, {
+        entityId: { id: SVC_ID, type: 'SERVICE' },
+        name: 'servicio-errores'
+      }),
+      entityEvent(MK_EV_BIG, 12, {
+        entityId: { id: SVC_BIG_ID, type: 'SERVICE' },
+        name: 'servicio-grande'
+      }),
+      entityEvent(MK_EV_EMPTY, 13, {
+        entityId: { id: SVC_EMPTY_ID, type: 'SERVICE' },
+        name: 'servicio-vacio'
+      }),
+      entityEvent(MK_EV_HOST, 14, {
+        entityId: { id: 'HOST-00000000000E2E81', type: 'HOST' },
+        name: 'host-marcadores'
+      })
+    ]
+  }
+})
+
+/**
+ * Ficha 0012: un problema solo del detalle con 1234 comentarios en la API (trae uno): los números
+ * de los avisos de i18next también llevan el separador de miles.
+ */
+export const THOUSANDS_PROBLEM_ID = 'pd-thousands'
+detailOnly.push({
+  problemId: THOUSANDS_PROBLEM_ID,
+  displayId: 'P-792',
+  title: 'Problema con muchos comentarios',
+  status: 'OPEN',
+  severityLevel: 'ERROR',
+  impactLevel: 'SERVICES',
+  startTime: NOW - 2 * HOUR,
+  endTime: -1,
+  affectedEntities: [],
+  impactedEntities: [],
+  managementZones: [],
+  problemFilters: [],
+  evidenceDetails: { totalCount: 0, details: [] },
+  recentComments: {
+    totalCount: 1234,
+    comments: [{ authorName: 'operador', content: 'Mirando', createdAtTimestamp: NOW - HOUR }]
+  }
+})
