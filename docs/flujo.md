@@ -123,8 +123,8 @@ Para ir más rápido sin perder las puertas (ADR-0010):
   tenant, cambios globales en la máquina, y `git reset --hard`, `checkout --`, `clean` o
   `stash drop` con cambios sin commitear (salvo commit o stash previo).
 - **Solo lo decide Dani:** force push, reescribir el historial publicado, borrar ramas remotas
-  (las borra GitHub al fusionar la PR), fusionar la PR de una ficha sola (la que toca alguna
-  exclusión), la configuración de GitHub (protección de `main`, permisos del token de `gh`),
+  (las borra GitHub al fusionar la PR; con git, el pre-push lo rechaza), fusionar la PR de una
+  ficha sola (la que toca alguna exclusión), la configuración de GitHub (protección de `main`, permisos del token de `gh`),
   tags, releases, publicar el zip, licencia y temas legales, y el qué de las funciones sin definir.
   El zip nunca se arranca en su perfil.
 - Antes de cada tanda grande de cambios en la spec, copia como
@@ -200,7 +200,8 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
   espera al CI (ADR-0013): se sondea en segundo plano (`gh pr checks`) y, con «CI ok» en verde, se
   fusiona con `gh pr merge --merge` («Create a merge commit»: `main` conserva un commit por ficha
   con los mismos SHA; «Rebase» obligaría a un force push y «Squash» juntaría las fichas). GitHub
-  borra la rama remota al fusionar; los agentes no borran ramas remotas.
+  borra la rama remota al fusionar; los agentes no borran ramas remotas (el pre-push lo impide, ver
+  «Qué queda bloqueado»).
 - **PR de una ficha sola:** su rama `integra/…` sale de `main`, no de una rama de integración
   pendiente. El Orquestador la abre, **no la fusiona** y avisa a Dani (`parada`, con el enlace de
   la PR y el estado de «CI ok»). La cola sigue con las fichas que no dependan de ella; las que
@@ -217,6 +218,21 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
   para una ficha con exclusiones. Si `gh` no está disponible, se para y se avisa a Dani. Con la
   protección activa (`main` solo admite PR con «CI ok», también para administradores), GitHub lo
   rechaza. Nunca `--force` ni `--force-with-lease`. Sin tags, releases ni subir el zip a GitHub.
+- **Qué queda bloqueado, y cómo** (ficha 0082). Lo demás de este apartado sigue siendo una regla
+  escrita:
+  - **Borrar una rama o un tag remoto con git:** lo rechaza el hook `.githooks/pre-push`, para todos
+    y en cualquier forma (`git push origin :rama`, `--delete` o `-d`, delante o detrás del
+    remoto), porque git le pasa el borrado con el SHA local a ceros. Actúa en los clones con
+    `core.hooksPath .githooks` y `--no-verify` se lo salta (a los agentes se lo niega `deny`,
+    también por texto). Una rama remota se borra desde GitHub.
+  - **`gh pr merge` con `--squash`, `-s`, `--rebase`, `-r`, `--delete-branch` o `-d`:** lo niegan
+    las reglas `deny` de `.claude/settings.json` (Bash y PowerShell), igual que el force push con
+    `--force`, `-f` o `--force-with-lease`, `--tags`, `git tag`, `gh release` y `--no-verify`.
+  - Las reglas de permisos de Claude Code **casan con el texto del comando**: no son una barrera de
+    seguridad (lo dice su documentación). Solo aplican cuando se escribe `gh …` o `git …`; con la
+    ruta completa del ejecutable (`C:\Program Files\GitHub CLI\gh.exe`), o con otra forma de
+    escribir la misma opción, no niegan nada. Un hook `PreToolUse` que lo cierre queda para una
+    ficha propia.
 - **`gh`** usa un token fine-grained de este repositorio (Contents y Pull requests de lectura y
   escritura, sin administración) que configuró Dani; los agentes nunca lo ven, escriben ni guardan.
   Si `gh pr checks` o `gh run view` no pueden leer el CI con esos permisos, se le dice a Dani y él

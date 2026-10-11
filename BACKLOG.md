@@ -34,7 +34,7 @@ bueno de Dani o de peticiones en su nombre.
   lote C (paralelismo).
 - Detrás, aprobados por Dani el 2026-10-11, en este orden: lote **medicion-control**
   ([0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (hecha), ligera, y
-  [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md), las dos con `medir: sí`) y lote
+  [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md) (hecha), las dos con `medir: sí`) y lote
   **ideas-backlog** ([0084](tasks/0084-e2e-renombrar-useciwindow.md) (hecha), ligera;
   [0082](tasks/0082-permisos-claude-fusiones-y-ramas.md) y
   [0083](tasks/0083-log-enmascarar-anidados.md), cada una sola en su PR por la exclusión
@@ -272,7 +272,11 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `e2e/views/harness.ts`: al cerrar, borrar las carpetas del worker antes de soltar el puerto del simulador. (surgió en 0070)
 - `splitList` vive en `pages/entities/service-info.ts` y la usan el host y el proceso: por eso `service-info.ts` va también en las áreas `host` y `proceso`. Sacarla a un módulo común lo dejaría solo en `servicio`. (surgió en 0070)
 - Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069) No reproducido el 2026-10-11, 5 de 5 aislado y `views` entero con `--workers=1` (ficha 0076).
-- Permisos de `.claude/settings.json`: negar `gh pr merge --squash`, `--rebase` y `--delete-branch` y `git push origin :<rama>`, como ya se niegan el force push y los tags (hoy que fusione solo Dani las PR de una ficha y que nadie borre ramas remotas está solo escrito en `docs/flujo.md`). Ficha propia; lo decide Dani. (surgió en 0073)
+- Sospechoso de inestable para la ficha B: `e2e/views-problema-detalle.spec.ts:1211`, «v0.9.2: carga diferida y cola… nunca más de 3 consultas a la vez»: falló en el CI de la PR #10 (run 38143008404, intento 1, 2026-10-11 15:34; `eventMetricMaxInFlight` menor que 3) y pasó al relanzar (intento 2). (surgió en 0081)
+- El token de `gh` no puede relanzar jobs ni lanzar `workflow_dispatch` (HTTP 403); ampliarlo a «Actions: write» lo decide Dani. (surgió en 0081)
+- Hook `PreToolUse` que bloquee `gh pr merge` con squash, rebase o delete-branch aunque se llame por la ruta completa del ejecutable (las reglas `deny` casan con el texto del comando). Decisión de Dani: ficha propia del Planificador. (surgió en 0082)
+- Force push con refspec `+` (`git push origin +rama`, `git push origin +HEAD:main`) y opciones cortas juntas (`-fu`): no los niega ninguna regla de `deny` (hueco anterior a la 0082). El pre-push podría rechazarlos: un push que no es avance rápido llega con un SHA remoto que no es antecesor del local (`git merge-base --is-ancestor`). (surgió en 0082)
+- `gh api -X DELETE repos/…/git/refs/heads/<rama>` borra una rama remota sin pasar por el pre-push; se podría negar en `deny` (`gh api * DELETE*`), con el límite de que las reglas casan con el texto. (surgió en 0082)
 - `/cerrar-version`: que se pare si hay una PR de `integra/…` sin fusionar. (surgió en 0073)
 - Test de la 0072: fijar `== 'true'` en el de CA3 y llevar la lógica de `ci-ok` (CA4) a un script probado con resultados de ejemplo; `!cancelled()` evitaría el «CI ok» en rojo de un run cancelado por otro push, pero la ficha pedía `always()`. (surgió en 0072)
 - `scripts/ci-times.mjs`: un job sin `started_at` y no completado debería dejar el total del run «en curso»; y dejar en la cabecera del script todas las decisiones de la ficha. (surgió en 0074)
@@ -396,3 +400,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (lote medicion-control, ligera): quitada la clave `entities.service.charts.loadError`, sin usar, de los textos en español e inglés. Sin migraciones.
 - [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md) (lote medicion-control): en los marcadores del servicio, si falla el canal de métricas solo el primer aviso (`SLO`, o `Peticiones` con Solo actividad) lleva `role="alert"`; `MarkerError` y `QueryState` tienen una propiedad `silent` que lo quita. Lo que se ve no cambia. Sin migraciones.
 - [0084](tasks/0084-e2e-renombrar-useciwindow.md) (lote ideas-backlog, ligera): `useCiWindow` pasa a `applyCiWindow` en `e2e/` y en las guardas de `scripts/`, y se quita de `eslint.config.mjs` la excepción de `react-hooks/rules-of-hooks` para `e2e/**`. Solo desarrollo. Sin migraciones.
+- [0082](tasks/0082-permisos-claude-fusiones-y-ramas.md) (lote ideas-backlog, exclusión seguridad): `.claude/settings.json` niega `gh pr merge` con `--squash`, `-s`, `--rebase`, `-r`, `--delete-branch` y `-d` (Bash y PowerShell), y `.githooks/pre-push` rechaza cualquier borrado de rama o tag remoto; `docs/flujo.md` dice qué queda bloqueado y cómo. Va sola en su PR. Sin migraciones.
