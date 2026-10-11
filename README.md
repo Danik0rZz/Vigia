@@ -76,17 +76,18 @@ ellas no se envía nada y el flujo sigue igual.
 
 ## Comandos
 
-| Comando                     | Qué hace                                              |
-| --------------------------- | ----------------------------------------------------- |
-| `npm run dev`               | Arranca la app en desarrollo, con recarga en caliente |
-| `npm run check`             | Lint, tipos, formato y tests con umbral de cobertura  |
-| `npm test`                  | Tests unitarios (Vitest)                              |
-| `npm run test:e2e`          | Compila y prueba la app de punta a punta (Playwright) |
-| `npm run test:e2e:affected` | Solo los e2e afectados por el diff (`e2e/areas.json`) |
-| `npm run build`             | Comprueba tipos y compila a `out/`                    |
-| `npm run dist:win`          | Genera `dist/vigia-<versión>-win-x64.zip`             |
-| `npm run dist:win:portable` | Genera el ejecutable portable (opción secundaria)     |
-| `npm run format`            | Formatea el código con Prettier                       |
+| Comando                       | Qué hace                                                  |
+| ----------------------------- | --------------------------------------------------------- |
+| `npm run dev`                 | Arranca la app en desarrollo, con recarga en caliente     |
+| `npm run check`               | Lint, tipos, formato y tests con umbral de cobertura      |
+| `npm test`                    | Tests unitarios (Vitest)                                  |
+| `npm run test:e2e`            | Compila y prueba la app de punta a punta (Playwright)     |
+| `npm run test:e2e:affected`   | Solo los e2e afectados por el diff (`e2e/areas.json`)     |
+| `npm run test:e2e:inestables` | Solo los tests en cuarentena (`@inestable`), sin bloquear |
+| `npm run build`               | Comprueba tipos y compila a `out/`                        |
+| `npm run dist:win`            | Genera `dist/vigia-<versión>-win-x64.zip`                 |
+| `npm run dist:win:portable`   | Genera el ejecutable portable (opción secundaria)         |
+| `npm run format`              | Formatea el código con Prettier                           |
 
 `npm run test:e2e:affected -- [rango] [--no-build] [-g <patrón>] [--last-failed]` compara
 `origin/main..HEAD` por defecto, compila una vez y lanza los specs afectados. `--no-build` usa el

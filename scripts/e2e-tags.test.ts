@@ -17,7 +17,17 @@ import { describe, expect, it } from 'vitest'
  * para los specs que las importan.
  */
 
-type Kind = 'sin-zona' | 'dos-zonas' | 'desconocida' | 'portapapeles' | 'zona-muerta'
+type Kind =
+  | 'sin-zona'
+  | 'dos-zonas'
+  | 'desconocida'
+  | 'portapapeles'
+  | 'zona-muerta'
+  // Ficha 0075: un test con @inestable sin anotación `arreglo`, con una ficha de arreglo que no
+  // existe o con una ficha ya `hecha`.
+  | 'sin-arreglo'
+  | 'ficha-inexistente'
+  | 'ficha-hecha'
 
 interface Problem {
   kind: Kind
@@ -45,7 +55,7 @@ interface Spec {
 
 const require = createRequire(import.meta.url)
 const { checkTags } = require(join(__dirname, 'e2e-tags.cjs')) as {
-  checkTags: (specs: Spec[], config: TagConfig, modules?: Spec[]) => Problem[]
+  checkTags: (specs: Spec[], config: TagConfig, modules?: Spec[], tasks?: Spec[]) => Problem[]
 }
 
 const E2E_DIR = 'e2e'
@@ -63,9 +73,21 @@ function e2eModules(dir = E2E_DIR): Spec[] {
   return modules
 }
 
+const TASKS_DIR = 'tasks'
+
+/** Fichas reales (`tasks/NNNN-*.md`), para la guarda de @inestable (ficha 0075). */
+function taskFiles(): Spec[] {
+  return readdirSync(TASKS_DIR)
+    .filter((name) => /^\d{4}-.*\.md$/.test(name))
+    .map((name) => ({ file: `tasks/${name}`, code: readFileSync(join(TASKS_DIR, name), 'utf8') }))
+}
+
 const config: TagConfig = {
   zones: { '@shell': 'menú y barra', '@metricas': 'Métricas' },
-  resourceTags: { '@portapapeles': 'usa el portapapeles del sistema' }
+  resourceTags: {
+    '@portapapeles': 'usa el portapapeles del sistema',
+    '@inestable': 'en cuarentena: no bloquea (ficha 0075)'
+  }
 }
 
 const header = "import { expect, test } from '@playwright/test'\n"
@@ -289,7 +311,133 @@ describe('CA1 (0067): specs reales de e2e', () => {
       .filter((name) => name.endsWith('.spec.ts'))
       .map((name) => ({ file: `e2e/${name}`, code: readFileSync(join(E2E_DIR, name), 'utf8') }))
     expect(specs.length).toBeGreaterThan(0)
-    const problems = checkTags(specs, areas, e2eModules())
+    const problems = checkTags(specs, areas, e2eModules(), taskFiles())
     expect(problems.map((p) => p.message)).toEqual([])
+  })
+})
+
+/**
+ * Ficha 0075: cuarentena de los tests inestables. Un test con `@inestable` (etiqueta de recurso)
+ * lleva una anotación de Playwright de tipo `arreglo` con el número de su ficha de arreglo en
+ * `description`; esa ficha (`tasks/NNNN-*.md`) existe y no está `hecha`. `checkTags` recibe las
+ * fichas como cuarto argumento: `{ file: 'tasks/NNNN-….md', code: <el Markdown con su cabecera> }`.
+ */
+function task(id: string, estado: string): Spec {
+  return {
+    file: `tasks/${id}-arreglo-de-ejemplo.md`,
+    code: `---
+id: '${id}'
+titulo: 'Arreglo de ejemplo'
+estado: ${estado} # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+tamano: S # S | M | L
+---
+
+## Petición original
+
+Un test intermitente.
+`
+  }
+}
+
+const TASKS: Spec[] = [
+  task('0901', 'aprobada'),
+  task('0902', 'hecha'),
+  task('0903', 'en_desarrollo')
+]
+
+function checkQuarantine(code: string, file = 'cuarentena.spec.ts'): Problem[] {
+  return checkTags([{ file, code }, filler], config, [], TASKS)
+}
+
+describe('CA3 (0075): la guarda de @inestable (anotación arreglo, ficha que existe y no está hecha)', () => {
+  it('CA3 (0075): acepta un @inestable con arreglo a una ficha abierta, en objeto o en lista', () => {
+    const code = `${header}test('CA1 (0010): en cuarentena', {
+  tag: ['@shell', '@inestable'],
+  annotation: { type: 'arreglo', description: '0901' }
+}, async () => {})
+test('CA2 (0010): con varias anotaciones', {
+  tag: ['@metricas', '@inestable'],
+  annotation: [
+    { type: 'nota', description: 'lento' },
+    { type: 'arreglo', description: '0903' }
+  ]
+}, async () => {})
+test('CA3 (0010): estable', { tag: '@shell' }, async () => {})
+`
+    expect(checkQuarantine(code)).toEqual([])
+  })
+
+  it('CA3 (0075): falla y nombra fichero y test si un @inestable no tiene anotación arreglo', () => {
+    const code = `${header}test('CA1 (0011): sin anotación', { tag: ['@shell', '@inestable'] }, async () => {})
+test('CA2 (0011): con otra anotación', {
+  tag: ['@shell', '@inestable'],
+  annotation: { type: 'nota', description: '0901' }
+}, async () => {})
+`
+    const problems = checkQuarantine(code, 'sinarreglo.spec.ts')
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['sin-arreglo', 'sinarreglo.spec.ts', 'CA1 (0011): sin anotación'],
+      ['sin-arreglo', 'sinarreglo.spec.ts', 'CA2 (0011): con otra anotación']
+    ])
+    for (const p of problems) {
+      expect(p.message).toContain('sinarreglo.spec.ts')
+      expect(p.message).toContain(p.test)
+      expect(p.message).toContain('arreglo')
+    }
+  })
+
+  it('CA3 (0075): falla y nombra la ficha si la de arreglo no existe', () => {
+    const code = `${header}test('CA1 (0012): ficha que no está', {
+  tag: ['@shell', '@inestable'],
+  annotation: { type: 'arreglo', description: '0999' }
+}, async () => {})
+`
+    const problems = checkQuarantine(code, 'sinficha.spec.ts')
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['ficha-inexistente', 'sinficha.spec.ts', 'CA1 (0012): ficha que no está']
+    ])
+    expect(problems[0]?.message).toContain('sinficha.spec.ts')
+    expect(problems[0]?.message).toContain('CA1 (0012): ficha que no está')
+    expect(problems[0]?.message).toContain('0999')
+  })
+
+  it('CA3 (0075): sin fichas que mirar, la de arreglo no existe', () => {
+    const code = `${header}test('CA1 (0013): en cuarentena', {
+  tag: ['@shell', '@inestable'],
+  annotation: { type: 'arreglo', description: '0901' }
+}, async () => {})
+`
+    const problems = checkTags([{ file: 'vacio.spec.ts', code }, filler], config, [], [])
+    expect(problems.map((p) => [p.kind, p.test])).toEqual([
+      ['ficha-inexistente', 'CA1 (0013): en cuarentena']
+    ])
+  })
+
+  it('CA3 (0075): falla y nombra la ficha si la de arreglo ya está hecha (la etiqueta sobra)', () => {
+    const code = `${header}test('CA1 (0014): ya arreglado', {
+  tag: ['@shell', '@inestable'],
+  annotation: { type: 'arreglo', description: '0902' }
+}, async () => {})
+`
+    const problems = checkQuarantine(code, 'hecha.spec.ts')
+    expect(problems.map((p) => [p.kind, p.file, p.test])).toEqual([
+      ['ficha-hecha', 'hecha.spec.ts', 'CA1 (0014): ya arreglado']
+    ])
+    expect(problems[0]?.message).toContain('hecha.spec.ts')
+    expect(problems[0]?.message).toContain('CA1 (0014): ya arreglado')
+    expect(problems[0]?.message).toContain('0902')
+  })
+
+  it('CA3 (0075): un test sin @inestable no necesita anotación arreglo ni ficha', () => {
+    const code = `${header}test('CA1 (0015): estable', { tag: '@shell' }, async () => {})
+`
+    expect(checkTags([{ file: 'estable.spec.ts', code }, filler], config, [], [])).toEqual([])
+  })
+
+  it('CA3 (0075): @inestable es una etiqueta de recurso de e2e/areas.json, no una zona', () => {
+    const areas = JSON.parse(readFileSync(join(E2E_DIR, 'areas.json'), 'utf8')) as TagConfig
+    expect(Object.keys(areas.resourceTags)).toContain('@inestable')
+    expect(Object.keys(areas.zones)).not.toContain('@inestable')
+    expect(areas.resourceTags['@inestable']?.length ?? 0).toBeGreaterThan(0)
   })
 })

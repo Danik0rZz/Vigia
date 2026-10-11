@@ -5,6 +5,10 @@
  * `zones` o de `resourceTags`; y `@portapapeles` si usa el portapapeles del sistema. Una zona de
  * la lista que no tiene ningún test también es un fallo (zona muerta).
  *
+ * Ficha 0075: un test con `@inestable` (en cuarentena) lleva una anotación de Playwright de tipo
+ * `arreglo` con el número de su ficha de arreglo en `description` (propia o de su describe); esa
+ * ficha (`tasks/NNNN-*.md`) existe y no está `hecha` (si lo está, la etiqueta sobra).
+ *
  * `checkTags` es pura: recibe el texto de los specs y la config y devuelve los problemas, sin
  * ejecutar nada. Lee los specs con el compilador de TypeScript, porque los títulos llevan
  * comillas y paréntesis. La usa `scripts/e2e-tags.test.ts` (dentro de `npm run check`).
@@ -12,6 +16,9 @@
 const ts = require('typescript')
 
 const CLIPBOARD_TAG = '@portapapeles'
+const QUARANTINE_TAG = '@inestable'
+/** Tipo de la anotación que dice qué ficha arregla un test en cuarentena. */
+const FIX_ANNOTATION = 'arreglo'
 /** Métodos de `test` que declaran un test: `test(...)`, `test.skip(...)`, etc. */
 const TEST_MODIFIERS = new Set(['only', 'skip', 'fixme', 'fail', 'slow'])
 /** Métodos de `test.describe` que declaran un grupo (no `configure`). */
@@ -63,17 +70,75 @@ function titleText(node, source) {
   return node.getText(source).slice(1, -1)
 }
 
-/** Etiquetas de la opción `tag` (texto o lista de textos) del segundo argumento, si es un objeto. */
-function ownTags(call) {
-  if (call.arguments.length < 3) return []
+/** El valor de la opción `key` del segundo argumento (el objeto de opciones), si lo hay. */
+function optionValue(call, key) {
+  if (call.arguments.length < 3) return undefined
   const options = call.arguments[1]
-  if (!ts.isObjectLiteralExpression(options)) return []
-  const tags = []
+  if (!ts.isObjectLiteralExpression(options)) return undefined
   for (const property of options.properties) {
     if (!ts.isPropertyAssignment(property)) continue
     const name = property.name
-    if (!(ts.isIdentifier(name) || ts.isStringLiteral(name)) || name.text !== 'tag') continue
-    const value = property.initializer
+    if ((ts.isIdentifier(name) || ts.isStringLiteral(name)) && name.text === key) {
+      return property.initializer
+    }
+  }
+  return undefined
+}
+
+/** Texto de un literal sin sustituciones; si no lo es, undefined. */
+function literalText(node) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
+  return undefined
+}
+
+/**
+ * Anotaciones de la opción `annotation` (un objeto o una lista de objetos), como
+ * `{ type, description }`; solo las escritas con literales.
+ */
+function ownAnnotations(call) {
+  const value = optionValue(call, 'annotation')
+  if (value === undefined) return []
+  const objects = ts.isArrayLiteralExpression(value) ? [...value.elements] : [value]
+  const annotations = []
+  for (const object of objects) {
+    if (!ts.isObjectLiteralExpression(object)) continue
+    const annotation = {}
+    for (const property of object.properties) {
+      if (!ts.isPropertyAssignment(property)) continue
+      const name = property.name
+      if (!(ts.isIdentifier(name) || ts.isStringLiteral(name))) continue
+      const text = literalText(property.initializer)
+      if (text !== undefined && (name.text === 'type' || name.text === 'description')) {
+        annotation[name.text] = text
+      }
+    }
+    annotations.push(annotation)
+  }
+  return annotations
+}
+
+/**
+ * Estado de cada ficha, por su número: el `estado:` de la cabecera de `tasks/NNNN-*.md`.
+ * @param {{ file: string, code: string }[]} tasks
+ * @returns {Map<string, string>}
+ */
+function taskStates(tasks) {
+  const states = new Map()
+  for (const { file, code } of tasks) {
+    const id = /(?:^|[\\/])(\d{4})-[^\\/]*\.md$/.exec(file)?.[1]
+    if (id === undefined) continue
+    const header = /^---\r?\n([\s\S]*?)\r?\n---/.exec(code)?.[1] ?? ''
+    const state = /^estado:\s*['"]?([\w-]+)/m.exec(header)?.[1] ?? ''
+    states.set(id, state)
+  }
+  return states
+}
+
+/** Etiquetas de la opción `tag` (texto o lista de textos) del segundo argumento, si es un objeto. */
+function ownTags(call) {
+  const value = optionValue(call, 'tag')
+  const tags = []
+  if (value !== undefined) {
     if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value))
       tags.push(value.text)
     if (ts.isArrayLiteralExpression(value)) {
@@ -197,14 +262,48 @@ function usesClipboard(body, helpers) {
 }
 
 /**
+ * Qué le falta a un test en cuarentena, o null si está bien: la anotación `arreglo` con su ficha,
+ * que la ficha exista y que no esté `hecha`.
+ * @param {Map<string, string>} states estado de cada ficha, por su número
+ * @param {{ type?: string, description?: string }[]} annotations las del test y sus describe
+ * @returns {{ kind: 'sin-arreglo' | 'ficha-inexistente' | 'ficha-hecha', text: string } | null}
+ */
+function quarantineProblem(states, annotations) {
+  const fix = annotations.find((annotation) => annotation.type === FIX_ANNOTATION)
+  const id = fix?.description?.trim()
+  if (id === undefined || id === '') {
+    return {
+      kind: 'sin-arreglo',
+      text: `lleva ${QUARANTINE_TAG} sin la anotación ${FIX_ANNOTATION} con el número de su ficha de arreglo`
+    }
+  }
+  if (!states.has(id)) {
+    return {
+      kind: 'ficha-inexistente',
+      text: `lleva ${QUARANTINE_TAG} y su ficha de arreglo ${id} no existe en tasks/`
+    }
+  }
+  if (states.get(id) === 'hecha') {
+    return {
+      kind: 'ficha-hecha',
+      text: `lleva ${QUARANTINE_TAG} y su ficha de arreglo ${id} ya está hecha: quita la etiqueta`
+    }
+  }
+  return null
+}
+
+/**
  * @param {{ file: string, code: string }[]} specs
  * @param {{ zones: Record<string, string>, resourceTags: Record<string, string> }} config
  * @param {{ file: string, code: string }[]} [modules] módulos de `e2e/` que no son specs (sus tests
  *   no se comprueban; sus funciones cuentan como auxiliares de los specs que las importan)
- * @returns {{ kind: 'sin-zona' | 'dos-zonas' | 'desconocida' | 'portapapeles' | 'zona-muerta',
+ * @param {{ file: string, code: string }[]} [tasks] fichas (`tasks/NNNN-*.md`, con su cabecera),
+ *   para la guarda de `@inestable` (ficha 0075)
+ * @returns {{ kind: 'sin-zona' | 'dos-zonas' | 'desconocida' | 'portapapeles' | 'zona-muerta'
+ *   | 'sin-arreglo' | 'ficha-inexistente' | 'ficha-hecha',
  *   file?: string, test?: string, tag?: string, message: string }[]}
  */
-function checkTags(specs, config, modules = []) {
+function checkTags(specs, config, modules = [], tasks = []) {
   if (config === null || typeof config !== 'object' || typeof config.zones !== 'object') {
     throw new TypeError('checkTags necesita zones y resourceTags de e2e/areas.json')
   }
@@ -216,14 +315,18 @@ function checkTags(specs, config, modules = []) {
     ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
   )
   const moduleClipboard = clipboardFunctions(moduleSources)
+  const states = taskStates(tasks)
 
   for (const { file, code } of specs) {
     const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
     const seed = importedNames(source, moduleClipboard)
     const helpers = new Set([...clipboardFunctions([source], seed), ...seed])
 
-    /** @param {string[]} inherited etiquetas de los describe que lo contienen */
-    const visit = (node, inherited) => {
+    /**
+     * @param {string[]} inherited etiquetas de los describe que lo contienen
+     * @param {{ type?: string, description?: string }[]} inheritedAnnotations sus anotaciones
+     */
+    const visit = (node, inherited, inheritedAnnotations) => {
       if (ts.isCallExpression(node)) {
         const kind = callKind(node)
         if (kind !== null) {
@@ -242,9 +345,10 @@ function checkTags(specs, config, modules = []) {
             })
           }
           const tags = [...new Set([...inherited, ...own])]
+          const annotations = [...inheritedAnnotations, ...ownAnnotations(node)]
           const body = node.arguments[node.arguments.length - 1]
           if (kind === 'describe') {
-            ts.forEachChild(body, (child) => visit(child, tags))
+            ts.forEachChild(body, (child) => visit(child, tags, annotations))
             return
           }
           const testZones = tags.filter((tag) => zones.has(tag))
@@ -272,12 +376,23 @@ function checkTags(specs, config, modules = []) {
               message: `${file}: ${where} usa el portapapeles y no lleva ${CLIPBOARD_TAG}`
             })
           }
+          if (tags.includes(QUARANTINE_TAG)) {
+            const quarantine = quarantineProblem(states, annotations)
+            if (quarantine !== null) {
+              problems.push({
+                kind: quarantine.kind,
+                file,
+                test: title,
+                message: `${file}: ${where} ${quarantine.text}`
+              })
+            }
+          }
           return
         }
       }
-      ts.forEachChild(node, (child) => visit(child, inherited))
+      ts.forEachChild(node, (child) => visit(child, inherited, inheritedAnnotations))
     }
-    visit(source, [])
+    visit(source, [], [])
   }
 
   for (const zone of zones) {

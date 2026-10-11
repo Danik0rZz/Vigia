@@ -96,6 +96,7 @@ móvil con Remote Control). Las versiones se cierran con `/cerrar-version`. Los 
 | `npm run test:e2e`                     | Compila y prueba la app de punta a punta (Playwright)             |
 | `npm run test:e2e:affected -- [rango]` | e2e afectados (`e2e/areas.json`); `--no-build`, `-g`, `--help`    |
 | `npm run test:e2e:nobuild`             | e2e sin compilar (si solo cambian los specs y `out/` está al día) |
+| `npm run test:e2e:inestables`          | Solo los tests en cuarentena (`@inestable`); no bloquean          |
 | `npm run build`                        | Tipos y compilación a `out/`                                      |
 | `npm run dist:win`                     | Zip de Windows en `dist/`                                         |
 | `npm run format`                       | Prettier                                                          |

@@ -24,7 +24,7 @@ bueno de Dani o de peticiones en su nombre.
   [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (en espera: antes va una ficha de bug aparte, la del fallo de Inicio recién arrancada, "certificado no de confianza" con el nivel en «ignorar», que sale también con 4 workers; Dani eligió la opción 1; la escribe el Planificador y se trata al final de esta cola; después la 0070 repite los tres pases con 8 workers),
   [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md) (hecha),
   [0073](tasks/0073-integracion-por-pr.md) (hecha) y [0074](tasks/0074-medicion-automatica-ci.md) (hecha); después,
-  lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md),
+  lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md) (hecha),
   [0076](tasks/0076-e2e-poner-en-cuarentena.md),
   [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) y
   [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md). Tras la 0073, Dani instala `gh`
@@ -48,6 +48,14 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Vista de Entidades (propuesta 1, L). Pide `entities.read`.
 - Fase 8: DQL y Logs (propuesta 4, L). Coste por GiB escaneado; incluye el streaming de
   exportaciones y el aviso de filas de Excel en CSV.
+
+## Tests en cuarentena
+
+Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene el doc-writer: se añade una fila al ponerlo en cuarentena y se quita al cerrar su ficha de arreglo. La guarda no lee esta sección.
+
+| Test              | Spec | Ficha de arreglo | Desde |
+| ----------------- | ---- | ---------------- | ----- |
+| (ninguno todavía) |      |                  |       |
 
 ## Mejoras anotadas
 
@@ -259,6 +267,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - `scripts/ci-times.mjs`: un job sin `started_at` y no completado debería dejar el total del run «en curso»; y dejar en la cabecera del script todas las decisiones de la ficha. (surgió en 0074)
 - `docs/flujo.md` y `.claude/commands/tarea.md`: «Traer main» debe comprobar el checkout principal con `git status --porcelain --untracked-files=no`, porque `docs/revisiones/` (local de Dani, sin versionar) dejaría la cola parada siempre. Decidido por Dani el 2026-10-11; corregir en la próxima ficha del flujo. (surgió en 0074)
 
+- Subir como artefacto el `test-results/` del paso de inestables del CI cuando falle (`if: steps.<id>.outcome == 'failure'`): hoy el resumen dice qué falló, pero la captura y el log de `failure-capture` no se suben. (surgió en 0075)
+- `scripts/e2e-tags.cjs`: la guarda de `@inestable` solo lee la opción `tag`; un `@inestable` escrito en el título del test se saltaría la guarda. (surgió en 0075)
+- `ci.yml:100-101`: precisar el comentario del reporter entre comillas (en PowerShell 5.1 la coma no partía el argumento; las comillas son para no depender de la versión). (surgió en 0075)
+
 ## Aparcado
 
 - Monaco (fases 5 y 7): no se implementa ni se pregunta por él hasta que Dani lo retome.
@@ -361,3 +373,4 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - [0072](tasks/0072-ci-en-pull-request.md) (lote flujo-herramientas): el CI arranca en las PR a `main` con los jobs `cambios` (`scripts/ci-changes.mjs`), `windows` (check y e2e completo, sin `dist:win`) y «CI ok» (siempre se ejecuta); el push a `main` sigue igual. ADR-0014. Sin migraciones.
 - [0073](tasks/0073-integracion-por-pr.md) (lote flujo-herramientas): integración por PR: un commit por ficha (`scripts/integrate.mjs`), ramas `integra/AAAAMMDD-N`, PR de 3 a 5 fichas (`groupForPrs`, campo `exclusiones`; las que tocan una exclusión van solas y las fusiona Dani), `check` y `dist:win` en el push a `main` y e2e completo solo en las PR. ADR-0014. Sin migraciones.
 - [0074](tasks/0074-medicion-automatica-ci.md) (lote flujo-herramientas): `node scripts/ci-times.mjs <run>` (id o URL) lee los jobs y pasos del run con la API REST de GitHub (anónima o con `GITHUB_TOKEN`, que nunca se escribe) y saca las filas de «Ejecuciones» en hora local con duraciones y total; `buildRows` pura con 31 tests, errores 404, límite y sin red con código distinto de 0. `docs/flujo.md` y `tarea.md` lo citan. Sin migraciones.
+- [0075](tasks/0075-e2e-cuarentena-inestables.md) (lote e2e-inestables): etiqueta `@inestable` y dos proyectos de Playwright, `e2e` (bloquea) e `inestables`; `test:e2e`, `:nobuild` y `:affected` lanzan solo `--project=e2e` y `test:e2e:inestables` el otro. En las PR, paso con `continue-on-error` y resumen en `$GITHUB_STEP_SUMMARY` (`scripts/e2e-inestables-summary.mjs`). La guarda de `e2e-tags` exige la anotación `arreglo`, ficha existente y no hecha. Sección «Tests en cuarentena» en este fichero. Sin migraciones.

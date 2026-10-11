@@ -238,9 +238,10 @@ se para la cola** (con la PR, o la fusión en `main`, como run):
 2. Se localiza la ficha culpable. Una PR agrupada cubre de 3 a 5 fichas (y una fusión en `main`,
    las de su PR más lo que ya había): se busca por el test que falla y el diff de cada ficha (un
    commit cada una) y, en la duda, el verifier pasa ese spec en el commit de cada una.
-3. Se relanza el job que falló, una sola vez. Si pasa, el spec queda anotado en «Mejoras anotadas»
-   del BACKLOG como sospechoso de inestable, con la fecha y el run. Son los datos de la cuarentena
-   (ADR-0013, ficha B). La cola sigue.
+3. Se relanza el job que falló, una sola vez. Si pasa, el test queda anotado en «Mejoras anotadas»
+   del BACKLOG como sospechoso de inestable, con la fecha y el run, y la cola sigue. Si se confirma
+   (vuelve a fallar así en otro run), va a cuarentena con su ficha de arreglo (ver «Niveles de
+   prueba», ficha 0075).
 4. Si vuelve a fallar, se reabre la ficha culpable: `en_desarrollo`, rama `fix/NNNN-ci` (también en
    su campo `rama`) desde la rama de integración de la PR que falló (o desde `main`, si ya estaba
    fusionada). Developer con el fallo, reviewer y verifier; el doc-writer lo añade a su
@@ -274,6 +275,19 @@ se para la cola** (con la PR, o la fusión en `main`, como run):
   portapapeles del sistema. Una zona se lanza con `npm run test:e2e:nobuild -- --grep @zona`. La
   guarda `scripts/e2e-tags.test.ts` (en `check`) falla si un test no tiene zona, tiene dos, usa
   una etiqueta desconocida o el portapapeles sin `@portapapeles`, o si una zona no tiene tests.
+- **Cuarentena (ficha 0075):** un test inestable confirmado lleva la etiqueta `@inestable`
+  (`resourceTags`) y la anotación `annotation: { type: 'arreglo', description: 'NNNN' }` con su
+  ficha de arreglo. Playwright tiene dos proyectos: `e2e` (todo menos `@inestable`) e
+  `inestables` (solo esos). Bloquea solo `e2e`: `test:e2e`, `test:e2e:nobuild` y
+  `test:e2e:affected` lanzan `--project=e2e`. `npm run test:e2e:inestables` lanza el otro (sobre
+  `out/`, sin compilar); el verifier lo pasa y apunta el resultado en la ficha, pero un fallo ahí
+  no lo pone en rojo. En las PR, el CI lo pasa en un paso con `continue-on-error` que escribe en
+  el resumen del job cuántos pasaron y fallaron, con la ficha de cada fallo; «CI ok» no depende de
+  él. La guarda `scripts/e2e-tags.test.ts` falla si un `@inestable` no tiene la anotación, si su
+  ficha no existe o si ya está `hecha` (entonces la etiqueta sobra y se quita). Cada test en
+  cuarentena sale en la sección «Tests en cuarentena» del `BACKLOG.md` (test, spec, ficha de
+  arreglo y desde cuándo), que mantiene el doc-writer: se añade al ponerlo y se quita al cerrar
+  su ficha. La guarda no la lee.
 - **Transversal** (lo decide `e2e/areas.json`): e2e completo. Los locales y `main.css` no son
   transversales: los cubren el test de paridad y el de contraste (los dos en `check`) y disparan el
   área shell, más la del módulo si el diff toca uno. `scripts/**` está en ignore porque solo

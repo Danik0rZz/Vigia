@@ -649,3 +649,86 @@ describe('CA3 (0073): check en el push a main y en las PR; e2e solo en las PR; d
     expect([...needsOf(ciOk)].sort()).toEqual([...others].sort())
   })
 })
+
+/**
+ * Ficha 0075: cuarentena de los e2e inestables. En las PR, el e2e completo lanza solo el proyecto
+ * `e2e` (bloqueante) y un paso más lanza el proyecto `inestables` con `continue-on-error: true` y
+ * escribe en el resumen del job (`$GITHUB_STEP_SUMMARY`). «CI ok» no depende de ese paso. Un paso
+ * «usa» un proyecto si lo dice su `run` o el script de `package.json` que lanza (`npm run x`).
+ */
+const PACKAGE_SCRIPTS =
+  (JSON.parse(readFileSync('package.json', 'utf8')) as { scripts?: Record<string, string> })
+    .scripts ?? {}
+
+/** El `run` del paso con los `npm run <script>` sustituidos por el script de package.json. */
+function expandedRun(step: Step): string {
+  return (step.fields.run ?? '').replace(
+    /npm run ([\w:-]+)/g,
+    (whole, name: string) => `${whole} [${PACKAGE_SCRIPTS[name] ?? ''}]`
+  )
+}
+
+function usesProject(step: Step, project: string): boolean {
+  return new RegExp(`--project[= ]['"]?${project}['"]?(\\s|\\]|$)`, 'm').test(expandedRun(step))
+}
+
+/** Texto de los scripts del repositorio que lanza el `run` del paso (`node scripts/x.mjs`). */
+function scriptsRunBy(step: Step): string {
+  return [...(step.fields.run ?? '').matchAll(/scripts\/[\w.-]+\.(?:mjs|cjs|js)/g)]
+    .map((match) => read(match[0]))
+    .join('\n')
+}
+
+describe('CA4 (0075): inestables en las PR, no bloqueantes y con resumen; el bloqueante, solo e2e', () => {
+  const workflow = read(CI)
+  const steps = jobSteps(workflow)
+  const inPullRequest = steps.filter(({ condition }) => !excludesPullRequest(condition))
+  const inestables = inPullRequest.filter(({ step }) => usesProject(step, 'inestables'))
+  const blocking = inPullRequest.filter(
+    ({ step }) =>
+      step.fields['continue-on-error'] !== 'true' &&
+      /npm run test:e2e(\s|$)|playwright test/.test(step.fields.run ?? '')
+  )
+
+  it('hay un paso en las PR que lanza --project=inestables', () => {
+    expect(inestables.length, 'paso de inestables en las PR').toBeGreaterThan(0)
+  })
+
+  it('el paso de inestables tiene continue-on-error: true', () => {
+    expect(inestables.length).toBeGreaterThan(0)
+    for (const { job, step } of inestables) {
+      expect(step.fields['continue-on-error'], `inestables en ${job}`).toBe('true')
+    }
+  })
+
+  it('el paso de inestables escribe en $GITHUB_STEP_SUMMARY (él o el script que lanza)', () => {
+    expect(inestables.length).toBeGreaterThan(0)
+    for (const { job, step } of inestables) {
+      const text = `${step.fields.run ?? ''}\n${scriptsRunBy(step)}`
+      expect(text, `resumen de inestables en ${job}`).toMatch(/GITHUB_STEP_SUMMARY/)
+    }
+  })
+
+  it('el paso bloqueante del e2e completo en las PR usa --project=e2e y no lanza inestables', () => {
+    expect(blocking.length, 'paso bloqueante del e2e en las PR').toBeGreaterThan(0)
+    for (const { job, step } of blocking) {
+      expect(usesProject(step, 'e2e'), `e2e bloqueante en ${job}: ${expandedRun(step)}`).toBe(true)
+      expect(usesProject(step, 'inestables'), `e2e bloqueante en ${job}`).toBe(false)
+    }
+  })
+
+  it('ci-ok no depende del paso de inestables', () => {
+    expect(inestables.length).toBeGreaterThan(0)
+    const ciOk = jobBlock(workflow, 'ci-ok')
+    expect(ciOk, 'job ci-ok').not.toBe('')
+    // Ni lo nombra ni mira el resultado de pasos de otros jobs.
+    expect(ciOk).not.toMatch(/inestables/)
+    expect(ciOk).not.toMatch(/\.outcome|\.conclusion/)
+    const needs = needsOf(ciOk)
+    for (const { job, step } of inestables) {
+      expect(job, 'el paso de inestables no va en ci-ok').not.toBe('ci-ok')
+      // Si va en un job del que depende ci-ok, su fallo no puede cambiar el resultado del job.
+      if (needs.includes(job)) expect(step.fields['continue-on-error']).toBe('true')
+    }
+  })
+})
