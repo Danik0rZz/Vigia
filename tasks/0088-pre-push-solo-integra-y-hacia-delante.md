@@ -1,7 +1,7 @@
 ---
 id: '0088'
 titulo: 'pre-push: solo se publica en ramas integra/ y solo hacia delante'
-estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_revision # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [seguridad] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -129,3 +129,4 @@ Verificación 2026-10-11, commit 50bb774, rango `main..fix/0088-pre-push-solo-in
 - Decisiones del developer: la comprobación es un modo `--check-refs` de `scan-tenant.mjs` y no un script nuevo; una línea de stdin mal formada se rechaza; `git cat-file -e` va antes de `merge-base` para distinguir un commit remoto que falta (pide `git fetch`) de otro error de git (falla cerrado); los borrados se rechazan dos veces, en el hook (0082) y en la función; `scripts/check-push-refs.test.ts` es propio del developer.
 - Efecto práctico: con este hook ningún push a `main` ni a otras ramas pasa, tampoco para Dani; los tags, con `VIGIA_PUSH_ALLOW_REFS=refs/tags/vX.Y.Z`.
 - Ideas anotadas en el BACKLOG: huecos de `deny` (`--mirror`, `--prune`, `git -C`), el salto del hook con `GIT_CONFIG_COUNT` y el unitario `react-compiler` sospechoso de inestable.
+- Reapertura por el CI (2026-10-11, PR #16, run 38159322552, intento 2): «CA3 (0088): la variable no deja pasar un push no lineal a un ref permitido» pasó del límite de 5000 ms de vitest (8,5 s en el runner de Windows; el fichero, 53,7 s). Arreglo en `fix/0088-ci`: `vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })` en la cabecera de `scripts/pre-push-refs.test.ts` y de `scripts/pre-push.test.ts` (0082, mismo riesgo: git real y push con el hook), sin tocar ninguna aserción. Se eligió `setConfig` y no la opción `timeout` de cada `describe` para no reindentar los bloques (diff limpio); comprobado con una prueba temporal que vale también para los `beforeEach`. `scripts/check-push-refs.test.ts` es unitario puro: sin riesgo, sin cambios. No se vio cómo acelerarlos sin quitar el push real con el hook, que es justo lo que comprueban.

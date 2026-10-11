@@ -2,7 +2,12 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Tiempo propio (0088, reabierta por el CI): cada test crea un repositorio y un remoto y hace un
+// push con el hook, que lanza Node y scan:tenant. En el runner de Windows del CI eso pasa de los
+// 5 s por defecto de vitest (8,5 s medidos en scripts/pre-push-refs.test.ts).
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 
 /**
  * Hook `.githooks/pre-push` (ficha 0082, CA4): un push que borra una rama remota (git le pasa la

@@ -3,7 +3,13 @@ import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Tiempo propio (reapertura por el CI): CA2 y CA3 crean un repositorio y un remoto y hacen uno o
+// dos push con el hook, que lanza Node y scan:tenant. En el runner de Windows del CI eso pasa de
+// los 5 s por defecto de vitest (8,5 s medidos). Los unitarios de CA1 no lo necesitan, pero no les
+// cambia nada.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 
 /**
  * Ficha 0088: el pre-push solo publica en ramas `integra/` (o en los refs exactos de
