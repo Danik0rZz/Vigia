@@ -33,7 +33,7 @@ bueno de Dani o de peticiones en su nombre.
   Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`, abajo) y el
   lote C (paralelismo).
 - Detrás, aprobados por Dani el 2026-10-11, en este orden: lote **medicion-control**
-  ([0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md), ligera, y
+  ([0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (hecha), ligera, y
   [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md), las dos con `medir: sí`) y lote
   **ideas-backlog** ([0084](tasks/0084-e2e-renombrar-useciwindow.md), ligera;
   [0082](tasks/0082-permisos-claude-fusiones-y-ramas.md) y
@@ -123,7 +123,6 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
   datos, en vez de que la interfaz lo deduzca de la serie (`hasRequestData`). (surgió en 0008)
 - Gráficos del servicio: la exportación XLSX lleva los valores ya convertidos (ms y /min); añadir una
   nota en la hoja Info o un módulo `entities` en `exportModules`. (surgió en 0009)
-- Clave `entities.service.charts.loadError` sin usar en es y en: usarla o quitarla. (surgió en 0009)
 - «Abrir en Métricas» de Actividad: la API v2 admite expresiones aritméticas, así que podría abrir OK
   como `(peticiones)-(errores)`; probarlo en vivo antes. (surgió en 0009)
 - Franja de problemas: no pedir la lista de problemas cuando no hay acceso a Métricas
@@ -395,3 +394,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md): la primera petición a cada host de cada sesión va sola (`fetchFor`, `network.ts`) para que dos conexiones nuevas a la vez no se salten el verificador de certificados; cubre también el SSO y cierra la ventana de «fijada». Va sola en su PR (exclusión `seguridad`). Resto conocido: ficha de seguimiento pendiente del Planificador.
 - [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (lote flujo-herramientas): `views.spec.ts` se parte en 11 `views-<zona>.spec.ts` y `views-portapapeles.spec.ts`; `areas.json` con un área por zona; la guarda `checkPlacement` vigila el reparto; cada worker tiene su puerto del simulador y sus carpetas (`workerResources`, `listenOn`); `workers` es 4 con `CI` y 8 sin él (tres pases en verde). Sin migraciones.
 - [0071](tasks/0071-e2e-afectados-locales-por-zona.md) (lote flujo-herramientas): un cambio solo en `locales/` lanza los unitarios de textos y los e2e de las zonas de las claves cambiadas (`changedKeys` + mapa `locales` en `areas.json`, `--grep` de zonas y `@smoke`); prefijo sin zona o JSON roto, e2e completo; guarda del mapa en `check`. Sin migraciones.
+- [0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (lote medicion-control, ligera): quitada la clave `entities.service.charts.loadError`, sin usar, de los textos en español e inglés. Sin migraciones.

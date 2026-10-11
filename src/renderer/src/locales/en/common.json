@@ -1235,7 +1235,6 @@
         "perMinuteUnit": "/min",
         "perMinuteTooltip": "{{perMinute}} · {{total}} in the interval",
         "loading": "Loading chart…",
-        "loadError": "Could not load the chart.",
         "exportColumns": {
           "series": "Series",
           "unit": "Unit"

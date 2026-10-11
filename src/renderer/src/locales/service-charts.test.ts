@@ -62,3 +62,37 @@ describe('CA9 (0009): textos de los gráficos en es y en', () => {
     }
   })
 })
+
+/** Ficha 0080: las claves que quedan en `entities.service.charts` al quitar `loadError`. */
+const KEYS_AFTER_0080 = [
+  'title',
+  'responseTime',
+  'activity',
+  'errorRate',
+  'errors',
+  'label',
+  'series.median',
+  'series.p90',
+  'series.p99',
+  'series.ok',
+  'series.ko',
+  'series.errorRate',
+  'series.requests',
+  'perMinuteUnit',
+  'perMinuteTooltip',
+  'loading',
+  'exportColumns.series',
+  'exportColumns.unit'
+].sort()
+
+describe('CA1 (0080): sin la clave loadError en los gráficos del servicio', () => {
+  it('CA1 (0080) entities.service.charts no tiene loadError ni en es ni en en', () => {
+    expect(esCharts).not.toHaveProperty('loadError')
+    expect(enCharts).not.toHaveProperty('loadError')
+  })
+
+  it('CA1 (0080) las demás claves de entities.service.charts siguen iguales en es y en', () => {
+    expect(Object.keys(esCharts).sort()).toEqual(KEYS_AFTER_0080)
+    expect(Object.keys(enCharts).sort()).toEqual(KEYS_AFTER_0080)
+  })
+})
