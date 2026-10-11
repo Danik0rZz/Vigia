@@ -40,6 +40,20 @@ bueno de Dani o de peticiones en su nombre.
   [0083](tasks/0083-log-enmascarar-anidados.md), cada una sola en su PR por la exclusión
   `seguridad`; y [0085](tasks/0085-host-nube-zona-y-tamano.md) (hecha)). Cola completa: 0079, 0070, 0071,
   0080, 0081, 0084, 0082, 0083 y 0085.
+- Detrás, aprobados por Dani el 2026-10-11: lote **e2e-inestables-2**
+  ([0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md), arreglo del test de la cola de
+  gráficos de evidencias, en cuarentena con `arreglo: 0086`; y
+  [0087](tasks/0087-e2e-seis-workers-en-local.md), ligera, 6 workers en local) y lote
+  **seguridad-revision**, con prioridad (hallazgos de seguridad abiertos de la revisión de código del
+  2026-10-11 y el seguimiento de la 0079; todas con la exclusión `seguridad`, cada una sola en su PR):
+  [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md),
+  [0089](tasks/0089-ci-ok-falla-cerrado.md), [0090](tasks/0090-fusion-atada-al-commit-del-ci.md),
+  [0091](tasks/0091-scan-tenant-nombres-y-binarios.md),
+  [0092](tasks/0092-telegram-no-envia-sin-filtro.md),
+  [0093](tasks/0093-log-sin-usuario-de-windows.md) (tras la 0083),
+  [0094](tasks/0094-markdown-color-sin-prototipo.md) y
+  [0095](tasks/0095-tls-seguimiento-conexiones-nuevas.md). Cola: 0087, 0088, 0089, 0090, 0091,
+  0092, 0093, 0094, 0095 y 0086.
 - Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
 
 ## Propuestas
@@ -47,7 +61,6 @@ bueno de Dani o de peticiones en su nombre.
 Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de Dani) en
 `docs/propuestas-siguientes.md`.
 
-- Ficha de seguimiento de seguridad del resto de la verificación de certificados (dos conexiones nuevas a un host cuando la sesión ya no recuerda la decisión); pendiente del Planificador. (surgió en 0079)
 - Eventos en el detalle del problema (propuesta 2, S). Necesita antes una prueba en vivo de solo
   lectura de `evidenceDetails`.
 - Agrupar Problemas por clúster (propuesta 3, S). Reabre la decisión de "sin agrupar".
