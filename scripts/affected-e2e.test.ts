@@ -271,9 +271,11 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
 // --- Ficha 0068: opciones --no-build, -g/--grep, --last-failed y --help ---
 
 const BUILD: Command = { command: 'npx', args: ['electron-vite', 'build'] }
+// Ficha 0075: el plan solo lanza el proyecto bloqueante (`--project=e2e`), justo tras `test`.
+const PROJECT = '--project=e2e'
 const playwright = (...args: string[]): Command => ({
   command: 'npx',
-  args: ['playwright', 'test', ...args]
+  args: ['playwright', 'test', PROJECT, ...args]
 })
 const SOME: Decision = {
   mode: 'some',
@@ -377,9 +379,10 @@ describe('CA3 (0068): -g, --grep y --last-failed llegan a Playwright después de
     const parsed = options(argv)
     expect(parsed.range).toBe('main..HEAD')
     const last = plan(SOME, parsed, { outExists: true }).commands.at(-1)
-    expect(last?.args.slice(0, 2 + SOME.specs.length)).toEqual([
+    expect(last?.args.slice(0, 3 + SOME.specs.length)).toEqual([
       'playwright',
       'test',
+      PROJECT,
       ...SOME.specs
     ])
     expect(last?.args).not.toContain('main..HEAD')
@@ -433,6 +436,24 @@ describe('CA5 (0068): con la decisión «ninguno», el plan está vacío', () =>
       const p = plan(NONE, options(argv), { outExists: true })
       expect(p.commands).toEqual([])
       expect(p.exit ?? 0).toBe(0)
+    }
+  )
+})
+
+describe('CA2 (0075): el plan de test:e2e:affected lanza solo el proyecto e2e', () => {
+  it.each([
+    ['some', SOME, []],
+    ['all', ALL, []],
+    ['some con --no-build y -g', SOME, ['--no-build', '-g', '(0070)']],
+    ['all con --last-failed', ALL, ['--last-failed']]
+  ] as const)(
+    '%s → Playwright con --project=e2e y nunca con inestables',
+    (_case, decision, argv) => {
+      const last = plan(decision, options([...argv]), { outExists: true }).commands.at(-1)
+      expect(last?.args.slice(0, 2)).toEqual(['playwright', 'test'])
+      expect(last?.args).toContain('--project=e2e')
+      expect(last?.args.filter((arg) => arg.startsWith('--project'))).toEqual(['--project=e2e'])
+      expect(last?.args.join(' ')).not.toMatch(/inestables/)
     }
   )
 })

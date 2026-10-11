@@ -57,3 +57,17 @@
 - Un test no debe suponer el ancho de la ventana para decidir qué se ve: medir el sitio real del elemento (como `expectIdRule` en la 0013). Una precondición que dependa de la fuente del sistema puede fallar en el runner (Windows Server).
 - Tras una transición (menú que se pliega), leer la caja del elemento con `stableBox`, no con `boundingBox` a pelo; y, al cruzar otro disparador de tooltip, Radix queda «en tránsito» e ignora el ratón hasta cerrar el tooltip cruzado: mover 1 px más al llegar (como hace `hoverFresh`). Ficha 0044.
 - La ventana de la app se enseña en `ready-to-show` (`showInactive()`), después de `domcontentloaded`: leer `isVisible()` justo tras la carga falla de forma intermitente. Para su estado, `expectShownWithoutFocus` (`e2e/window-state.ts`), que espera a verla y mira el foco en la misma lectura. Ficha 0045.
+- Cuarentena (ficha 0075): un test inestable confirmado lleva `@inestable` y la anotación
+  `annotation: { type: 'arreglo', description: 'NNNN' }` con su ficha de arreglo (la guarda de
+  `scripts/e2e-tags.test.ts` lo exige, y que la ficha exista y no esté `hecha`). El proyecto `e2e`
+  lo excluye y el proyecto `inestables` solo corre esos (`npm run test:e2e:inestables`, sobre
+  `out/`). Detalle en `docs/flujo.md`, «Niveles de prueba».
+- Cuarentena en un spec en modo serie (`tenants`, `shell` y `tls` usan `mode: 'serial'`): en `e2e`,
+  el test sacado no se ejecuta y los siguientes corren sin lo que él dejaba; en `inestables`, corre
+  solo, tras el `beforeAll`, sin lo que dejaban los anteriores. Solo puede ir a cuarentena un test
+  que no dependa de los anteriores ni deje nada a los siguientes. En `tenants.spec.ts` casi todos
+  encadenan estado (crea el cliente, luego sus entornos, luego sus secretos, la persistencia al
+  relanzar…): los de crear o borrar no se pueden sacar sin romper los siguientes, y los que leen
+  ese estado no pasan solos. Antes de poner uno de un spec en serie, la ficha (0076 y siguientes)
+  dice de qué depende y qué deja; si encadena, el arreglo o su paso a un `test.describe` propio va
+  primero.

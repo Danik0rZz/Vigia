@@ -75,7 +75,8 @@
     "@aplicacion": "página de la aplicación web, y sus canales"
   },
   "resourceTags": {
-    "@portapapeles": "lee o escribe el portapapeles del sistema"
+    "@portapapeles": "lee o escribe el portapapeles del sistema",
+    "@inestable": "en cuarentena: no bloquea; lleva la anotación arreglo con su ficha (ficha 0075)"
   },
   "areas": {
     "smoke": {

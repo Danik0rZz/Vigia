@@ -90,9 +90,24 @@ jobs:
           key: electron-${{ runner.os }}-44.5.1
       - run: npx install-electron
       - run: npm run check
-      # El e2e completo, en las PR y a mano; en el push a main ya pasó en su PR.
+      # El e2e completo, en las PR y a mano; en el push a main ya pasó en su PR. Solo el proyecto
+      # e2e (ficha 0075): los de la cuarentena van en el paso siguiente.
       - if: github.event_name != 'push'
         run: npm run test:e2e
+      # Ficha 0075: los e2e en cuarentena (@inestable), sobre el out/ del paso anterior. No bloquean
+      # (continue-on-error, y «CI ok» solo mira el resultado del job), pero el resumen del job dice
+      # cuántos pasaron y fallaron, con la ficha de arreglo de cada uno que falló.
+      # El reporter va entre comillas: el job corre en pwsh, y así la coma no depende de cómo parta
+      # los argumentos. Sin tests en cuarentena (--pass-with-no-tests) el informe sale igual, con 0.
+      - name: e2e en cuarentena (no bloquea)
+        if: github.event_name != 'push'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/inestables.json
+        run: |
+          npm run test:e2e:inestables -- '--reporter=list,json'
+          node scripts/e2e-inestables-summary.mjs test-results/inestables.json
       # Solo test-results/ de Playwright (captura y final del log de main de e2e/failure-capture.ts).
       # Los e2e usan servidores simulados: no hay datos del tenant ni secretos (el CI no tiene
       # .env.live.local ni test:live).

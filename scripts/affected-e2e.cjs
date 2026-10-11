@@ -131,9 +131,10 @@ function plan(decision, options, { outExists }) {
   const commands = []
   // La misma compilación que test:e2e (sin tipos: eso ya lo hace check).
   if (options.build) commands.push({ command: 'npx', args: ['electron-vite', 'build'] })
+  // Ficha 0075: solo el proyecto que bloquea; los de la cuarentena van con test:e2e:inestables.
   commands.push({
     command: 'npx',
-    args: ['playwright', 'test', ...decision.specs, ...options.playwright]
+    args: ['playwright', 'test', '--project=e2e', ...decision.specs, ...options.playwright]
   })
   return { commands }
 }
