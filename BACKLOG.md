@@ -66,6 +66,10 @@ bueno de Dani o de peticiones en su nombre.
   [0100](tasks/0100-unitario-react-compiler-intermitente.md) (hecha), ligera, causa y arreglo del unitario
   intermitente del React Compiler (`scripts/react-compiler.test.ts`). Entra justo después de la
   0097 y antes de la 0091.
+- Aprobada por Dani el 2026-10-12, con prioridad, a petición del Orquestador:
+  [0101](tasks/0101-tests-sin-variables-git-heredadas.md), los tests no heredan las variables
+  `GIT_*` (el `core.bare=true` que rompió git en el checkout principal). Sin exclusiones; va antes
+  de la 0092.
 - Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
   app. Al acabar la cola de seguridad, el Planificador propone para «Próximo» mejoras de la app
   (de «Propuestas»).
