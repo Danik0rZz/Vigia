@@ -14,7 +14,6 @@ bueno de Dani o de peticiones en su nombre.
   **auditoria-codigo-comun** (0057, 0058 y 0059 hechas), **auditoria-robustez** (0060 hecha,
   0061 y 0062 hechas), **auditoria-exportacion** (0063 hecha) y
   **auditoria-interfaz** (0064 hecha).
-- Pendiente de Dani: el fusible de integridad del asar (propuesta 6); Dani lo prueba antes de decidir.
 
 ## Próximo
 
@@ -31,9 +30,17 @@ bueno de Dani o de peticiones en su nombre.
   [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (hecha) y
   [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (hecha). Tras la 0073, Dani instala `gh`
   con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`
-  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079 (verificada, en su PR), 0070 (reviewer, ronda 1) y 0071.
-  Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`) y el lote C
-  (paralelismo).
+  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079 (hecha), 0070 (reviewer, ronda 1) y 0071.
+  Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`, abajo) y el
+  lote C (paralelismo).
+- Detrás, aprobados por Dani el 2026-10-11, en este orden: lote **medicion-control**
+  ([0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md), ligera, y
+  [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md), las dos con `medir: sí`) y lote
+  **ideas-backlog** ([0084](tasks/0084-e2e-renombrar-useciwindow.md), ligera;
+  [0082](tasks/0082-permisos-claude-fusiones-y-ramas.md) y
+  [0083](tasks/0083-log-enmascarar-anidados.md), cada una sola en su PR por la exclusión
+  `seguridad`; y [0085](tasks/0085-host-nube-zona-y-tamano.md)). Cola completa: 0079, 0070, 0071,
+  0080, 0081, 0084, 0082, 0083 y 0085.
 - Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
 
 ## Propuestas
@@ -48,7 +55,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Gráfico de las evidencias de métrica METRIC (propuesta 4 bis, S o M).
 - Unidad en los mini gráficos y en Métricas (propuesta 4 ter, S).
 - Fusible de integridad del asar (propuesta 6, S). Necesita un perfil o una máquina virtual de
-  prueba para arrancar el zip.
+  prueba para arrancar el zip. **Aparcado por Dani (2026-10-11):** se deja anotado hasta que el zip
+  vaya a darse a otras personas.
 - Vista de Entidades (propuesta 1, L). Pide `entities.read`.
 - Fase 8: DQL y Logs (propuesta 4, L). Coste por GiB escaneado; incluye el streaming de
   exportaciones y el aviso de filas de Excel en CSV.
