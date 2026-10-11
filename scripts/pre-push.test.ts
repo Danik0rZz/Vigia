@@ -102,12 +102,15 @@ describe('CA4 (0082): el pre-push para los borrados de ramas remotas y deja pasa
     expect(remoteHas('rama')).toBe(true)
   })
 
-  it('CA4 (0082): un push normal a main pasa (y scan:tenant se ejecuta)', () => {
+  it('CA4 (0082): un push normal a una integra/ pasa (y scan:tenant se ejecuta)', () => {
     commit('limpio.ts', 'const x = 1\n', 'Limpio')
-    const { status, output } = push('origin', 'main')
+    // Destino integra/ y no main desde la ficha 0088, que solo deja publicar en integra/.
+    const { status, output } = push('origin', 'HEAD:integra/20261011-2')
     expect(output).toContain('scan:tenant')
     expect(status).toBe(0)
-    expect(git(remote, 'rev-parse', 'main').trim()).toBe(git(repo, 'rev-parse', 'HEAD').trim())
+    expect(git(remote, 'rev-parse', 'integra/20261011-2').trim()).toBe(
+      git(repo, 'rev-parse', 'HEAD').trim()
+    )
   })
 
   it('CA4 (0082): un push a HEAD:integra/… (rama nueva) pasa', () => {
@@ -120,7 +123,7 @@ describe('CA4 (0082): el pre-push para los borrados de ramas remotas y deja pasa
 
   it('CA4 (0082): con una fuga del tenant, el pre-push sigue parando el push (scan:tenant, 0055)', () => {
     commit('fuga.ts', 'zz99fake.live.dynatrace.com\n', 'Fuga')
-    const { status, output } = push('origin', 'main')
+    const { status, output } = push('origin', 'HEAD:integra/20261011-3')
     expect(status).not.toBe(0)
     expect(output).toContain('scan:tenant')
     expect(output.toLowerCase()).not.toContain('zz99fake')

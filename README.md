@@ -53,6 +53,14 @@ o está vacío, para el push con el código 2. En un worktree usa el del checkou
 que se sube (los refs que git le pasa) y, si no hay nada que subir, lo deja pasar. En un clon sin
 tenant de pruebas, `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional: sale con 0 y un aviso.
 
+Antes del escaneo, el pre-push solo deja publicar en ramas `integra/` y con avance rápido: rechaza
+otro destino (`main`, `feat/x`, un tag), un refspec con `+` que reescribe un ref publicado y los
+borrados de refs remotos; si el commit remoto no está en el clon, pide `git fetch`. Otro destino,
+como un tag, se publica nombrando su ref entero en `VIGIA_PUSH_ALLOW_REFS` (varios, separados por
+comas; sin comodines ni prefijos): `VIGIA_PUSH_ALLOW_REFS=refs/tags/v0.12.0 git push origin
+refs/tags/v0.12.0`. La variable solo abre el destino: nunca un push que no sea un avance rápido ni
+un borrado.
+
 ## Flujo de trabajo
 
 Se trabaja con fichas (`tasks/`) y agentes de Claude Code (`.claude/agents/`): ver

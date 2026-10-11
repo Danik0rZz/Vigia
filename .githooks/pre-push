@@ -29,6 +29,17 @@ if [ -n "$deletes" ]; then
   exit 1
 fi
 
+# Después, los destinos (ficha 0088): solo ramas integra/ (o los refs exactos de
+# VIGIA_PUSH_ALLOW_REFS, separados por comas, como un tag) y solo con avance rápido. Un refspec con
+# + que reescribe un ref publicado se rechaza; si el commit remoto no está en el clon, también.
+printf '%s\n' "$input" | node scripts/scan-tenant.mjs --check-refs
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: solo se publica en ramas integra/ y con avance rápido. No se publica."
+  echo "pre-push: un tag u otro destino se publica con su ref entero en VIGIA_PUSH_ALLOW_REFS (por ejemplo, VIGIA_PUSH_ALLOW_REFS=refs/tags/v0.12.0)."
+  exit 1
+fi
+
 echo "pre-push › scan:tenant"
 printf '%s\n' "$input" | node scripts/scan-tenant.mjs --pre-push
 status=$?

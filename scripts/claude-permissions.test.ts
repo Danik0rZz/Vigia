@@ -90,6 +90,37 @@ describe('CA2 (0082): ninguna regla de deny niega el flujo de hoy', () => {
   }
 })
 
+describe('CA4 (0088): deny niega los refspec +, --mirror, --prune y git -c con push, sin negar los push a integra/', () => {
+  const RULES = ['git push * +*', 'git push * --mirror*', 'git push * --prune*', 'git -c *push*']
+  const DENIED = [
+    'git push origin +HEAD:integra/x',
+    'git push origin +x:integra/y',
+    'git push origin --mirror',
+    'git push origin --prune',
+    'git push origin --prune integra/x',
+    'git -c core.hooksPath=/dev/null push origin integra/x'
+  ]
+  const STILL_ALLOWED = ['git push origin integra/x', 'git push -u origin integra/x']
+
+  for (const shell of SHELLS) {
+    for (const rule of RULES) {
+      it(`CA4 (0088): ${shell} tiene la regla «${rule}»`, () => {
+        expect(denyPatterns(shell)).toContain(rule)
+      })
+    }
+    for (const command of DENIED) {
+      it(`CA4 (0088): ${shell} niega «${command}»`, () => {
+        expect(deniedBy(shell, command)).not.toEqual([])
+      })
+    }
+    for (const command of STILL_ALLOWED) {
+      it(`CA4 (0088): ${shell} no niega «${command}»`, () => {
+        expect(deniedBy(shell, command)).toEqual([])
+      })
+    }
+  }
+})
+
 describe('CA3 (0082): las reglas que ya había en deny y en allow siguen todas', () => {
   // Las reglas de antes de la ficha 0082 (`.claude/settings.json` del 2026-10-11).
   const PREVIOUS_ALLOW = [

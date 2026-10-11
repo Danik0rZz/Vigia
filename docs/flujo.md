@@ -225,6 +225,10 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
     remoto), porque git le pasa el borrado con el SHA local a ceros. Actúa en los clones con
     `core.hooksPath .githooks` y `--no-verify` se lo salta (a los agentes se lo niega `deny`,
     también por texto). Una rama remota se borra desde GitHub.
+  - **Publicar fuera de `integra/` o reescribir un ref publicado** (ficha 0088): el mismo hook solo
+    deja pasar ramas `integra/` con avance rápido; otro destino necesita su ref entero en
+    `VIGIA_PUSH_ALLOW_REFS` (es la vía de Dani para un tag). Además, `deny` niega
+    `git push * +*`, `--mirror`, `--prune` y `git -c` con push.
   - **`gh pr merge` con `--squash`, `-s`, `--rebase`, `-r`, `--delete-branch` o `-d`:** lo niegan
     las reglas `deny` de `.claude/settings.json` (Bash y PowerShell), igual que el force push con
     `--force`, `-f` o `--force-with-lease`, `--tags`, `git tag`, `gh release` y `--no-verify`.
@@ -435,7 +439,13 @@ informe local). Nunca van al CI.
   sin `.env.live.local`, o con él vacío, sale con 2 y el push no se hace. Lo busca en el directorio
   actual y, si no está, en el checkout principal (los worktrees de Orca no lo tienen). Sin nada que
   subir, deja pasar. `VIGIA_SCAN_TENANT_OPTIONAL=1` (solo ese valor) lo hace opcional, con 0 y un
-  aviso: para clones sin tenant de pruebas; en la VPS no se usa.
+  aviso: para clones sin tenant de pruebas; en la VPS no se usa. Antes del escaneo, rechaza los
+  borrados de refs remotos (ficha 0082) y solo deja publicar en ramas `integra/` y con avance
+  rápido (ficha 0088, `scan-tenant.mjs --check-refs`): otro destino, un refspec con `+` que
+  reescribe un ref publicado o un commit remoto que no está en el clon (pide `git fetch`) paran el
+  push. `VIGIA_PUSH_ALLOW_REFS` (refs enteros separados por comas, sin comodines) abre un destino
+  concreto: así publica Dani un tag (`VIGIA_PUSH_ALLOW_REFS=refs/tags/v0.12.0`). Nunca abre un
+  push que no sea un avance rápido ni un borrado.
 - **CI** (`.github/workflows/ci.yml`), en `windows-latest` con la instalación del README: en cada
   PR a `main` (y a mano), `npm run check` y `npm run test:e2e` completo, sin `dist:win`; en el
   push a `main` (al fusionar una PR), `npm run check` y `npm run dist:win` (sin subir el zip), sin
@@ -450,8 +460,8 @@ informe local). Nunca van al CI.
   nuevo cancela el run anterior); caché de Electron con su versión en la clave (al subir Electron,
   cambiarla); y `test-results/` como artefacto 7 días si fallan los e2e.
   `audit.yml` repite el audit cada lunes y a mano.
-- **Permisos de Claude Code** (`.claude/settings.json`): niegan force push, tags y releases, y leer
-  `.env*`.
+- **Permisos de Claude Code** (`.claude/settings.json`): niegan force push (también el refspec
+  con `+`), `--mirror`, `--prune`, `git -c` con push, tags y releases, y leer `.env*`.
 - Ningún agente salta un hook (`--no-verify`) ni da por buenos unos tests en rojo.
 
 ## Windows y la shell

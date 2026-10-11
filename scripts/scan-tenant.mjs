@@ -12,7 +12,12 @@
 // cerrado, ficha 0055), salvo con VIGIA_SCAN_TENANT_OPTIONAL=1 para lo del .env, que lo
 // convierte en un aviso y sale con 0. Con --pre-push y la entrada vacía (git no sube ningún
 // ref) sale con 0.
-import { execFileSync } from 'node:child_process'
+//
+//      node scripts/scan-tenant.mjs --check-refs   (también del pre-push, antes del escaneo; ficha
+//      0088): solo deja publicar en ramas integra/ (o en los refs exactos de
+//      VIGIA_PUSH_ALLOW_REFS, separados por comas) y solo con avance rápido. Sale con 1 si algún
+//      destino no pasa y con 2 si no puede leer la entrada estándar.
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -20,7 +25,9 @@ import { findLiveEnv, LIVE_ENV_FILE } from './lib/env-file.mjs'
 
 export const DEFAULT_RANGE = 'origin/main..HEAD'
 export const OPTIONAL_VAR = 'VIGIA_SCAN_TENANT_OPTIONAL'
+export const ALLOW_REFS_VAR = 'VIGIA_PUSH_ALLOW_REFS'
 const NEW_BRANCH_BASE = 'origin/main'
+const INTEGRA_PREFIX = 'refs/heads/integra/'
 const ZERO_SHA = /^0+$/
 
 /**
@@ -144,6 +151,116 @@ export function prePushRanges(input) {
   return ranges
 }
 
+/**
+ * Refs exactos de VIGIA_PUSH_ALLOW_REFS, separados por comas (ficha 0088). Sin comodines ni
+ * prefijos: cada uno se compara entero con el ref remoto.
+ */
+export function allowedRefs(value) {
+  if (typeof value !== 'string') return []
+  return value
+    .split(',')
+    .map((ref) => ref.trim())
+    .filter((ref) => ref !== '')
+}
+
+/**
+ * Comprueba los destinos del pre-push (ficha 0088). Por cada línea de la entrada estándar
+ * (`<ref local> <sha local> <ref remoto> <sha remoto>`) da como mucho un problema, el primero de:
+ * una línea con otra forma, un borrado (SHA local a ceros, como en la 0082), un destino que no es
+ * `refs/heads/integra/…` ni está entero en `allowed`, y un push que no es un avance rápido (el SHA
+ * remoto no es ceros y no es antecesor del local). `isAncestor(antecesor, descendiente)` devuelve
+ * un booleano; si lanza (el commit remoto no está en el clon), se rechaza: falla cerrado.
+ * Devuelve la lista de problemas (`{ ref, reason, message }`), vacía si todo pasa. Los mensajes
+ * solo llevan el ref remoto, nunca valores del tenant.
+ */
+export function checkPushRefs(lines, { allowed = [], isAncestor }) {
+  const problems = []
+  for (const raw of lines) {
+    const line = String(raw).trim()
+    if (line === '') continue
+    const parts = line.split(/\s+/)
+    const [, local, ref, remote] = parts
+    if (parts.length !== 4 || !/^[0-9a-f]+$/i.test(local) || !/^[0-9a-f]+$/i.test(remote)) {
+      problems.push({
+        ref: '',
+        reason: 'malformed',
+        message: 'línea de la entrada estándar con un formato inesperado; no se da por buena'
+      })
+      continue
+    }
+    if (ZERO_SHA.test(local)) {
+      problems.push({
+        ref,
+        reason: 'delete',
+        message: `${ref}: se borra un ref remoto; los borrados están bloqueados (una rama se borra desde GitHub)`
+      })
+      continue
+    }
+    if (!ref.startsWith(INTEGRA_PREFIX) && !allowed.includes(ref)) {
+      problems.push({
+        ref,
+        reason: 'not-integra',
+        message: `${ref}: el destino no es una rama integra/; solo se publica en ${INTEGRA_PREFIX}…. Otro destino, como un tag, se publica nombrándolo entero en ${ALLOW_REFS_VAR} (por ejemplo, ${ALLOW_REFS_VAR}=refs/tags/v0.12.0)`
+      })
+      continue
+    }
+    if (ZERO_SHA.test(remote)) continue
+    let linear
+    try {
+      linear = isAncestor(remote, local)
+    } catch {
+      problems.push({
+        ref,
+        reason: 'unknown-remote',
+        message: `${ref}: no se puede comprobar que sea un avance rápido: el commit remoto no está en este clon. Haz git fetch y vuelve a intentarlo`
+      })
+      continue
+    }
+    if (!linear) {
+      problems.push({
+        ref,
+        reason: 'not-fast-forward',
+        message: `${ref}: no es un avance rápido; el remoto tiene commits que no están en lo que se sube y no se reescribe un ref publicado`
+      })
+    }
+  }
+  return problems
+}
+
+/**
+ * `git merge-base --is-ancestor` en el clon actual: true con 0, false con 1. Si el commit remoto
+ * no está en el clon, u otro error de git, lanza (checkPushRefs lo rechaza).
+ */
+function gitIsAncestor(ancestor, descendant) {
+  const present = spawnSync('git', ['cat-file', '-e', `${ancestor}^{commit}`], { stdio: 'ignore' })
+  if (present.status !== 0) throw new Error('el commit remoto no está en el clon')
+  const result = spawnSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+    stdio: 'ignore'
+  })
+  if (result.status === 0) return true
+  if (result.status === 1) return false
+  throw new Error('git merge-base no ha podido comprobarlo')
+}
+
+/** --check-refs: los destinos del pre-push (ficha 0088). 0 si pasan, 1 si no, 2 si no se lee. */
+function checkRefsMain(env) {
+  let input
+  try {
+    input = readFileSync(0, 'utf8')
+  } catch (error) {
+    console.error(
+      `pre-push: no se ha podido leer la entrada estándar: ${error.message.split('\n')[0]}`
+    )
+    return 2
+  }
+  const problems = checkPushRefs(String(input).split(/\r?\n/), {
+    allowed: allowedRefs(env[ALLOW_REFS_VAR]),
+    isAncestor: gitIsAncestor
+  })
+  for (const problem of problems) console.error(`pre-push: ${problem.message}.`)
+  return problems.length > 0 ? 1 : 0
+}
+
 /** Lee la entrada estándar del pre-push y la convierte en rangos; código 2 si no se puede. */
 function prePushInput() {
   let input
@@ -197,6 +314,7 @@ function checkLiveEnv(env) {
 }
 
 export function main(argv, env = process.env) {
+  if (argv[0] === '--check-refs') return checkRefsMain(env)
   const prePush = argv[0] === '--pre-push'
   const envCode = checkLiveEnv(env)
   if (envCode !== undefined) return envCode
