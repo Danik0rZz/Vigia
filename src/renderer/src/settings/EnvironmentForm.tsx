@@ -56,25 +56,26 @@ export function EnvironmentForm({
   }, [storedLevel, form])
 
   // Secretos escritos y sin guardar: cerrar los perdería, así que se pregunta.
+  // Un conjunto que se modifica en el sitio, no un estado que se sustituye: cerrar tiene que ver
+  // lo último escrito aunque React no haya vuelto a pintar el formulario. Chromium adelanta una
+  // tecla (Escape) a las tareas pendientes de React y, con un estado nuevo en cada cambio, se leía
+  // el conjunto de antes y se cerraba sin preguntar (ficha 0077). No se pinta nada a partir de él.
   const formId = useId()
-  const [dirtySecrets, setDirtySecrets] = useState<ReadonlySet<SecretKind>>(new Set())
+  const [dirtySecrets] = useState(() => new Set<SecretKind>())
   const [confirmClose, setConfirmClose] = useState(false)
   // Sube con cada credencial guardada o borrada: reinicia "Probar conexión".
   const [credentialsVersion, setCredentialsVersion] = useState(0)
-  const onSecretDirty = useCallback((kind: SecretKind, dirty: boolean) => {
-    setDirtySecrets((current) => {
-      if (current.has(kind) === dirty) return current
-      const next = new Set(current)
-      if (dirty) next.add(kind)
-      else next.delete(kind)
-      return next
-    })
-  }, [])
+  const onSecretDirty = useCallback(
+    (kind: SecretKind, dirty: boolean) => {
+      if (dirty) dirtySecrets.add(kind)
+      else dirtySecrets.delete(kind)
+    },
+    [dirtySecrets]
+  )
   /**
    * `gone`: secretos cuyo campo deja de existir (al guardar el paso a Managed), que no cuentan
    * como sin guardar. Hace falta además de la limpieza de `SecretRow` al desmontarse: tras el
-   * `await` de guardar, `requestClose` es la del render en que se pulsó Guardar y lee
-   * `dirtySecrets` de entonces (ficha 0064).
+   * `await` de guardar, los campos de plataforma pueden no haberse desmontado aún (ficha 0064).
    */
   const requestClose = (gone: readonly SecretKind[] = []): void => {
     if ([...dirtySecrets].some((kind) => !gone.includes(kind))) setConfirmClose(true)

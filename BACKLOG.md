@@ -25,9 +25,9 @@ bueno de Dani o de peticiones en su nombre.
   [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md) (hecha),
   [0073](tasks/0073-integracion-por-pr.md) (hecha) y [0074](tasks/0074-medicion-automatica-ci.md) (hecha); después,
   lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md) (hecha),
-  [0076](tasks/0076-e2e-poner-en-cuarentena.md),
-  [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) y
-  [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md). Tras la 0073, Dani instala `gh`
+  [0076](tasks/0076-e2e-poner-en-cuarentena.md) (hecha),
+  [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (hecha) y
+  [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (hecha). Tras la 0073, Dani instala `gh`
   con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`.
   Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`) y el lote C
   (paralelismo).
@@ -101,7 +101,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
   (surgió en 0006)
 - e2e intermitente `views.spec.ts:2482` («v0.10.0: tabla de evidencias: estado propio por evento
   en un problema cerrado»): falló una vez en la tirada completa y pasó 3/3 aislado; causa sin
-  investigar. (surgió en 0006)
+  investigar. (surgió en 0006) No reproducido el 2026-10-11, 5 de 5 aislado y `views` entero con `--workers=1` (ficha 0076).
 - `service-format.ts` está en `src/renderer/src/lib/**`, que cuenta como transversal y obliga a
   correr el e2e completo; moverlo a `pages/entities/`. (surgió en 0008)
 - Fichas: poner las «Decisiones del developer» en su propia sección, no dentro de «Ideas surgidas».
@@ -203,7 +203,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Visor de Markdown: un `li` con marca pierde también el número en un `ol`; limitar `list-style: none` a `ul > li`. (surgió en 0038)
 - Host: tests de `hostChartUnit('memory') === 'B'` y del % usado en el tooltip (`formatter` de `hostChartOption('memory', …)`). (surgió en 0039)
 - Host: «Abrir en Métricas» del gráfico de memoria sigue con `mem.usage` (%), aunque el gráfico va en bytes; podría abrir usada, recuperable y total. (surgió en 0039)
-- e2e intermitente `CA2 (0005)` (`views.spec.ts:4601`, ventana mínima): timeout de 5 s del `expect.poll` de `withContentSize` con los workers en paralelo; pasa aislado y con `--workers=1`. (surgió en 0039)
+- e2e intermitente `CA2 (0005)` (`views.spec.ts:4601`, ventana mínima): timeout de 5 s del `expect.poll` de `withContentSize` con los workers en paralelo; pasa aislado y con `--workers=1`. (surgió en 0039) No reproducido el 2026-10-11, 5 de 5 aislado y `views` entero con `--workers=1` (ficha 0076).
 - Página del disco: pasar el nombre del host en el estado al llegar desde su tabla, o pedirlo con `entities:names` a demanda, para que «Disco de» enseñe el nombre y no el tipo y el id. (surgió en 0040)
 - Página del disco: los inodos libres ya llegan en `series.inodes` y no se pintan; serie o marcador si Dani lo quiere. (surgió en 0040)
 - `entities:diskMetrics`: el casado de resultados por posición se desplazaría si Dynatrace devolviera menos `result` que expresiones; comentarlo o comprobar la longitud. (surgió en 0040)
@@ -251,7 +251,8 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `csv.ts` construye las líneas con spread en literales de array (`[header, ...lines]`): no es el fallo del TXT (un spread en un literal no tiene el límite de argumentos), pero por coherencia podría pasar a `concat`. (surgió en 0063)
 - Test e2e de la exportación del mini gráfico: una exportación justo en la hora repetida de una zona con cambio de hora puede salirse una hora (no en el CI, que va en UTC; en la VPS, una hora al año). (surgió en 0063)
 - Notas al pie del Markdown del tenant: las referencias `[^1]` y la vuelta `↩` salen en texto, porque sus enlaces internos no son http/https; se podrían admitir los anclajes internos `#user-content-…`. Además el título oculto sale con el texto por defecto de remark-rehype («Footnotes»), sin traducir: ponerlo en es y en. (surgió en 0064)
-- `e2e/tenants.spec.ts` es inestable a veces: AUD-03 (confirmación al cerrar con un secreto sin guardar) y AUD-21 (paleta por encima de un diálogo) fallan con `--repeat-each 3`; ya pasaba en `main`. (surgió en 0064)
+- `e2e/tenants.spec.ts` es inestable a veces: AUD-03 (confirmación al cerrar con un secreto sin guardar) y AUD-21 (paleta por encima de un diálogo) fallan con `--repeat-each 3`; ya pasaba en `main`. (surgió en 0064) Medido el 2026-10-11 (ficha 0076): AUD-03 falla 3 de 5 con `--workers=1` (Escape no saca la confirmación); no va a cuarentena (depende del modo serie); se arregla en la 0077. AUD-21, no reproducido el 2026-10-11, 12 de 12; la 0078 queda en espera. AUD-03 arreglado en la 0077 (era una carrera en la app). AUD-21 visto fallar de nuevo el 2026-10-11 (surgió en 0077): una vez en el e2e afectado, `onTop` falso en la línea 850 (en el centro de la paleta no está la paleta), con el mismo `out/` con que pasó 20 de 20; la condición de Dani para retomar la 0078 se cumple. Arreglado en la 0078 (ya no es sospechoso): la causa estaba en el test, no en la app.
+- Cerrar el entorno con secretos sin guardar: `dirtySecrets` de `EnvironmentForm` es un `useState` con un `Set` mutado en el sitio; `useRef(new Set())` sería lo habitual y evitaría quejas de una futura regla de inmutabilidad. (surgió en 0077)
 - El test «CA3 (0048)» de `e2e/views.spec.ts` es el que comprueba el texto exacto «SLO»: poner «CA2 (0065)» en su nombre (regla de `e2e/CLAUDE.md`). (surgió en 0065)
 - Dos comentarios pasan de 100 columnas: el JSDoc de `ServiceMarkers.tsx` y el bloque de nombres de `e2e/views.spec.ts`; reajustarlos. (surgió en 0066)
 - Escribir la regla de zona de los «Abrir en Métricas» de `e2e/views.spec.ts` (unos van a `@metricas`, otros a `@problema-detalle` o `@servicio`), por ejemplo: a `@metricas` si se comprueba lo que pinta Métricas; a la zona de origen si se comprueba la consulta del gráfico. **A resolver antes de la 0070 y la 0071.** (surgió en 0067)
@@ -260,7 +261,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `scripts/affected-e2e.cjs`: `--grep=<patrón>`, que Playwright acepta, sale como opción desconocida con código 2 (fallo seguro); admitirlo si se echa en falta. (surgió en 0068)
 - `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo en la 0070. (surgió en 0069)
 - El comentario de `e2e/views.spec.ts` (≈ línea 5472) dice «y sus problemas para los recuentos», que ahora viven en `e2e/views/fixtures.ts`: retocarlo en la 0070. (surgió en 0069)
-- Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069)
+- Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069) No reproducido el 2026-10-11, 5 de 5 aislado y `views` entero con `--workers=1` (ficha 0076).
 - Permisos de `.claude/settings.json`: negar `gh pr merge --squash`, `--rebase` y `--delete-branch` y `git push origin :<rama>`, como ya se niegan el force push y los tags (hoy que fusione solo Dani las PR de una ficha y que nadie borre ramas remotas está solo escrito en `docs/flujo.md`). Ficha propia; lo decide Dani. (surgió en 0073)
 - `/cerrar-version`: que se pare si hay una PR de `integra/…` sin fusionar. (surgió en 0073)
 - Test de la 0072: fijar `== 'true'` en el de CA3 y llevar la lógica de `ci-ok` (CA4) a un script probado con resultados de ejemplo; `!cancelled()` evitaría el «CI ok» en rojo de un run cancelado por otro push, pero la ficha pedía `always()`. (surgió en 0072)
@@ -374,3 +375,6 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0073](tasks/0073-integracion-por-pr.md) (lote flujo-herramientas): integración por PR: un commit por ficha (`scripts/integrate.mjs`), ramas `integra/AAAAMMDD-N`, PR de 3 a 5 fichas (`groupForPrs`, campo `exclusiones`; las que tocan una exclusión van solas y las fusiona Dani), `check` y `dist:win` en el push a `main` y e2e completo solo en las PR. ADR-0014. Sin migraciones.
 - [0074](tasks/0074-medicion-automatica-ci.md) (lote flujo-herramientas): `node scripts/ci-times.mjs <run>` (id o URL) lee los jobs y pasos del run con la API REST de GitHub (anónima o con `GITHUB_TOKEN`, que nunca se escribe) y saca las filas de «Ejecuciones» en hora local con duraciones y total; `buildRows` pura con 31 tests, errores 404, límite y sin red con código distinto de 0. `docs/flujo.md` y `tarea.md` lo citan. Sin migraciones.
 - [0075](tasks/0075-e2e-cuarentena-inestables.md) (lote e2e-inestables): etiqueta `@inestable` y dos proyectos de Playwright, `e2e` (bloquea) e `inestables`; `test:e2e`, `:nobuild` y `:affected` lanzan solo `--project=e2e` y `test:e2e:inestables` el otro. En las PR, paso con `continue-on-error` y resumen en `$GITHUB_STEP_SUMMARY` (`scripts/e2e-inestables-summary.mjs`). La guarda de `e2e-tags` exige la anotación `arreglo`, ficha existente y no hecha. Sección «Tests en cuarentena» en este fichero. Sin migraciones.
+- [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (lote e2e-inestables): al cerrar un entorno con un secreto escrito sin guardar, Escape ya siempre pide confirmación (era una carrera en la app). Sin migraciones.
+- [0076](tasks/0076-e2e-poner-en-cuarentena.md) (lote e2e-inestables): medición de los cinco sospechosos de inestables con `--repeat-each 5`; AUD-03 falla 3 de 5 con `--workers=1` y se arregla en la 0077 (no va a cuarentena, depende del modo serie); AUD-21 y los de `views` no se reprodujeron (0078 en espera). Ningún test queda en cuarentena. Sin migraciones.
+- [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (lote e2e-inestables): AUD-21 (Ctrl+K con un diálogo abierto) fallaba a veces porque Radix pinta la paleta un fotograma con `pointer-events: none` antes de registrar la capa; el test ahora espera con `expect.poll` a que reciba el puntero y el foco. No era un defecto de la app. Sin migraciones.
