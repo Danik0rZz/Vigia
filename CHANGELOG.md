@@ -32,6 +32,7 @@ Sin migraciones nuevas.
 
 ### Corregido
 
+- **Escape siempre pide confirmación al cerrar un entorno con un secreto sin guardar.** Si se escribía un secreto y se pulsaba Escape enseguida, el formulario a veces se cerraba sin preguntar y se perdía lo escrito; ahora el aviso sale siempre. Sin migraciones nuevas. (ficha 0077)
 - **«Reintentar» de un panel solo vuelve a pedir lo suyo.** Antes, un clic en «Reintentar» en un panel que había fallado volvía a pedir todas las consultas activas de la pantalla (con quince evidencias con métrica, quince consultas más), gastando cuota justo cuando algo falla. Ahora el gráfico de entidad, el de Métricas, el mini gráfico de cada evidencia, la línea de tiempo y la tabla de Problemas repiten solo su consulta; el resto de paneles solo vuelven a pintarse con lo que ya había. (ficha 0064)
 - **Sin el aviso de cerrar con secretos sin guardar por un campo que ya no existe.** Al escribir en un secreto de plataforma, pasar el entorno a Managed y guardar, ya no sale «Hay secretos sin guardar». (ficha 0064)
 - **El token guardado no se queda en la caché.** Tras guardar un secreto, su valor ya no permanece unos minutos en la memoria de consultas de la interfaz. (ficha 0064)

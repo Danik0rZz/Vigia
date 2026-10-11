@@ -84,3 +84,5 @@ Normal (`ligera: no`).
 ## Resultado
 
 En espera (decisión de Dani, 2026-10-11): AUD-21 no se reprodujo en la medición de la 0076 (12 de 12 en verde). Se retoma cuando el CI o una medición vuelva a verlo fallar.
+
+Visto fallar de nuevo (2026-10-11, en la 0077): AUD-21 falló una vez en el e2e afectado del developer de la 0077 (entre 10:01:18 y 10:01:29, línea 850, `onTop` falso: en el centro de la paleta no está la paleta), con el mismo `out/` con que pasó 20 de 20 en las tandas de CA1; el verifier no lo vio fallar. La condición de Dani para retomar la 0078 se cumple.

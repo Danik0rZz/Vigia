@@ -556,6 +556,38 @@ test(
 )
 
 test(
+  'CA3 (0077): Escape en la misma tarea en que se escribe el secreto también pide confirmación',
+  { tag: '@tenants' },
+  async () => {
+    const form = page.getByTestId('environment-form')
+    const confirm = page.getByTestId('confirm-dialog')
+    await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+    await expect(form).toBeVisible()
+    const input = form.getByTestId('secret-input-platformToken')
+    await input.focus()
+
+    // Escribir y pulsar Escape sin dejar a React una tarea en medio: es lo que pasa cuando
+    // Chromium adelanta la pulsación a las tareas pendientes de React (la entrada va primero).
+    await input.evaluate((element) => {
+      const field = element as HTMLInputElement
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      setValue?.call(field, 'dt0s16.FALSO0077.MISMATAREA')
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+
+    await expect(confirm).toBeVisible()
+    await confirm.getByTestId('confirm-accept').click()
+    await expect(form).toBeHidden()
+    await environmentRow('Cliente A', 'Producción').getByTestId('environment-edit').click()
+    await expect(form.getByTestId('secret-status-platformToken')).toHaveText('Sin configurar')
+    await form.getByTestId('form-cancel').click()
+    await expect(form).toBeHidden()
+    expect(await page.content()).not.toContain('MISMATAREA')
+  }
+)
+
+test(
   'AUD-03: Enter en un campo del entorno sigue guardando el entorno',
   { tag: '@tenants' },
   async () => {
