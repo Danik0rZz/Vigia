@@ -127,3 +127,46 @@ export async function stableBox(target: Locator): Promise<Box> {
     await new Promise((resolve) => setTimeout(resolve, STABLE_INTERVAL_MS))
   }
 }
+
+/**
+ * Caja de la parte del elemento que se ve: su caja recortada por cada antecesor que recorta
+ * (`overflow` distinto de `visible`, sin contar su barra de scroll) y por la ventana. Sirve para
+ * apuntar con el ratón a un elemento más grande que el contenedor con scroll que lo tiene, como el
+ * lienzo de un mini gráfico dentro de la tabla de evidencias, más ancha que su caja (0096): un
+ * punto calculado sobre la caja entera puede caer fuera de lo visible, y ahí no llega el ratón.
+ * Lee la caja con el elemento quieto (`stableBox`) y falla si no se ve nada de él.
+ */
+export async function visibleBox(target: Locator): Promise<Box> {
+  await stableBox(target)
+  const box = await target.evaluate((el) => {
+    const rect = el.getBoundingClientRect()
+    let left = rect.left
+    let top = rect.top
+    let right = rect.right
+    let bottom = rect.bottom
+    for (let node = el.parentElement; node !== null; node = node.parentElement) {
+      const style = getComputedStyle(node)
+      const outer = node.getBoundingClientRect()
+      // El área de contenido sin bordes ni barra de scroll (clientWidth y clientHeight).
+      const innerLeft = outer.left + node.clientLeft
+      const innerTop = outer.top + node.clientTop
+      if (style.overflowX !== 'visible') {
+        left = Math.max(left, innerLeft)
+        right = Math.min(right, innerLeft + node.clientWidth)
+      }
+      if (style.overflowY !== 'visible') {
+        top = Math.max(top, innerTop)
+        bottom = Math.min(bottom, innerTop + node.clientHeight)
+      }
+    }
+    left = Math.max(left, 0)
+    top = Math.max(top, 0)
+    right = Math.min(right, window.innerWidth)
+    bottom = Math.min(bottom, window.innerHeight)
+    return { x: left, y: top, width: right - left, height: bottom - top }
+  })
+  if (box.width <= 0 || box.height <= 0) {
+    throw new Error('visibleBox: no se ve ninguna parte del elemento')
+  }
+  return box
+}
