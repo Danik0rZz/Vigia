@@ -19,10 +19,42 @@
   el reparto, en la cabecera de `harness.ts`): cada uno llama a `setupViewsApp()` una vez, en el
   nivel superior, y no lanza la app por su cuenta. `scripts/e2e-views-harness.test.ts` lo vigila.
   El estado (`page`, `app`, `exportDir`…) se importa tal cual: enlaces vivos de solo lectura. Ficha 0069.
-- Los e2e corren con 4 workers. `views` es el único spec que usa el portapapeles del sistema; sus
-  tests corren en un mismo worker (sin `fullyParallel`), así que no necesitan modo serie. Otro spec
-  que lo use va en un proyecto aparte. Con `--repeat-each`, `views` va con `--workers=1`: si no, dos
-  copias se pisan el portapapeles.
+- Specs de vistas (ficha 0070): uno por zona de vistas, `views-<zona>.spec.ts`, con solo tests de
+  esa zona, y `views-portapapeles.spec.ts` con todos los `@portapapeles` (cada uno con su zona) y
+  nada más. Un spec corre en un solo worker y sus tests de uno en uno (sin `fullyParallel`), así que
+  los del portapapeles no se pisan y no necesitan modo serie. La guarda es `checkPlacement`
+  (`scripts/e2e-tags.cjs`). Un ayudante que usan varios specs va a `e2e/views/helpers.ts`; uno de
+  un solo spec, en él. Un spec no añade datos al simulador al cargarse (`detailOnly.push`…): un
+  worker que no lo cargue no los tendría; van en `e2e/views/fixtures.ts`.
+- Workers: 4 en el CI y el número medido sin él (`playwright.config.ts`, ficha 0070). Cada worker
+  de vistas usa su puerto del simulador y sus carpetas de datos y de exportación
+  (`workerResources(workerIndex)`, `e2e/worker-resources.ts`); si el puerto está ocupado, el arnés
+  falla nombrándolo. Los demás specs usan el puerto 0 y `mkdtempSync`. Con
+  `--repeat-each`, `views-portapapeles` va con `--workers=1`: si no, dos copias se pisan el
+  portapapeles.
+- «Abrir en Métricas» (ficha 0070): el test va a la zona de la página del botón (`@problema-detalle`,
+  `@servicio`…), aunque compruebe lo que llega a Métricas; lo que hace Métricas con su URL por su
+  cuenta («Métricas por URL»), a `@metricas`.
+- Áreas de vistas en `areas.json` (ficha 0070): un fichero va en el área de la zona que lo pinta o
+  cuyo canal sirve, y en la de cada zona que lo comparte; lo común a casi todas, en `vistas-comun`,
+  que lanza todos los specs de vistas. Un área lanza además los specs de las zonas cuyos tests
+  entran por esa pantalla para llegar a lo que comprueban (la lista de Problemas al detalle, el
+  detalle a las páginas de entidad con «Analizar entidad», «Abrir en Métricas» a Métricas); un
+  enlace que solo comprueba adónde lleva no cuenta. Si una de esas zonas tiene tests en
+  `views-portapapeles.spec.ts`, ese spec también.
+- Textos en `areas.json` (ficha 0071): `locales` lleva cada prefijo de clave (primer nivel y, en
+  `entities`, segundo; uno más largo si una parte se pinta en más sitios) a las zonas donde se
+  pintan sus textos, buscando en `src/` quién lo usa (el criterio, en la cabecera de
+  `scripts/affected-e2e.cjs`). Una sección nueva de textos lleva su prefijo, o falla la guarda de
+  `scripts/affected-e2e-locales.test.ts`. Los specs de una zona son los que tienen algún test con
+  su etiqueta.
+- Buscar en `src/` no basta: al tocar el mapa `locales` (o un test que compruebe textos), repasar
+  `e2e/*.spec.ts`. Cada texto literal de un `common.json` (es o en), cada `t('es', '…')` y cada
+  `es.…`/`en.…` que use un test cae en un prefijo que incluye la zona de ese test. Lo que falló en
+  la 0071: `module.noEnvironment` se monta en `data/modules.ts` y lo comprueba `@shell`; el botón
+  de idioma (`topbar.language`) lo pulsan `@tls` y `@errors`. Las coincidencias con nombres de
+  fixtures, datos del simulador o `data-testid` se descartan a mano. No es guarda: es un paso.
+- Probar de verdad un cambio de `test:e2e:affected` que solo mira textos: un cambio en `areas.json` lanza el e2e completo sin `--grep` y no ejercita el filtro. Hay que tocar una clave real de `common.json` (sin commitear, y deshacerlo) y lanzar `npm run test:e2e:affected -- HEAD` en Windows. Así se vio que el `|` del `--grep` de zonas lo rompía cmd (ficha 0071); el script lanza ahora los binarios con node, sin shell.
 - Cambios hechos por IPC directo (`window.vigia.invoke`) no actualizan la interfaz: TanStack Query
   solo se entera de las mutaciones que hace el renderer. Recargar tras preparar datos por IPC.
 - Datos de Dynatrace solo del simulador: nada del tenant (nombres, IDs, URLs, valores) en specs ni
@@ -31,7 +63,7 @@
   e2e completo). `--repeat-each 3` solo si se toca temporización (esperas, animaciones,
   virtualización, navegación) o hubo un fallo intermitente.
 - Lo que dependa de la geometría se prueba con el contenido de la ventana fijado desde el test
-  (`withContentSize`, en el arnés, y `withContentWidth`, en `views.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
+  (`withContentSize`, en el arnés, y `withContentWidth`, en `views-servicio.spec.ts`): el runner del CI tiene pantalla de 1024×768 y recorta la
   ventana, así que sin fijarla ve otra geometría que la VPS.
 - Si la cabecera u otro elemento «intercepta» un clic, mirar antes si con esa ventana el control se
   ve de verdad: en la 0005 era un fallo de la app (la ruta quedaba en 0 px), no del test.
@@ -46,7 +78,7 @@
   `clickInPlace` sobre una fila del centro.
 - Una hora escrita en un campo de fecha se interpreta en la zona del equipo: lo esperado se calcula
   con `wallTimeToEpoch` en la zona del renderer, nunca suponiendo Madrid (el CI está en UTC).
-- Todos los specs llaman a `useCiWindow` (`e2e/window-size.ts`) justo después de arrancar la app: la ventana es 1024×720 como en el CI, y `withContentSize`/`withContentWidth` vuelven a `FIXED_WINDOW` al acabar. Un test de `scripts/` lo vigila.
+- Todos los specs llaman a `applyCiWindow` (`e2e/window-size.ts`) justo después de arrancar la app: la ventana es 1024×720 como en el CI, y `withContentSize`/`withContentWidth` vuelven a `FIXED_WINDOW` al acabar. Un test de `scripts/` lo vigila.
 - `withContentSize` acepta hasta 2 px de redondeo de Windows al escalar y pasa el tamaño real al cuerpo.
 - En Windows, desde Git Bash `TZ=Europe/Madrid` no llega al proceso (MSYS lo descarta; `TZ=UTC` sí): para
   zonas con barra, PowerShell (`$env:TZ`) o Node.

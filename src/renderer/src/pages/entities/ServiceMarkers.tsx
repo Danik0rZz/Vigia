@@ -38,6 +38,8 @@ export function ServiceMarkers({
 }): JSX.Element {
   const { t, i18n } = useTranslation()
   const lang = i18n.language
+  // Ficha 0081: si falla el canal de métricas, cada tarjeta enseña su aviso, pero solo la primera
+  // («SLO», o «Peticiones» con Solo actividad) lo anuncia; las demás van con `silent`.
   const metricState = { query: metrics, enabled: metricsEnabled }
   const data = metrics.data
   const activityOnly = data?.metricSet === 'activity'
@@ -79,7 +81,7 @@ export function ServiceMarkers({
             </MarkerCard>
 
             <MarkerCard testId="service-marker-ok" title={t('entities.service.markers.ok')}>
-              <QueryState {...metricState}>
+              <QueryState {...metricState} silent>
                 {(data) => (
                   <BigValue testIdPrefix="service">{formatCount(okOf(data), lang)}</BigValue>
                 )}
@@ -87,7 +89,7 @@ export function ServiceMarkers({
             </MarkerCard>
 
             <MarkerCard testId="service-marker-ko" title={t('entities.service.markers.ko')}>
-              <QueryState {...metricState}>
+              <QueryState {...metricState} silent>
                 {(data) => {
                   const errors = errorsOf(data)
                   return (
@@ -106,7 +108,7 @@ export function ServiceMarkers({
               testId="service-marker-error-rate"
               title={t('entities.service.markers.errorRate')}
             >
-              <QueryState {...metricState}>
+              <QueryState {...metricState} silent>
                 {(data) => (
                   <BigValue testIdPrefix="service">
                     {formatErrorRate(data?.totals.errorRate ?? null, lang)}
@@ -119,7 +121,7 @@ export function ServiceMarkers({
               testId="service-marker-response-time"
               title={t('entities.service.markers.responseTime')}
             >
-              <QueryState {...metricState}>
+              <QueryState {...metricState} silent>
                 {(data) => {
                   const times = data?.totals.responseTime
                   return (

@@ -11,7 +11,7 @@ import {
 } from '@playwright/test'
 import { removeDir } from './cleanup'
 import { captureOnFailure } from './failure-capture'
-import { FIXED_WINDOW, fitsContentSize, useCiWindow } from './window-size'
+import { FIXED_WINDOW, fitsContentSize, applyCiWindow } from './window-size'
 import es from '../src/renderer/src/locales/es/common.json'
 
 /**
@@ -43,7 +43,7 @@ async function launch(): Promise<void> {
     args: ['.', ...(process.env['VIGIA_E2E_NO_SANDBOX'] ? ['--no-sandbox'] : [])],
     env: { ...process.env, VIGIA_USER_DATA_DIR: userDataDir, VIGIA_E2E: '1' }
   })
-  await useCiWindow(app)
+  await applyCiWindow(app)
   page = await app.firstWindow()
   // Nunca la carpeta real de datos: la temporal de esta prueba.
   expect(await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))).toBe(
@@ -136,7 +136,7 @@ async function fillNewEnvironment(
   return form
 }
 
-/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
+/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (applyCiWindow). */
 test(
   'CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)',
   { tag: '@tenants' },

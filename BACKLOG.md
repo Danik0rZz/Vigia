@@ -20,23 +20,22 @@ bueno de Dani o de peticiones en su nombre.
 - Cola aprobada por Dani el 2026-10-10 (flujo, parte 2 del ADR-0013), en este orden: lote
   **flujo-herramientas** (A): [0067](tasks/0067-e2e-etiquetas-por-zona.md) (hecha),
   [0068](tasks/0068-e2e-afectados-sin-compilar.md) (hecha), [0069](tasks/0069-e2e-vistas-arnes-comun.md) (hecha),
-  [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (en espera: antes va la ficha de bug
-  [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md), aprobada por Dani el 2026-10-11,
-  sola en su PR por la exclusión `seguridad`; después la 0070 repite los tres pases con 8 workers),
-  [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md) (hecha),
+  [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (hecha, tras la ficha de bug
+  [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md); tres pases en verde con 8 workers),
+  [0071](tasks/0071-e2e-afectados-locales-por-zona.md) (hecha), [0072](tasks/0072-ci-en-pull-request.md) (hecha),
   [0073](tasks/0073-integracion-por-pr.md) (hecha) y [0074](tasks/0074-medicion-automatica-ci.md) (hecha); después,
   lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md) (hecha),
   [0076](tasks/0076-e2e-poner-en-cuarentena.md) (hecha),
   [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (hecha) y
   [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (hecha). Tras la 0073, Dani instala `gh`
   con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`
-  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079 (hecha), 0070 (reviewer, ronda 1) y 0071.
+  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079, 0070 y 0071 (hechas).
   Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`, abajo) y el
   lote C (paralelismo).
 - Detrás, aprobados por Dani el 2026-10-11, en este orden: lote **medicion-control**
-  ([0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md), ligera, y
+  ([0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (hecha), ligera, y
   [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md), las dos con `medir: sí`) y lote
-  **ideas-backlog** ([0084](tasks/0084-e2e-renombrar-useciwindow.md), ligera;
+  **ideas-backlog** ([0084](tasks/0084-e2e-renombrar-useciwindow.md) (hecha), ligera;
   [0082](tasks/0082-permisos-claude-fusiones-y-ramas.md) y
   [0083](tasks/0083-log-enmascarar-anidados.md), cada una sola en su PR por la exclusión
   `seguridad`; y [0085](tasks/0085-host-nube-zona-y-tamano.md)). Cola completa: 0079, 0070, 0071,
@@ -118,13 +117,14 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
   correr el e2e completo; moverlo a `pages/entities/`. (surgió en 0008)
 - Fichas: poner las «Decisiones del developer» en su propia sección, no dentro de «Ideas surgidas».
   (surgió en 0008)
-- Marcadores del servicio: si fallan las métricas salen cuatro `role="alert"` a la vez; dejar uno
-  solo. (surgió en 0008)
+- Avisos de error repetidos que aún se anuncian varias veces: los marcadores de las otras páginas
+  de entidad (host, proceso, grupo de procesos, monitores, aplicación y disco) y los cuatro gráficos
+  del servicio, cada uno con su `role="alert"`; si el resultado de la 0081 convence, extenderle
+  `silent`. (surgió en 0081)
 - `entities:serviceMetrics`: que main devuelva `requests: null` en los totales cuando no hay
   datos, en vez de que la interfaz lo deduzca de la serie (`hasRequestData`). (surgió en 0008)
 - Gráficos del servicio: la exportación XLSX lleva los valores ya convertidos (ms y /min); añadir una
   nota en la hoja Info o un módulo `entities` en `exportModules`. (surgió en 0009)
-- Clave `entities.service.charts.loadError` sin usar en es y en: usarla o quitarla. (surgió en 0009)
 - «Abrir en Métricas» de Actividad: la API v2 admite expresiones aritméticas, así que podría abrir OK
   como `(peticiones)-(errores)`; probarlo en vivo antes. (surgió en 0009)
 - Franja de problemas: no pedir la lista de problemas cuando no hay acceso a Métricas
@@ -137,9 +137,6 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
   quedar uno encima del otro (el reparto de filas cuenta el tiempo, no el ancho pintado). (surgió
   en 0013)
 - e2e «CA4 (0013)»: repetir también las comprobaciones de filas con la ventana del CI. (surgió en 0013)
-- e2e: renombrar `useCiWindow` (empieza por «use» y obliga a la excepción de lint
-  `react-hooks/rules-of-hooks` en `e2e/**`) y quitar la excepción. Cambia el texto del CA1 de la
-  0021: lo decide Dani. (surgió en 0021)
 - `views.spec.ts`: reflujo de los JSDoc de `withContentSize` y `withContentWidth` (~1747 y ~5970).
   (surgió en 0021)
 - `scripts/e2e-ci-window.test.ts`: `isUseCiWindow` no comprueba el argumento de la llamada.
@@ -267,12 +264,13 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Cerrar el entorno con secretos sin guardar: `dirtySecrets` de `EnvironmentForm` es un `useState` con un `Set` mutado en el sitio; `useRef(new Set())` sería lo habitual y evitaría quejas de una futura regla de inmutabilidad. (surgió en 0077)
 - El test «CA3 (0048)» de `e2e/views.spec.ts` es el que comprueba el texto exacto «SLO»: poner «CA2 (0065)» en su nombre (regla de `e2e/CLAUDE.md`). (surgió en 0065)
 - Dos comentarios pasan de 100 columnas: el JSDoc de `ServiceMarkers.tsx` y el bloque de nombres de `e2e/views.spec.ts`; reajustarlos. (surgió en 0066)
-- Escribir la regla de zona de los «Abrir en Métricas» de `e2e/views.spec.ts` (unos van a `@metricas`, otros a `@problema-detalle` o `@servicio`), por ejemplo: a `@metricas` si se comprueba lo que pinta Métricas; a la zona de origen si se comprueba la consulta del gráfico. **A resolver antes de la 0070 y la 0071.** (surgió en 0067)
 - `usesClipboard` de `scripts/e2e-tags.cjs` cruza nombres sin mirar el ámbito: una variable local con el nombre de una auxiliar con portapapeles da un falso positivo (seguro: pide una etiqueta de más). (surgió en 0067)
 - `scripts/affected-e2e.cjs`: `-g` toma como patrón el siguiente argumento aunque empiece por `-` (`-g --no-build` filtra por «--no-build» y compila); rechazarlo con el mismo error de uso. (surgió en 0068)
 - `scripts/affected-e2e.cjs`: `--grep=<patrón>`, que Playwright acepta, sale como opción desconocida con código 2 (fallo seguro); admitirlo si se echa en falta. (surgió en 0068)
-- `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo en la 0070. (surgió en 0069)
-- El comentario de `e2e/views.spec.ts` (≈ línea 5472) dice «y sus problemas para los recuentos», que ahora viven en `e2e/views/fixtures.ts`: retocarlo en la 0070. (surgió en 0069)
+- `scripts/e2e-tags.cjs` y `scripts/e2e-export-read.test.ts` emparejan por nombre de importación: no ven `import * as h` ni un alias de `exportTo`. Hoy nadie lo usa; cubrirlo o prohibirlo (la 0070 no lo tocó). (surgió en 0069)
+- `e2e/inicio-arranque.spec.ts` (0079) debería estar también en las áreas `vistas-comun` e `inicio` de `e2e/areas.json`, porque usa `setupViewsApp`. (surgió en 0070)
+- `e2e/views/harness.ts`: al cerrar, borrar las carpetas del worker antes de soltar el puerto del simulador. (surgió en 0070)
+- `splitList` vive en `pages/entities/service-info.ts` y la usan el host y el proceso: por eso `service-info.ts` va también en las áreas `host` y `proceso`. Sacarla a un módulo común lo dejaría solo en `servicio`. (surgió en 0070)
 - Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069) No reproducido el 2026-10-11, 5 de 5 aislado y `views` entero con `--workers=1` (ficha 0076).
 - Permisos de `.claude/settings.json`: negar `gh pr merge --squash`, `--rebase` y `--delete-branch` y `git push origin :<rama>`, como ya se niegan el force push y los tags (hoy que fusione solo Dani las PR de una ficha y que nadie borre ramas remotas está solo escrito en `docs/flujo.md`). Ficha propia; lo decide Dani. (surgió en 0073)
 - `/cerrar-version`: que se pare si hay una PR de `integra/…` sin fusionar. (surgió en 0073)
@@ -282,6 +280,9 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Subir como artefacto el `test-results/` del paso de inestables del CI cuando falle (`if: steps.<id>.outcome == 'failure'`): hoy el resumen dice qué falló, pero la captura y el log de `failure-capture` no se suben. (surgió en 0075)
 - `scripts/e2e-tags.cjs`: la guarda de `@inestable` solo lee la opción `tag`; un `@inestable` escrito en el título del test se saltaría la guarda. (surgió en 0075)
 - `ci.yml:100-101`: precisar el comentario del reporter entre comillas (en PowerShell 5.1 la coma no partía el argumento; las comillas son para no depender de la versión). (surgió en 0075)
+- Modo `--plan`/`--dry-run` en `test:e2e:affected` que muestre el plan (specs, `--grep`, motivo) sin ejecutarlo: el verifier no pudo hacer la prueba de humo de los textos sin él. (surgió en 0071)
+- Convertir en guarda automática la pasada «cada texto que lee un spec cae en un prefijo con la zona de ese test» (hoy es un paso manual en `e2e/CLAUDE.md`). Es un criterio nuevo: pendiente de que Dani decida si va y dónde. (surgió en 0071)
+- `scripts/affected-e2e.cjs` (`localBin`): resolver el paquete con `require.resolve(pkg + "/package.json")` y dejar la ruta fija en `node_modules` como alternativa, por si un worktree no tuviera `node_modules` propio. (surgió en 0071)
 
 ## Aparcado
 
@@ -390,3 +391,8 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0076](tasks/0076-e2e-poner-en-cuarentena.md) (lote e2e-inestables): medición de los cinco sospechosos de inestables con `--repeat-each 5`; AUD-03 falla 3 de 5 con `--workers=1` y se arregla en la 0077 (no va a cuarentena, depende del modo serie); AUD-21 y los de `views` no se reprodujeron (0078 en espera). Ningún test queda en cuarentena. Sin migraciones.
 - [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (lote e2e-inestables): AUD-21 (Ctrl+K con un diálogo abierto) fallaba a veces porque Radix pinta la paleta un fotograma con `pointer-events: none` antes de registrar la capa; el test ahora espera con `expect.poll` a que reciba el puntero y el foco. No era un defecto de la app. Sin migraciones.
 - [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md): la primera petición a cada host de cada sesión va sola (`fetchFor`, `network.ts`) para que dos conexiones nuevas a la vez no se salten el verificador de certificados; cubre también el SSO y cierra la ventana de «fijada». Va sola en su PR (exclusión `seguridad`). Resto conocido: ficha de seguimiento pendiente del Planificador.
+- [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (lote flujo-herramientas): `views.spec.ts` se parte en 11 `views-<zona>.spec.ts` y `views-portapapeles.spec.ts`; `areas.json` con un área por zona; la guarda `checkPlacement` vigila el reparto; cada worker tiene su puerto del simulador y sus carpetas (`workerResources`, `listenOn`); `workers` es 4 con `CI` y 8 sin él (tres pases en verde). Sin migraciones.
+- [0071](tasks/0071-e2e-afectados-locales-por-zona.md) (lote flujo-herramientas): un cambio solo en `locales/` lanza los unitarios de textos y los e2e de las zonas de las claves cambiadas (`changedKeys` + mapa `locales` en `areas.json`, `--grep` de zonas y `@smoke`); prefijo sin zona o JSON roto, e2e completo; guarda del mapa en `check`. Sin migraciones.
+- [0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (lote medicion-control, ligera): quitada la clave `entities.service.charts.loadError`, sin usar, de los textos en español e inglés. Sin migraciones.
+- [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md) (lote medicion-control): en los marcadores del servicio, si falla el canal de métricas solo el primer aviso (`SLO`, o `Peticiones` con Solo actividad) lleva `role="alert"`; `MarkerError` y `QueryState` tienen una propiedad `silent` que lo quita. Lo que se ve no cambia. Sin migraciones.
+- [0084](tasks/0084-e2e-renombrar-useciwindow.md) (lote ideas-backlog, ligera): `useCiWindow` pasa a `applyCiWindow` en `e2e/` y en las guardas de `scripts/`, y se quita de `eslint.config.mjs` la excepción de `react-hooks/rules-of-hooks` para `e2e/**`. Solo desarrollo. Sin migraciones.

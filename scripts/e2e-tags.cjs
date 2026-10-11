@@ -406,4 +406,88 @@ function checkTags(specs, config, modules = [], tasks = []) {
   return problems
 }
 
-module.exports = { checkTags }
+/** `views-<zona>.spec.ts` (con o sin carpeta delante) → `<zona>`; otro fichero → null. */
+function viewSpecName(file) {
+  const match = /(?:^|[\\/])views-([a-z0-9-]+)\.spec\.ts$/.exec(file)
+  return match === null ? null : match[1]
+}
+
+/** El spec de vistas que reúne los tests del portapapeles (ficha 0070). */
+const CLIPBOARD_SPEC = 'portapapeles'
+
+/**
+ * Ficha 0070: dónde está cada test. Pura, con los mismos specs y config que `checkTags`:
+ * - `otra-zona`: un test de `views-<zona>.spec.ts` cuya zona (propia o de su `describe`) no es
+ *   `@<zona>` (`tag` es la zona del test);
+ * - `portapapeles-fuera`: un test con `@portapapeles` en un spec que no es
+ *   `views-portapapeles.spec.ts`;
+ * - `sin-portapapeles`: un test de `views-portapapeles.spec.ts` sin `@portapapeles`.
+ * En `views-portapapeles.spec.ts` cada test conserva su zona, sea cual sea. Un test sin zona o con
+ * dos ya lo dice `checkTags`: aquí solo cuenta una zona distinta de la del fichero.
+ * @param {{ file: string, code: string }[]} specs
+ * @param {{ zones: Record<string, string>, resourceTags: Record<string, string> }} config
+ * @returns {{ kind: 'otra-zona' | 'portapapeles-fuera' | 'sin-portapapeles', file: string,
+ *   test: string, tag?: string, message: string }[]}
+ */
+function checkPlacement(specs, config) {
+  if (config === null || typeof config !== 'object' || typeof config.zones !== 'object') {
+    throw new TypeError('checkPlacement necesita zones y resourceTags de e2e/areas.json')
+  }
+  const zones = new Set(Object.keys(config.zones ?? {}))
+  const problems = []
+  for (const { file, code } of specs) {
+    const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+    const view = viewSpecName(file)
+    const visit = (node, inherited) => {
+      if (ts.isCallExpression(node)) {
+        const kind = callKind(node)
+        if (kind !== null) {
+          const title = titleText(node.arguments[0], source)
+          const tags = [...new Set([...inherited, ...ownTags(node)])]
+          const body = node.arguments[node.arguments.length - 1]
+          if (kind === 'describe') {
+            ts.forEachChild(body, (child) => visit(child, tags))
+            return
+          }
+          const clipboard = tags.includes(CLIPBOARD_TAG)
+          if (view === CLIPBOARD_SPEC) {
+            if (!clipboard) {
+              problems.push({
+                kind: 'sin-portapapeles',
+                file,
+                test: title,
+                message: `${file}: el test «${title}» no lleva ${CLIPBOARD_TAG}; aquí solo van los que usan el portapapeles (los demás, en el spec de su zona)`
+              })
+            }
+            return
+          }
+          if (clipboard) {
+            problems.push({
+              kind: 'portapapeles-fuera',
+              file,
+              test: title,
+              message: `${file}: el test «${title}» lleva ${CLIPBOARD_TAG} y tiene que ir en e2e/views-${CLIPBOARD_SPEC}.spec.ts`
+            })
+          }
+          if (view !== null) {
+            for (const tag of tags.filter((t) => zones.has(t) && t !== `@${view}`)) {
+              problems.push({
+                kind: 'otra-zona',
+                file,
+                test: title,
+                tag,
+                message: `${file}: el test «${title}» es de la zona ${tag} y está en el spec de @${view}`
+              })
+            }
+          }
+          return
+        }
+      }
+      ts.forEachChild(node, (child) => visit(child, inherited))
+    }
+    visit(source, [])
+  }
+  return problems
+}
+
+module.exports = { checkTags, checkPlacement }

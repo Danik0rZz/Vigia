@@ -66,15 +66,19 @@ export function MarkerCount({
 
 /**
  * Estado de un canal dentro de un marcador: esqueleto mientras carga, aviso con
- * Reintentar si falla y, si no, el valor. Sin acceso al módulo, el valor sin dato.
+ * Reintentar si falla y, si no, el valor. Sin acceso al módulo, el valor sin dato. Con
+ * `silent`, el aviso no se anuncia (ver `MarkerError`).
  */
 export function QueryState<T>({
   query,
   enabled,
+  silent = false,
   children
 }: {
   query: UseQueryResult<T>
   enabled: boolean
+  /** Aviso sin `role="alert"` (ficha 0081). */
+  silent?: boolean
   children: (data: T | null) => ReactNode
 }): ReactNode {
   if (!enabled) return children(null)
@@ -82,6 +86,7 @@ export function QueryState<T>({
     return (
       <MarkerError
         centered
+        silent={silent}
         error={query.error}
         busy={query.isFetching}
         onRetry={() => void query.refetch()}
@@ -108,26 +113,31 @@ export function MarkerSkeleton(): JSX.Element {
 
 /**
  * Aviso compacto de un canal que ha fallado, con Reintentar (solo ese canal): el
- * código traducido y, debajo y en pequeño, el detalle (motivo o texto de Dynatrace).
+ * código traducido y, debajo y en pequeño, el detalle (motivo o texto de Dynatrace). Lleva
+ * `role="alert"` salvo con `silent`: varias tarjetas que enseñan el fallo del mismo canal
+ * lo anuncian una sola vez (ficha 0081).
  */
 export function MarkerError({
   error,
   busy,
   onRetry,
-  centered = false
+  centered = false,
+  silent = false
 }: {
   error: unknown
   busy: boolean
   onRetry: () => void
   /** Centrado, dentro de una tarjeta de marcador (ficha 0012). */
   centered?: boolean
+  /** Se ve igual, pero sin `role="alert"`: el mismo fallo ya lo anuncia otro aviso. */
+  silent?: boolean
 }): JSX.Element {
   const { t } = useTranslation()
   const code = error instanceof IpcError ? error.code : null
   const translated = code !== null ? t(`dtErrors.${code}`, { defaultValue: '' }) : ''
   return (
     <div
-      role="alert"
+      role={silent ? undefined : 'alert'}
       className={cn(
         'grid min-w-0 gap-2 text-sm',
         centered ? 'justify-items-center text-center' : 'justify-items-start'

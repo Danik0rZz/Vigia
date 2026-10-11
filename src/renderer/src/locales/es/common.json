@@ -1235,7 +1235,6 @@
         "perMinuteUnit": "/min",
         "perMinuteTooltip": "{{perMinute}} · {{total}} en el intervalo",
         "loading": "Cargando el gráfico…",
-        "loadError": "No se pudo cargar el gráfico.",
         "exportColumns": {
           "series": "Serie",
           "unit": "Unidad"

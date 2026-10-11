@@ -3,13 +3,20 @@ import { defineConfig } from '@playwright/test'
 /** Etiqueta de los tests en cuarentena (ficha 0075): no bloquean, pero se siguen ejecutando aparte. */
 const QUARANTINE = /@inestable(\s|$)/
 
+/**
+ * Workers sin CI, medidos en la VPS (22 núcleos lógicos) con el e2e completo (ficha 0070, en su
+ * «Verificación»). En el CI, 4: `windows-latest` tiene 4 núcleos.
+ */
+const LOCAL_WORKERS = 8
+
 /** Pruebas de extremo a extremo sobre la app compilada (`npm run test:e2e`). */
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,
-  // Un spec por worker (sin fullyParallel): cada uno lanza su app con su carpeta de
-  // datos. Solo views usa el portapapeles del sistema; otro que lo use debe ir en serie con él.
-  workers: 4,
+  // Un spec por worker (sin fullyParallel): cada uno lanza su app con su carpeta de datos y, los
+  // de vistas, su simulador en el puerto del worker (e2e/worker-resources.ts). Solo
+  // views-portapapeles usa el portapapeles del sistema; un test que lo use va a ese spec.
+  workers: process.env['CI'] ? 4 : LOCAL_WORKERS,
   // Sin reintentos: un test inestable tiene que fallar y arreglarse, no pasar a la segunda.
   retries: 0,
   // Un test.only olvidado haría pasar la suite con un solo test: se rechaza.

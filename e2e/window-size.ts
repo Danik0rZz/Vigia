@@ -35,13 +35,14 @@ export async function viewportSize(page: Page): Promise<WindowSize> {
  * Ficha 0021: fija el contenido de la ventana a FIXED_WINDOW desde main (setContentSize; la app no
  * cambia) y espera a tenerlo, con el margen de `fitsContentSize`. Se llama justo después de lanzar
  * la app en cada spec (lo comprueba scripts/e2e-ci-window.test.ts): así la VPS corre los e2e con
- * la misma ventana que el CI.
+ * la misma ventana que el CI. Ficha 0084: el nombre no empieza por «use» para que
+ * el lint no la tome por un hook de React.
  */
-export async function useCiWindow(app: ElectronApplication): Promise<void> {
+export async function applyCiWindow(app: ElectronApplication): Promise<void> {
   const page = await app.firstWindow()
   await app.evaluate(({ BrowserWindow }, wanted) => {
     const win = BrowserWindow.getAllWindows()[0]
-    if (win === undefined) throw new Error('useCiWindow: no hay ventana')
+    if (win === undefined) throw new Error('applyCiWindow: no hay ventana')
     win.setContentSize(wanted.width, wanted.height)
   }, FIXED_WINDOW)
   await expect.poll(async () => fitsContentSize(await viewportSize(page), FIXED_WINDOW)).toBe(true)

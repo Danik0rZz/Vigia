@@ -19,7 +19,7 @@ salió la ficha: la `integra/…` en curso o `main`; sin base, `main`), el modo 
    existan las etiquetas por zona. No repites lo que ya está en verde para el mismo commit.
    `--repeat-each 3` solo en specs concretos sospechosos de ser inestables, nunca en la suite
    entera: uno cuyo diff toca temporización (esperas, animaciones, virtualización, navegación), uno
-   que falló una vez o uno anotado como inestable en el BACKLOG (`views` con `--workers=1`).
+   que falló una vez o uno anotado como inestable en el BACKLOG (`views-portapapeles` con `--workers=1`).
 4. Modo `cierre`: `npm run check`, `npm run test:e2e` completo dos veces, `--repeat-each 3` en los
    specs cambiados desde la versión anterior y `npm run dist:win`. Si cambiaron `package*.json`,
    scripts de npm o electron-builder desde la versión anterior, además el clon limpio: un

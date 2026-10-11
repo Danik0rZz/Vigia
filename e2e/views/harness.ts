@@ -1,5 +1,4 @@
-import { mkdtempSync, readdirSync, statSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync, readdirSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import {
   _electron as electron,
@@ -14,10 +13,11 @@ import { defaultSim, sim } from './sim-state'
 import { port, server, startServer } from './simulator'
 import { removeDir } from '../cleanup'
 import { captureOnFailure } from '../failure-capture'
+import { workerResources } from '../worker-resources'
 import {
   fitsContentSize,
   FIXED_WINDOW,
-  useCiWindow,
+  applyCiWindow,
   viewportSize as pageViewportSize,
   type WindowSize
 } from '../window-size'
@@ -50,7 +50,9 @@ import es from '../../src/renderer/src/locales/es/common.json'
  *
  * Los entornos usan el nivel 'ignore' para no tener que fijar huellas (eso ya lo prueba tls.spec).
  * Las exportaciones van a una carpeta temporal (VIGIA_EXPORT_DIR). El portapapeles del sistema se
- * guarda y se restaura.
+ * guarda y se restaura. Ficha 0070: el puerto del simulador y las carpetas de datos y de exportación
+ * son los del worker (`workerResources(workerIndex)`, en `e2e/worker-resources.ts`): se vacían al
+ * empezar cada spec y se borran al acabar.
  *
  * Cada test es independiente: `beforeEach` (resetState) deja el simulador, los ajustes de
  * exportación y las consultas guardadas como al principio, activa Producción, pone la interfaz en
@@ -58,9 +60,9 @@ import es from '../../src/renderer/src/locales/es/common.json'
  * cualquier orden o sueltos con --grep. La app se lanza una sola vez por worker y spec (beforeAll):
  * relanzarla por test sería mucho más lento.
  *
- * Sin modo serie: el único recurso compartido es el portapapeles del sistema, y los tests de un
- * mismo fichero ya corren de uno en uno en su worker (sin fullyParallel); ningún otro spec lo usa
- * (ver e2e/CLAUDE.md).
+ * Sin modo serie: el único recurso compartido es el portapapeles del sistema, y todos los tests que
+ * lo usan están en views-portapapeles.spec.ts, que corre de uno en uno en su worker (sin
+ * fullyParallel; ver e2e/CLAUDE.md).
  */
 
 export let app: ElectronApplication
@@ -473,11 +475,19 @@ export async function restoreClipboardAndClose(): Promise<void> {
 export function setupViewsApp(): void {
   captureOnFailure(() => ({ page, userDataDir }))
 
-  test.beforeAll(async () => {
+  // Playwright exige desestructurar el primer argumento aunque no use fixtures.
+  // eslint-disable-next-line no-empty-pattern
+  test.beforeAll(async ({}, testInfo) => {
     test.setTimeout(120_000)
-    await startServer()
-    userDataDir = mkdtempSync(join(tmpdir(), 'vigia-e2e-views-'))
-    exportDir = mkdtempSync(join(tmpdir(), 'vigia-e2e-export-'))
+    const resources = workerResources(testInfo.workerIndex)
+    await startServer(resources.port)
+    // Las carpetas del worker son siempre las mismas: se vacían por si quedó algo de otro spec.
+    for (const dir of [resources.userDataDir, resources.exportDir]) {
+      removeDir(dir)
+      mkdirSync(dir, { recursive: true })
+    }
+    userDataDir = resources.userDataDir
+    exportDir = resources.exportDir
     app = await electron.launch({
       // VIGIA_E2E_NO_SANDBOX solo hace falta en contenedores Linux que ejecutan como root.
       args: ['.', ...(process.env['VIGIA_E2E_NO_SANDBOX'] ? ['--no-sandbox'] : [])],
@@ -488,7 +498,7 @@ export function setupViewsApp(): void {
         VIGIA_E2E: '1'
       }
     })
-    await useCiWindow(app)
+    await applyCiWindow(app)
     page = await app.firstWindow()
     // Nunca la carpeta real de datos: la temporal de esta prueba.
     expect(await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))).toBe(

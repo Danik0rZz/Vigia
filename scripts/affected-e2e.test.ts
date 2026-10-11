@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -156,13 +156,37 @@ describe('decide', () => {
 
 const AREAS = join(__dirname, '..', 'e2e', 'areas.json')
 
+// Ficha 0070: el área views se parte en una por spec de vistas (views-<zona>.spec.ts) y los tests
+// con @portapapeles van todos a views-portapapeles.spec.ts.
+const viewSpec = (zone: string): string => `e2e/views-${zone}.spec.ts`
+const PORTAPAPELES = viewSpec('portapapeles')
+const ENTITY_SPECS = ['entidad', 'servicio', 'host', 'proceso', 'monitor', 'aplicacion'].map(
+  viewSpec
+)
+const isViewSpec = (spec: string): boolean => /^e2e\/views-[a-z-]+\.spec\.ts$/.test(spec)
+const E2E = join(__dirname, '..', 'e2e')
+const PORTAPAPELES_FILE = join(E2E, 'views-portapapeles.spec.ts')
+
+/** Si views-portapapeles.spec.ts tiene algún test de la zona (su etiqueta aparece en el spec). */
+function clipboardHasZone(zone: string): boolean {
+  if (!existsSync(PORTAPAPELES_FILE)) return false
+  return new RegExp(`['"]@${zone}['"]`).test(readFileSync(PORTAPAPELES_FILE, 'utf8'))
+}
+
+/** Lo esperado para una zona: su spec, smoke y el del portapapeles si la zona tiene tests ahí. */
+function expectedFor(zones: string[]): string[] {
+  const specs = [SMOKE, ...zones.map(viewSpec)]
+  if (zones.some(clipboardHasZone)) specs.push(PORTAPAPELES)
+  return specs.sort()
+}
+
 describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
   const real = JSON.parse(existsSync(AREAS) ? readFileSync(AREAS, 'utf8') : '{}') as Config
   const specsFor = (file: string): Decision => decide([file], real)
 
   it('todo spec de e2e/ está en algún área o en always', () => {
     const declared = new Set([...real.always, ...Object.values(real.areas).flatMap((a) => a.specs)])
-    for (const spec of ['shell', 'smoke', 'tenants', 'tls', 'views']) {
+    for (const spec of ['shell', 'smoke', 'tenants', 'tls']) {
       expect(declared.has(`e2e/${spec}.spec.ts`), spec).toBe(true)
     }
   })
@@ -196,19 +220,19 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
     ['src/renderer/src/components/EnvSelector.tsx', 'e2e/tenants.spec.ts'],
     ['src/main/dynatrace/tls.ts', 'e2e/tls.spec.ts'],
     ['src/main/dynatrace/client.ts', 'e2e/tls.spec.ts'],
-    ['src/main/dynatrace/client.ts', 'e2e/views.spec.ts'],
+    ['src/main/dynatrace/client.ts', 'e2e/views-vistas-comun.spec.ts'],
     ['src/renderer/src/settings/ConnectionPanel.tsx', 'e2e/tls.spec.ts'],
-    ['src/renderer/src/pages/ProblemsPage.tsx', 'e2e/views.spec.ts'],
-    ['src/renderer/src/components/ProblemsTable.tsx', 'e2e/views.spec.ts'],
-    ['src/main/export/csv.ts', 'e2e/views.spec.ts'],
-    ['src/main/ipc/handlers/modules.ts', 'e2e/views.spec.ts'],
-    ['src/shared/problem-row.ts', 'e2e/views.spec.ts'],
+    ['src/renderer/src/pages/ProblemsPage.tsx', 'e2e/views-problemas.spec.ts'],
+    ['src/renderer/src/components/ProblemsTable.tsx', 'e2e/views-problemas.spec.ts'],
+    ['src/main/export/csv.ts', 'e2e/views-problemas.spec.ts'],
+    ['src/main/ipc/handlers/modules.ts', 'e2e/views-problemas.spec.ts'],
+    ['src/shared/problem-row.ts', 'e2e/views-problemas.spec.ts'],
     ['src/renderer/src/components/Sidebar.tsx', 'e2e/shell.spec.ts'],
     ['src/renderer/src/components/TopBar.tsx', 'e2e/shell.spec.ts'],
-    ['src/renderer/src/components/TopBar.tsx', 'e2e/views.spec.ts'],
-    ['src/renderer/src/app/problem-filters.ts', 'e2e/views.spec.ts'],
-    ['src/renderer/src/app/page-crumb.ts', 'e2e/views.spec.ts'],
-    ['src/shared/problem-sort.ts', 'e2e/views.spec.ts']
+    ['src/renderer/src/components/TopBar.tsx', 'e2e/views-vistas-comun.spec.ts'],
+    ['src/renderer/src/app/problem-filters.ts', 'e2e/views-problemas.spec.ts'],
+    ['src/renderer/src/app/page-crumb.ts', 'e2e/views-problema-detalle.spec.ts'],
+    ['src/shared/problem-sort.ts', 'e2e/views-problemas.spec.ts']
   ])('%s → incluye %s y smoke', (file, spec) => {
     const d = specsFor(file)
     expect(['some', 'all']).toContain(d.mode)
@@ -220,7 +244,7 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
 
   // 0.10.0: el grid genérico y la lógica de la tabla de evidencias solo los usa
   // Problemas; sin mapear disparaban el e2e completo.
-  it('DataGrid, grid-sort, la tabla de evidencias y sus gráficos → some con views y smoke', () => {
+  it('DataGrid, grid-sort, la tabla de evidencias y sus gráficos → some con specs de vistas (problema-detalle) y smoke', () => {
     const d = decide(
       [
         'src/renderer/src/components/DataGrid.tsx',
@@ -233,12 +257,15 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
       ],
       real
     )
-    expect(d).toMatchObject({ mode: 'some', specs: [SMOKE, 'e2e/views.spec.ts'].sort() })
+    expect(d.mode).toBe('some')
+    expect(d.specs).toContain(SMOKE)
+    expect(d.specs).toContain(viewSpec('problema-detalle'))
+    for (const spec of d.specs) expect(spec === SMOKE || isViewSpec(spec), spec).toBe(true)
   })
 
-  // Los locales los cubre el test de paridad y main.css el de contraste (los dos
-  // en check): solos, disparan shell; con un fichero de un módulo, también el suyo.
-  it.each(['src/renderer/src/locales/es/common.json', 'src/renderer/src/assets/main.css'])(
+  // main.css lo cubre el test de contraste (en check): solo, dispara shell. Los
+  // locales van por claves y zonas desde la ficha 0071 (affected-e2e-locales.test.ts).
+  it.each(['src/renderer/src/assets/main.css'])(
     '%s solo → some con shell y smoke, nada más',
     (file) => {
       const d = specsFor(file)
@@ -247,13 +274,69 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
     }
   )
 
-  it('locales junto a una página de un módulo → shell y el spec de ese módulo', () => {
-    const d = decide(
-      ['src/renderer/src/locales/en/common.json', 'src/renderer/src/pages/ProblemsPage.tsx'],
-      real
-    )
+  // --- Ficha 0070: afectados por zona de vistas ---
+
+  it.each([
+    'src/renderer/src/pages/entities/ServiceEntityPage.tsx',
+    'src/renderer/src/pages/entities/ServiceCharts.tsx',
+    'src/renderer/src/pages/entities/ServiceMarkers.tsx',
+    'src/main/modules/service-metrics.ts'
+  ])(
+    'CA3 (0070): %s (página del servicio o su canal) → solo views-servicio y smoke (y el portapapeles si la zona tiene tests ahí)',
+    (file) => {
+      const d = specsFor(file)
+      expect(d.mode).toBe('some')
+      expect(d.specs).toEqual(expectedFor(['servicio']))
+    }
+  )
+
+  it.each(['src/renderer/src/pages/entities/EntityPageFrame.tsx'])(
+    'CA3 (0070): %s (común de las páginas de entidad) → las seis de entidad y smoke',
+    (file) => {
+      const d = specsFor(file)
+      expect(d.mode).toBe('some')
+      expect(d.specs).toEqual(
+        expectedFor(['entidad', 'servicio', 'host', 'proceso', 'monitor', 'aplicacion'])
+      )
+      for (const spec of ENTITY_SPECS) expect(d.specs).toContain(spec)
+    }
+  )
+
+  it('CA3 (0070): la página de Métricas → views-metricas y views-portapapeles', () => {
+    const d = specsFor('src/renderer/src/pages/MetricsPage.tsx')
     expect(d.mode).toBe('some')
-    expect(d.specs).toEqual([SMOKE, 'e2e/shell.spec.ts', 'e2e/views.spec.ts'].sort())
+    expect(d.specs).toContain(SMOKE)
+    expect(d.specs).toContain(viewSpec('metricas'))
+    expect(d.specs).toContain(PORTAPAPELES)
+  })
+
+  it('CA3 (0070): un área con tests de su zona en views-portapapeles.spec.ts incluye ese spec', () => {
+    expect(existsSync(PORTAPAPELES_FILE), 'e2e/views-portapapeles.spec.ts').toBe(true)
+    const zones = Object.keys((real as unknown as { zones: Record<string, string> }).zones)
+      .map((tag) => tag.slice(1))
+      .filter(clipboardHasZone)
+    expect(zones.length, 'zonas con tests de portapapeles').toBeGreaterThan(0)
+    for (const zone of zones) {
+      const areas = Object.values(real.areas).filter((area) => area.specs.includes(viewSpec(zone)))
+      for (const area of areas) expect(area.specs, zone).toContain(PORTAPAPELES)
+    }
+  })
+
+  it('CA4 (0070): cada spec de areas.json existe en e2e/', () => {
+    const declared = new Set([...real.always, ...Object.values(real.areas).flatMap((a) => a.specs)])
+    expect(declared.size).toBeGreaterThan(0)
+    for (const spec of declared) expect(existsSync(join(__dirname, '..', spec)), spec).toBe(true)
+  })
+
+  it('CA4 (0070): cada views-*.spec.ts de e2e/ está en al menos un área', () => {
+    const inAreas = new Set(Object.values(real.areas).flatMap((a) => a.specs))
+    const viewSpecs = readdirSync(E2E)
+      .filter((name) => /^views-[a-z-]+\.spec\.ts$/.test(name))
+      .map((name) => `e2e/${name}`)
+    // Uno por zona de vistas (11) más el del portapapeles.
+    expect(viewSpecs.length).toBe(12)
+    for (const spec of viewSpecs) expect(inAreas.has(spec), spec).toBe(true)
+    expect(inAreas.has('e2e/views.spec.ts'), 'e2e/views.spec.ts ya no existe').toBe(false)
   })
 
   it.each([

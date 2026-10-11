@@ -298,6 +298,25 @@ test('CA1 (0001): algo', { tag: '@problemas' }, async () => {})
   })
 })
 
+/**
+ * Ficha 0070: los specs de vistas, uno por zona de vistas (`views-<zona>.spec.ts`) y los tests con
+ * `@portapapeles` juntos en `views-portapapeles.spec.ts`.
+ */
+const VIEW_ZONES = [
+  'vistas-comun',
+  'inicio',
+  'problemas',
+  'problema-detalle',
+  'metricas',
+  'entidad',
+  'servicio',
+  'host',
+  'proceso',
+  'monitor',
+  'aplicacion'
+]
+const VIEW_SPECS = [...VIEW_ZONES, 'portapapeles'].map((zone) => `${E2E_DIR}/views-${zone}.spec.ts`)
+
 describe('arnés de vistas en el repositorio', () => {
   const harness = harnessModules()
   const specs = readdirSync(E2E_DIR)
@@ -316,29 +335,39 @@ describe('arnés de vistas en el repositorio', () => {
     for (const file of harness) expect(isTestFile(file), file).toBe(false)
   })
 
-  it('CA2 (0069): views.spec.ts importa el arnés', () => {
-    const spec = `${E2E_DIR}/views.spec.ts`
+  it('CA1 (0070): views.spec.ts ya no existe y hay un views-<zona>.spec.ts por zona de vistas, más views-portapapeles.spec.ts', () => {
+    expect(existsSync(`${E2E_DIR}/views.spec.ts`), 'e2e/views.spec.ts').toBe(false)
+    for (const spec of VIEW_SPECS) expect(existsSync(spec), spec).toBe(true)
+    // Ningún otro views-*.spec.ts: uno por zona de vistas y el del portapapeles.
+    const present = readdirSync(E2E_DIR)
+      .filter((name) => /^views-.*\.spec\.ts$/.test(name))
+      .map((name) => `${E2E_DIR}/${name}`)
+      .sort()
+    expect(present).toEqual([...VIEW_SPECS].sort())
+  })
+
+  it.each(VIEW_SPECS)('CA1 (0070) y CA2 (0069): %s importa el arnés', (spec) => {
     const source = ts.createSourceFile(
       spec,
-      readFileSync(spec, 'utf8'),
+      existsSync(spec) ? readFileSync(spec, 'utf8') : '',
       ts.ScriptTarget.Latest,
       true
     )
-    expect(importSpecifiers(source).some(isHarnessFrom(spec))).toBe(true)
+    expect(importSpecifiers(source).some(isHarnessFrom(spec)), spec).toBe(true)
   })
 
   it.each(specs)('CA2 (0069): %s usa el arnés como se espera (si lo importa)', (spec) => {
     expect(checkHarnessUse(readFileSync(spec, 'utf8'), isHarnessFrom(spec))).toEqual([])
   })
 
-  it('CA2 (0069): el arnés lanza la app y llama a useCiWindow justo después', () => {
+  it('CA2 (0069): el arnés lanza la app y llama a applyCiWindow justo después', () => {
     const launching = harness.filter((file) => /\.launch\(/.test(readFileSync(file, 'utf8')))
     expect(launching, 'módulos del arnés que lanzan la app').toHaveLength(1)
     const code = readFileSync(launching[0] as string, 'utf8')
-    expect(code).toMatch(/\.launch\([\s\S]*?\)\s*\n\s*await useCiWindow\(/)
+    expect(code).toMatch(/\.launch\([\s\S]*?\)\s*\n\s*await applyCiWindow\(/)
   })
 
-  it('CA2 (0069): cambiar un módulo del arnés lanza los specs de vistas (e2e/areas.json)', () => {
+  it('CA2 (0069) y CA3 (0070): cambiar un módulo del arnés lanza todos los specs de vistas (e2e/areas.json)', () => {
     const require = createRequire(import.meta.url)
     const { decide } = require(join(__dirname, 'affected-e2e.cjs')) as {
       decide: (
@@ -350,16 +379,24 @@ describe('arnés de vistas en el repositorio', () => {
       areas: Record<string, { globs: string[]; specs: string[] }>
     }
     expect(harness.length).toBeGreaterThan(0)
-    const views = config.areas.views
-    expect(views, 'área views').toBeDefined()
+    expect(config.areas.views, 'el área views se sustituye por una por zona').toBeUndefined()
+    const globs = Object.values(config.areas).flatMap((area) => area.globs)
     for (const file of harness) {
       expect(
-        views?.globs.some((glob) => posix.matchesGlob(file, glob)),
-        `${file} en los globs de views`
+        globs.some((glob) => posix.matchesGlob(file, glob)),
+        `${file} en los globs de algún área`
       ).toBe(true)
       const decision = decide([file], config)
       expect(decision.mode, file).toBe('some')
-      expect(decision.specs, file).toContain(`${E2E_DIR}/views.spec.ts`)
+      for (const spec of VIEW_SPECS) expect(decision.specs, file).toContain(spec)
     }
+  })
+
+  it('CA6 (0070): el simulador del arnés escucha con listenOn y el arnés usa workerResources', () => {
+    const code = harness.map((file) => readFileSync(file, 'utf8')).join('\n')
+    expect(code, 'workerResources en el arnés').toMatch(/\bworkerResources\(/)
+    expect(code, 'listenOn en el arnés').toMatch(/\blistenOn\(/)
+    // Sin un listen propio que pruebe otro puerto (por ejemplo, el 0) en silencio.
+    expect(code, 'listen directo en el arnés').not.toMatch(/\.listen\(/)
   })
 })

@@ -29,7 +29,10 @@
 - Para pintar un componente sacado de un registro (`tipo → componente`), `createElement`: con JSX,
   `react-hooks/static-components` lo toma por un componente creado en el render (`EntityPage.tsx`).
 - El aviso de error de un panel o marcador enseña `errorDetail` (`lib/error-detail.ts`) visible y
-  lleva `role="alert"`, como `ModuleError`; no basta el código traducido ni un `title`.
+  lleva `role="alert"`, como `ModuleError`; no basta el código traducido ni un `title`. Excepción:
+  si varios avisos del mismo canal fallan a la vez, solo el primero se anuncia y los demás van con
+  `silent` en `MarkerError` o `QueryState`, que quita el `role` pero deja texto y «Reintentar»
+  (`ServiceMarkers.tsx`, ficha 0081).
 - Un color nuevo de serie de gráfico: token en `main.css` (claro y oscuro), campo en `ChartColors` y caso en `src/main/env-colors.test.ts` (contraste ≥ 3:1 frente al fondo).
 - Abrir un detalle desde un tramo o fila de otra página con el estado `fromList` de `ProblemDetailPage`: así «Volver» hace `back()` en el historial y no recarga lo de la página de origen (franja de `ProblemBand.tsx`).
 - Varias consultas del mismo tipo (por ejemplo una por instancia) se combinan con `combineQueries` de `data/query-list.ts`: un solo estado de carga y error, y Reintentar repite solo las fallidas.
