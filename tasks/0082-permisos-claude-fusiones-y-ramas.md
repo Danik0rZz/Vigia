@@ -75,9 +75,9 @@ Decisiones de Dani (2026-10-11, `[ALCANCE]` del reviewer):
 - Tras fusionar la PR, en una sesión nueva de Claude Code (los permisos se leen al arrancar), pedir
   `gh pr merge 999 --squash` y comprobar que lo niega sin preguntar; y que `gh pr view` sigue
   funcionando. No hace falta que exista la PR 999. (La prueba que se hizo antes de fusionar no
-  cuenta: se repite.)
+  cuenta: se repite.) **Hecho por Dani el 2026-10-11**, en una sesión nueva en el checkout principal: Claude Code niega `gh pr merge 999 --squash` antes de ejecutarlo.
 - Con el pre-push instalado (`core.hooksPath .githooks`), `git push origin :rama-que-no-existe`
-  tiene que rechazarlo el pre-push con un mensaje en español, sin llegar a GitHub.
+  tiene que rechazarlo el pre-push con un mensaje en español, sin llegar a GitHub. **No se pudo hacer a mano** (2026-10-11): no queda ninguna rama remota y, con una que no existe, git corta antes de llamar al hook; queda cubierta por el CA4 de la 0082 (git real, cinco formas de borrado).
 
 ## Fuera de alcance
 

@@ -351,6 +351,20 @@ Prueba: `src/main/modules/entity-detail-explore.live.test.ts` (40 lecturas, 3 se
   igual al número devuelto y sin `nextPageKey`: no hace falta un `from` mayor. Ids de **tipos
   mezclados** en el selector: **400**.
 
+### Zona y tamaño de instancia de un HOST (ficha 0085, observado en vivo, solo lectura)
+
+Prueba: la exploración de hosts de la 0020 en `src/main/modules/entity-detail-explore.live.test.ts`
+(3 hosts; el informe da por clave en cuántos hosts llega y la forma del texto, sin el valor).
+Claves del esquema `Host` de la API v1 (`openStackInstaceType` va escrito así en la API).
+
+- **`gceMachineType`:** llega en `properties` (1 de 3 hosts), texto corto, sin espacios, en
+  minúsculas, dígitos y `-`.
+- **`gcpZone`:** no llegó, ni siquiera en el host que trae `gceMachineType` y otras `gce*`. No
+  probado en vivo.
+- **`azureZone`, `azureVmSizeLabel`, `awsInstanceType`, `openstackAvZone` y
+  `openStackInstaceType`:** no llegaron (no hay hosts de esas nubes en lo visto). No probados en
+  vivo; la tarjeta las pinta igual si llegan.
+
 ## c) Metrics
 
 _Observado (2026-10-04)._ Prueba: `src/main/modules/metrics-explore.live.test.ts` (12 lecturas).

@@ -840,7 +840,9 @@
           "hostGroupName": "Host group",
           "managementZones": "Management zones",
           "cloudType": "Cloud",
-          "hypervisorType": "Hypervisor"
+          "hypervisorType": "Hypervisor",
+          "cloudZone": "Zone",
+          "instanceSize": "Instance size"
         },
         "groups": {
           "processes": "Processes",
