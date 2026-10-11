@@ -46,7 +46,7 @@ bueno de Dani o de peticiones en su nombre.
   [0087](tasks/0087-e2e-seis-workers-en-local.md) (hecha), ligera, 6 workers en local) y lote
   **seguridad-revision**, con prioridad (hallazgos de seguridad abiertos de la revisión de código del
   2026-10-11 y el seguimiento de la 0079; todas con la exclusión `seguridad`, cada una sola en su PR):
-  [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md),
+  [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md) (hecha),
   [0089](tasks/0089-ci-ok-falla-cerrado.md) (hecha), [0090](tasks/0090-fusion-atada-al-commit-del-ci.md),
   [0091](tasks/0091-scan-tenant-nombres-y-binarios.md),
   [0092](tasks/0092-telegram-no-envia-sin-filtro.md),
@@ -305,6 +305,9 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Modo `--plan`/`--dry-run` en `test:e2e:affected` que muestre el plan (specs, `--grep`, motivo) sin ejecutarlo: el verifier no pudo hacer la prueba de humo de los textos sin él. (surgió en 0071)
 - Convertir en guarda automática la pasada «cada texto que lee un spec cae en un prefijo con la zona de ese test» (hoy es un paso manual en `e2e/CLAUDE.md`). Es un criterio nuevo: pendiente de que Dani decida si va y dónde. (surgió en 0071)
 - `scripts/affected-e2e.cjs` (`localBin`): resolver el paquete con `require.resolve(pkg + "/package.json")` y dejar la ruta fija en `node_modules` como alternativa, por si un worktree no tuviera `node_modules` propio. (surgió en 0071)
+- `permissions.deny` no cubre `git push --mirror`, `--prune` ni `git -C <dir> push …` escritos en otra forma (el pre-push los para igual). (surgió en 0088)
+- Para el Planificador: saltarse el pre-push con `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=core.hooksPath` no casa con ninguna regla de `deny`; ficha con exclusión `seguridad`. (surgió en 0088)
+- Sospechoso de inestable (unitario): `scripts/react-compiler.test.ts` «CA3 (0059)» falló una vez por el límite de 5000 ms en el `check` del verifier de la 0088 (2026-10-11); aislado ×3 pasó. Probablemente es el unitario sin identificar que vio el developer de la cuarentena de la 0086. (surgió en 0088)
 
 ## Aparcado
 
@@ -423,3 +426,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0085](tasks/0085-host-nube-zona-y-tamano.md) (lote ideas-backlog): la tarjeta «Información» del host enseña las filas «Zona» y «Tamaño de instancia» en «Nube o virtualización» según el proveedor (Google Cloud, Azure, AWS solo tamaño y OpenStack; `PROVIDER_PROPERTIES` en `host-info.ts`). En vivo solo se vio `gceMachineType`. Sin migraciones.
 - [0087](tasks/0087-e2e-seis-workers-en-local.md) (lote e2e-inestables-2, ligera): `playwright.config.ts` vuelve a 6 workers en local (con 8 subieron los fallos de tiempos; 6 cuesta unos 10-15 s más por pase); el CI sigue con 4. Solo desarrollo.
 - [0089](tasks/0089-ci-ok-falla-cerrado.md) (lote seguridad-revision, exclusión seguridad): «CI ok» falla cerrado. El job `windows` corre salvo que `codigo` sea exactamente `false`, `ci-ok` queda en rojo si hay código y `windows` no acabó en `success`, y `ci-changes.mjs` falla dentro del CI si falta `GITHUB_OUTPUT`. Una PR solo de documentos sigue en verde sin e2e. Sin migraciones.
+- [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md) (lote seguridad-revision, exclusión seguridad): el `pre-push` solo deja publicar en ramas `integra/` y con avance rápido (`checkPushRefs`, modo `--check-refs` de `scripts/scan-tenant.mjs`); `VIGIA_PUSH_ALLOW_REFS` abre refs exactos (tags); `permissions.deny` niega refspec `+`, `--mirror`, `--prune` y `git -c` con push. Ningún push a `main` pasa, tampoco el de Dani. Sin migraciones.
