@@ -53,6 +53,13 @@ o está vacío, para el push con el código 2. En un worktree usa el del checkou
 que se sube (los refs que git le pasa) y, si no hay nada que subir, lo deja pasar. En un clon sin
 tenant de pruebas, `VIGIA_SCAN_TENANT_OPTIONAL=1` lo hace opcional: sale con 0 y un aviso.
 
+Además de las líneas añadidas y los mensajes de commit, mira los nombres de los ficheros añadidos,
+modificados o renombrados (el hallazgo da la carpeta y el tipo, nunca el nombre con el valor). Un
+binario añadido o modificado fuera de `build/` no se puede leer de forma fiable y para el push con
+el código 2; si has revisado que no lleva datos del tenant, `VIGIA_SCAN_ALLOW_BINARY=1` busca en su
+contenido como texto (latin1 y UTF-16LE) y lo deja pasar si no encuentra nada. Dentro de un zip
+(xlsx, docx) no mira: de ese fichero responde quien lo sube.
+
 Antes del escaneo, el pre-push solo deja publicar en ramas `integra/` y con avance rápido: rechaza
 otro destino (`main`, `feat/x`, un tag), un refspec con `+` que reescribe un ref publicado y los
 borrados de refs remotos; si el commit remoto no está en el clon, pide `git fetch`. Otro destino,
