@@ -271,8 +271,8 @@ se para la cola** (con la PR, o la fusión en `main`, como run):
 - El e2e local ya corre con la ventana del CI (1024×720): los specs la fijan al arrancar la app.
 - **Por ficha (verifier):** en un worktree propio en su scratchpad, `npm run check` y un único
   pase de `npm run test:e2e:affected -- <base>..<rama>`. No repite lo que ya está en verde
-  para el mismo commit. Los tests ya llevan su etiqueta de zona (ficha 0067), pero hasta la 0071
-  los afectados siguen saliendo de las áreas de `e2e/areas.json`.
+  para el mismo commit. Los afectados salen de las áreas de `e2e/areas.json` y, para los textos,
+  de las zonas de sus claves (ficha 0071, abajo en «Transversal»).
 - **Etiquetas de zona (ficha 0067):** cada test de `e2e/*.spec.ts` lleva exactamente una zona de
   `zones` (`e2e/areas.json`), propia o de su `test.describe`, y `@portapapeles` si usa el
   portapapeles del sistema. Una zona se lanza con `npm run test:e2e:nobuild -- --grep @zona`. La
@@ -292,10 +292,19 @@ se para la cola** (con la PR, o la fusión en `main`, como run):
   arreglo y desde cuándo), que mantiene el doc-writer: se añade al ponerlo y se quita al cerrar
   su ficha. La guarda no la lee.
 - **Transversal** (lo decide `e2e/areas.json`): e2e completo. Los locales y `main.css` no son
-  transversales: los cubren el test de paridad y el de contraste (los dos en `check`) y disparan el
-  área shell, más la del módulo si el diff toca uno. `scripts/**` está en ignore porque solo
-  contiene herramientas de desarrollo; un script que intervenga en el build o el empaquetado va a
-  `build/` o se saca del ignore.
+  transversales: los cubren el test de paridad y el de contraste (los dos en `check`). `main.css`
+  dispara el área shell. Los textos (ficha 0071) van por claves: se comparan las hojas de los
+  `common.json` del principio del rango con las de ahora y cada clave cambiada va a sus zonas por
+  el mapa `locales` de `e2e/areas.json` (prefijo de primer nivel y, en `entities`, de segundo;
+  gana el más largo). Si el diff solo cambia textos (y ficheros ignorados), se lanzan los
+  unitarios de textos (`vitest run src/renderer/src/locales`) y Playwright con los specs de esas
+  zonas y smoke, filtrado con `--grep` por sus etiquetas y `@smoke` (un `-g` de quien lo lanza se
+  suma: tienen que cumplirse los dos). Con más ficheros, esas zonas suman sus specs como un área
+  más, sin `--grep`. Una clave sin zona en el mapa o un `common.json` que no es JSON: e2e
+  completo, con el motivo. Una sección nueva de textos necesita su prefijo en `locales`: la guarda
+  de `scripts/affected-e2e-locales.test.ts` (en `check`) falla si falta o si apunta a una zona que
+  no existe. `scripts/**` está en ignore porque solo contiene herramientas de desarrollo; un
+  script que intervenga en el build o el empaquetado va a `build/` o se saca del ignore.
 - `--repeat-each 3` solo en specs concretos sospechosos de ser inestables: uno cuyo diff toca
   temporización (esperas, animaciones, virtualización, navegación), uno que falló una vez o uno
   anotado como inestable en el BACKLOG. Nunca la suite entera. `views-portapapeles` va con

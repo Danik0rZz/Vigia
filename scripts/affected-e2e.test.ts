@@ -263,9 +263,9 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
     for (const spec of d.specs) expect(spec === SMOKE || isViewSpec(spec), spec).toBe(true)
   })
 
-  // Los locales los cubre el test de paridad y main.css el de contraste (los dos
-  // en check): solos, disparan shell; con un fichero de un módulo, también el suyo.
-  it.each(['src/renderer/src/locales/es/common.json', 'src/renderer/src/assets/main.css'])(
+  // main.css lo cubre el test de contraste (en check): solo, dispara shell. Los
+  // locales van por claves y zonas desde la ficha 0071 (affected-e2e-locales.test.ts).
+  it.each(['src/renderer/src/assets/main.css'])(
     '%s solo → some con shell y smoke, nada más',
     (file) => {
       const d = specsFor(file)
@@ -273,20 +273,6 @@ describe.skipIf(!existsSync(AREAS))('e2e/areas.json real', () => {
       expect(d.specs).toEqual([SMOKE, 'e2e/shell.spec.ts'].sort())
     }
   )
-
-  it('locales junto a una página de un módulo → shell y el spec de ese módulo', () => {
-    const d = decide(
-      ['src/renderer/src/locales/en/common.json', 'src/renderer/src/pages/ProblemsPage.tsx'],
-      real
-    )
-    expect(d.mode).toBe('some')
-    expect(d.specs).toContain(SMOKE)
-    expect(d.specs).toContain('e2e/shell.spec.ts')
-    expect(d.specs).toContain(viewSpec('problemas'))
-    for (const spec of d.specs) {
-      expect(spec === SMOKE || spec === 'e2e/shell.spec.ts' || isViewSpec(spec), spec).toBe(true)
-    }
-  })
 
   // --- Ficha 0070: afectados por zona de vistas ---
 

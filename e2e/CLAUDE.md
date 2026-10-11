@@ -42,6 +42,18 @@
   detalle a las páginas de entidad con «Analizar entidad», «Abrir en Métricas» a Métricas); un
   enlace que solo comprueba adónde lleva no cuenta. Si una de esas zonas tiene tests en
   `views-portapapeles.spec.ts`, ese spec también.
+- Textos en `areas.json` (ficha 0071): `locales` lleva cada prefijo de clave (primer nivel y, en
+  `entities`, segundo; uno más largo si una parte se pinta en más sitios) a las zonas donde se
+  pintan sus textos, buscando en `src/` quién lo usa (el criterio, en la cabecera de
+  `scripts/affected-e2e.cjs`). Una sección nueva de textos lleva su prefijo, o falla la guarda de
+  `scripts/affected-e2e-locales.test.ts`. Los specs de una zona son los que tienen algún test con
+  su etiqueta.
+- Buscar en `src/` no basta: al tocar el mapa `locales` (o un test que compruebe textos), repasar
+  `e2e/*.spec.ts`. Cada texto literal de un `common.json` (es o en), cada `t('es', '…')` y cada
+  `es.…`/`en.…` que use un test cae en un prefijo que incluye la zona de ese test. Lo que falló en
+  la 0071: `module.noEnvironment` se monta en `data/modules.ts` y lo comprueba `@shell`; el botón
+  de idioma (`topbar.language`) lo pulsan `@tls` y `@errors`. Las coincidencias con nombres de
+  fixtures, datos del simulador o `data-testid` se descartan a mano. No es guarda: es un paso.
 - Cambios hechos por IPC directo (`window.vigia.invoke`) no actualizan la interfaz: TanStack Query
   solo se entera de las mutaciones que hace el renderer. Recargar tras preparar datos por IPC.
 - Datos de Dynatrace solo del simulador: nada del tenant (nombres, IDs, URLs, valores) en specs ni
