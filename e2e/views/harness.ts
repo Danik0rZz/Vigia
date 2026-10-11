@@ -17,7 +17,7 @@ import { workerResources } from '../worker-resources'
 import {
   fitsContentSize,
   FIXED_WINDOW,
-  useCiWindow,
+  applyCiWindow,
   viewportSize as pageViewportSize,
   type WindowSize
 } from '../window-size'
@@ -498,7 +498,7 @@ export function setupViewsApp(): void {
         VIGIA_E2E: '1'
       }
     })
-    await useCiWindow(app)
+    await applyCiWindow(app)
     page = await app.firstWindow()
     // Nunca la carpeta real de datos: la temporal de esta prueba.
     expect(await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))).toBe(

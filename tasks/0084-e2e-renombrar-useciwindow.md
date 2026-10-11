@@ -1,7 +1,7 @@
 ---
 id: '0084'
 titulo: 'e2e: renombrar useCiWindow a applyCiWindow y quitar la excepción de lint rules-of-hooks'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: [6] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -77,12 +77,25 @@ Rápido (`ligera: sí`): S, sin exclusiones, y cumple los cuatro puntos.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: CA1 (`isApplyCiWindow` en `scripts/e2e-ci-window.test.ts`; el caso «CA1 (0084)» recorre los `.ts` de `e2e/` y `e2e/CLAUDE.md`), CA2 (bloque borrado de `eslint.config.mjs`, vigilado por «CA2 (0084)») y CA3 (la regex del CA2 de la 0069 busca `await applyCiWindow(`). Los tres fallaban antes de d83c50c. `useCiWindow` ya no aparece en `e2e/`, `scripts/` ni `eslint.config.mjs` (solo en los tests de la 0084 y en la línea del BACKLOG que se quita al cerrar).
+- El cambio del test de CA2 (56b5a61) no cambia el criterio: lee la configuración con el AST en vez de importarla, por el límite de tiempo con cobertura; pierde configuraciones construidas por spread o variables, pero la excepción era un objeto literal.
+- La nota de `tasks/0021-e2e-ventana-del-ci.md` procede: la pide la especificación de la 0084.
+- Carril: cambio de nombre puro, sin funciones ni lógica, sin `src/`, IPC, API ni dependencias, nada visible. Sin [CARRIL].
+- Opcional: el orden alfabético de los imports de `applyCiWindow` en los specs.
 
 ## Verificación
 
 (pendiente)
 
+Verificación 2026-10-11, commit 779ef78, rango `integra/20261011-7..chore/0084-e2e-renombrar-useciwindow`: **VERDE**.
+
+- `npm run check`: 219 ficheros, 3869 tests; cobertura: líneas 93,51 %, ramas 90,06 %, funciones 89,83 %, sentencias 92,74 %.
+- `npm run test:e2e:affected`, un pase (completo, porque `e2e/window-size.ts` no tiene área): 368 pasados, 0 fallos (1,4 min).
+
 ## Resultado
 
-(pendiente)
+- Commits: fa10084 (tests), d83c50c (renombrado y lint), 56b5a61 (CA2 con el AST), más los de ficha y revisión. Una ronda de revisión (APROBADO). Sin ADR nuevo.
+- Ficheros principales: `e2e/window-size.ts`, los specs de `e2e/` y `e2e/views/harness.ts`, `eslint.config.mjs`, `scripts/e2e-ci-window.test.ts`, `scripts/e2e-views-harness.test.ts`, `e2e/CLAUDE.md` y la nota en la ficha 0021.
+- Se quitó la línea del BACKLOG. Opcional del revisor (orden alfabético de los imports) descartado: no merece una mejora anotada.

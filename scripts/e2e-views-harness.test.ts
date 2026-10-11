@@ -360,11 +360,11 @@ describe('arnés de vistas en el repositorio', () => {
     expect(checkHarnessUse(readFileSync(spec, 'utf8'), isHarnessFrom(spec))).toEqual([])
   })
 
-  it('CA2 (0069): el arnés lanza la app y llama a useCiWindow justo después', () => {
+  it('CA2 (0069): el arnés lanza la app y llama a applyCiWindow justo después', () => {
     const launching = harness.filter((file) => /\.launch\(/.test(readFileSync(file, 'utf8')))
     expect(launching, 'módulos del arnés que lanzan la app').toHaveLength(1)
     const code = readFileSync(launching[0] as string, 'utf8')
-    expect(code).toMatch(/\.launch\([\s\S]*?\)\s*\n\s*await useCiWindow\(/)
+    expect(code).toMatch(/\.launch\([\s\S]*?\)\s*\n\s*await applyCiWindow\(/)
   })
 
   it('CA2 (0069) y CA3 (0070): cambiar un módulo del arnés lanza todos los specs de vistas (e2e/areas.json)', () => {

@@ -51,6 +51,7 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 - CA1 (unitario): un test recorre `e2e/*.spec.ts` y falla si un spec arranca la app
   (`_electron.launch` o el lanzador común) sin llamar a `useCiWindow` justo después.
+  La 0084 renombró `useCiWindow` a `applyCiWindow`.
 - CA2 (e2e): en cada spec, un test comprueba al empezar que el contenido de la ventana mide
   1024×720 (con el margen de 2 px).
 - CA3 (e2e): tras un `withContentSize(SMALL_WINDOW)`, el test siguiente vuelve a tener 1024×720.

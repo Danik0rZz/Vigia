@@ -66,12 +66,5 @@ export default defineConfig(
       '@typescript-eslint/no-require-imports': 'off'
     }
   },
-  {
-    // Los e2e no tienen React: `useCiWindow` (ficha 0021) no es un hook aunque empiece por «use».
-    files: ['e2e/**/*.ts'],
-    rules: {
-      'react-hooks/rules-of-hooks': 'off'
-    }
-  },
   eslintConfigPrettier
 )

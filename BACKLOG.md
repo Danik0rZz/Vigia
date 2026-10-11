@@ -35,7 +35,7 @@ bueno de Dani o de peticiones en su nombre.
 - Detrás, aprobados por Dani el 2026-10-11, en este orden: lote **medicion-control**
   ([0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (hecha), ligera, y
   [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md), las dos con `medir: sí`) y lote
-  **ideas-backlog** ([0084](tasks/0084-e2e-renombrar-useciwindow.md), ligera;
+  **ideas-backlog** ([0084](tasks/0084-e2e-renombrar-useciwindow.md) (hecha), ligera;
   [0082](tasks/0082-permisos-claude-fusiones-y-ramas.md) y
   [0083](tasks/0083-log-enmascarar-anidados.md), cada una sola en su PR por la exclusión
   `seguridad`; y [0085](tasks/0085-host-nube-zona-y-tamano.md)). Cola completa: 0079, 0070, 0071,
@@ -137,9 +137,6 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
   quedar uno encima del otro (el reparto de filas cuenta el tiempo, no el ancho pintado). (surgió
   en 0013)
 - e2e «CA4 (0013)»: repetir también las comprobaciones de filas con la ventana del CI. (surgió en 0013)
-- e2e: renombrar `useCiWindow` (empieza por «use» y obliga a la excepción de lint
-  `react-hooks/rules-of-hooks` en `e2e/**`) y quitar la excepción. Cambia el texto del CA1 de la
-  0021: lo decide Dani. (surgió en 0021)
 - `views.spec.ts`: reflujo de los JSDoc de `withContentSize` y `withContentWidth` (~1747 y ~5970).
   (surgió en 0021)
 - `scripts/e2e-ci-window.test.ts`: `isUseCiWindow` no comprueba el argumento de la llamada.
@@ -398,3 +395,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0071](tasks/0071-e2e-afectados-locales-por-zona.md) (lote flujo-herramientas): un cambio solo en `locales/` lanza los unitarios de textos y los e2e de las zonas de las claves cambiadas (`changedKeys` + mapa `locales` en `areas.json`, `--grep` de zonas y `@smoke`); prefijo sin zona o JSON roto, e2e completo; guarda del mapa en `check`. Sin migraciones.
 - [0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (lote medicion-control, ligera): quitada la clave `entities.service.charts.loadError`, sin usar, de los textos en español e inglés. Sin migraciones.
 - [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md) (lote medicion-control): en los marcadores del servicio, si falla el canal de métricas solo el primer aviso (`SLO`, o `Peticiones` con Solo actividad) lleva `role="alert"`; `MarkerError` y `QueryState` tienen una propiedad `silent` que lo quita. Lo que se ve no cambia. Sin migraciones.
+- [0084](tasks/0084-e2e-renombrar-useciwindow.md) (lote ideas-backlog, ligera): `useCiWindow` pasa a `applyCiWindow` en `e2e/` y en las guardas de `scripts/`, y se quita de `eslint.config.mjs` la excepción de `react-hooks/rules-of-hooks` para `e2e/**`. Solo desarrollo. Sin migraciones.

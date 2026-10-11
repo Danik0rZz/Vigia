@@ -33,7 +33,7 @@ import type { AddressInfo } from 'node:net'
 
 setupViewsApp()
 
-/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (useCiWindow). */
+/** Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (applyCiWindow). */
 test(
   'CA2 (0021): al empezar, el contenido de la ventana mide 1024×720 (con el margen de 2 px)',
   { tag: '@vistas-comun' },

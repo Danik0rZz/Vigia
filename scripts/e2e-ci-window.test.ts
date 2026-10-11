@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest'
 
 /**
  * Ficha 0021: todos los e2e corren con el contenido de la ventana del CI (1024×720). Cada spec,
- * nada más arrancar la app, llama a `useCiWindow` (e2e/window-size.ts): la sentencia siguiente a
- * la que lanza Electron tiene que ser `await useCiWindow(...)`. Si la app se lanza dentro de una
+ * nada más arrancar la app, llama a `applyCiWindow` (e2e/window-size.ts): la sentencia siguiente a
+ * la que lanza Electron tiene que ser `await applyCiWindow(...)`. Si la app se lanza dentro de una
  * función propia del spec (el lanzador común de tenants), la regla se aplica dentro de ella.
  *
  * Ficha 0069: la app también se lanza desde módulos de `e2e/` que no son specs (el arnés de vistas,
@@ -43,7 +43,7 @@ function e2eFiles(dir = ''): string[] {
 interface LaunchCheck {
   /** Línea (desde 1) de cada `launch` de Electron. */
   launches: number[]
-  /** Líneas de los `launch` a los que no sigue `await useCiWindow(...)`. */
+  /** Líneas de los `launch` a los que no sigue `await applyCiWindow(...)`. */
   missing: number[]
 }
 
@@ -64,8 +64,8 @@ function electronAliases(source: ts.SourceFile): Set<string> {
   return names
 }
 
-/** Si `statement` es exactamente `await useCiWindow(...)`. */
-function isUseCiWindow(statement: ts.Statement | undefined): boolean {
+/** Si `statement` es exactamente `await applyCiWindow(...)`. */
+function isApplyCiWindow(statement: ts.Statement | undefined): boolean {
   if (statement === undefined || !ts.isExpressionStatement(statement)) return false
   const expression = statement.expression
   if (!ts.isAwaitExpression(expression)) return false
@@ -73,7 +73,7 @@ function isUseCiWindow(statement: ts.Statement | undefined): boolean {
   return (
     ts.isCallExpression(call) &&
     ts.isIdentifier(call.expression) &&
-    call.expression.text === 'useCiWindow'
+    call.expression.text === 'applyCiWindow'
   )
 }
 
@@ -88,7 +88,7 @@ function enclosingStatement(node: ts.Node): ts.Statement | undefined {
   return undefined
 }
 
-/** Comprueba que a cada `launch` de Electron le sigue `await useCiWindow(...)`. */
+/** Comprueba que a cada `launch` de Electron le sigue `await applyCiWindow(...)`. */
 function checkCiWindow(code: string, fileName = 'spec.ts'): LaunchCheck {
   const source = ts.createSourceFile(fileName, code, ts.ScriptTarget.Latest, true)
   const aliases = electronAliases(source)
@@ -107,7 +107,7 @@ function checkCiWindow(code: string, fileName = 'spec.ts'): LaunchCheck {
       const list = statement?.parent as ts.Block | ts.SourceFile | undefined
       const index =
         statement === undefined || list === undefined ? -1 : list.statements.indexOf(statement)
-      if (index < 0 || !isUseCiWindow(list?.statements[index + 1])) result.missing.push(line)
+      if (index < 0 || !isApplyCiWindow(list?.statements[index + 1])) result.missing.push(line)
     }
     ts.forEachChild(node, visit)
   }
@@ -118,16 +118,16 @@ function checkCiWindow(code: string, fileName = 'spec.ts'): LaunchCheck {
 describe('checkCiWindow (la propia comprobación)', () => {
   const header = "import { _electron as electron, test } from '@playwright/test'\n"
 
-  it('CA1 (0021): acepta el launch seguido de await useCiWindow', () => {
+  it('CA1 (0021): acepta el launch seguido de await applyCiWindow', () => {
     const code = `${header}test.beforeAll(async () => {
   app = await electron.launch({ args: ['.'] })
-  await useCiWindow(app)
+  await applyCiWindow(app)
   page = await app.firstWindow()
 })`
     expect(checkCiWindow(code)).toEqual({ launches: [3], missing: [] })
   })
 
-  it('CA1 (0021): rechaza el launch sin useCiWindow o con algo en medio', () => {
+  it('CA1 (0021): rechaza el launch sin applyCiWindow o con algo en medio', () => {
     const without = `${header}async function launch() {
   app = await electron.launch({ args: ['.'] })
   page = await app.firstWindow()
@@ -136,12 +136,12 @@ describe('checkCiWindow (la propia comprobación)', () => {
     const between = `${header}async function launch() {
   app = await electron.launch({ args: ['.'] })
   page = await app.firstWindow()
-  await useCiWindow(app)
+  await applyCiWindow(app)
 }`
     expect(checkCiWindow(between).missing).toEqual([3])
     const notAwaited = `${header}async function launch() {
   app = await electron.launch({ args: ['.'] })
-  void useCiWindow(app)
+  void applyCiWindow(app)
 }`
     expect(checkCiWindow(notAwaited).missing).toEqual([3])
   })
@@ -164,8 +164,68 @@ describe('specs de e2e', () => {
     expect(launching.sort()).toEqual([...LAUNCHING_FILES].sort())
   })
 
-  it.each(files)('CA1 (0021): %s llama a useCiWindow justo después de arrancar la app', (name) => {
-    const { missing } = checkCiWindow(readFileSync(join(E2E_DIR, name), 'utf8'), name)
-    expect(missing, `launch sin useCiWindow justo después (líneas)`).toEqual([])
+  it.each(files)(
+    'CA1 (0021): %s llama a applyCiWindow justo después de arrancar la app',
+    (name) => {
+      const { missing } = checkCiWindow(readFileSync(join(E2E_DIR, name), 'utf8'), name)
+      expect(missing, `launch sin applyCiWindow justo después (líneas)`).toEqual([])
+    }
+  )
+})
+
+describe('nombre de applyCiWindow (ficha 0084)', () => {
+  it.each(e2eFiles())('CA1 (0084): %s ya no nombra useCiWindow', (name) => {
+    const code = readFileSync(join(E2E_DIR, name), 'utf8')
+    expect(code.includes('useCiWindow'), 'nombre antiguo, antes de la 0084').toBe(false)
+  })
+
+  it('CA1 (0084): e2e/CLAUDE.md ya no nombra useCiWindow', () => {
+    const doc = readFileSync(join(E2E_DIR, 'CLAUDE.md'), 'utf8')
+    expect(doc.includes('useCiWindow'), 'nombre antiguo, antes de la 0084').toBe(false)
+  })
+
+  it('CA2 (0084): eslint.config.mjs ya no apaga react-hooks/rules-of-hooks para e2e/**', () => {
+    // Se lee con el AST de TypeScript: importar la configuración carga todos los plugins de ESLint
+    // y, con la cobertura y los workers en paralelo, pasa del tiempo de un test.
+    const code = readFileSync('eslint.config.mjs', 'utf8')
+    const source = ts.createSourceFile('eslint.config.mjs', code, ts.ScriptTarget.Latest, true)
+    const property = (
+      node: ts.ObjectLiteralExpression,
+      name: string
+    ): ts.Expression | undefined => {
+      for (const element of node.properties) {
+        if (!ts.isPropertyAssignment(element)) continue
+        const key = element.name
+        if ((ts.isIdentifier(key) || ts.isStringLiteral(key)) && key.text === name)
+          return element.initializer
+      }
+      return undefined
+    }
+    const disabled: number[] = []
+    const visit = (node: ts.Node): void => {
+      if (ts.isObjectLiteralExpression(node)) {
+        const files = property(node, 'files')
+        const rules = property(node, 'rules')
+        const forE2e =
+          files !== undefined &&
+          ts.isArrayLiteralExpression(files) &&
+          files.elements.some((item) => ts.isStringLiteral(item) && item.text.startsWith('e2e'))
+        const rule =
+          rules !== undefined && ts.isObjectLiteralExpression(rules)
+            ? property(rules, 'react-hooks/rules-of-hooks')
+            : undefined
+        const value =
+          rule !== undefined && ts.isArrayLiteralExpression(rule) ? rule.elements[0] : rule
+        const off =
+          value !== undefined &&
+          ((ts.isStringLiteral(value) && value.text === 'off') ||
+            (ts.isNumericLiteral(value) && value.text === '0'))
+        if (forE2e && off)
+          disabled.push(source.getLineAndCharacterOfPosition(node.getStart()).line + 1)
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(source)
+    expect(disabled, 'bloques que apagan rules-of-hooks en e2e/ (líneas)').toEqual([])
   })
 })
