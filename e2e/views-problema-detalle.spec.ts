@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, type Locator, test } from '@playwright/test'
-import { hoverFresh, moveToNeutral } from './hover'
+import { hoverFresh, moveToNeutral, visibleBox } from './hover'
 import { wallTimeToEpoch } from './local-time'
 import {
   BIG_ID,
@@ -1427,10 +1427,7 @@ test(
 
 test(
   'v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio',
-  {
-    tag: ['@problema-detalle', '@inestable'],
-    annotation: { type: 'arreglo', description: '0096' }
-  },
+  { tag: '@problema-detalle' },
   async () => {
     await goToRoute(`/problems/${LONG_ID}`)
     await expect(page.getByTestId('problem-page-title')).toContainText('P-784')
@@ -1468,15 +1465,15 @@ test(
     // El inicio del problema (hace 45 días) queda fuera: sin línea vertical de inicio.
     expect(axis.markLines).toBe(0)
 
-    // Tooltip con fecha y hora completas.
-    const box = await drawn.locator('canvas').first().boundingBox()
-    await page.mouse.move(
-      (box?.x ?? 0) + (box?.width ?? 0) * 0.6,
-      (box?.y ?? 0) + (box?.height ?? 0) / 2,
-      {
-        steps: 10
-      }
-    )
+    // Tooltip con fecha y hora completas. La tabla de evidencias es más ancha que su caja con
+    // scroll, y el lienzo con ella: el 60 % de su ancho caía fuera de lo visible y de la ventana, y
+    // el tooltip solo salía al cruzar el lienzo, para esconderse 100 ms después (el hideDelay de
+    // ECharts al salir); en el CI, más lento, ya no estaba al comprobarlo (0096). Se apunta al
+    // centro de la parte visible, con el lienzo entero a la vista en vertical.
+    const canvas = drawn.locator('canvas').first()
+    await canvas.evaluate((el) => el.scrollIntoView({ block: 'nearest', inline: 'start' }))
+    const box = await visibleBox(canvas)
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 })
     const tooltip = page.locator('.vigia-chart-tooltip').filter({ visible: true }).first()
     await expect(tooltip).toContainText(/\d\d\/\d\d\/\d{4} \d\d:\d\d/)
     await moveToNeutral(page)
