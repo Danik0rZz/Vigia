@@ -104,3 +104,4 @@
   dice de qué depende y qué deja; si encadena, el arreglo o su paso a un `test.describe` propio va
   primero.
 - Tras abrir una capa Radix (paleta, diálogo) encima de un modal, `DismissableLayer` la pinta un fotograma con `pointer-events: none`: un `elementFromPoint` inmediato no la ve «encima». Esperar con `expect.poll` a que el centro sea la capa y el foco esté dentro, no con `toBeVisible` ni tiempos. Ficha 0078.
+- Si un test necesita que coincidan varias peticiones (colas, máximos en vuelo), no confiar en el retardo fijo del simulador: el ritmo del test cambia entre local y CI. Retener las respuestas con una compuerta del simulador (patrón `detailGate`, `eventMetricGate`), esperar con `expect.poll` a que haya las esperadas en vuelo y soltarlas en un `finally`. Ficha 0086.
