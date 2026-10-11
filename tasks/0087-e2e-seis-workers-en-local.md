@@ -1,7 +1,7 @@
 ---
 id: '0087'
 titulo: 'e2e: volver a 6 workers en local'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: [13] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -75,12 +75,25 @@ servicios externos.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- CA1: `LOCAL_WORKERS` pasa de 8 a 6 (`playwright.config.ts:12`) y la línea 21 sigue con `process.env['CI'] ? 4 : LOCAL_WORKERS`; el test «CA1 (0087): sin CI, 6 workers» exige `toBe(6)` y fallaría con 8. CA2: los dos tests de la 0070 siguen sin cambios; solo cambian el comentario de cabecera y la constante `MEASURED` por `LOCAL_WORKERS`, como pide la especificación.
+- Tests en 91aa80f; 3ae0a36 no toca el fichero de tests.
+- Carril respetado: una constante, su comentario y un test existente; nada visible, sin datos, API, lógica, IPC, dependencias ni esquema.
+- Comentario del porqué y punto «Workers» de `e2e/CLAUDE.md` al día; sin datos del tenant.
+- Opcional: renombrar el `describe` «CA5 (0070)…» a algo neutro como «workers de playwright.config.ts (0070, 0087)».
 
 ## Verificación
 
 (pendiente)
 
+Verificación 2026-10-11, commit 414eaec, rango `integra/20261011-12..chore/0087-e2e-seis-workers-en-local`: **VERDE**.
+
+- `npm run check`: 221 ficheros, 3978 tests; cobertura: sentencias 92,74 %, ramas 90,06 %, funciones 89,83 %, líneas 93,51 %.
+- `npm run test:e2e:affected`, un pase (completo por `playwright.config.ts`): «Running 368 tests using 6 workers»; 368 pasados, 0 fallos, 1,6 min.
+
 ## Resultado
 
-(pendiente)
+- Commits: 91aa80f (test), 3ae0a36 (cambio), 414eaec (revisión) y 2d7b68b (verificación). Una ronda de revisión: APROBADO. Sin ADR nuevo.
+- Ficheros: `playwright.config.ts` (`LOCAL_WORKERS` 8 a 6 y su comentario), `scripts/playwright-workers.test.ts` («CA1 (0087)»), `e2e/CLAUDE.md` (punto «Workers»).
+- BACKLOG: la nota de sospechosos ya no pide medir los workers; la 0087 queda en «Hecho».
