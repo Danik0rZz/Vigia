@@ -4,10 +4,12 @@ import { defineConfig } from '@playwright/test'
 const QUARANTINE = /@inestable(\s|$)/
 
 /**
- * Workers sin CI, medidos en la VPS (22 núcleos lógicos) con el e2e completo (ficha 0070, en su
- * «Verificación»). En el CI, 4: `windows-latest` tiene 4 núcleos.
+ * Workers sin CI (ficha 0087): 6 y no 8, el más rápido. Con 8 subieron los fallos de tiempos
+ * (tooltips, tamaño de ventana) con la suite en paralelo; 6 cuesta unos 10-15 s más por pase
+ * (medición de la 0070, en su «Verificación», en la VPS de 22 núcleos lógicos). En el CI, 4:
+ * `windows-latest` tiene 4 núcleos.
  */
-const LOCAL_WORKERS = 8
+const LOCAL_WORKERS = 6
 
 /** Pruebas de extremo a extremo sobre la app compilada (`npm run test:e2e`). */
 export default defineConfig({
