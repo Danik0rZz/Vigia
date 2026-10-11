@@ -79,9 +79,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene el doc-writer: se añade una fila al ponerlo en cuarentena y se quita al cerrar su ficha de arreglo. La guarda no lee esta sección.
 
-| Test                                                                                                                                                                                                                           | Spec                                 | Ficha de arreglo                                            | Desde      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------- | ---------- |
-| «v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez» (falló en el CI de la PR #10, run 38143008404; la PR #11, run 38146900333, y la PR #12, run 38152066082) | `e2e/views-problema-detalle.spec.ts` | [0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md) | 2026-10-11 |
+| Test                                                                                                                                                                                                                                       | Spec                                 | Ficha de arreglo                                            | Desde      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------- | ---------- |
+| «v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez» (falló en el CI de la PR #10, run 38143008404; la PR #11, run 38146900333, y la PR #12, run 38152066082)             | `e2e/views-problema-detalle.spec.ts` | [0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md) | 2026-10-11 |
+| «v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio» (falló en el CI de la PR #12, run 38152066082 intento 1, y en el run 38157462342 intento 1; una vez en local) | `e2e/views-problema-detalle.spec.ts` | [0096](tasks/0096-e2e-arreglar-tooltips-en-el-ci.md)        | 2026-10-11 |
 
 ## Mejoras anotadas
 
