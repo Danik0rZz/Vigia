@@ -5,9 +5,32 @@
 # entrada estándar los refs que git va a subir y escanea remota..local de cada uno (ficha 0055).
 # Busca .env.live.local en la carpeta del push y, si no está, en el checkout principal; sin él,
 # falla (salvo con VIGIA_SCAN_TENANT_OPTIONAL=1, para clones sin tenant de pruebas).
+#
+# Antes, los borrados de ramas o tags remotos (ficha 0082): git los pasa con el SHA local a ceros,
+# sea con `:rama`, `--delete` o `-d`. Se rechazan todos; una rama remota se borra desde GitHub.
+
+# La entrada estándar solo se puede leer una vez: se guarda para revisarla y pasársela al escáner.
+input=$(cat)
+
+deletes=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_sha" ] && continue
+  case "$local_sha" in
+    *[!0]*) ;;
+    *) deletes="$deletes $remote_ref" ;;
+  esac
+done <<EOF
+$input
+EOF
+
+if [ -n "$deletes" ]; then
+  echo "pre-push: este push borra en el remoto:$deletes. No se publica."
+  echo "pre-push: los borrados de ramas y tags remotos están bloqueados; una rama se borra desde GitHub."
+  exit 1
+fi
 
 echo "pre-push › scan:tenant"
-node scripts/scan-tenant.mjs --pre-push
+printf '%s\n' "$input" | node scripts/scan-tenant.mjs --pre-push
 status=$?
 if [ "$status" -eq 1 ]; then
   echo "pre-push: scan:tenant ha encontrado restos del tenant. No se publica."
