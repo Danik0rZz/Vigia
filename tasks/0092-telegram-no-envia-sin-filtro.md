@@ -32,7 +32,7 @@ test «CA8 (0004)» fija ese comportamiento.
 **Qué se hace.**
 
 1. Sin valores con los que filtrar, no se envía: `[aviso telegram] sin .env.live.local con valores:
-   no se envía`, salvo con `VIGIA_TELEGRAM_UNFILTERED=1` (para un clon sin tenant de pruebas).
+no se envía`, salvo con `VIGIA_TELEGRAM_UNFILTERED=1` (para un clon sin tenant de pruebas).
 2. Sigue saliendo con 0 en todos los casos: el aviso nunca para el flujo (ADR-0009).
 3. El test «CA8 (0004)» cambia a lo nuevo (no envía) y se dice en la ficha; `docs/flujo.md` («Avisos
    por Telegram») y el README explican el caso y la variable.

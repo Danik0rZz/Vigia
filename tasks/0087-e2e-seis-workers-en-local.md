@@ -66,8 +66,7 @@ servicios externos.
 ## Fuera de alcance
 
 - Los workers del CI.
-- Arreglar los tests sospechosos (cada uno, su ficha si se confirma); el de la cola de gráficos es la
-  0086.
+- Arreglar los tests sospechosos (cada uno, su ficha si se confirma); el de la cola de gráficos es la 0086.
 - Volver a medir los workers: la medición de la 0070 vale.
 
 ## Ideas surgidas (fuera de alcance)

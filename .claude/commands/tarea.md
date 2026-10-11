@@ -25,8 +25,8 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
 - **Si falla el CI de una PR (o el de `main` tras fusionarla), se para la cola** (`docs/flujo.md`,
   "El CI, sin esperarlo"): no lanzas ningún subagente más y el que esté trabajando acaba su paso;
   su ficha queda `en_espera` en su rama. Después localizas la ficha culpable y relanzas el job que
-  falló una sola vez. Si pasa, el spec queda en el BACKLOG como sospechoso de inestable (fecha y
-  run, para la ficha B) y sigues. Si vuelve a fallar, reabres la culpable (`en_desarrollo`, rama
+  falló una sola vez (`gh run rerun <id del run> --failed`). Si pasa, el spec queda en el BACKLOG
+  como sospechoso de inestable (fecha y run, para la ficha B) y sigues. Si vuelve a fallar, reabres la culpable (`en_desarrollo`, rama
   `fix/NNNN-ci` desde la rama de integración de esa PR, o desde `main` si ya estaba fusionada, y
   `rama: fix/NNNN-ci` en su ficha) y la llevas por developer, reviewer, verifier, doc-writer e
   integración (su commit `fix(…)` en esa misma rama de integración) antes de seguir. Si el arreglo

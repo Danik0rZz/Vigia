@@ -20,8 +20,7 @@ rondas_revision: 0
 ## Petición original
 
 Dani (2026-10-11, por el Orquestador): los hallazgos de seguridad abiertos de la revisión de código
-del 2026-10-11 pasan a fichas con prioridad. Esta es la P-02. La P-03 (enmascarar lo anidado) es la
-0083.
+del 2026-10-11 pasan a fichas con prioridad. Esta es la P-02. La P-03 (enmascarar lo anidado) es la 0083.
 
 ## Especificación
 
