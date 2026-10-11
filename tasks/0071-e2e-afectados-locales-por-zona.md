@@ -9,12 +9,12 @@ medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "
 lote: flujo-herramientas # nombre corto del lote, si la ficha es parte de uno
 depende_de: ['0067', '0068', '0070'] # fichas que tienen que estar hechas antes, por número
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
-rama: feat/0071-e2e-afectados-locales-por-zona
+rama: fix/0071-grep-windows # rama de la ficha
 adrs: [6, 13] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 2
+rondas_revision: 3
 ---
 
 ## Petición original
@@ -123,6 +123,14 @@ Opcional: `gitShow` con `${ref}:./${file}`; reflujar una línea partida de `docs
 - Opcionales aplicados y correctos (`gitShow` con `./`, «Transversal» reflujado, JSDoc de `decide`).
 - Tests sin cambios desde ad329e0; CA2, CA3 y CA6 toman el mapa real y siguen valiendo; CA2 sigue sin lanzar `shell.spec.ts`. Sin secretos ni datos del tenant.
 
+### Reapertura, ronda 1: APROBADO
+
+- Binario: `localBin` (`scripts/affected-e2e.cjs:418-426`) lee el campo `bin` en sus dos formas, falla con mensaje claro si no lo encuentra, y los tres paquetes reales (`@playwright/test`, `electron-vite`, `vitest`) resuelven bien. Se lanza con `process.execPath`, `shell: false` y argumentos en array: rutas con espacios bien y mismo comportamiento en Linux, macOS y el CI de Windows.
+- `run` mantiene `stdio: 'inherit'` y `result.status ?? 1`; si no se puede lanzar, lo dice. No queda ninguna shell: los `npx` del plan pasan por `invocation` y el resto son `execFileSync('git', …)`.
+- El test (`scripts/affected-e2e-spawn.test.ts`) lanza de verdad un proceso de eco: el `--grep` de zonas con su `|` y ocho `-g` con caracteres especiales llegan intactos. Fallaba antes del arreglo y no se tocó después de 7f6c231.
+- Sin dependencias ni datos del tenant; `scripts/` sin área en `e2e/areas.json`.
+- Opcional: resolver el paquete con `require.resolve(pkg + '/package.json')` y dejar la ruta fija como alternativa, por si un worktree no tuviera `node_modules` propio.
+
 ## Verificación
 
 Tests escritos en ad329e0 (`scripts/affected-e2e-locales.test.ts`; en `scripts/affected-e2e.test.ts`
@@ -167,6 +175,24 @@ Verificación 2026-10-11, commit dd08098, rango `integra/20261011-7..feat/0071-e
 - e2e, un pase (completo por `e2e/areas.json`): 365 pasados, 0 fallos, 1,4 min.
 - Prueba de humo con un cambio real de textos: no se pudo, porque `test:e2e:affected` no tiene un modo que muestre el plan sin ejecutarlo. El comportamiento lo cubren CA2, CA3 y CA6 con el mapa real.
 
+Reapertura (developer, 2026-10-11, Windows): con un cambio temporal sin commitear en
+`entities.service.markers.p90Hint` de `es/common.json` (deshecho después),
+`npm run test:e2e:affected -- integra/20261011-7..HEAD` da el motivo
+`locales: entities.service.markers.p90Hint → @servicio`, lanza `smoke.spec.ts` y
+`views-servicio.spec.ts` con solo `@servicio @smoke`, corre los unitarios de textos (26 ficheros,
+110 tests) y Playwright (61 pasados, 58,5 s), exit=0. Con `--no-build -g "(0020)|(0015)"`: 8
+pasados, exit=0. `npm run check`: 218 ficheros, 3831 tests, en verde. El cambio solo toca
+`scripts/` (sin área), así que no hay e2e afectados más allá de esa prueba.
+
+Verificación de la reapertura, 2026-10-11, commit 071681a, rango `integra/20261011-7..fix/0071-grep-windows`: **VERDE**.
+
+- `npm run check`: 218 ficheros, 3831 tests; cobertura: líneas 93,51 %, ramas 90,06 %.
+- `npm run test:e2e:affected -- integra/20261011-7..HEAD`: exit 0, «solo docs o tests unitarios» (cero e2e).
+- Prueba de humo en Windows, con cambios sin commitear en el worktree del verifier (deshechos), `npm run test:e2e:affected -- HEAD`:
+  1. `entities.service.markers.ok`: selección correcta (unitarios de textos y solo `smoke` y `views-servicio`); exit 1 porque `service-markers.test.ts` fija ese texto, y el fallo de los unitarios paró el pase antes de los e2e, como debe.
+  2. `entities.service.markers.loadError`: `@aplicacion`, `@entidad`, `@host`, `@monitor`, `@proceso`, `@servicio` y `@smoke` (clave común a las seis páginas de entidad); unitarios de textos 110 en verde; e2e 180 pasados; exit 0.
+  3. `module.refresh`: incluye `@shell`; unitarios de textos 110 en verde; e2e 305 pasados (con 5 `@portapapeles` que comparten spec); exit 0.
+
 ## Resultado
 
 Commits: ad329e0 (tests), a937f80 (script y mapa), 62277e2 (docs de flujo y e2e), cbe1715 (arreglo de la ronda 1) y 5ef30dc (pasada por los specs). Rondas de revisión: 2. ADR nuevo: ninguno. Sin migraciones.
@@ -174,3 +200,24 @@ Commits: ad329e0 (tests), a937f80 (script y mapa), 62277e2 (docs de flujo y e2e)
 Ficheros principales: `scripts/affected-e2e.cjs` (`changedKeys`, `localeMapProblems`, `decide` con textos), `e2e/areas.json` (clave `locales`; `locales/**` sale de `shell`), `scripts/affected-e2e-locales.test.ts`, `scripts/affected-e2e-grep.test.ts`, `docs/flujo.md` y `e2e/CLAUDE.md`.
 
 Ideas pasadas al BACKLOG (Mejoras anotadas): modo `--plan`/`--dry-run` y guarda automática de la pasada por los specs (esta, pendiente de Dani).
+
+### Reapertura (2026-10-11): el `--grep` con `|` en Windows
+
+Fallo (visto en la 0080): con un cambio solo de textos, `test:e2e:affected` salía con exit=1 en
+Windows. `run` lanzaba los pasos con `spawnSync(..., { shell: true })` y cmd tomaba el `|` del
+`--grep` de zonas (`(?:@servicio|@smoke)`) como tubería; Playwright acababa en EPIPE.
+
+Arreglo (130854d): `run` ya no pasa por ninguna shell. `invocation(command, args)` traduce cada
+paso `npx <bin> …` del plan a `process.execPath` con el .js del binario local (`localBin`, por el
+campo `bin` de `@playwright/test`, `electron-vite` y `vitest` en `node_modules`) y `shell: false`;
+así no hace falta `npx.cmd`, que Node no deja lanzar sin shell. Los argumentos llegan tal cual,
+también un `-g` del usuario con `|`, `^`, `&`, `>`, `<`, `%` o comillas. El plan (`plan`) no cambia.
+Repaso del resto del script: las demás llamadas son `execFileSync('git', …)`, sin shell, y no
+había otro sitio que pasara argumentos o patrones por una shell.
+
+Test (7f6c231, en rojo antes del arreglo): `scripts/affected-e2e-spawn.test.ts`, que lanza de
+verdad un script de eco con lo que daría `invocation` y comprueba que el `--grep` de zonas y ocho
+`-g` con caracteres de shell llegan intactos, que cada paso usa node y un .js que existe y que
+`localBin` encuentra los tres binarios.
+
+Cierre de la reapertura: commits 7f6c231 (test), 130854d (arreglo) y las fichas de revisión y verificación. Rondas de revisión de la reapertura: 1 (APROBADO). Ficheros: `scripts/affected-e2e.cjs` y `scripts/affected-e2e-spawn.test.ts`. ADR nuevo: ninguno. Sin migraciones. Idea al BACKLOG: resolver el paquete con `require.resolve`. Lección en `e2e/CLAUDE.md`: probar un cambio solo de textos con una clave real de `common.json`, no con `areas.json`.

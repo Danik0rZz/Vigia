@@ -284,6 +284,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `ci.yml:100-101`: precisar el comentario del reporter entre comillas (en PowerShell 5.1 la coma no partía el argumento; las comillas son para no depender de la versión). (surgió en 0075)
 - Modo `--plan`/`--dry-run` en `test:e2e:affected` que muestre el plan (specs, `--grep`, motivo) sin ejecutarlo: el verifier no pudo hacer la prueba de humo de los textos sin él. (surgió en 0071)
 - Convertir en guarda automática la pasada «cada texto que lee un spec cae en un prefijo con la zona de ese test» (hoy es un paso manual en `e2e/CLAUDE.md`). Es un criterio nuevo: pendiente de que Dani decida si va y dónde. (surgió en 0071)
+- `scripts/affected-e2e.cjs` (`localBin`): resolver el paquete con `require.resolve(pkg + "/package.json")` y dejar la ruta fija en `node_modules` como alternativa, por si un worktree no tuviera `node_modules` propio. (surgió en 0071)
 
 ## Aparcado
 

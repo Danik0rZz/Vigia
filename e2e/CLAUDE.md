@@ -54,6 +54,7 @@
   la 0071: `module.noEnvironment` se monta en `data/modules.ts` y lo comprueba `@shell`; el botón
   de idioma (`topbar.language`) lo pulsan `@tls` y `@errors`. Las coincidencias con nombres de
   fixtures, datos del simulador o `data-testid` se descartan a mano. No es guarda: es un paso.
+- Probar de verdad un cambio de `test:e2e:affected` que solo mira textos: un cambio en `areas.json` lanza el e2e completo sin `--grep` y no ejercita el filtro. Hay que tocar una clave real de `common.json` (sin commitear, y deshacerlo) y lanzar `npm run test:e2e:affected -- HEAD` en Windows. Así se vio que el `|` del `--grep` de zonas lo rompía cmd (ficha 0071); el script lanza ahora los binarios con node, sin shell.
 - Cambios hechos por IPC directo (`window.vigia.invoke`) no actualizan la interfaz: TanStack Query
   solo se entera de las mutaciones que hace el renderer. Recargar tras preparar datos por IPC.
 - Datos de Dynatrace solo del simulador: nada del tenant (nombres, IDs, URLs, valores) en specs ni

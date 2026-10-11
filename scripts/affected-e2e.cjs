@@ -408,8 +408,42 @@ function readTexts(files, range) {
   return texts
 }
 
+/** Paquete de cada binario que usa el plan (el que está en devDependencies). */
+const BIN_PACKAGES = {
+  playwright: '@playwright/test',
+  'electron-vite': 'electron-vite',
+  vitest: 'vitest'
+}
+
+/** Ruta del .js de un binario local, por el campo `bin` de su paquete en node_modules. */
+function localBin(name) {
+  const pkg = BIN_PACKAGES[name] ?? name
+  const root = join(__dirname, '..', 'node_modules', ...pkg.split('/'))
+  const { bin } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+  const entry = typeof bin === 'string' ? bin : bin?.[name]
+  if (!entry) throw new Error(`test:e2e:affected: ${pkg} no tiene el binario ${name}`)
+  return join(root, entry)
+}
+
+/**
+ * Cómo se lanza un paso del plan, sin shell (reapertura de la ficha 0071): con `shell: true`, cmd
+ * tomaba el `|` del --grep de zonas (y el `^`, `&`, `>`, `<` o `%` de un -g) como sintaxis suya.
+ * `npx <bin> …` pasa a node con el .js del binario local; así no hace falta `npx.cmd`, que Node
+ * no deja lanzar sin shell. Los argumentos llegan tal cual.
+ */
+function invocation(command, args, resolveBin = localBin) {
+  if (command === 'npx') {
+    const [name, ...rest] = args
+    return { file: process.execPath, args: [resolveBin(name), ...rest], shell: false }
+  }
+  return { file: command, args, shell: false }
+}
+
 function run(command, args) {
-  const result = spawnSync(command, args, { stdio: 'inherit', shell: process.platform === 'win32' })
+  const { file, args: argv, shell } = invocation(command, args)
+  const result = spawnSync(file, argv, { stdio: 'inherit', shell })
+  if (result.error)
+    console.error(`test:e2e:affected: no se pudo lanzar ${file}: ${result.error.message}`)
   return result.status ?? 1
 }
 
@@ -454,6 +488,16 @@ function main() {
   return steps.exit ?? 0
 }
 
-module.exports = { changedKeys, decide, localeMapProblems, parseArgs, plan, rangeBase, zoneGrep }
+module.exports = {
+  changedKeys,
+  decide,
+  invocation,
+  localBin,
+  localeMapProblems,
+  parseArgs,
+  plan,
+  rangeBase,
+  zoneGrep
+}
 
 if (require.main === module) process.exitCode = main()
