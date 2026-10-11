@@ -16,7 +16,9 @@ documentos. Dani decidió el 2026-10-10 las reglas de push y de borrado de ramas
    `cambios` (`scripts/ci-changes.mjs` decide si la PR trae algo más que documentos), `windows`
    (`check` y e2e completo, sin `dist:win`, solo si hay código) y `ci-ok` («CI ok», con
    `if: always()`). «CI ok» da verde si `cambios` acabó bien y `windows` acabó bien o se saltó; rojo si
-   alguno falló o se canceló. Es el único check que exigirá la protección de `main`. Un push nuevo a la
+   alguno falló o se canceló. Desde la ficha 0089 falla cerrado: `windows` solo puede saltarse si
+   `codigo` es exactamente `false`; con cualquier otro valor (también vacío) `windows` corre y «CI ok»
+   exige su `success`. Es el único check que exigirá la protección de `main`. Un push nuevo a la
    misma PR cancela el run anterior; en `main` los runs se encolan.
 2. **Un commit por ficha**, con `git merge --squash` de la rama de la ficha en la rama de integración
    (`scripts/integrate.mjs` compone el mensaje y comprueba que la ficha está `verificada`).
