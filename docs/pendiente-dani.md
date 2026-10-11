@@ -15,7 +15,7 @@ revisa con las exportaciones reales de esas pruebas.
 
 Ficha 0066 (marcador «SLO» del servicio). Se añadirá a la lista de la próxima versión.
 
-- [ ] **Seis marcadores del servicio (0066):** en la página de un servicio con todas las métricas, el marcador «SLO» sale el primero, a la izquierda de «Peticiones OK», en rojo y con «por debajo del 90 %» si baja del 90 % y en verde desde el 90 %; y el de «Tiempo de respuesta» (mediana, p90 y p99) se sigue leyendo bien en el ancho de tu pantalla. La fila de seis sale **desde 1280 px de ventana**; entre 1024 y 1279 px salen **dos filas de tres** (`lg:grid-cols-3 xl:grid-cols-6`: con seis a 1024 px y el menú abierto no cabían, y se rompía el centrado de la ficha 0012).
+- [x] **Seis marcadores del servicio (0066):** en la página de un servicio con todas las métricas, el marcador «SLO» sale el primero, a la izquierda de «Peticiones OK», en rojo y con «por debajo del 90 %» si baja del 90 % y en verde desde el 90 %; y el de «Tiempo de respuesta» (mediana, p90 y p99) se sigue leyendo bien en el ancho de tu pantalla. La fila de seis sale **desde 1280 px de ventana**; entre 1024 y 1279 px salen **dos filas de tres** (`lg:grid-cols-3 xl:grid-cols-6`: con seis a 1024 px y el menú abierto no cabían, y se rompía el centrado de la ficha 0012).
 
 ## v0.11.0
 
@@ -53,7 +53,7 @@ Fichas 0001 a 0045. Pruebas a mano con los datos reales (el detalle de cada una,
 - [x] **Aplicación (0034):** marcadores, gráficos y acciones cuadran; «Abrir en Métricas» trae solo
       esa aplicación.
 - [x] **Etiquetas (0037):** las píldoras se leen bien en claro y en oscuro.
-- [ ] Arrancar el zip 0.11.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de
+- [x] Arrancar el zip 0.11.0 sobre sus datos (sin migraciones nuevas). **Antes, hacer una copia de
       `%APPDATA%\vigia`**; lo hace Dani.
 
 ## v0.8.0
