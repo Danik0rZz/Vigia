@@ -1,7 +1,7 @@
 ---
 id: '0099'
 titulo: Auto-merge de GitHub en las PR de una ficha sola que fusiona Dani
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: ['0013', '0014'] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -127,12 +127,47 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- **Criterios.** CA1 a CA4 se cumplen en el texto y cada uno tiene su test en `scripts/integration-docs.test.ts`, que fallaría sin el texto nuevo; `autoMergeCommands` tiene casos que detectan y que aceptan. Los tests no se tocan desde 72cbb2d.
+- **CA5.** Comprobado leyendo (lo ejecuta el verifier): en `tarea.md`, `gh pr merge` solo aparece en prosa; `gh pr view <número> --json state` no estorba al test de `headRefOid`; los de la 0073 no dependen de las frases retiradas.
+- **La decisión sigue siendo de Dani.** `docs/flujo.md` («Solo lo decide Dani» y la viñeta de Git) y `tarea.md`: el Orquestador nunca activa el auto-merge, ni con `--auto` ni por otra vía. Las PR agrupadas no cambian (`--merge --match-head-commit` y la lectura del SHA, igual). No se tocan el `CLAUDE.md` raíz, el ADR-0014, la configuración de `.claude/` ni `scripts/integrate.mjs`.
+- **Reglas.** Solo documentos y un test; sin datos del tenant ni secretos; referencias cruzadas existentes.
+
+Opcional: en `.claude/commands/tarea.md:37-38`, «queda `en_espera` hasta que la fusione» podría decir «hasta que salga `MERGED`», en línea con el paso 10.
 
 ## Verificación
 
-(pendiente)
+Tests de la ficha (commit `test(flujo): criterios de la ficha 0099 (#0099)`), todos en
+`scripts/integration-docs.test.ts`:
+
+- CA1 → `describe('CA1 (0099): Dani activa el auto-merge en la PR de una ficha sola')`: la viñeta
+  «PR de una ficha sola» de «Git» en `docs/flujo.md` (Dani, «Enable auto-merge», «Create a merge
+  commit», GitHub la fusiona con «CI ok» en verde), el paso 9 de `tarea.md` y una frase de
+  `tarea.md` con auto-merge, fusiona y «CI ok».
+- CA2 → `autoMergeCommands (la propia comprobación)` (detecta `--auto` en código en línea, partido
+  en líneas o en bloque; acepta la prosa y la fusión con `--match-head-commit`) y
+  `describe('CA2 (0099): …')`: cada `.md` de `.claude/` y `docs/flujo.md` sin `gh pr merge … --auto`
+  en código, y una frase de `tarea.md` con «nunca», «auto-merge» y `--auto`.
+- CA3 → `describe('CA3 (0099): …')`: `gh pr view <n> --json state` en `tarea.md` y en el paso 10
+  (que nombra la ficha sola), una frase del paso 10 con `MERGED` y «Traer `main`», y otra que dice
+  que no hace falta que Dani escriba «fusionada».
+- CA4 → `describe('CA4 (0099): …')`: en **Aviso**, la viñeta `estado: parada` de la ficha sola dice
+  «al abrir la PR», «sin esperar al CI», `decision` con el auto-merge y «Enable auto-merge», y ya no
+  «que la fusione él».
+- CA5 → los `describe` de la 0073 y la 0090 del mismo fichero, sin cambios (en verde hoy).
+
+Ejecución al escribirlos (`npx vitest run scripts/integration-docs.test.ts`): 11 fallan (CA1 a CA4,
+falta el texto) y 61 pasan (0073, 0090, las comprobaciones propias y CA2 por fichero).
+
+Verificación 2026-10-12, commit 4b0a7e2, rango `integra/20261011-20..feat/0099-auto-merge-pr-de-dani`: **VERDE**
+
+- `npm run check`: 4137 tests (224 ficheros), cobertura ok; incluye CA5 y los tests de la 0073 y la 0090. En el primer pase falló una vez por timeout de 5 s `scripts/react-compiler.test.ts` (CA3 0059), sin relación con el diff; aislado ×3 pasó y el `check` completo repetido salió verde.
+- `test:e2e:affected` sobre el rango: ninguna zona («solo docs o tests unitarios»); no se lanzó e2e.
 
 ## Resultado
 
-(pendiente)
+- Commits: `72cbb2d` (tests), `31be8cf` (documentación del flujo), `4b0a7e2` y `8fdef5b` (revisión y verificación), más el de cierre.
+- Ficheros principales: `docs/flujo.md`, `.claude/commands/tarea.md` (con la nota opcional del revisor aplicada: «hasta que salga `MERGED`»), `scripts/integration-docs.test.ts`.
+- Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Sin migraciones.
+- Pendiente de Dani: la prueba a mano en la próxima ficha con exclusiones.
