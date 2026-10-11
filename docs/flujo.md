@@ -457,8 +457,11 @@ informe local). Nunca van al CI.
   sin `.env.live.local`, o con él vacío, sale con 2 y el push no se hace. Lo busca en el directorio
   actual y, si no está, en el checkout principal (los worktrees de Orca no lo tienen). Sin nada que
   subir, deja pasar. `VIGIA_SCAN_TENANT_OPTIONAL=1` (solo ese valor) lo hace opcional, con 0 y un
-  aviso: para clones sin tenant de pruebas; en la VPS no se usa. Antes del escaneo, rechaza los
-  borrados de refs remotos (ficha 0082) y solo deja publicar en ramas `integra/` y con avance
+  aviso: para clones sin tenant de pruebas; en la VPS no se usa. Mira también los nombres de los
+  ficheros añadidos, modificados o renombrados, y un binario añadido o modificado fuera de `build/`
+  sale con 2 (ficha 0091), salvo con `VIGIA_SCAN_ALLOW_BINARY=1`, que busca en su contenido como
+  texto latin1 y UTF-16LE (no dentro de un zip). Antes del escaneo, rechaza los borrados de refs
+  remotos (ficha 0082) y solo deja publicar en ramas `integra/` y con avance
   rápido (ficha 0088, `scan-tenant.mjs --check-refs`): otro destino, un refspec con `+` que
   reescribe un ref publicado o un commit remoto que no está en el clon (pide `git fetch`) paran el
   push. `VIGIA_PUSH_ALLOW_REFS` (refs enteros separados por comas, sin comodines) abre un destino

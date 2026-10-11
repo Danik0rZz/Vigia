@@ -6,12 +6,15 @@
 //
 // Lee .env.live.local (del directorio de trabajo o, si no está, del checkout principal) en
 // tiempo de ejecución y NUNCA imprime sus valores: solo el tipo de coincidencia y
-// fichero:línea (o el hash del commit). Busca en las líneas añadidas del diff y en los
-// mensajes de commit del rango. Sale con 1 si encuentra algo, con 0 si no y con 2 si no puede
-// comprobar: un error de git o la falta del .env, o un .env sin valores reconocibles (falla
-// cerrado, ficha 0055), salvo con VIGIA_SCAN_TENANT_OPTIONAL=1 para lo del .env, que lo
-// convierte en un aviso y sale con 0. Con --pre-push y la entrada vacía (git no sube ningún
-// ref) sale con 0.
+// fichero:línea (o el hash del commit). Busca en las líneas añadidas del diff, en los
+// mensajes de commit del rango y en los nombres de los ficheros añadidos, modificados o
+// renombrados (ficha 0091; el hallazgo da la carpeta y el tipo, nunca el nombre con el valor).
+// Un binario añadido o modificado fuera de build/ no se puede comprobar y sale con 2, salvo con
+// VIGIA_SCAN_ALLOW_BINARY=1, que busca en su contenido como texto latin1 y UTF-16LE. Sale con
+// 1 si encuentra algo, con 0 si no y con 2 si no puede comprobar: un error de git o la falta
+// del .env, o un .env sin valores reconocibles (falla cerrado, ficha 0055), salvo con
+// VIGIA_SCAN_TENANT_OPTIONAL=1 para lo del .env, que lo convierte en un aviso y sale con 0.
+// Con --pre-push y la entrada vacía (git no sube ningún ref) sale con 0.
 //
 //      node scripts/scan-tenant.mjs --check-refs   (también del pre-push, antes del escaneo; ficha
 //      0088): solo deja publicar en ramas integra/ (o en los refs exactos de
@@ -26,6 +29,9 @@ import { findLiveEnv, LIVE_ENV_FILE } from './lib/env-file.mjs'
 export const DEFAULT_RANGE = 'origin/main..HEAD'
 export const OPTIONAL_VAR = 'VIGIA_SCAN_TENANT_OPTIONAL'
 export const ALLOW_REFS_VAR = 'VIGIA_PUSH_ALLOW_REFS'
+export const ALLOW_BINARY_VAR = 'VIGIA_SCAN_ALLOW_BINARY'
+/** Binarios que se dan por buenos sin mirarlos: hoy, los iconos de build/ (ficha 0091). */
+const TRUSTED_BINARY_PREFIX = 'build/'
 const NEW_BRANCH_BASE = 'origin/main'
 const INTEGRA_PREFIX = 'refs/heads/integra/'
 const ZERO_SHA = /^0+$/
@@ -71,8 +77,110 @@ export function extractNeedles(envText) {
   return needles
 }
 
-function git(cwd, args) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 })
+/**
+ * Git con el stderr recogido, nunca heredado (ronda 2 de la 0091): sus avisos llevan rutas
+ * enteras (`warning: in the working copy of '<ruta>'…` con core.autocrlf), que pueden llevar un
+ * valor. Si git falla, el stderr va en error.stderr y en el mensaje tras la primera línea
+ * (`Command failed: git <args>`), que es la única que se imprime.
+ */
+function git(cwd, args, encoding = 'utf8') {
+  return execFileSync('git', args, {
+    cwd,
+    encoding,
+    maxBuffer: 512 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
+  })
+}
+
+function containsNeedle(text, needles) {
+  const lower = text.toLowerCase()
+  return needles.filter((needle) => lower.includes(needle.value))
+}
+
+/**
+ * Cómo se nombra una ruta en un hallazgo sin imprimir valores del .env (ficha 0091): cada
+ * carpeta o nombre que lleva un valor se cambia entero por un aviso (no se enmascara solo el
+ * valor: del secreto de un token solo se busca un fragmento y el resto quedaría a la vista), y
+ * del nombre así tapado queda la extensión, si es segura (shownExtension). Si aun así la ruta
+ * lleva un valor (uno con «/» repartido entre carpetas), se tapa la ruta entera.
+ */
+export function safePath(path, needles) {
+  const parts = path.split('/')
+  const shown = parts
+    .map((part, index) => {
+      const found = containsNeedle(part, needles)
+      if (found.length === 0) return part
+      if (index < parts.length - 1) return '<carpeta con un valor del .env>'
+      const ext = shownExtension(part, found, needles)
+      return ext !== undefined
+        ? `<nombre con un valor del .env> (fichero ${ext})`
+        : '<nombre con un valor del .env>'
+    })
+    .join('/')
+  return containsNeedle(shown, needles).length === 0 ? shown : '<ruta con un valor del .env>'
+}
+
+/**
+ * La extensión que se puede enseñar de un nombre que lleva los valores `found` (ronda 2 de la
+ * 0091), o undefined: tiene que ser corta, el nombre sin ella tiene que seguir llevando cada uno
+ * de `found` (si no, la extensión es el final de un valor) y ningún valor puede contenerla
+ * (con `foo.internal`, el nombre `foo.internal.internal` no deja ver `.internal`).
+ */
+function shownExtension(part, found, needles) {
+  const ext = /\.[a-z0-9]{1,8}$/i.exec(part)?.[0]
+  if (ext === undefined) return undefined
+  const stem = part.slice(0, -ext.length).toLowerCase()
+  if (!found.every((needle) => stem.includes(needle.value))) return undefined
+  const lowerExt = ext.toLowerCase()
+  return needles.some((needle) => needle.value.includes(lowerExt)) ? undefined : ext
+}
+
+/**
+ * Ficheros del rango que no se borran (añadidos, modificados, cambios de tipo; un renombrado,
+ * con --no-renames, sale como borrado del origen y añadido del destino): ruta, blob de destino
+ * y si git lo trata como binario (`-` en las dos columnas de --numstat).
+ */
+function changedFiles(cwd, range) {
+  const files = new Map()
+  const raw = git(cwd, ['diff', '--raw', '-z', '--no-renames', '--no-abbrev', range]).split('\0')
+  for (let i = 0; i + 1 < raw.length; i += 2) {
+    const meta = /^:\d+ \d+ [0-9a-f]+ ([0-9a-f]+) ([A-Z])/.exec(raw[i])
+    if (!meta) throw new Error('salida de git diff --raw con un formato inesperado')
+    if (meta[2] !== 'D') files.set(raw[i + 1], { path: raw[i + 1], blob: meta[1], binary: false })
+  }
+  const numstat = git(cwd, ['diff', '--numstat', '-z', '--no-renames', range]).split('\0')
+  for (const entry of numstat) {
+    const stat = /^(-|\d+)\t(-|\d+)\t(.*)$/s.exec(entry)
+    if (stat && stat[1] === '-' && stat[2] === '-' && files.has(stat[3]))
+      files.get(stat[3]).binary = true
+  }
+  return [...files.values()]
+}
+
+/**
+ * Contenido de un binario: el blob de destino o, si es el árbol de trabajo (ceros), el disco.
+ * El error de Node lleva la ruta absoluta (que puede llevar un valor): se relanza uno con la
+ * ruta tapada y solo el código del error.
+ */
+function binaryContent(cwd, file, needles) {
+  if (!ZERO_SHA.test(file.blob)) return git(cwd, ['cat-file', 'blob', file.blob], 'buffer')
+  try {
+    return readFileSync(resolve(cwd, file.path))
+  } catch (error) {
+    throw new Error(
+      `no se ha podido leer el binario ${safePath(file.path, needles)} (${error.code ?? 'error'})`
+    )
+  }
+}
+
+/** El binario leído como texto latin1 y UTF-16LE (en las dos alineaciones). */
+function binaryAsText(content) {
+  return [
+    content.toString('latin1'),
+    content.toString('utf16le'),
+    content.subarray(1).toString('utf16le')
+  ].join('\n')
 }
 
 /**
@@ -81,27 +189,64 @@ function git(cwd, args) {
  * principal). Devuelve { envFound: false } si no hay .env, o
  * { envFound: true, kinds, count, hits } con hits = ['tipo: fichero:línea', …].
  */
-export function scan({ cwd = process.cwd(), range = DEFAULT_RANGE, ranges, envPath } = {}) {
+export function scan({
+  cwd = process.cwd(),
+  range = DEFAULT_RANGE,
+  ranges,
+  envPath,
+  allowBinary = false
+} = {}) {
   const fullEnvPath = envPath === undefined ? findLiveEnv(cwd) : resolve(cwd, envPath)
   if (fullEnvPath === undefined || !existsSync(fullEnvPath)) return { envFound: false }
 
   const needles = extractNeedles(readFileSync(fullEnvPath, 'utf8'))
   const hits = []
-  for (const one of ranges ?? [range]) hits.push(...scanRange(cwd, one, needles))
+  const binaries = []
+  for (const one of ranges ?? [range]) {
+    hits.push(...scanRange(cwd, one, needles))
+    const files = scanFiles(cwd, one, needles, allowBinary)
+    hits.push(...files.hits)
+    for (const path of files.binaries) if (!binaries.includes(path)) binaries.push(path)
+  }
   return {
     envFound: true,
     kinds: [...new Set(needles.map((n) => n.kind))],
     count: needles.length,
-    hits
+    hits,
+    binaries
   }
+}
+
+/**
+ * Nombres y binarios del rango (ficha 0091). Devuelve los hallazgos y, sin allowBinary, los
+ * binarios fuera de build/ que no se han podido comprobar (rutas ya tapadas con safePath).
+ */
+function scanFiles(cwd, range, needles, allowBinary) {
+  const hits = []
+  const binaries = []
+  for (const file of changedFiles(cwd, range)) {
+    const shown = safePath(file.path, needles)
+    for (const needle of containsNeedle(file.path, needles))
+      hits.push(`nombre-de-fichero (${needle.kind}): ${shown}`)
+    if (!file.binary || file.path.startsWith(TRUSTED_BINARY_PREFIX)) continue
+    if (!allowBinary) {
+      binaries.push(shown)
+      continue
+    }
+    for (const needle of containsNeedle(binaryAsText(binaryContent(cwd, file, needles)), needles))
+      hits.push(`${needle.kind}: ${shown} (contenido binario)`)
+  }
+  return { hits, binaries }
 }
 
 function scanRange(cwd, range, needles) {
   const hits = []
 
+  // core.quotePath=false: la ruta sale tal cual (sin escapes octales) y safePath la puede tapar.
+  const diff = git(cwd, ['-c', 'core.quotePath=false', 'diff', '--unified=0', '--no-color', range])
   let file = ''
   let lineNo = 0
-  for (const line of git(cwd, ['diff', '--unified=0', '--no-color', range]).split('\n')) {
+  for (const line of diff.split('\n')) {
     if (line.startsWith('+++ ')) {
       file = line.startsWith('+++ b/') ? line.slice(6) : line.slice(4)
       continue
@@ -114,7 +259,8 @@ function scanRange(cwd, range, needles) {
     if (line.startsWith('+')) {
       const lower = line.toLowerCase()
       for (const needle of needles)
-        if (lower.includes(needle.value)) hits.push(`${needle.kind}: ${file}:${lineNo}`)
+        if (lower.includes(needle.value))
+          hits.push(`${needle.kind}: ${safePath(file, needles)}:${lineNo}`)
       lineNo += 1
     }
   }
@@ -347,9 +493,11 @@ export function main(argv, env = process.env) {
 
   let result
   try {
-    result = scan({ ranges })
+    result = scan({ ranges, allowBinary: env[ALLOW_BINARY_VAR] === '1' })
   } catch (error) {
-    // El mensaje de git no lleva valores del .env: solo el rango o la ruta.
+    // La primera línea del error de git es `Command failed: git <args>` (rango o hash, no
+    // rutas; su stderr va detrás y no se imprime, ver git()); la de leer un binario del disco
+    // llega rehecha con la ruta tapada (binaryContent).
     console.error(
       `scan:tenant: no se ha podido revisar el rango ${range}: ${error.message.split('\n')[0]}`
     )
@@ -365,7 +513,14 @@ export function main(argv, env = process.env) {
   )
   console.log(`scan:tenant: coincidencias: ${result.hits.length}`)
   for (const hit of result.hits) console.log(`  ${hit}`)
-  return result.hits.length > 0 ? 1 : 0
+  // Con hallazgos y binarios sin comprobar a la vez, se avisa de los dos y sale con 1.
+  if (result.binaries.length > 0) {
+    console.error(
+      `scan:tenant: ${result.binaries.length} binario(s) fuera de ${TRUSTED_BINARY_PREFIX} que no se pueden comprobar: ${result.binaries.join(', ')}. No se da por bueno. Si has revisado que no llevan datos del tenant, ${ALLOW_BINARY_VAR}=1 busca en su contenido como texto (latin1 y UTF-16LE) y lo deja pasar si no encuentra nada.`
+    )
+  }
+  if (result.hits.length > 0) return 1
+  return result.binaries.length > 0 ? 2 : 0
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
