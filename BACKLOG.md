@@ -66,6 +66,13 @@ bueno de Dani o de peticiones en su nombre.
   [0099](tasks/0099-auto-merge-en-las-pr-de-dani.md), auto-merge de GitHub en las PR de una ficha
   sola (las activa Dani; el Orquestador sigue al verlas fusionadas). Sin exclusiones: va agrupada
   con la 0096 y la 0097, y antes de la 0091.
+- Aprobada por Dani el 2026-10-12, con prioridad, a petición del Orquestador:
+  [0100](tasks/0100-unitario-react-compiler-intermitente.md), ligera, causa y arreglo del unitario
+  intermitente del React Compiler (`scripts/react-compiler.test.ts`). Entra justo después de la
+  0097 y antes de la 0091.
+- Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
+  app. Al acabar la cola de seguridad, el Planificador propone para «Próximo» mejoras de la app
+  (de «Propuestas»).
 - Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
 
 ## Propuestas
