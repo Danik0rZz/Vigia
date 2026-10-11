@@ -71,7 +71,9 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
 - Al acabar la cola: abre la PR del grupo en curso con las que haya (paso 9). Si no queda ninguna
   `integra/…` en curso y `git log --oneline main --not origin/main <integra/… con PR abierta>` (lo
   que no va en ninguna PR abierta) no está vacío, abre una PR solo de documentos
-  (`integra/AAAAMMDD-N` desde `main`, push, PR y fusión con «CI ok» en verde). Después, un resumen
+  (`integra/AAAAMMDD-N` desde `main`, push y PR) y la fusionas como en el paso 10: SHA de la
+  cabeza con `headRefOid`, «CI ok» con `--json name,state` y `--match-head-commit`; si GitHub la
+  rechaza porque la rama recibió otro push, vuelves a empezar. Después, un resumen
   para Dani (hechas, en espera con su pregunta, bloqueadas con el motivo, saltadas por
   dependencias, y las PR con su enlace y quién las fusiona) y el **Aviso** de la cola.
 
@@ -131,10 +133,18 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
      dependa de ella.
    - Si `gh` no está instalado o sin sesión (`gh auth status`), para y avisa a Dani antes de abrir
      la PR; no integres por tu cuenta con `git push origin main`.
-10. Sondea el CI de la PR en segundo plano (`gh pr checks <número>`) y **no lo esperes**: empieza ya
-    la siguiente ficha de la cola. Cuando «CI ok» esté en verde, fusiona la PR agrupada con
-    `gh pr merge <número> --merge` (nunca `--squash` ni `--rebase`; no borres la rama remota, la
-    borra GitHub), "Traer `main`" (arriba), muestra a Dani el briefing del doc-writer de cada
+10. Sondea el CI de la PR en segundo plano y **no lo esperes**: empieza ya la siguiente ficha de la
+    cola. La fusión va atada al commit que pasó el CI (ficha 0090):
+    - Primero, el SHA de la cabeza: `gh pr view <número> --json headRefOid`.
+    - Después, el verde: `gh pr checks <número> --json name,state`, y de ahí solo el check
+      «CI ok» (nunca leyendo la salida de texto).
+    - Con «CI ok» en verde, fusiona la PR agrupada con
+      `gh pr merge <número> --merge --match-head-commit <sha>`, con el SHA que leíste antes de
+      mirar los checks (nunca `--squash` ni `--rebase`; no borres la rama remota, la borra GitHub).
+    - Si GitHub la rechaza porque la cabeza ya no es ese SHA (la rama recibió otro push), vuelve a
+      empezar: SHA nuevo y espera al CI de ese commit.
+
+    Tras fusionar, "Traer `main`" (arriba), muestra a Dani el briefing del doc-writer de cada
     ficha, más las rondas, el resultado del verifier y el enlace al CI, y manda el **Aviso** con
     `estado: hecha` de cada una. Sondea también el CI de `main` que lanza la fusión (`check` y
     `dist:win`). Si algo falla, ver "Si falla el CI" arriba. Si `gh` no puede leer el CI con los

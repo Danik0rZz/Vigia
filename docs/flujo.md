@@ -197,11 +197,15 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
   Una ficha sola en medio no corta el grupo en curso.
 - **PR agrupada:** `gh pr create --base main --head integra/…`, con título «Fichas NNNN, MMMM…» y
   en el cuerpo la lista de fichas con su título y el enlace a su fichero, sin nada del tenant. No se
-  espera al CI (ADR-0013): se sondea en segundo plano (`gh pr checks`) y, con «CI ok» en verde, se
-  fusiona con `gh pr merge --merge` («Create a merge commit»: `main` conserva un commit por ficha
-  con los mismos SHA; «Rebase» obligaría a un force push y «Squash» juntaría las fichas). GitHub
-  borra la rama remota al fusionar; los agentes no borran ramas remotas (el pre-push lo impide, ver
-  «Qué queda bloqueado»).
+  espera al CI (ADR-0013): se sondea en segundo plano y la fusión va atada al commit que pasó el CI
+  (ficha 0090). Primero se toma el SHA de la cabeza (`gh pr view <n> --json headRefOid`), después
+  se lee el check «CI ok» con `gh pr checks <n> --json name,state` (no de la salida de texto) y,
+  con «CI ok» en verde, se fusiona con `gh pr merge <n> --merge --match-head-commit <sha>`. Si
+  entre la lectura y la fusión la rama recibe otro push, GitHub la rechaza y se vuelve a esperar el
+  CI del commit nuevo. La estrategia es `gh pr merge --merge` («Create a merge commit»): `main`
+  conserva un commit por ficha con los mismos SHA; «Rebase» obligaría a un force push y «Squash»
+  juntaría las fichas. GitHub borra la rama remota al fusionar; los agentes no borran ramas
+  remotas (el pre-push lo impide, ver «Qué queda bloqueado»).
 - **PR de una ficha sola:** su rama `integra/…` sale de `main`, no de una rama de integración
   pendiente. El Orquestador la abre, **no la fusiona** y avisa a Dani (`parada`, con el enlace de
   la PR y el estado de «CI ok»). La cola sigue con las fichas que no dependan de ella; las que

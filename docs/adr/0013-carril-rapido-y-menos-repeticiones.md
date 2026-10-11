@@ -89,8 +89,8 @@ Lo que necesita código va en la parte 2 (abajo), con fichas y revisión. Cada r
   - se desglosa el tiempo del Orquestador y el **arranque de cada subagente**: la hora que toma el
     Orquestador justo antes de lanzarlo frente a la del primer comando del subagente;
   - la medición va en el commit de documentación; los commits que solo tocan `tasks/`, `docs/` o
-    Markdown no disparan el CI (`paths-ignore` de `ci.yml`), así que nunca provocan otro run. Si un
-    commit de medición tuviera que ir con código, lleva `[skip ci]`;
+    Markdown no disparan el CI (`paths-ignore` de `ci.yml`), así que nunca provocan otro run. Si
+    tiene que ir con código, va en su PR y pasa el CI (ficha 0090);
   - como el CI no se espera, sus horas llegan cuando la ficha ya está en `main`. No llevan rama
     propia: el doc-writer las acumula y las añade a la ficha medida en el siguiente commit de
     documentación (el cierre de la ficha siguiente), con los totales. Si no queda ninguna ficha
