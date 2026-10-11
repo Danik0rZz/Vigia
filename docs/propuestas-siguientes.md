@@ -188,6 +188,8 @@ canales y pruebas nuevas, o una pieza de infraestructura).
 - **Decisiones que necesita de Dani:**
   - Qué perfil o máquina virtual se usa para arrancar el zip.
   - Si se activa en la siguiente versión o se deja anotado.
+- **Decisión de Dani (2026-10-11):** se deja anotado. Se retoma cuando el zip vaya a darse a otras
+  personas; entonces se decide dónde se prueba.
 
 ## Resumen
 

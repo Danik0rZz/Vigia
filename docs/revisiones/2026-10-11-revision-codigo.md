@@ -54,41 +54,41 @@ real pero acotado, o regla del proyecto incumplida de forma visible; **bajo** = 
 o robustez ante cambios futuros. Esfuerzo: **pequeño** = una sesión, sin canal IPC nuevo; **medio**
 = varios ficheros con tests; **grande** = reestructuración o decisión de Dani.
 
-| Id   | Título                                                                     | Impacto    | Esfuerzo       | Zona           |
-| ---- | -------------------------------------------------------------------------- | ---------- | -------------- | -------------- |
-| T-01 | El pre-push no limita a dónde se hace push: `main`, borrados y force pasan | alto       | pequeño        | hooks/scripts  |
-| T-02 | «CI ok» queda en verde si `windows` se salta por una salida vacía          | medio      | pequeño        | CI             |
-| T-03 | La fusión no va atada al commit que pasó el CI; `[skip ci]` en un ADR      | medio      | pequeño        | flujo/docs     |
-| T-04 | `affected-e2e.cjs` lanza Playwright con `shell: true` sin citar            | medio      | pequeño        | scripts        |
-| T-05 | `scan:tenant` no mira binarios, nombres de fichero ni renombrados          | medio      | pequeño        | scripts        |
-| T-06 | `integrate.mjs` solo se fía de `estado: verificada` y de la rama           | medio      | pequeño        | scripts        |
-| T-07 | `notify-telegram` envía igualmente cuando no puede filtrar                 | bajo-medio | pequeño        | scripts        |
-| T-08 | El pre-commit no ve los borrados y parte las rutas con espacios            | bajo-medio | pequeño        | hooks          |
-| T-09 | `e2e-tags.cjs` no ve los tests cuyo título no es un literal                | bajo       | pequeño        | scripts        |
-| T-10 | El parser del `.env` está tres veces y `test:live` solo mira el cwd        | bajo       | pequeño        | scripts/test   |
-| T-11 | `execFileSync` sin `timeout` ni `maxBuffer` en tres scripts                | bajo       | pequeño        | scripts        |
-| T-12 | Cobertura: `scripts/**` y `src/preload/**` fuera del umbral                | bajo       | pequeño        | tooling        |
-| T-13 | Documentación que ya no cuadra con los scripts                             | bajo       | pequeño        | docs           |
-| P-01 | Varios 401 a la vez con OAuth disparan N renovaciones                      | medio      | pequeño        | main/dynatrace |
-| P-02 | El log de main escribe el nombre de usuario de Windows en las rutas        | bajo-medio | pequeño        | main/logging   |
-| P-03 | `maskLogMessage` solo mira el primer nivel                                 | bajo-medio | pequeño        | main/logging   |
-| P-04 | Dos criterios para reenvolver un rechazo de Dynatrace con `reason`         | bajo-medio | pequeño-medio  | main/ipc       |
-| P-05 | Las etiquetas de hoja del XLSX no pasan por `sheetNameSchema`              | bajo       | pequeño        | shared/export  |
-| P-06 | Cancelación a medias: la espera del 429 no se aborta; el 401 no cancela    | bajo       | pequeño        | main/dynatrace |
-| P-07 | Errores tragados sin rastro: `environmentOf` y `processGroupTotal`         | bajo       | pequeño        | main           |
-| P-08 | El 3xx del SSO da `ssoUnreachable` con texto de librería; CLAUDE.md miente | bajo       | pequeño        | main/dynatrace |
-| P-09 | Textos en español que main manda al usuario, fuera de los locales          | bajo       | pequeño        | main           |
-| P-10 | `asRecord`/`asString` copiados en cinco módulos                            | bajo       | pequeño        | main/modules   |
-| R-01 | Números sin `formatNumber`, incluido el KPI de Inicio                      | medio      | pequeño        | renderer       |
-| R-02 | Búsquedas que piden a Dynatrace por cada texto, desde una letra            | medio      | pequeño        | renderer       |
-| R-03 | El enlace al host de la tabla de instancias no se alcanza con teclado      | medio      | pequeño        | renderer       |
-| R-04 | Consultas locales sin `staleTime`: se repiten en cada montaje              | bajo-medio | pequeño        | renderer       |
-| R-05 | `EvidenceSection.tsx` tiene 945 líneas                                     | medio      | medio          | renderer       |
-| R-06 | Visor de Markdown: dos comentarios que ya no son ciertos                   | bajo       | pequeño        | renderer       |
-| R-07 | `parseColor` resuelve nombres por el prototipo de `NAMED_COLORS`           | bajo       | pequeño        | renderer       |
-| R-08 | Restos de duplicación en las páginas de entidad                            | bajo       | pequeño        | renderer       |
-| R-09 | Pequeños del renderer (`fromProblem`, filas pulsables, gráfico vacío, key) | bajo       | pequeño        | renderer       |
-| R-10 | Contrato IPC: asimetrías menores                                           | bajo       | pequeño        | shared         |
+| Id   | Título                                                                     | Impacto    | Esfuerzo      | Zona           |
+| ---- | -------------------------------------------------------------------------- | ---------- | ------------- | -------------- |
+| T-01 | El pre-push no limita a dónde se hace push: `main`, borrados y force pasan | alto       | pequeño       | hooks/scripts  |
+| T-02 | «CI ok» queda en verde si `windows` se salta por una salida vacía          | medio      | pequeño       | CI             |
+| T-03 | La fusión no va atada al commit que pasó el CI; `[skip ci]` en un ADR      | medio      | pequeño       | flujo/docs     |
+| T-04 | `affected-e2e.cjs` lanza Playwright con `shell: true` sin citar            | medio      | pequeño       | scripts        |
+| T-05 | `scan:tenant` no mira binarios, nombres de fichero ni renombrados          | medio      | pequeño       | scripts        |
+| T-06 | `integrate.mjs` solo se fía de `estado: verificada` y de la rama           | medio      | pequeño       | scripts        |
+| T-07 | `notify-telegram` envía igualmente cuando no puede filtrar                 | bajo-medio | pequeño       | scripts        |
+| T-08 | El pre-commit no ve los borrados y parte las rutas con espacios            | bajo-medio | pequeño       | hooks          |
+| T-09 | `e2e-tags.cjs` no ve los tests cuyo título no es un literal                | bajo       | pequeño       | scripts        |
+| T-10 | El parser del `.env` está tres veces y `test:live` solo mira el cwd        | bajo       | pequeño       | scripts/test   |
+| T-11 | `execFileSync` sin `timeout` ni `maxBuffer` en tres scripts                | bajo       | pequeño       | scripts        |
+| T-12 | Cobertura: `scripts/**` y `src/preload/**` fuera del umbral                | bajo       | pequeño       | tooling        |
+| T-13 | Documentación que ya no cuadra con los scripts                             | bajo       | pequeño       | docs           |
+| P-01 | Varios 401 a la vez con OAuth disparan N renovaciones                      | medio      | pequeño       | main/dynatrace |
+| P-02 | El log de main escribe el nombre de usuario de Windows en las rutas        | bajo-medio | pequeño       | main/logging   |
+| P-03 | `maskLogMessage` solo mira el primer nivel                                 | bajo-medio | pequeño       | main/logging   |
+| P-04 | Dos criterios para reenvolver un rechazo de Dynatrace con `reason`         | bajo-medio | pequeño-medio | main/ipc       |
+| P-05 | Las etiquetas de hoja del XLSX no pasan por `sheetNameSchema`              | bajo       | pequeño       | shared/export  |
+| P-06 | Cancelación a medias: la espera del 429 no se aborta; el 401 no cancela    | bajo       | pequeño       | main/dynatrace |
+| P-07 | Errores tragados sin rastro: `environmentOf` y `processGroupTotal`         | bajo       | pequeño       | main           |
+| P-08 | El 3xx del SSO da `ssoUnreachable` con texto de librería; CLAUDE.md miente | bajo       | pequeño       | main/dynatrace |
+| P-09 | Textos en español que main manda al usuario, fuera de los locales          | bajo       | pequeño       | main           |
+| P-10 | `asRecord`/`asString` copiados en cinco módulos                            | bajo       | pequeño       | main/modules   |
+| R-01 | Números sin `formatNumber`, incluido el KPI de Inicio                      | medio      | pequeño       | renderer       |
+| R-02 | Búsquedas que piden a Dynatrace por cada texto, desde una letra            | medio      | pequeño       | renderer       |
+| R-03 | El enlace al host de la tabla de instancias no se alcanza con teclado      | medio      | pequeño       | renderer       |
+| R-04 | Consultas locales sin `staleTime`: se repiten en cada montaje              | bajo-medio | pequeño       | renderer       |
+| R-05 | `EvidenceSection.tsx` tiene 945 líneas                                     | medio      | medio         | renderer       |
+| R-06 | Visor de Markdown: dos comentarios que ya no son ciertos                   | bajo       | pequeño       | renderer       |
+| R-07 | `parseColor` resuelve nombres por el prototipo de `NAMED_COLORS`           | bajo       | pequeño       | renderer       |
+| R-08 | Restos de duplicación en las páginas de entidad                            | bajo       | pequeño       | renderer       |
+| R-09 | Pequeños del renderer (`fromProblem`, filas pulsables, gráfico vacío, key) | bajo       | pequeño       | renderer       |
+| R-10 | Contrato IPC: asimetrías menores                                           | bajo       | pequeño       | shared         |
 
 Lotes sugeridos (ADR-0010 y ADR-0014), por orden:
 
@@ -798,8 +798,7 @@ esperando; si uno no la mira, el usuario ve que «cancela» y el proceso sigue g
 entorno no existe» sin escribir nada en el log. Un fallo de la base (fichero bloqueado, corrupción)
 se le cuenta al usuario como «entorno inexistente» y no deja traza.
 `src/main/ipc/handlers/modules.ts:177-195` (`processGroupTotal`): cualquier `DtError` (también
-`TIMEOUT`, `RATE_LIMITED`, `UNAUTHORIZED`) devuelve `null` sin log; el comentario solo justifica el
-403. El usuario ve «total desconocido» y nadie sabe por qué.
+`TIMEOUT`, `RATE_LIMITED`, `UNAUTHORIZED`) devuelve `null` sin log; el comentario solo justifica el 403. El usuario ve «total desconocido» y nadie sabe por qué.
 
 **Impacto: bajo.** Diagnóstico. **Esfuerzo: pequeño.**
 
