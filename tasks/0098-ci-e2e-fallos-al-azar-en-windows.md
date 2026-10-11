@@ -153,15 +153,32 @@ Verificación 2026-10-11, commit 66ad1a9, rango `integra/20261011-19..fix/0098-c
 - e2e completo (`npm run test:e2e`, workers de local): 367 passed en 1,6 min, un pase.
 - CA2 (tres pases verdes del CI de la PR): lo hace el Orquestador tras abrir la PR.
 
+**CA2 (Orquestador, 2026-10-11), PR #21, run 38170355797:** no se cumple a la letra.
+
+| Intento | Resultado                   | `npm run check` | `npm run test:e2e` | Total del run |
+| ------- | --------------------------- | --------------- | ------------------ | ------------- |
+| 1       | verde                       | 3 min 27 s      | 5 min 37 s         | 10 min 38 s   |
+| 2       | verde                       | —               | 5 min 32 s         | 10 min 40 s   |
+| 3       | 1 fallo de 367 (366 passed) | —               | 5 min 58 s         | 11 min 3 s    |
+
+El fallo del intento 3: `e2e/views-host.spec.ts:534`, «CA4 (0039): el tooltip de ayuda de
+«recuperable» sale con el ratón y con el foco», `toBeVisible` a los 5 s en la línea 545 (no aparece
+el tooltip). Es de la familia de la 0096 (tooltips que no se abren en el CI). En los tres intentos
+hubo 1 fallo en 1101 ejecuciones de tests, frente a la mitad de los intentos con algún fallo antes
+de la ficha.
+
+**Decisión de Dani (2026-10-11):** se fusiona la 0098 con este resultado y ese test pasa al alcance
+de la 0096.
+
 ## Resultado
 
 **Cierre (doc-writer, 2026-10-11).** Commits: eb91c5e (ficha sin tests previos), 5c01527 (test de
 2 workers), aba788d (`CI_WORKERS = 2` en `playwright.config.ts`), f525426, 66ad1a9 y bc0c64e (ficha:
 diagnóstico, revisión y verificación). Ficheros: `playwright.config.ts`,
 `scripts/playwright-workers.test.ts`, `scripts/e2e-projects.test.ts`, `e2e/CLAUDE.md` y esta ficha.
-Una ronda de revisión (APROBADO). ADR nuevo: ninguno. CA1 y CA3 cumplidos; **CA2 (tres pases
-verdes del CI de la PR) pendiente**: lo hace el Orquestador tras abrir la PR y apunta aquí los
-tiempos.
+Una ronda de revisión (APROBADO). ADR nuevo: ninguno. CA1 y CA3 cumplidos; CA2 no se cumple a la
+letra (dos pases verdes y un tercero con 1 fallo de 367, en un tooltip de `views-host`): Dani decidió
+fusionar y pasar ese test a la 0096 (ver «Verificación»).
 
 **Diagnóstico (developer, 2026-10-11).** Logs de los jobs `windows` de cada intento (API de GitHub,
 `actions/jobs/{id}/logs`, solo lectura) y `node scripts/ci-times.mjs`; los números de cada test
