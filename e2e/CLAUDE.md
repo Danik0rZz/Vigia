@@ -26,10 +26,10 @@
   (`scripts/e2e-tags.cjs`). Un ayudante que usan varios specs va a `e2e/views/helpers.ts`; uno de
   un solo spec, en él. Un spec no añade datos al simulador al cargarse (`detailOnly.push`…): un
   worker que no lo cargue no los tendría; van en `e2e/views/fixtures.ts`.
-- Workers: 4 en el CI y el número medido sin él (`playwright.config.ts`, ficha 0070). Cada worker
-  de vistas usa su puerto del simulador y sus carpetas de datos y de exportación
-  (`workerResources(workerIndex)`, `e2e/worker-resources.ts`); si el puerto está ocupado, el arnés
-  falla nombrándolo. Los demás specs usan el puerto 0 y `mkdtempSync`. Con
+- Workers: 4 en el CI y 6 en local (`playwright.config.ts`, ficha 0087; con 8, más fallos de
+  tiempos). Cada worker de vistas usa su puerto del simulador y sus carpetas de datos y de
+  exportación (`workerResources(workerIndex)`, `e2e/worker-resources.ts`); si el puerto está
+  ocupado, el arnés falla nombrándolo. Los demás specs usan el puerto 0 y `mkdtempSync`. Con
   `--repeat-each`, `views-portapapeles` va con `--workers=1`: si no, dos copias se pisan el
   portapapeles.
 - «Abrir en Métricas» (ficha 0070): el test va a la zona de la página del botón (`@problema-detalle`,

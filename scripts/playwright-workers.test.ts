@@ -4,15 +4,14 @@ import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 /**
- * Ficha 0070, punto 5: en el CI (`windows-latest`, 4 núcleos) los e2e siguen con 4 workers; sin
- * `CI`, con el número medido en la VPS (4, 6, 8 o 10, según la regla de la ficha). `workers` pasa a
- * depender de `process.env.CI`. El número medido y sus tres pases en verde se apuntan en
- * «Verificación» de la ficha.
+ * Ficha 0070, punto 5: en el CI (`windows-latest`, 4 núcleos) los e2e siguen con 4 workers.
+ * `workers` pasa a depender de `process.env.CI`. Ficha 0087: sin `CI`, 6 (con 8 subieron los fallos
+ * de tiempos en local).
  */
 
 const CONFIG = join(__dirname, '..', 'playwright.config.ts')
-/** Los candidatos que mide la ficha. */
-const MEASURED = [4, 6, 8, 10]
+/** Workers sin CI (ficha 0087). */
+const LOCAL_WORKERS = 6
 
 async function workersWith(ci: string | undefined): Promise<unknown> {
   vi.resetModules()
@@ -31,9 +30,8 @@ describe('CA5 (0070): workers de playwright.config.ts según CI', () => {
     expect(await workersWith('true')).toBe(4)
   })
 
-  it('CA5 (0070): sin CI, el número medido (4, 6, 8 o 10)', async () => {
-    const workers = await workersWith(undefined)
-    expect(MEASURED).toContain(workers)
+  it('CA1 (0087): sin CI, 6 workers', async () => {
+    expect(await workersWith(undefined)).toBe(LOCAL_WORKERS)
   })
 
   it('CA5 (0070): el valor de workers depende de process.env.CI', () => {
