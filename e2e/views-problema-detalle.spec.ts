@@ -1210,7 +1210,10 @@ test(
 
 test(
   'v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez',
-  { tag: '@problema-detalle' },
+  {
+    tag: ['@problema-detalle', '@inestable'],
+    annotation: { type: 'arreglo', description: '0086' }
+  },
   async () => {
     sim.eventMetricDelayMs = 400
     await goToRoute(`/problems/${LAZY_ID}`)

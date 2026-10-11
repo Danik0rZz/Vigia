@@ -40,6 +40,20 @@ bueno de Dani o de peticiones en su nombre.
   [0083](tasks/0083-log-enmascarar-anidados.md) (hecha), cada una sola en su PR por la exclusión
   `seguridad`; y [0085](tasks/0085-host-nube-zona-y-tamano.md) (hecha)). Cola completa: 0079, 0070, 0071,
   0080, 0081, 0084, 0082, 0083 y 0085.
+- Detrás, aprobados por Dani el 2026-10-11: lote **e2e-inestables-2**
+  ([0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md), arreglo del test de la cola de
+  gráficos de evidencias, en cuarentena con `arreglo: 0086`; y
+  [0087](tasks/0087-e2e-seis-workers-en-local.md), ligera, 6 workers en local) y lote
+  **seguridad-revision**, con prioridad (hallazgos de seguridad abiertos de la revisión de código del
+  2026-10-11 y el seguimiento de la 0079; todas con la exclusión `seguridad`, cada una sola en su PR):
+  [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md),
+  [0089](tasks/0089-ci-ok-falla-cerrado.md), [0090](tasks/0090-fusion-atada-al-commit-del-ci.md),
+  [0091](tasks/0091-scan-tenant-nombres-y-binarios.md),
+  [0092](tasks/0092-telegram-no-envia-sin-filtro.md),
+  [0093](tasks/0093-log-sin-usuario-de-windows.md) (tras la 0083),
+  [0094](tasks/0094-markdown-color-sin-prototipo.md) y
+  [0095](tasks/0095-tls-seguimiento-conexiones-nuevas.md). Cola: 0087, 0088, 0089, 0090, 0091,
+  0092, 0093, 0094, 0095 y 0086.
 - Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
 
 ## Propuestas
@@ -47,7 +61,6 @@ bueno de Dani o de peticiones en su nombre.
 Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de Dani) en
 `docs/propuestas-siguientes.md`.
 
-- Ficha de seguimiento de seguridad del resto de la verificación de certificados (dos conexiones nuevas a un host cuando la sesión ya no recuerda la decisión); pendiente del Planificador. (surgió en 0079)
 - Eventos en el detalle del problema (propuesta 2, S). Necesita antes una prueba en vivo de solo
   lectura de `evidenceDetails`.
 - Agrupar Problemas por clúster (propuesta 3, S). Reabre la decisión de "sin agrupar".
@@ -64,9 +77,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene el doc-writer: se añade una fila al ponerlo en cuarentena y se quita al cerrar su ficha de arreglo. La guarda no lee esta sección.
 
-| Test              | Spec | Ficha de arreglo | Desde |
-| ----------------- | ---- | ---------------- | ----- |
-| (ninguno todavía) |      |                  |       |
+| Test                                                                                                                                                                                                                           | Spec                                 | Ficha de arreglo                                            | Desde      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------- | ---------- |
+| «v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez» (falló en el CI de la PR #10, run 38143008404; la PR #11, run 38146900333, y la PR #12, run 38152066082) | `e2e/views-problema-detalle.spec.ts` | [0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md) | 2026-10-11 |
 
 ## Mejoras anotadas
 
@@ -273,7 +286,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `splitList` vive en `pages/entities/service-info.ts` y la usan el host y el proceso: por eso `service-info.ts` va también en las áreas `host` y `proceso`. Sacarla a un módulo común lo dejaría solo en `servicio`. (surgió en 0070)
 - Sospechoso de inestable para la ficha B (0075/0076): «CA1 (0036)» de `e2e/views.spec.ts` (la tarjeta Información es la última sección). Timeout de 60 s en `settledBox` con los workers en paralelo en la verificación del 2026-10-10 (commit `d744b7e`); pasa aislado ×3 y con `views` entero ×3 con `--workers=1`. `settledBox` es el mismo código que ya estaba en `main`. (surgió en 0069) No reproducido el 2026-10-11, 5 de 5 aislado y `views` entero con `--workers=1` (ficha 0076).
 - Sospechoso de inestable para la ficha B: `e2e/views-problema-detalle.spec.ts:1211`, «v0.9.2: carga diferida y cola… nunca más de 3 consultas a la vez»: falló en el CI de la PR #10 (run 38143008404, intento 1, 2026-10-11 15:34; `eventMetricMaxInFlight` menor que 3) y pasó al relanzar (intento 2). Volvió a fallar en el CI de la PR #11 (run 38146900333, intento 1, 2026-10-11 16:32) y pasó al relanzar; en local, 10 de 10 con 4 workers. Dos fallos en tres ejecuciones del CI: candidato claro para una ficha de arreglo o cuarentena (lo decide Dani o el Planificador). (surgió en 0081 y 0082)
-- El token de `gh` no puede relanzar jobs ni lanzar `workflow_dispatch` (HTTP 403); ampliarlo a «Actions: write» lo decide Dani. (surgió en 0081)
+- Sospechosos de inestables para la ficha B: en el CI de la PR #12 (run 38152066082, intento 1, 2026-10-11 17:48) fallaron una vez `e2e/views-problemas.spec.ts:417`, «grid de Problemas: ARIA, orden por columna, barra de estado y afectados» (no aparece el tooltip «Cerrado»), y `e2e/views-problema-detalle.spec.ts:1410`, «v0.10.2: evidencia de 45 días…» (no aparece el tooltip con la fecha); los dos pasaron en el intento 2, en el que volvió a fallar el de la cola (ya en cuarentena con la 0086). (surgió en 0083)
 - `maskLogMessage`: en el camino de reserva de `util.inspect` (solo si `JSON.stringify` falla, en la práctica con un `BigInt`), un original reutilizado porque nada cambia podría imprimir propiedades que el JSON no escribe; decidir si se copia siempre en ese caso. (surgió en 0083)
 - Test unitario de `maskLogMessage` cuando `toJSON` devuelve el mismo objeto (hoy sale `[referencia circular]`, sin test). (surgió en 0083)
 - Hook `PreToolUse` que bloquee `gh pr merge` con squash, rebase o delete-branch aunque se llame por la ruta completa del ejecutable (las reglas `deny` casan con el texto del comando). Decisión de Dani: ficha propia del Planificador. (surgió en 0082)
