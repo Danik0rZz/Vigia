@@ -257,8 +257,10 @@ se para la cola** (con la PR, o la fusión en `main`, como run):
 2. Se localiza la ficha culpable. Una PR agrupada cubre de 3 a 5 fichas (y una fusión en `main`,
    las de su PR más lo que ya había): se busca por el test que falla y el diff de cada ficha (un
    commit cada una) y, en la duda, el verifier pasa ese spec en el commit de cada una.
-3. Se relanza el job que falló, una sola vez. Si pasa, el test queda anotado en «Mejoras anotadas»
-   del BACKLOG como sospechoso de inestable, con la fecha y el run, y la cola sigue. Si se confirma
+3. Se relanza el job que falló, una sola vez, con `gh run rerun <id del run> --failed` (el token
+   de `gh` tiene «Actions: write» desde el 2026-10-11; lo lanza el Orquestador). Si pasa, el test
+   queda anotado en «Mejoras anotadas» del BACKLOG como sospechoso de inestable, con la fecha y el
+   run, y la cola sigue. Si se confirma
    (vuelve a fallar así en otro run), va a cuarentena con su ficha de arreglo (ver «Niveles de
    prueba», ficha 0075).
 4. Si vuelve a fallar, se reabre la ficha culpable: `en_desarrollo`, rama `fix/NNNN-ci` (también en
