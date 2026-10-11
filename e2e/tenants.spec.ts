@@ -841,15 +841,22 @@ test(
     await page.keyboard.press('Control+K')
     const palette = page.getByTestId('command-palette')
     await expect(palette).toBeVisible()
-    // Lo que hay en el centro de la paleta es la paleta, no el diálogo ni su fondo.
-    const onTop = await palette.evaluate((el) => {
-      const box = el.getBoundingClientRect()
-      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
-      return hit !== null && el.contains(hit)
-    })
-    expect(onTop).toBe(true)
-    // El foco está en la paleta: lo que se escribe va a su buscador.
-    expect(await palette.evaluate((el) => el.contains(document.activeElement))).toBe(true)
+    // Lo que hay en el centro de la paleta es la paleta, no el diálogo ni su fondo. Con espera:
+    // Radix pinta la capa nueva un fotograma con `pointer-events: none` hasta que su efecto la
+    // registra en la pila de capas, y `elementFromPoint` se la salta (ficha 0078).
+    await expect
+      .poll(() =>
+        palette.evaluate((el) => {
+          const box = el.getBoundingClientRect()
+          const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+          return hit !== null && el.contains(hit)
+        })
+      )
+      .toBe(true)
+    // El foco está en la paleta: lo que se escribe va a su buscador. También lo mueve un efecto.
+    await expect
+      .poll(() => palette.evaluate((el) => el.contains(document.activeElement)))
+      .toBe(true)
     await page.keyboard.type('Ajustes')
     await expect(palette.getByRole('option', { name: /Ajustes/ }).first()).toBeVisible()
 
