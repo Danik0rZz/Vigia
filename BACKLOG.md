@@ -59,8 +59,8 @@ bueno de Dani o de peticiones en su nombre.
   Aprobadas por Dani el 2026-10-11 (lote **e2e-inestables-2**):
   [0097](tasks/0097-e2e-arreglar-altura-fila-con-grafico.md), arreglo del test de la tabla
   virtualizada (altura de la fila al pintar su gráfico), en cuarentena con `arreglo: 0097`; y
-  [0098](tasks/0098-ci-e2e-fallos-al-azar-en-windows.md), por qué el runner de Windows falla al azar
-  en los e2e. Orden de Dani (2026-10-11) para lo que queda: 0090, 0098, 0086, 0096, 0097, 0091,
+  [0098](tasks/0098-ci-e2e-fallos-al-azar-en-windows.md) (hecha; el CI pasa a 2 workers), por qué el
+  runner de Windows falla al azar en los e2e. Orden de Dani (2026-10-11) para lo que queda: 0090, 0098, 0086, 0096, 0097, 0091,
   0092, 0093, 0094 y 0095.
 - Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
 
@@ -316,6 +316,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `permissions.deny` no cubre `git push --mirror`, `--prune` ni `git -C <dir> push …` escritos en otra forma (el pre-push los para igual). (surgió en 0088)
 - Para el Planificador: saltarse el pre-push con `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=core.hooksPath` no casa con ninguna regla de `deny`; ficha con exclusión `seguridad`. (surgió en 0088)
 - Sospechoso de inestable (unitario): `scripts/react-compiler.test.ts` «CA3 (0059)» falló una vez por el límite de 5000 ms en el `check` del verifier de la 0088 (2026-10-11); aislado ×3 pasó. Probablemente es el unitario sin identificar que vio el developer de la cuarentena de la 0086. (surgió en 0088)
+- Un script en `scripts/` que, a partir del log de un job del CI, saque la duración de cada test y cuántas apps Electron había a la vez (la tabla de «Resultado» de la 0098), para ver pronto si una ficha vuelve a saturar el runner. (surgió en 0098)
 
 ## Aparcado
 
