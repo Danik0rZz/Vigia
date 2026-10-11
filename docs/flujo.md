@@ -445,7 +445,8 @@ informe local). Nunca van al CI.
   push a `main` (al fusionar una PR), `npm run check` y `npm run dist:win` (sin subir el zip), sin
   e2e, que ya pasó en la PR: el `check` caza dos PR que pasaron cada una por su lado y fallan
   juntas. El check «CI ok» existe siempre (job `ci-ok`) y es el único que exige la protección de
-  `main`; en una PR solo de documentos pasa en segundos (`scripts/ci-changes.mjs`). El push a
+  `main`; en una PR solo de documentos pasa en segundos (`scripts/ci-changes.mjs`). Falla cerrado: sin
+  saber que `codigo` es `false`, `windows` corre y «CI ok» exige su éxito (ficha 0089). El push a
   `main` no se lanza si solo toca Markdown, `docs/`, `tasks/` o `.claude/` (`paths-ignore`), y
   el push a las ramas `integra/` no lo lanza nunca. Sin `test:live` ni secretos: los logs del CI
   son públicos. Además: `npm audit` (producción `high` bloquea; desarrollo `critical` solo

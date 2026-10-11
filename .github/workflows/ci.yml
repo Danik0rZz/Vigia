@@ -6,7 +6,8 @@
 # scripts/ci-changes.mjs si la PR trae algo más que documentos (la lista de lo que no cuenta vive
 # en ese script; el paths-ignore del push tiene que coincidir con ella), `windows` pasa check y el
 # e2e completo solo si hay código (el zip solo fuera de las PR) y `ci-ok` da verde si nada falló
-# ni se canceló.
+# ni se canceló. Ficha 0089: falla cerrado; solo codigo 'false' salta windows, y con cualquier otro
+# valor «CI ok» exige que windows acabe en success.
 #
 # Ficha 0073: se integra por PR (ramas integra/…, de 3 a 5 fichas). El e2e completo pasa en cada PR
 # (y a mano); el push a main, que solo llega al fusionar una PR, pasa check (para cazar dos PR que
@@ -60,7 +61,9 @@ jobs:
 
   windows:
     needs: [cambios]
-    if: needs.cambios.outputs.codigo == 'true'
+    # Ficha 0089: falla cerrado. Solo se salta con codigo exactamente 'false' (PR de documentos);
+    # vacío o desconocido se prueba. Si cambios falla, el success() implícito lo salta igual.
+    if: needs.cambios.outputs.codigo != 'false'
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -124,7 +127,8 @@ jobs:
         run: npm run dist:win
 
   # El único check que exigirá la protección de main: siempre se ejecuta, también si windows se
-  # saltó porque la PR solo trae documentos. Rojo si algún job falló o se canceló.
+  # saltó porque la PR solo trae documentos. Rojo si algún job falló o se canceló y, desde la ficha
+  # 0089, si codigo no es 'false' y windows no acabó en success (no se aprueba sin haber probado).
   ci-ok:
     name: CI ok
     if: always()
@@ -135,4 +139,7 @@ jobs:
       - name: Algún job falló o se canceló
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
-      - run: echo "cambios ${{ needs.cambios.result }}, windows ${{ needs.windows.result }}"
+      - name: Hay código y windows no acabó bien
+        if: needs.cambios.outputs.codigo != 'false' && needs.windows.result != 'success'
+        run: exit 1
+      - run: echo "cambios ${{ needs.cambios.result }}, codigo '${{ needs.cambios.outputs.codigo }}', windows ${{ needs.windows.result }}"
