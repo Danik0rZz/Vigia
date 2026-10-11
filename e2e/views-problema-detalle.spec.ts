@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, type Locator, test } from '@playwright/test'
-import { hoverFresh, moveToNeutral } from './hover'
+import { hoverFresh, moveToNeutral, visibleBox } from './hover'
 import { wallTimeToEpoch } from './local-time'
 import {
   BIG_ID,
@@ -306,13 +306,9 @@ test(
 )
 
 test(
-  'v0.10.0: tabla virtualizada: desplegar una fila con gráfico recalcula la altura (la siguiente no se solapa)',
-  {
-    tag: ['@problema-detalle', '@inestable'],
-    annotation: { type: 'arreglo', description: '0097' }
-  },
+  'v0.10.0: tabla virtualizada: desplegar una fila con gráfico recalcula la altura (la siguiente no se solapa), arreglo (0097)',
+  { tag: '@problema-detalle' },
   async () => {
-    sim.eventMetricDelayMs = 600
     await goToRoute(`/problems/${BIG_ID}`)
     const first = page.locator('[data-testid="evidence-row"][data-event-id="big-299"]')
     const next = page.locator('[data-testid="evidence-row"][data-event-id="big-297"]')
@@ -323,18 +319,34 @@ test(
     }
     const topOf = async (locator: Locator): Promise<number> => (await locator.boundingBox())?.y ?? 0
 
-    await first.click()
-    const detail = await detailOf(first)
-    // Mientras carga: la siguiente fila va debajo del detalle.
-    await expect(detail.getByTestId('evidence-metric-loading')).toBeVisible()
-    expect(await topOf(next)).toBeGreaterThanOrEqual((await bottomOf(detail)) - 1)
-    const loadingBottom = await bottomOf(detail)
+    // Ficha 0097: el simulador retiene la consulta del gráfico hasta medir el detalle cargando.
+    // Con un retardo fijo, en el CI la respuesta llegaba antes de medir y «cargando» ya medía
+    // lo mismo que con el gráfico.
+    let release = (): void => undefined
+    sim.eventMetricGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let loadingBottom: number
+    let detail: Locator
+    try {
+      await first.click()
+      detail = await detailOf(first)
+      // Mientras carga: la siguiente fila va debajo del detalle.
+      await expect(detail.getByTestId('evidence-metric-loading')).toBeVisible()
+      await expect.poll(() => sim.eventMetricInFlight).toBe(1)
+      expect(await topOf(next)).toBeGreaterThanOrEqual((await bottomOf(detail)) - 1)
+      loadingBottom = await bottomOf(detail)
+      await expect(detail.getByTestId('evidence-metric-loading')).toBeVisible()
+    } finally {
+      release()
+      sim.eventMetricGate = null
+    }
     // Con el gráfico pintado (más alto): se vuelve a medir y la siguiente baja con él.
     await expect(detail.getByTestId('evidence-metric')).toBeVisible()
+    await expect.poll(() => bottomOf(detail)).toBeGreaterThan(loadingBottom)
     await expect
       .poll(async () => (await topOf(next)) - (await bottomOf(detail)))
       .toBeGreaterThanOrEqual(-1)
-    expect(await bottomOf(detail)).toBeGreaterThan(loadingBottom)
     expect(eventQueries(SEL_BIG)).toHaveLength(1)
     // Plegar: la siguiente vuelve justo debajo de la fila.
     await first.click()
@@ -1427,10 +1439,7 @@ test(
 
 test(
   'v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio',
-  {
-    tag: ['@problema-detalle', '@inestable'],
-    annotation: { type: 'arreglo', description: '0096' }
-  },
+  { tag: '@problema-detalle' },
   async () => {
     await goToRoute(`/problems/${LONG_ID}`)
     await expect(page.getByTestId('problem-page-title')).toContainText('P-784')
@@ -1468,15 +1477,15 @@ test(
     // El inicio del problema (hace 45 días) queda fuera: sin línea vertical de inicio.
     expect(axis.markLines).toBe(0)
 
-    // Tooltip con fecha y hora completas.
-    const box = await drawn.locator('canvas').first().boundingBox()
-    await page.mouse.move(
-      (box?.x ?? 0) + (box?.width ?? 0) * 0.6,
-      (box?.y ?? 0) + (box?.height ?? 0) / 2,
-      {
-        steps: 10
-      }
-    )
+    // Tooltip con fecha y hora completas. La tabla de evidencias es más ancha que su caja con
+    // scroll, y el lienzo con ella: el 60 % de su ancho caía fuera de lo visible y de la ventana, y
+    // el tooltip solo salía al cruzar el lienzo, para esconderse 100 ms después (el hideDelay de
+    // ECharts al salir); en el CI, más lento, ya no estaba al comprobarlo (0096). Se apunta al
+    // centro de la parte visible, con el lienzo entero a la vista en vertical.
+    const canvas = drawn.locator('canvas').first()
+    await canvas.evaluate((el) => el.scrollIntoView({ block: 'nearest', inline: 'start' }))
+    const box = await visibleBox(canvas)
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 })
     const tooltip = page.locator('.vigia-chart-tooltip').filter({ visible: true }).first()
     await expect(tooltip).toContainText(/\d\d\/\d\d\/\d{4} \d\d:\d\d/)
     await moveToNeutral(page)

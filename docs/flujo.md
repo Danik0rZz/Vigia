@@ -124,7 +124,8 @@ Para ir más rápido sin perder las puertas (ADR-0010):
   `stash drop` con cambios sin commitear (salvo commit o stash previo).
 - **Solo lo decide Dani:** force push, reescribir el historial publicado, borrar ramas remotas
   (las borra GitHub al fusionar la PR; con git, el pre-push lo rechaza), fusionar la PR de una
-  ficha sola (la que toca alguna exclusión), la configuración de GitHub (protección de `main`, permisos del token de `gh`),
+  ficha sola (la que toca alguna exclusión; lo hace activando el auto-merge en GitHub, y la
+  decisión sigue siendo suya), la configuración de GitHub (protección de `main`, permisos del token de `gh`),
   tags, releases, publicar el zip, licencia y temas legales, y el qué de las funciones sin definir.
   El zip nunca se arranca en su perfil.
 - Antes de cada tanda grande de cambios en la spec, copia como
@@ -207,9 +208,22 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
   juntaría las fichas. GitHub borra la rama remota al fusionar; los agentes no borran ramas
   remotas (el pre-push lo impide, ver «Qué queda bloqueado»).
 - **PR de una ficha sola:** su rama `integra/…` sale de `main`, no de una rama de integración
-  pendiente. El Orquestador la abre, **no la fusiona** y avisa a Dani (`parada`, con el enlace de
-  la PR y el estado de «CI ok»). La cola sigue con las fichas que no dependan de ella; las que
-  dependen quedan `en_espera` hasta que Dani la fusione.
+  pendiente. La fusiona Dani con el auto-merge de GitHub (ficha 0099), en tres pasos:
+  1. El Orquestador abre la PR y avisa a Dani en ese momento (`parada`, en la sesión y por
+     Telegram, con el enlace de la PR), sin esperar al CI.
+  2. Dani pulsa «Enable auto-merge» con «Create a merge commit» (no «Squash» ni «Rebase»). GitHub
+     la fusiona sola cuando «CI ok» sale en verde («CI ok» es check obligatorio de `main`).
+  3. El Orquestador sondea la PR en segundo plano (`gh pr view <n> --json state`). Cuando pasa a
+     `MERGED`, hace "Traer `main`" y sigue, sin que Dani tenga que escribir «fusionada». Si el CI
+     falla, "El CI, sin esperarlo" como siempre: el `fix(…)` va a la misma `integra/…` y el
+     auto-merge sigue activo (si GitHub lo hubiera desactivado, se avisa a Dani para que lo vuelva
+     a activar).
+
+  El Orquestador **nunca** activa el auto-merge (ni con la opción `--auto` de `gh` ni por otra
+  vía), en ninguna PR: la fusión de esta sigue siendo de Dani, y las agrupadas las fusiona él
+  atadas al SHA, sin cambios. La cola sigue con las fichas que no dependan de ella; las que
+  dependen quedan `en_espera` hasta que se fusione.
+
 - **Documentos sin código** (la ficha aprobada que commitea el Planificador en `main` local, la
   medición del CI que llega después): van en la rama de integración en curso; si no hay ninguna, en
   una PR solo de documentos, que «CI ok» deja pasar en segundos. Los del Planificador llegan con

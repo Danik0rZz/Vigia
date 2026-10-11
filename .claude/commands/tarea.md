@@ -35,7 +35,7 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
   documentos, repites su verifier.
 - Antes de empezar una, mira su `depende_de`: si alguna de esas fichas no está `hecha`, se salta y
   se dice en el resumen final. Si depende de una ficha sola cuya PR aún no ha fusionado Dani, queda
-  `en_espera` hasta que la fusione.
+  `en_espera` hasta que salga `MERGED`.
 - Si una ficha se para esperando a Dani (`[ALCANCE]` no delegado o cualquier "para y pregunta"):
   apunta la pregunta en la ficha (`estado: en_espera`, con la pregunta en "Notas del revisor" o en
   "Resultado"), manda el **Aviso** de `parada`, deja su rama como está y sigue con la siguiente
@@ -128,9 +128,14 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
      sola, que no está en curso) y, si ha traído algo, otra vez `git push origin integra/…`.
      Después, `gh pr create --base main --head integra/AAAAMMDD-N`, título «Fichas NNNN, MMMM…» y
      cuerpo con la lista de fichas, su título y el enlace a su fichero, sin nada del tenant. Desde
-     ese momento la `integra/…` ya no está en curso. Si la ficha va sola, **no la fusiones**:
-     **Aviso** de `parada` con el enlace de la PR y el estado de «CI ok», y sigue con lo que no
+     ese momento la `integra/…` ya no está en curso. Si la ficha va sola, **no la fusiones**: en
+     cuanto abras la PR, sin esperar al CI, **Aviso** de `parada` con el enlace de la PR en `ci` y,
+     en `decision`, que Dani active «Enable auto-merge» con «Create a merge commit» (no «Squash» ni
+     «Rebase»). Con el auto-merge, GitHub la fusiona sola cuando pasa «CI ok». Sigue con lo que no
      dependa de ella.
+   - El Orquestador nunca activa el auto-merge en ninguna PR: ni con la opción `--auto` de
+     gh pr merge ni por otra vía. El de la PR de una ficha sola lo activa Dani; las agrupadas las
+     fusionas tú como dice el paso 10, sin cambios.
    - Si `gh` no está instalado o sin sesión (`gh auth status`), para y avisa a Dani antes de abrir
      la PR; no integres por tu cuenta con `git push origin main`.
 10. Sondea el CI de la PR en segundo plano y **no lo esperes**: empieza ya la siguiente ficha de la
@@ -143,6 +148,14 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
       mirar los checks (nunca `--squash` ni `--rebase`; no borres la rama remota, la borra GitHub).
     - Si GitHub la rechaza porque la cabeza ya no es ese SHA (la rama recibió otro push), vuelve a
       empezar: SHA nuevo y espera al CI de ese commit.
+    - La PR de una ficha sola no la fusionas tú: la sondeas en segundo plano con
+      `gh pr view <número> --json state` hasta que sale `MERGED` (la fusiona GitHub con el
+      auto-merge que activó Dani). Con `MERGED`, "Traer `main`", las fichas que dependían de ella
+      dejan de estar `en_espera` y mandas el **Aviso** de `hecha` de esa ficha. No hace falta que
+      Dani escriba «fusionada». Si su CI falla, "Si falla el CI" (arriba) como siempre: el `fix(…)`
+      va a la misma `integra/…`, y el auto-merge que activó Dani sigue activo y la fusiona cuando el
+      commit nuevo pasa «CI ok». Si GitHub lo hubiera desactivado, avisa a Dani para que lo vuelva a
+      activar.
 
     Tras fusionar, "Traer `main`" (arriba), muestra a Dani el briefing del doc-writer de cada
     ficha, más las rondas, el resultado del verifier y el enlace al CI, y manda el **Aviso** con
@@ -176,8 +189,9 @@ ejecuta `node scripts/notify-telegram.mjs <ruta-del-json>`. Campos: `tipo: "tare
   el motivo en `resumen` y el último resultado en `verifier`.
 - `estado: parada`: esperando a Dani (`[ALCANCE]` no delegado o cualquier "para y pregunta"), con la
   pregunta en `decision`, escrita para contestarla desde el móvil (sí/no u opciones numeradas). Y
-  al abrir la PR de una ficha sola: el enlace de la PR en `ci` y, en `decision`, que la fusione él
-  (con el estado de «CI ok»).
+  al abrir la PR de una ficha sola, sin esperar al CI: el enlace de la PR en `ci` y, en
+  `decision`, que active el auto-merge («Enable auto-merge» con «Create a merge commit»), con el
+  que GitHub la fusiona cuando pasa «CI ok».
 - Fin de una cola de más de una ficha: `ficha` con el rango (`0006–0008`), `titulo: "Cola"`,
   `estado: hecha` si todas acabaron hechas o `parada` si alguna espera a Dani (con las preguntas en
   `decision`), y en `resumen` qué quedó en cada una.

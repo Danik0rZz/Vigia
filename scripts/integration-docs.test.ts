@@ -221,3 +221,182 @@ describe('CA2 (0090): ningún documento del flujo recomienda [skip ci]', () => {
     expect(skipCiRecommendations(readFileSync(file, 'utf8'))).toEqual([])
   })
 })
+
+/**
+ * Ficha 0099: en la PR de una ficha sola, Dani activa el auto-merge de GitHub («Enable auto-merge»
+ * con «Create a merge commit») y GitHub la fusiona con «CI ok» en verde. El Orquestador avisa al
+ * abrir la PR, la sondea con `gh pr view <n> --json state` y, al salir `MERGED`, hace «Traer
+ * `main`» sin esperar a que Dani diga que está fusionada. Nunca activa el auto-merge él.
+ */
+
+/** Líneas de `text` desde la primera que cumple `start` hasta la anterior a la que cumple `end`. */
+function sliceLines(text: string, start: RegExp, end: RegExp): string {
+  const lines = text.split(/\r?\n/)
+  const from = lines.findIndex((line) => start.test(line))
+  if (from < 0) return ''
+  const rest = lines.slice(from + 1)
+  const to = rest.findIndex((line) => end.test(line))
+  return [lines[from], ...(to < 0 ? rest : rest.slice(0, to))].join('\n')
+}
+
+/** Frases (cortadas por punto o punto y coma) del texto normalizado. */
+function sentences(text: string): string[] {
+  return normalize(text)
+    .split(/(?<=[.;])\s/)
+    .map((sentence) => sentence.trim())
+}
+
+/** Viñetas de primer nivel (con sus líneas de continuación) de un bloque de lista. */
+function topLevelBullets(text: string): string[] {
+  const bullets: string[] = []
+  for (const line of text.split(/\r?\n/)) {
+    if (/^- /.test(line)) bullets.push(line)
+    else if (bullets.length > 0 && /^\s+\S/.test(line)) bullets[bullets.length - 1] += `\n${line}`
+  }
+  return bullets.map(normalize)
+}
+
+/** `gh pr merge … --auto` en código (en línea o en un bloque ```), que activaría el auto-merge. */
+function autoMergeCommands(text: string): string[] {
+  const fences = text.match(/```[\s\S]*?```/g) ?? []
+  const inline = codeSpans(text.replace(/```[\s\S]*?```/g, ''), 'gh pr merge').filter((span) =>
+    /(^|\s)--auto\b/.test(span)
+  )
+  const fenced = fences.flatMap((block) =>
+    block.split(/\r?\n/).filter((line) => /gh pr merge\b.*\s--auto\b/.test(line))
+  )
+  return [...inline, ...fenced.map((line) => line.trim())]
+}
+
+const flujoText = (): string => readFileSync(FLUJO, 'utf8')
+const tareaText = (): string => readFileSync(TAREA, 'utf8')
+
+/** Sección «Git» de `docs/flujo.md` (hasta el siguiente título de nivel 2). */
+const gitSection = (): string => sliceLines(flujoText(), /^## Git\s*$/, /^## /)
+/** Viñeta «PR de una ficha sola» de la sección «Git», con sus pasos. */
+const singlePrBullet = (): string =>
+  topLevelBullets(gitSection()).find((bullet) => /^- \*\*PR de una ficha sola/.test(bullet)) ?? ''
+/** Paso 9 (integración) y paso 10 (CI y fusión) de `/tarea`. */
+const step9 = (): string => sliceLines(tareaText(), /^9\. /, /^10\. /)
+const step10 = (): string => sliceLines(tareaText(), /^10\. /, /^\*\*/)
+/** Sección **Aviso** de `/tarea`: su párrafo y su lista. */
+const avisoSection = (): string => sliceLines(tareaText(), /^\*\*Aviso\*\* \(/, /^(\*\*|#)/)
+
+describe('CA1 (0099): Dani activa el auto-merge en la PR de una ficha sola', () => {
+  it('CA1 (0099): docs/flujo.md, en «Git», tiene la viñeta «PR de una ficha sola»', () => {
+    expect(singlePrBullet()).not.toBe('')
+  })
+
+  it('CA1 (0099): esa viñeta cuenta que Dani pulsa «Enable auto-merge» con «Create a merge commit»', () => {
+    const bullet = singlePrBullet()
+    expect(bullet).toMatch(/Enable auto-merge/)
+    expect(bullet).toMatch(/Create a merge commit/)
+    expect(bullet).toMatch(/Dani/)
+  })
+
+  it('CA1 (0099): esa viñeta cuenta que GitHub la fusiona cuando «CI ok» sale en verde', () => {
+    expect(
+      sentences(singlePrBullet()).some(
+        (s) => /GitHub/.test(s) && /fusiona/i.test(s) && /CI ok/.test(s) && /verde/i.test(s)
+      )
+    ).toBe(true)
+  })
+
+  it('CA1 (0099): el paso 9 de /tarea pide «Enable auto-merge» con «Create a merge commit»', () => {
+    const step = normalize(step9())
+    expect(step).toMatch(/Enable auto-merge/)
+    expect(step).toMatch(/Create a merge commit/)
+  })
+
+  it('CA1 (0099): /tarea cuenta que con el auto-merge la PR se fusiona cuando pasa «CI ok»', () => {
+    expect(
+      sentences(tareaText()).some(
+        (s) => /auto-merge/.test(s) && /fusiona/i.test(s) && /CI ok/.test(s)
+      )
+    ).toBe(true)
+  })
+})
+
+describe('autoMergeCommands (la propia comprobación)', () => {
+  it('CA2 (0099): detecta gh pr merge con --auto en código, en línea, partido en líneas o en un bloque', () => {
+    expect(autoMergeCommands('Fusiona con `gh pr merge 12 --auto --merge`.')).toHaveLength(1)
+    expect(autoMergeCommands('Fusiona con `gh pr merge <n>\n  --merge --auto`.')).toHaveLength(1)
+    expect(autoMergeCommands('```sh\ngh pr merge 12 --merge --auto\n```')).toHaveLength(1)
+  })
+
+  it('CA2 (0099): acepta la prohibición en prosa y la fusión atada al SHA', () => {
+    expect(
+      autoMergeCommands(
+        'El Orquestador nunca usa gh pr merge con --auto ni activa el auto-merge por otra vía.'
+      )
+    ).toEqual([])
+    expect(autoMergeCommands('Nunca pases `--auto`.')).toEqual([])
+    expect(
+      autoMergeCommands('Fusiona con `gh pr merge <número> --merge --match-head-commit <sha>`.')
+    ).toEqual([])
+  })
+})
+
+describe('CA2 (0099): ningún documento del flujo activa el auto-merge con gh pr merge --auto', () => {
+  const files = [...markdownFiles(CLAUDE_DIR), FLUJO]
+
+  it.each(files)('CA2 (0099): %s no tiene `gh pr merge … --auto` en código', (file) => {
+    expect(autoMergeCommands(readFileSync(file, 'utf8'))).toEqual([])
+  })
+
+  it('CA2 (0099): /tarea dice que el Orquestador nunca activa el auto-merge (ni con --auto)', () => {
+    const rule = sentences(tareaText()).filter(
+      (s) => /\bnunca\b/i.test(s) && /auto-merge/.test(s) && /--auto\b/.test(s)
+    )
+    expect(rule.length).toBeGreaterThan(0)
+  })
+})
+
+describe('CA3 (0099): /tarea sondea la PR de una ficha sola hasta MERGED y trae main', () => {
+  it('CA3 (0099): /tarea tiene `gh pr view <número> --json state`', () => {
+    const views = codeSpans(tareaText(), 'gh pr view')
+    expect(views.some((view) => /^gh pr view \S+ --json state(?![\w,])/.test(view))).toBe(true)
+  })
+
+  it('CA3 (0099): el paso 10 sondea la PR de una ficha sola con gh pr view --json state', () => {
+    const step = step10()
+    expect(normalize(step)).toMatch(/ficha sola/)
+    expect(codeSpans(step, 'gh pr view').some((v) => /--json state(?![\w,])/.test(v))).toBe(true)
+  })
+
+  it('CA3 (0099): al salir MERGED, el paso 10 hace «Traer `main`»', () => {
+    expect(sentences(step10()).some((s) => /MERGED/.test(s) && /Traer `main`/.test(s))).toBe(true)
+  })
+
+  it('CA3 (0099): el paso 10 no espera a que Dani escriba «fusionada»', () => {
+    expect(
+      sentences(step10()).some(
+        (s) => /fusionada/.test(s) && /Dani/.test(s) && /\b(no|sin|nunca)\b/i.test(s)
+      )
+    ).toBe(true)
+  })
+})
+
+describe('CA4 (0099): el Aviso de parada sale al abrir la PR de una ficha sola y pide el auto-merge', () => {
+  const paradaBullet = (): string =>
+    topLevelBullets(avisoSection()).find(
+      (bullet) => /`estado: parada`/.test(bullet) && /ficha sola/.test(bullet)
+    ) ?? ''
+
+  it('CA4 (0099): la sección Aviso tiene el `estado: parada` de la PR de una ficha sola', () => {
+    expect(paradaBullet()).not.toBe('')
+  })
+
+  it('CA4 (0099): sale al abrir la PR, sin esperar al CI', () => {
+    const bullet = paradaBullet()
+    expect(bullet).toMatch(/al abrir la PR/)
+    expect(bullet).toMatch(/sin esperar (a|al) (el )?CI/i)
+  })
+
+  it('CA4 (0099): su decision pide activar el auto-merge, no que la fusione él', () => {
+    const bullet = paradaBullet()
+    expect(bullet).toMatch(/`decision`[^.]*auto-merge/)
+    expect(bullet).toMatch(/Enable auto-merge/)
+    expect(bullet).not.toMatch(/que la fusione él/)
+  })
+})
