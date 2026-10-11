@@ -47,7 +47,7 @@ Cómo añadir un canal IPC: ver el README.
 - Las vistas de datos no se refrescan solas: cada petición gasta cuota de la API (ADR-0004).
 - La API de cada módulo (v1, v2 o plataforma) se deduce de `..\API\` y de la documentación
   oficial; la elección se anota en la ficha y, si es una decisión de módulo, en un ADR.
-- Cada entorno tiene su partición de red; un cambio de certificados crea una nueva (ADR-0003).
+- Cada entorno tiene su partición de red; un cambio de certificados crea una nueva (ADR-0003). La primera petición a cada host de cada sesión va sola y las demás esperan (`fetchFor`, ficha 0079).
 - Contenido del tenant con formato (Markdown): solo con `MarkdownText`
   (`src/renderer/src/components/`), sin HTML en crudo, solo enlaces http/https y sin imágenes ni
   recursos remotos (ADR-0008).

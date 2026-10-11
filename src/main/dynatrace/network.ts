@@ -41,6 +41,72 @@ export interface EnvironmentNetwork {
 const hostnameOf = (host: string): string => new URL(`https://${host}`).hostname
 
 /**
+ * Estado de un host (con puerto) dentro de una sesión: si ya ha entrado una petición y, mientras
+ * no, la que está en curso sola (las demás la esperan).
+ */
+interface HostGate {
+  verified: boolean
+  pending: Promise<void> | null
+}
+
+const urlOf = (input: string | URL | Request): string =>
+  typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+/** Espera a `pending` o lanza si `signal` se aborta antes (como lo haría el propio `fetch`). */
+function waitFor(pending: Promise<void>, signal: AbortSignal | null | undefined): Promise<void> {
+  if (signal === null || signal === undefined) return pending
+  if (signal.aborted) return Promise.reject(signal.reason)
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = (): void => reject(signal.reason)
+    signal.addEventListener('abort', onAbort, { once: true })
+    void pending.then(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    })
+  })
+}
+
+/**
+ * `fetch` de una sesión en el que la primera petición a cada host va sola: dos conexiones nuevas a
+ * la vez al mismo host pueden saltarse el verificador de la app (ficha 0079). Las demás peticiones a
+ * ese host esperan a que acabe; si entra, ya van todas a la vez; si falla, la siguiente vuelve a ir
+ * sola. No reintenta nada: cada petición sale una vez y su error es el suyo.
+ *
+ * Mientras espera solo se respeta `init.signal`: un `Request` con señal propia y sin `init.signal`
+ * no se puede abortar hasta que le toca (la app siempre pasa la señal en `init`). Y el tiempo de
+ * espera cuenta en el plazo de cada petición: las que esperan gastan el suyo.
+ */
+function gatedFetch(ses: Session): typeof fetch {
+  const gates = new Map<string, HostGate>()
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const request = input instanceof URL ? input.toString() : input
+    const host = new URL(urlOf(input)).host
+    let gate = gates.get(host)
+    if (gate === undefined) {
+      gate = { verified: false, pending: null }
+      gates.set(host, gate)
+    }
+    while (!gate.verified && gate.pending !== null) {
+      await waitFor(gate.pending, init?.signal)
+    }
+    if (gate.verified) return ses.fetch(request, init)
+
+    let release = (): void => undefined
+    gate.pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    try {
+      const response = await ses.fetch(request, init)
+      gate.verified = true
+      return response
+    } finally {
+      gate.pending = null
+      release()
+    }
+  }) as typeof fetch
+}
+
+/**
  * Una sesión de red en memoria por entorno (sin `persist:`: no deja cookies ni
  * caché en disco), con su propio verificador de certificados según el nivel
  * del entorno y sus huellas fijadas.
@@ -53,7 +119,7 @@ export function createEnvironmentNetwork(deps: {
   ssoHost?(envId: string): string | null
   pins: PinStore
 }): EnvironmentNetwork {
-  const sessions = new Map<string, Session>()
+  const sessions = new Map<string, { session: Session; fetch: typeof fetch }>()
   const generations = new Map<string, number>()
   /** Certificados rechazados por entorno y nombre de host (el verificador no ve el puerto). */
   const observed = new Map<string, Map<string, Observed>>()
@@ -75,7 +141,7 @@ export function createEnvironmentNetwork(deps: {
     return map
   }
 
-  function sessionFor(envId: string): Session {
+  function sessionFor(envId: string): { session: Session; fetch: typeof fetch } {
     const existing = sessions.get(envId)
     if (existing !== undefined) return existing
 
@@ -91,8 +157,9 @@ export function createEnvironmentNetwork(deps: {
         callback(REJECT)
       }
     })
-    sessions.set(envId, ses)
-    return ses
+    const entry = { session: ses, fetch: gatedFetch(ses) }
+    sessions.set(envId, entry)
+    return entry
   }
 
   /** Decisión del verificador para un certificado (ACCEPT, REJECT o USE_CHROMIUM). */
@@ -134,10 +201,7 @@ export function createEnvironmentNetwork(deps: {
   return {
     fetchFor(envId) {
       return ((input: string | URL | Request, init?: RequestInit) =>
-        sessionFor(envId).fetch(
-          input instanceof URL ? input.toString() : input,
-          init
-        )) as typeof fetch
+        sessionFor(envId).fetch(input, init)) as typeof fetch
     },
 
     reset(envId) {
