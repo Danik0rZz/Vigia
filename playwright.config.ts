@@ -6,10 +6,17 @@ const QUARANTINE = /@inestable(\s|$)/
 /**
  * Workers sin CI (ficha 0087): 6 y no 8, el más rápido. Con 8 subieron los fallos de tiempos
  * (tooltips, tamaño de ventana) con la suite en paralelo; 6 cuesta unos 10-15 s más por pase
- * (medición de la 0070, en su «Verificación», en la VPS de 22 núcleos lógicos). En el CI, 4:
- * `windows-latest` tiene 4 núcleos.
+ * (medición de la 0070, en su «Verificación», en la VPS de 22 núcleos lógicos).
  */
 const LOCAL_WORKERS = 6
+
+/**
+ * Workers en el CI (ficha 0098): 2 y no 4. `windows-latest` tiene 4 núcleos lógicos, pero desde la
+ * 0070 cada spec de vistas lanza su app: con 3 o 4 apps a la vez, cada test de vistas tarda de 1,7 a
+ * 2,1 veces lo que tardaba antes, y la mitad de los intentos del CI fallaban en una espera de 5 s;
+ * con 2 apps, 1,1. Medición y números en el «Resultado» de la ficha.
+ */
+const CI_WORKERS = 2
 
 /** Pruebas de extremo a extremo sobre la app compilada (`npm run test:e2e`). */
 export default defineConfig({
@@ -18,7 +25,7 @@ export default defineConfig({
   // Un spec por worker (sin fullyParallel): cada uno lanza su app con su carpeta de datos y, los
   // de vistas, su simulador en el puerto del worker (e2e/worker-resources.ts). Solo
   // views-portapapeles usa el portapapeles del sistema; un test que lo use va a ese spec.
-  workers: process.env['CI'] ? 4 : LOCAL_WORKERS,
+  workers: process.env['CI'] ? CI_WORKERS : LOCAL_WORKERS,
   // Sin reintentos: un test inestable tiene que fallar y arreglarse, no pasar a la segunda.
   retries: 0,
   // Un test.only olvidado haría pasar la suite con un solo test: se rechaza.

@@ -4,14 +4,17 @@ import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 /**
- * Ficha 0070, punto 5: en el CI (`windows-latest`, 4 núcleos) los e2e siguen con 4 workers.
- * `workers` pasa a depender de `process.env.CI`. Ficha 0087: sin `CI`, 6 (con 8 subieron los fallos
- * de tiempos en local).
+ * Ficha 0070, punto 5: `workers` depende de `process.env.CI`. Ficha 0087: sin `CI`, 6 (con 8
+ * subieron los fallos de tiempos en local). Ficha 0098: con `CI`, 2 y no 4. En el runner
+ * (`windows-latest`, 4 núcleos lógicos), con 3 o 4 apps a la vez cada test de vistas tarda de 1,7 a
+ * 2,1 veces lo de antes de la 0070; con 2, 1,1 (medición en el «Resultado» de la ficha).
  */
 
 const CONFIG = join(__dirname, '..', 'playwright.config.ts')
 /** Workers sin CI (ficha 0087). */
 const LOCAL_WORKERS = 6
+/** Workers con CI (ficha 0098). */
+const CI_WORKERS = 2
 
 async function workersWith(ci: string | undefined): Promise<unknown> {
   vi.resetModules()
@@ -26,8 +29,8 @@ afterEach(() => {
 })
 
 describe('CA5 (0070): workers de playwright.config.ts según CI', () => {
-  it('CA5 (0070): con CI, 4 workers', async () => {
-    expect(await workersWith('true')).toBe(4)
+  it('CA1 (0098): con CI, 2 workers', async () => {
+    expect(await workersWith('true')).toBe(CI_WORKERS)
   })
 
   it('CA1 (0087): sin CI, 6 workers', async () => {
