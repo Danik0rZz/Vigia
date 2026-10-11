@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -40,13 +40,32 @@ const ENV = [
 
 let repo: string
 
+/**
+ * Entorno sin las variables de git que fijan el repositorio (GIT_INDEX_FILE, GIT_DIR,
+ * GIT_WORK_TREE…). En el pre-commit, git exporta GIT_INDEX_FILE y los `git` de estos tests
+ * usarían el índice del repositorio real en vez del de su carpeta temporal (ficha 0091).
+ */
+function withoutGitVars(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const clean: NodeJS.ProcessEnv = {}
+  for (const [key, value] of Object.entries(env)) {
+    if (!key.toUpperCase().startsWith('GIT_')) clean[key] = value
+  }
+  return clean
+}
+
+// `scan()` se llama en este proceso y sus `git` heredan process.env: se limpia también aquí.
+for (const key of Object.keys(process.env)) {
+  if (key.toUpperCase().startsWith('GIT_')) delete process.env[key]
+}
+
 function git(...args: string[]): string {
   return execFileSync(
     'git',
     ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.invalid', ...args],
     {
       cwd: repo,
-      encoding: 'utf8'
+      encoding: 'utf8',
+      env: withoutGitVars(process.env)
     }
   )
 }
@@ -59,7 +78,7 @@ function commit(file: string, content: string, message: string): void {
 
 /** Entorno del proceso sin la variable que hace opcional el .env (ficha 0055). */
 function cleanEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env }
+  const env = withoutGitVars(process.env)
   delete env.VIGIA_SCAN_TENANT_OPTIONAL
   return { ...env, ...extra }
 }
@@ -238,7 +257,8 @@ describe('CLI', () => {
     commit('limpio.ts', 'const x = 1\n', 'Limpio')
     const result = spawnSync(process.execPath, [SCRIPT, 'HEAD~1..HEAD'], {
       cwd: repo,
-      encoding: 'utf8'
+      encoding: 'utf8',
+      env: withoutGitVars(process.env)
     })
     expect(result.stderr).not.toContain('NO está activa')
   })
@@ -295,7 +315,7 @@ function gitIn(cwd: string, ...args: string[]): string {
   return execFileSync(
     'git',
     ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.invalid', ...args],
-    { cwd, encoding: 'utf8' }
+    { cwd, encoding: 'utf8', env: withoutGitVars(process.env) }
   )
 }
 
@@ -595,5 +615,204 @@ describe('0055 (ronda 1): un .env vacío en el worktree tapa al del principal y 
     })
     expect(status).toBe(0)
     expect(stderr).toContain('AVISO')
+  })
+})
+
+// --- Ficha 0091: scan:tenant mira también los nombres de fichero, los renombrados y los binarios ---
+//
+// CA5 (0091): los tests de la 0055 de arriba (falla cerrado, nunca imprime valores) no cambian lo
+// que esperan; tienen que seguir en verde.
+
+/** Escribe (creando las carpetas) y hace commit de un fichero con contenido de texto o binario. */
+function commitFile(file: string, content: string | Buffer, message: string): void {
+  const path = join(repo, file)
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, content)
+  git('add', file)
+  git('commit', '-q', '-m', message)
+}
+
+/** Contenido binario para git (lleva bytes nulos) sin ningún valor del .env. */
+const CLEAN_BINARY = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.alloc(64, 0),
+  Buffer.from('contenido inventado sin valores', 'latin1'),
+  Buffer.alloc(64, 0)
+])
+
+/** Binario con el host del .env de prueba escrito en la codificación indicada. */
+function binaryWith(encoding: 'latin1' | 'utf16le'): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(32, 0),
+    Buffer.from(`https://${HOST}/ui`, encoding),
+    Buffer.alloc(32, 0)
+  ])
+}
+
+const FILE_NAME_KIND = /nombre[- ]de[- ]fichero/i
+
+describe('CA1 (0091): un fichero nuevo con un valor del .env en el nombre', () => {
+  it('CA1 (0091): termina en 1, da un hallazgo de nombre de fichero y no imprime el valor', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('datos/informe-zz99fake.json', '{}\n', 'Fichero nuevo')
+
+    const { status, output } = cli('HEAD~1..HEAD')
+    expect(status).toBe(1)
+    expect(output).toMatch(FILE_NAME_KIND)
+    // Nombra el fichero (por su carpeta) sin el valor del .env.
+    expect(output).toContain('datos/')
+    expectNoSecrets(output)
+  })
+
+  it('CA1 (0091): con un nombre sin valores del .env termina en 0', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('datos/informe-limpio.json', '{}\n', 'Fichero nuevo')
+
+    const { status, output } = cli('HEAD~1..HEAD')
+    expect(status).toBe(0)
+    expect(output).not.toMatch(FILE_NAME_KIND)
+  })
+})
+
+describe('CA2 (0091): un renombrado hacia un nombre con un valor del .env', () => {
+  it('CA2 (0091): termina en 1 aunque el contenido no cambie, sin imprimir el valor', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('datos/informe.json', '{"a": 1}\n', 'Fichero limpio')
+    git('mv', 'datos/informe.json', 'datos/informe-zz99fake.json')
+    git('commit', '-q', '-m', 'Renombrado')
+
+    const { status, output } = cli('HEAD~1..HEAD')
+    expect(status).toBe(1)
+    expect(output).toMatch(FILE_NAME_KIND)
+    expectNoSecrets(output)
+  })
+})
+
+describe('CA3 (0091): un binario añadido fuera de build/ no se puede comprobar', () => {
+  it('CA3 (0091): un binario nuevo fuera de build/ termina en 2 y el mensaje nombra VIGIA_SCAN_ALLOW_BINARY', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('docs/captura.png', CLEAN_BINARY, 'Captura')
+
+    const { status, output } = cli('HEAD~1..HEAD')
+    expect(status).toBe(2)
+    expect(output).toContain('VIGIA_SCAN_ALLOW_BINARY')
+    expectNoSecrets(output)
+  })
+
+  it('CA3 (0091): un binario nuevo dentro de build/ no hace fallar el escaneo', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('build/icono.png', CLEAN_BINARY, 'Icono')
+
+    const { status } = cli('HEAD~1..HEAD')
+    expect(status).toBe(0)
+  })
+})
+
+describe('CA4 (0091): con VIGIA_SCAN_ALLOW_BINARY=1 se busca en el contenido del binario', () => {
+  const ALLOW = { env: { VIGIA_SCAN_ALLOW_BINARY: '1' } }
+
+  it('CA4 (0091): un binario sin valores del .env pasa (0)', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('docs/captura.png', CLEAN_BINARY, 'Captura limpia')
+
+    const { status } = cliWith(['HEAD~1..HEAD'], ALLOW)
+    expect(status).toBe(0)
+  })
+
+  it.each([['latin1' as const], ['utf16le' as const]])(
+    'CA4 (0091): un binario con un valor del .env en %s termina en 1 sin imprimir el valor',
+    (encoding) => {
+      writeFileSync(join(repo, '.env.live.local'), ENV)
+      commitFile('docs/captura.png', binaryWith(encoding), 'Captura con fuga')
+
+      const { status, output } = cliWith(['HEAD~1..HEAD'], ALLOW)
+      expect(status).toBe(1)
+      expect(output).toContain('docs/captura.png')
+      expectNoSecrets(output)
+    }
+  )
+})
+
+// --- Ficha 0091, ronda 1 de revisión: la ruta nunca sale con un valor ---
+
+const { safePath } = (await import(pathToFileURL(SCRIPT).href)) as {
+  safePath: (path: string, needles: { kind: string; value: string }[]) => string
+}
+
+describe('CA1 (0091): valor en el nombre y en el contenido', () => {
+  it('CA1 (0091): con un valor en el nombre y otro en el contenido termina en 1 y no imprime ninguno', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('datos/informe-zz99fake.json', `{"url": "https://${HOST}"}\n`, 'Fichero nuevo')
+
+    const { status, output } = cli('HEAD~1..HEAD')
+    expect(status).toBe(1)
+    expect(output).toMatch(FILE_NAME_KIND)
+    expectNoSecrets(output)
+  })
+})
+
+describe('safePath (0091): un valor que cruza carpetas también se tapa', () => {
+  it('safePath (0091): un valor con / repartido entre tramos no sale en la ruta', () => {
+    const value = 'valor/con/barra-falso'
+    const needles = extractNeedles(`DT_OTRO=${value}\n`)
+    expect(needles).toEqual([{ kind: 'otro-valor', value }])
+
+    const shown = safePath(`datos/${value}.json`, needles)
+    expect(shown).not.toContain(value)
+    expect(shown).not.toContain('barra-falso')
+  })
+
+  it('safePath (0091): una ruta sin valores sale igual', () => {
+    expect(safePath('datos/informe.json', extractNeedles(ENV))).toBe('datos/informe.json')
+  })
+})
+
+// --- Ficha 0091, ronda 2 de revisión: ni el stderr de git ni la extensión llevan un valor ---
+
+describe('CA1 (0091): el stderr de git no saca la ruta con el valor', () => {
+  it('CA1 (0091): con core.autocrlf=true y un rango contra el árbol de trabajo no imprime el valor', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('datos/informe-zz99fake.txt', 'a\n', 'Fichero con LF')
+    git('config', 'core.autocrlf', 'true')
+    // Modificado sin commit y con LF: git avisa de que lo cambiará a CRLF, con la ruta entera.
+    writeFileSync(join(repo, 'datos/informe-zz99fake.txt'), 'a\nb\n')
+
+    const { status, stdout, stderr } = cliWith(['HEAD'])
+    expect(status).toBe(1)
+    expectNoSecrets(stdout)
+    expectNoSecrets(stderr)
+  })
+})
+
+describe('safePath (0091): la extensión no puede ser el final del valor', () => {
+  const value = 'foo-falso.internal'
+  const needles = extractNeedles(`DT_OTRO=${value}\n`)
+
+  it('safePath (0091): un valor que acaba en .xxxx no deja su extensión a la vista', () => {
+    expect(needles).toEqual([{ kind: 'otro-valor', value }])
+    const shown = safePath(`datos/${value}`, needles)
+    expect(shown).not.toContain('.internal')
+    expect(shown).toContain('datos/')
+  })
+
+  it('safePath (0091): si el valor sigue en el nombre sin la extensión, la extensión se muestra', () => {
+    const shown = safePath(`datos/informe-${value}.json`, needles)
+    expect(shown).toContain('.json')
+    expect(shown).not.toContain('.internal')
+  })
+})
+
+describe('0091 (ronda 2): hallazgo y binario sin comprobar a la vez', () => {
+  it('0091 (ronda 2): termina en 1 y avisa también de VIGIA_SCAN_ALLOW_BINARY, sin imprimir valores', () => {
+    writeFileSync(join(repo, '.env.live.local'), ENV)
+    commitFile('docs/captura.png', CLEAN_BINARY, 'Captura')
+    commitFile('fuga.ts', `const url = 'https://${HOST}'\n`, 'Fuga')
+
+    const { status, output } = cli('HEAD~2..HEAD')
+    expect(status).toBe(1)
+    expect(output).toContain('host: fuga.ts:1')
+    expect(output).toContain('VIGIA_SCAN_ALLOW_BINARY')
+    expectNoSecrets(output)
   })
 })
