@@ -118,3 +118,106 @@ describe('CA5 (0073): documentos del flujo sin la integración de antes', () => 
     expect(tarea).toMatch(/integra\//)
   })
 })
+
+/**
+ * Ficha 0090: la fusión va atada al commit que pasó «CI ok». En `/tarea` y `/cerrar-version`, el
+ * verde se lee con `gh pr checks <n> --json name,state` (no del texto), el SHA de la cabeza sale de
+ * `gh pr view <n> --json headRefOid` y se fusiona con `gh pr merge <n> --merge --match-head-commit
+ * <sha>`. Y ningún documento del flujo recomienda `[skip ci]`.
+ */
+
+const CERRAR_VERSION = '.claude/commands/cerrar-version.md'
+const MERGE_COMMANDS = [TAREA, CERRAR_VERSION]
+
+/** Fragmentos de código en línea (entre comillas invertidas) que empiezan por `prefix`. */
+function codeSpans(text: string, prefix: string): string[] {
+  const spans = normalize(text).match(/`[^`]+`/g) ?? []
+  return spans.map((span) => span.slice(1, -1).trim()).filter((span) => span.startsWith(prefix))
+}
+
+describe('CA1 (0090): /tarea y /cerrar-version fusionan atados al commit que pasó «CI ok»', () => {
+  it.each(MERGE_COMMANDS)(
+    'CA1 (0090): %s fusiona con gh pr merge <n> --merge --match-head-commit <sha>',
+    (file) => {
+      const merges = codeSpans(readFileSync(file, 'utf8'), 'gh pr merge')
+      expect(merges.length).toBeGreaterThan(0)
+      for (const merge of merges) {
+        expect(merge).toMatch(/^gh pr merge \S+ --merge --match-head-commit \S+/)
+      }
+    }
+  )
+
+  it.each(MERGE_COMMANDS)(
+    'CA1 (0090): %s lee «CI ok» con gh pr checks <n> --json name,state, nunca del texto',
+    (file) => {
+      const text = readFileSync(file, 'utf8')
+      const checks = codeSpans(text, 'gh pr checks')
+      expect(checks.length).toBeGreaterThan(0)
+      for (const check of checks) {
+        expect(check).toMatch(/^gh pr checks \S+ --json name,state\b/)
+      }
+      expect(normalize(text)).toMatch(/CI ok/)
+    }
+  )
+
+  it.each(MERGE_COMMANDS)(
+    'CA1 (0090): %s toma el SHA de la cabeza con gh pr view <n> --json headRefOid',
+    (file) => {
+      const views = codeSpans(readFileSync(file, 'utf8'), 'gh pr view')
+      expect(views.some((view) => /^gh pr view \S+ --json headRefOid\b/.test(view))).toBe(true)
+    }
+  )
+})
+
+const ADR_DIR = 'docs/adr'
+
+/** ADR vigentes: los `NNNN-*.md` cuyo «Estado:» no empieza por «sustituido». */
+function currentAdrs(): string[] {
+  return readdirSync(ADR_DIR)
+    .filter((name) => /^\d{4}-.+\.md$/.test(name))
+    .map((name) => `${ADR_DIR}/${name}`)
+    .filter((file) => {
+      const estado = /^Estado:\s*(.*)$/m.exec(readFileSync(file, 'utf8'))
+      return !estado || !/^sustituido/i.test((estado[1] ?? '').trim())
+    })
+}
+
+/** Frases que mencionan `[skip ci]` sin negarlo (nunca, no, sin, ni): las que lo recomiendan. */
+function skipCiRecommendations(text: string): string[] {
+  return normalize(text)
+    .split(/(?<=[.:;])\s/)
+    .filter((sentence) => /\[skip ci\]/i.test(sentence))
+    .filter((sentence) => !/\b(nunca|no|sin|ni)\b/i.test(sentence))
+    .map((sentence) => sentence.trim())
+}
+
+describe('skipCiRecommendations (la propia comprobación)', () => {
+  it('CA2 (0090): detecta la frase de hoy del ADR-0013, partida en líneas', () => {
+    expect(
+      skipCiRecommendations(
+        'Si el commit de medición tuviera que ir con código, lleva\n  `[skip ci]`; el resto sigue.'
+      )
+    ).toHaveLength(1)
+  })
+
+  it('CA2 (0090): acepta que se diga que no se usa', () => {
+    expect(skipCiRecommendations('Nunca se usa `[skip ci]`: la PR se quedaría sin CI.')).toEqual([])
+    expect(
+      skipCiRecommendations(
+        'La medición va en el commit de documentación; si tiene que ir con código, va en su PR y pasa el CI.'
+      )
+    ).toEqual([])
+  })
+})
+
+describe('CA2 (0090): ningún documento del flujo recomienda [skip ci]', () => {
+  const files = [...markdownFiles(CLAUDE_DIR), FLUJO, ...currentAdrs()]
+
+  it('CA2 (0090): entre los ADR vigentes está el 0013', () => {
+    expect(files).toContain(`${ADR_DIR}/0013-carril-rapido-y-menos-repeticiones.md`)
+  })
+
+  it.each(files)('CA2 (0090): %s no recomienda [skip ci]', (file) => {
+    expect(skipCiRecommendations(readFileSync(file, 'utf8'))).toEqual([])
+  })
+})

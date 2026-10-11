@@ -29,8 +29,12 @@ Eres el Orquestador. Sigue "Cerrar una versión" de `docs/flujo.md`.
    - Commit `Cierre de la vx.y.z` en la rama de la versión. Se integra por PR (`docs/flujo.md`,
      "Git"): `git switch -c integra/AAAAMMDD-N release/x.y.z`,
      `git push origin integra/AAAAMMDD-N`, `gh pr create --base main` con el título
-     «Cierre de la vx.y.z» y, con «CI ok» en verde, `gh pr merge --merge`. Después, "Traer
-     `main`" como en el paso 2. Al fusionar, el CI de `main` pasa `check` y `dist:win`; si
+     «Cierre de la vx.y.z». La fusión va atada al commit que pasó el CI (ficha 0090): primero el
+     SHA de la cabeza con `gh pr view <número> --json headRefOid`; después el verde con
+     `gh pr checks <número> --json name,state`, filtrando el check «CI ok» (no leyendo texto); y,
+     con «CI ok» en verde, `gh pr merge <número> --merge --match-head-commit <sha>`. Si GitHub la
+     rechaza porque la rama se ha movido, se vuelve a esperar el CI del commit nuevo. Después,
+     "Traer `main`" como en el paso 2. Al fusionar, el CI de `main` pasa `check` y `dist:win`; si
      Dani quiere, `dist:win` también se lanza a mano (`workflow_dispatch`).
 5. Resumen para Dani, sin esperar respuesta: lo hecho, las decisiones tomadas, lo que tiene que
    probar a mano y dónde está el zip (la ruta que dio el verifier). Tags, releases y subir el zip a
