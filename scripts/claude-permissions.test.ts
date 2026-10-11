@@ -143,3 +143,17 @@ describe('CA3 (0082): las reglas que ya había en deny y en allow siguen todas',
     expect(settings().permissions.deny).toEqual(expect.arrayContaining(PREVIOUS_DENY))
   })
 })
+
+describe('CA3 (0090): la fusión atada al commit (--match-head-commit) no la niega ninguna regla de deny', () => {
+  for (const shell of SHELLS) {
+    it(`CA3 (0090): ${shell} no niega «gh pr merge 12 --merge --match-head-commit abc123»`, () => {
+      expect(deniedBy(shell, 'gh pr merge 12 --merge --match-head-commit abc123')).toEqual([])
+    })
+
+    for (const flag of ['--squash', '--rebase', '--delete-branch']) {
+      it(`CA3 (0090): ${shell} sigue negando «gh pr merge 12 ${flag} --match-head-commit abc123»`, () => {
+        expect(deniedBy(shell, `gh pr merge 12 ${flag} --match-head-commit abc123`)).not.toEqual([])
+      })
+    }
+  }
+})
