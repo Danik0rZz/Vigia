@@ -104,6 +104,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Pruebas a mano para Dani
 
+- Una vez, en Settings › Branches (o Rulesets) de `main`: comprobar que «CI ok» es un check
+  obligatorio. El auto-merge espera a los checks obligatorios; si «CI ok» no lo fuera, GitHub
+  fusionaría la PR sin esperarlo. El token de `gh` no puede leer la protección (403), por eso lo
+  mira Dani. (Añadido el 2026-10-11, a raíz de la consulta al Orquestador.)
 - En la próxima ficha con exclusiones (por la cola, la 0091): recibir el aviso al abrir la PR,
   activar «Enable auto-merge» con «Create a merge commit» y comprobar que GitHub la fusiona sola con
   «CI ok» en verde y que el Orquestador sigue sin que escribas «fusionada».
