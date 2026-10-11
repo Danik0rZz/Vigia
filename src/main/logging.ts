@@ -17,8 +17,9 @@ export function initLogging(): void {
   log.transports.file.level = app.isPackaged ? 'info' : 'debug'
   log.transports.console.level = app.isPackaged ? false : 'debug'
 
-  // Filtro final de secretos para todo transporte (ficha 0060). Es la última
-  // barrera: cada llamada sigue enmascarando lo suyo.
+  // Filtro final de secretos para todo transporte (fichas 0060 y 0083). Es la
+  // última barrera: cada llamada sigue enmascarando lo suyo. Si falla, devuelve
+  // false y el mensaje se descarta.
   if (!log.hooks.includes(maskLogMessage)) log.hooks.push(maskLogMessage)
 
   // Excepciones y promesas rechazadas sin capturar van al log, sin diálogo.

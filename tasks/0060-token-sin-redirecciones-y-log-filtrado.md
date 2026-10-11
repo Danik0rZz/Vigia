@@ -54,7 +54,8 @@ de una librería con un token en el mensaje iría al fichero sin filtro.
   `reason` `redirectRefused`, sin la URL con credenciales en el mensaje.
 - CA3 (unitario): `maskLogMessage` enmascara un `Api-Token …` dentro de un `Error` (mensaje y pila),
   conserva la parte pública de un `dt0c01.<pública>.<secreta>`, no cambia valores que no son texto y
-  conserva `name` y `cause`.
+  conserva `name` y `cause`. La ficha 0083 lo amplía (objetos anidados, listas y la `cause`), sin
+  quitar ningún caso.
 - CA4 (unitario): `initLogging` registra el hook (con electron-log simulado).
 - CA5 (unitario): textos del `reason` nuevo en es y en (paridad de `check`).
 

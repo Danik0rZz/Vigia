@@ -1,7 +1,7 @@
 ---
 id: '0083'
 titulo: 'Log: el filtro final de secretos enmascara también los objetos anidados y la cause de los errores'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [seguridad] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: [5] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -90,12 +90,64 @@ Todos unitarios, en `src/main/log-mask.test.ts`, con «(0083)» en el nombre.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: CAMBIOS
+
+1. [Seguridad] `src/main/log-mask.ts:54-55` («Fechas y demás instancias… quedan igual»): electron-log 5.4.4 sí escribe el contenido de esas instancias. Su transporte de fichero (`electron-log/src/node/transforms/object.js`) pasa cada dato por `JSON.stringify` con un serializador que convierte un `Map` con `Object.fromEntries` y un `Set` con `Array.from`, escribe las propiedades propias enumerables de cualquier instancia de clase y, con `toJSON`, lo que devuelve; si `JSON.stringify` falla, usa `util.formatWithOptions` con `depth: 5`. Así, un `Map` de cabeceras con `authorization` o una instancia con `token` llegan al fichero sin enmascarar. La especificación pide enmascarar «en todo lo que electron-log puede escribir»; su «queda igual» es para lo que no es texto. Acción: `Map` y `Set`, recorrer claves y valores y copiar si algo cambia; el resto de instancias que no sean `Date`, enmascarar lo que serializaría electron-log (`toJSON()` o sus entradas propias enumerables) y copiar solo si algo cambia; test en «Especificación (0083)» con un `Map`, un `Set` y una instancia de clase con un token falso.
+
+Bien: CA1–CA6 con su test «(0083)», sin tocar desde 7caeef3; el CA6 recorre de verdad el `catch`. `message` y `stack` se leen siempre y se redefinen enmascarados; `cause`, `errors` y `body` por `getOwnPropertyNames`; las claves símbolo quedan fuera de la copia. Ciclos y profundidad bien (copia registrada antes de bajar; marcador sin nada del original). Reutilizar el original cuando nada cambia es seguro con la salida JSON. `false` descarta de verdad (`Logger.js:177-183`). Sin IPC, API, dependencias, esquema ni datos del tenant.
+
+Opcional: precisar en la ficha que electron-log ya envolvía los hooks en un `try/catch` (el arreglo deja de depender de eso, pero no había fuga); citar la 0083 en el comentario de `src/main/logging.ts:20`; tratar las claves símbolo como cambio para el camino de reserva de `util.format`.
+
+### Ronda 2: APROBADO
+
+- Nota 1 de la ronda 1 resuelta en `src/main/log-mask.ts`: `Map` (claves y valores) y `Set` se copian en su tipo, así que el serializador de electron-log y `util.inspect` escriben la copia enmascarada; lo que devuelve `toJSON` se enmascara; si `toJSON` lanza, se descarta (`false`), y si devuelve el mismo objeto, `[referencia circular]` sin contenido; instancias de clase como copia plana; `Date` igual; claves símbolo como cambio. Opcionales hechos (comentario de `logging.ts:20` y nota sobre el `try/catch` de electron-log).
+- Comprobados los dos caminos de `electron-log/src/node/transforms/object.js` (5.4.4): con los datos de `data`, ningún camino normal deja salir un secreto. Si al enmascarar dos claves de un Map quedan iguales, se fusionan (se pierde una entrada, no sale ningún secreto).
+- Tests: el commit de la ronda 2 (`aa413c9`) solo añade casos; el bloque «Especificación (0083): Map, Set, instancias de clase y toJSON» mira la salida por JSON y por `inspect` y fallaría sin el código. Tokens inventados; sin IPC, API, dependencias ni esquema.
+- Opcional: en el camino de reserva de `util.inspect` (solo si `JSON.stringify` falla, en la práctica con un `BigInt`), un original que se reutiliza podría imprimir propiedades que el JSON no escribe; anotarlo como idea. Falta un test del `toJSON` que devuelve el mismo objeto. La ficha cita los hashes de antes del rebase (ahora `a45aac8`, `aa413c9` y `1663f40`).
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `a45aac8` (`test(log): criterios de la ficha 0083`), todos en
+`src/main/log-mask.test.ts`: 12 fallan porque falta el código; los 7 de la 0060 siguen en verde.
+
+- CA1: «CA1 (0083)» (tres niveles, listas, profundidad 5 sin marcador y 60 niveles sin el secreto).
+- CA2: «CA2 (0083)» (cause texto, objeto, Error con pila y encadenada a dos niveles, con clase y
+  `name`). Las propiedades propias (`errors` de `AggregateError`, `body`) de la especificación, en
+  «Especificación (0083)».
+- CA3: «CA3 (0083)» (objeto y lista que se contienen, y un Error que es su propia `cause`).
+- CA4: «CA4 (0083)».
+- CA5: «CA5 (0083)» (casos anidados) y el «CA3 (0060)» sin tocar. Ojo: el test de la 0060 «conserva
+  name y cause» pide `copy.cause` idéntica (`toBe`) a la original; con una `cause` sin secretos, la
+  copia tiene que devolver el mismo objeto o ese test cae.
+- CA6: «CA6 (0083)», con electron-log simulado y un `Proxy` que lanza en todo. Hoy **no** se descarta:
+  el hook deja salir la excepción del filtro (el test falla por eso); el developer lo arregla.
+
+Verificación 2026-10-11, commit d44853f, rango `main..fix/0083-log-enmascarar-anidados`: **VERDE**.
+
+- `npm run check`: 221 ficheros, 3986 tests; cobertura: sentencias 92,83 %, ramas 90,03 %, funciones 89,94 %, líneas 93,58 %.
+- `npm run test:e2e:affected`, un pase: 368 pasados, 0 fallos (1,4 min). Los tres e2e de tamaño de ventana que vio en rojo el developer (`views-entidad` «CA1 (0036)», `views-inicio` «CA4 (0005)», `views-servicio` «CA6 (0009)») pasan en limpio: ruido de su entorno (otra sesión trabajaba a la vez en la misma carpeta).
 
 ## Resultado
 
-(pendiente)
+Commits: `a45aac8` (tests), `5fc1b6a` (filtro recursivo y descarte si falla), `aa413c9` y `1663f40` (ronda 2: `Map`, `Set`, instancias, `toJSON`, claves símbolo). Ficheros principales: `src/main/log-mask.ts`, `src/main/log-mask.test.ts`, comentario en `src/main/logging.ts`. Rondas de revisión: 2 (ronda 1 CAMBIOS, ronda 2 APROBADO). ADR nuevo: ninguno. Sin migraciones. Va sola en su PR (exclusión `seguridad`); la fusiona Dani.
+
+Notas del developer:
+
+- CA6: la excepción del filtro salía de `maskLogMessage` (por eso fallaba el test), pero no había
+  fuga previa: electron-log 5.4.4 ya envuelve cada hook en un `try/catch` y descarta el mensaje.
+  Arreglado en `maskLogMessage`, que ahora devuelve `LogMessage | false` con su propio
+  `try/catch`: deja de depender de ese comportamiento de electron-log.
+- Profundidad: límite de 32 niveles (`MAX_DEPTH`), muy por encima del 5 del fichero; por debajo,
+  el valor se sustituye por el marcador `[profundidad máxima]`, que no lleva nada del original.
+- Lo que no cambia se devuelve tal cual (mismo objeto): así una `cause` sin secretos sigue siendo
+  la misma (test de la 0060). En un ciclo se copia todo el ciclo, para no mezclar original y copia.
+- Ronda 2 (nota 1 del revisor): se recorre lo que escribe el fichero de electron-log 5.4.4
+  (`transforms/object.js`): `Map` (claves y valores) y `Set` en copia del mismo tipo; lo que
+  devuelve `toJSON` (se devuelve eso enmascarado, o el original si no cambia; un `toJSON` que lanza
+  descarta el mensaje); el resto de instancias, salvo `Date`, por sus propiedades propias
+  enumerables, en copia plana solo si algo cambia. Las claves símbolo enumerables cuentan como cambio
+  (la copia no las lleva), por el camino de reserva de `util.formatWithOptions`. Si `toJSON` vuelve
+  al mismo objeto, se pone el marcador `[referencia circular]`. Test en «Especificación (0083): Map,
+  Set, instancias de clase y toJSON» (`aa413c9`, en rojo antes de `1663f40`).
+- Anotado en la ficha 0060 (CA3) que la 0083 lo amplía. Las dos líneas del BACKLOG se quitan al
+  cerrar.
