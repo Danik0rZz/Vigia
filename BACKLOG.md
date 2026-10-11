@@ -21,14 +21,17 @@ bueno de Dani o de peticiones en su nombre.
 - Cola aprobada por Dani el 2026-10-10 (flujo, parte 2 del ADR-0013), en este orden: lote
   **flujo-herramientas** (A): [0067](tasks/0067-e2e-etiquetas-por-zona.md) (hecha),
   [0068](tasks/0068-e2e-afectados-sin-compilar.md) (hecha), [0069](tasks/0069-e2e-vistas-arnes-comun.md) (hecha),
-  [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (en espera: antes va una ficha de bug aparte, la del fallo de Inicio recién arrancada, "certificado no de confianza" con el nivel en «ignorar», que sale también con 4 workers; Dani eligió la opción 1; la escribe el Planificador y se trata al final de esta cola; después la 0070 repite los tres pases con 8 workers),
+  [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (en espera: antes va la ficha de bug
+  [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md), aprobada por Dani el 2026-10-11,
+  sola en su PR por la exclusión `seguridad`; después la 0070 repite los tres pases con 8 workers),
   [0071](tasks/0071-e2e-afectados-locales-por-zona.md), [0072](tasks/0072-ci-en-pull-request.md) (hecha),
   [0073](tasks/0073-integracion-por-pr.md) (hecha) y [0074](tasks/0074-medicion-automatica-ci.md) (hecha); después,
   lote **e2e-inestables** (B): [0075](tasks/0075-e2e-cuarentena-inestables.md) (hecha),
   [0076](tasks/0076-e2e-poner-en-cuarentena.md) (hecha),
   [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (hecha) y
   [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (hecha). Tras la 0073, Dani instala `gh`
-  con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`.
+  con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`
+  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079, 0070 y 0071.
   Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`) y el lote C
   (paralelismo).
 - Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
