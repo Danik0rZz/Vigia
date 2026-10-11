@@ -1,7 +1,7 @@
 ---
 id: '0078'
 titulo: 'e2e inestable: AUD-21, la paleta por encima de un diálogo abierto (tenants.spec.ts)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: en_espera # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "Medición del flujo")
@@ -83,4 +83,4 @@ Normal (`ligera: no`).
 
 ## Resultado
 
-(pendiente)
+En espera (decisión de Dani, 2026-10-11): AUD-21 no se reprodujo en la medición de la 0076 (12 de 12 en verde). Se retoma cuando el CI o una medición vuelva a verlo fallar.
