@@ -307,7 +307,10 @@ test(
 
 test(
   'v0.10.0: tabla virtualizada: desplegar una fila con gráfico recalcula la altura (la siguiente no se solapa)',
-  { tag: '@problema-detalle' },
+  {
+    tag: ['@problema-detalle', '@inestable'],
+    annotation: { type: 'arreglo', description: '0097' }
+  },
   async () => {
     sim.eventMetricDelayMs = 600
     await goToRoute(`/problems/${BIG_ID}`)
@@ -1209,11 +1212,8 @@ test(
 )
 
 test(
-  'v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez',
-  {
-    tag: ['@problema-detalle', '@inestable'],
-    annotation: { type: 'arreglo', description: '0086' }
-  },
+  'v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez, arreglo (0086)',
+  { tag: '@problema-detalle' },
   async () => {
     sim.eventMetricDelayMs = 400
     await goToRoute(`/problems/${LAZY_ID}`)
@@ -1226,12 +1226,27 @@ test(
     expect(sim.eventMetricQueries).toHaveLength(0)
 
     // Se despliegan las 20 seguidas: cada una se pide al verse, y la cola nunca deja más de 3.
-    for (const row of await evidenceRows().all()) {
-      await row.scrollIntoViewIfNeeded()
-      await row.click()
+    // Ficha 0086: el simulador retiene las respuestas hasta que se han visto las 20, así que
+    // la cola llega a 3 en vuelo por lento que vaya el test (antes, un clic de más de 400 ms
+    // dejaba acabar cada consulta antes de la siguiente y el CI no pasaba de 2).
+    let release = (): void => undefined
+    sim.eventMetricGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    try {
+      for (const row of await evidenceRows().all()) {
+        await row.scrollIntoViewIfNeeded()
+        await row.click()
+      }
+      await expect(charts).toHaveCount(20)
+      for (const chart of await charts.all()) await chart.scrollIntoViewIfNeeded()
+      // Con las 20 vistas y ninguna respondida, la cola usa sus 3 huecos y ni uno más.
+      await expect.poll(() => sim.eventMetricInFlight).toBe(3)
+      expect(sim.eventMetricQueries).toHaveLength(3)
+    } finally {
+      release()
+      sim.eventMetricGate = null
     }
-    await expect(charts).toHaveCount(20)
-    for (const chart of await charts.all()) await chart.scrollIntoViewIfNeeded()
     await expect.poll(() => sim.eventMetricQueries.length, { timeout: 15_000 }).toBe(20)
     expect(eventQueries(SEL_LAZY(20))).toHaveLength(1)
     expect(sim.eventMetricMaxInFlight).toBeLessThanOrEqual(3)
