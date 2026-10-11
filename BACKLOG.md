@@ -31,7 +31,7 @@ bueno de Dani o de peticiones en su nombre.
   [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (hecha) y
   [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (hecha). Tras la 0073, Dani instala `gh`
   con un token fine-grained del repositorio, activa el borrado automático de ramas y protege `main`
-  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079, 0070 y 0071.
+  (hecho; Dani lo confirmó el 2026-10-11). Orden de lo que queda: 0079 (verificada, en su PR), 0070 (reviewer, ronda 1) y 0071.
   Pendiente para después de la A: la medición de control (dos fichas con `medir: sí`) y el lote C
   (paralelismo).
 - Petición original (contexto del lote): el Planificador hace las fichas en este orden y la C no empieza hasta medir la A. **A**, herramientas (etiquetas de e2e por zona con un test que falle si falta alguna, `locales/` solo a su zona, partir `views.spec.ts` y medir workers, `test:e2e:affected` sin compilar y con `-g`, un commit por ficha, CI en PR con el e2e completo y, antes de proteger `main`, un job mínimo que se ejecute siempre como check obligatorio (el CI ignora los PR solo de documentos), `dist:win` solo en `main` o al cerrar versión, medición automática del CI); **B**, tests inestables en cuarentena con una ficha de arreglo por cada uno (con los anotados en el BACKLOG y los sospechosos de los fallos del CI que pasan al relanzar); **C**, paralelismo (zonas en cada ficha, dos worktrees como mucho, CHANGELOG y BACKLOG sin conflictos). Después de la A, medición de control con dos cambios como la 0065 y la 0066 (objetivo: 10-15 min). La regla de push y el borrado de ramas remotas los decide Dani.
@@ -41,6 +41,7 @@ bueno de Dani o de peticiones en su nombre.
 Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de Dani) en
 `docs/propuestas-siguientes.md`.
 
+- Ficha de seguimiento de seguridad del resto de la verificación de certificados (dos conexiones nuevas a un host cuando la sesión ya no recuerda la decisión); pendiente del Planificador. (surgió en 0079)
 - Eventos en el detalle del problema (propuesta 2, S). Necesita antes una prueba en vivo de solo
   lectura de `evidenceDetails`.
 - Agrupar Problemas por clúster (propuesta 3, S). Reabre la decisión de "sin agrupar".
@@ -380,3 +381,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0077](tasks/0077-e2e-arreglar-aud-03-secreto-sin-guardar.md) (lote e2e-inestables): al cerrar un entorno con un secreto escrito sin guardar, Escape ya siempre pide confirmación (era una carrera en la app). Sin migraciones.
 - [0076](tasks/0076-e2e-poner-en-cuarentena.md) (lote e2e-inestables): medición de los cinco sospechosos de inestables con `--repeat-each 5`; AUD-03 falla 3 de 5 con `--workers=1` y se arregla en la 0077 (no va a cuarentena, depende del modo serie); AUD-21 y los de `views` no se reprodujeron (0078 en espera). Ningún test queda en cuarentena. Sin migraciones.
 - [0078](tasks/0078-e2e-arreglar-aud-21-paleta-sobre-dialogo.md) (lote e2e-inestables): AUD-21 (Ctrl+K con un diálogo abierto) fallaba a veces porque Radix pinta la paleta un fotograma con `pointer-events: none` antes de registrar la capa; el test ahora espera con `expect.poll` a que reciba el puntero y el foco. No era un defecto de la app. Sin migraciones.
+- [0079](tasks/0079-tls-inicio-dos-peticiones-al-arrancar.md): la primera petición a cada host de cada sesión va sola (`fetchFor`, `network.ts`) para que dos conexiones nuevas a la vez no se salten el verificador de certificados; cubre también el SSO y cierra la ventana de «fijada». Va sola en su PR (exclusión `seguridad`). Resto conocido: ficha de seguimiento pendiente del Planificador.

@@ -114,7 +114,7 @@
         "src/renderer/src/components/EnvStatusCard.tsx",
         "src/shared/error-reasons.ts"
       ],
-      "specs": ["e2e/tls.spec.ts"]
+      "specs": ["e2e/tls.spec.ts", "e2e/inicio-arranque.spec.ts"]
     },
     "views": {
       "globs": [

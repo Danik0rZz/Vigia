@@ -563,3 +563,160 @@ describe('AUD-21 (P3-2): wasOffered, lo único que certificates:pin acepta', () 
     expect(network.wasOffered(ENV, `${HOST}:443`, FP)).toBe(false)
   })
 })
+
+describe('0079: la primera petición a cada host de cada sesión va sola', () => {
+  /** Respuestas que el test suelta a mano, en orden de llegada a la red. */
+  function manualFetch(partition: string): {
+    urls: string[]
+    resolve(index: number): void
+    reject(index: number): void
+  } {
+    const urls: string[] = []
+    const settlers: { resolve(): void; reject(): void }[] = []
+    fake.fetches.get(partition)?.mockImplementation(
+      (input: unknown) =>
+        new Promise<Response>((resolve, reject) => {
+          urls.push(String(input))
+          settlers.push({
+            resolve: () => resolve(new Response('{}')),
+            reject: () => reject(new Error('net::ERR_CERT_AUTHORITY_INVALID'))
+          })
+        })
+    )
+    return {
+      urls,
+      resolve: (index) => settlers[index]?.resolve(),
+      reject: (index) => settlers[index]?.reject()
+    }
+  }
+
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  /** Abre la sesión sin pedir nada todavía al host de la prueba. */
+  async function openSession(
+    network: ReturnType<typeof createEnvironmentNetwork>
+  ): Promise<string> {
+    await network.fetchFor(ENV)('https://otro.example/')
+    return `env-${ENV}-0`
+  }
+
+  it('las demás esperan a que acabe la primera; si entra, salen todas a la vez', async () => {
+    const network = build()
+    const red = manualFetch(await openSession(network))
+    const fetchEnv = network.fetchFor(ENV)
+    const first = fetchEnv(`https://${HOST}/a`)
+    const second = fetchEnv(`https://${HOST}/b`)
+    const third = fetchEnv(`https://${HOST}/c`)
+    await settle()
+    expect(red.urls).toEqual([`https://${HOST}/a`])
+    red.resolve(0)
+    await first
+    await settle()
+    expect(red.urls).toEqual([`https://${HOST}/a`, `https://${HOST}/b`, `https://${HOST}/c`])
+    red.resolve(1)
+    red.resolve(2)
+    await Promise.all([second, third])
+    // Ya entró una: la siguiente no espera a nadie.
+    const fourth = fetchEnv(`https://${HOST}/d`)
+    const fifth = fetchEnv(`https://${HOST}/e`)
+    await settle()
+    expect(red.urls).toHaveLength(5)
+    red.resolve(3)
+    red.resolve(4)
+    await Promise.all([fourth, fifth])
+  })
+
+  it('si la primera falla, su error es el suyo y la siguiente vuelve a ir sola (sin reintentos)', async () => {
+    const network = build()
+    const red = manualFetch(await openSession(network))
+    const fetchEnv = network.fetchFor(ENV)
+    const first = fetchEnv(`https://${HOST}/a`)
+    const second = fetchEnv(`https://${HOST}/b`)
+    const third = fetchEnv(`https://${HOST}/c`)
+    await settle()
+    red.reject(0)
+    await expect(first).rejects.toThrow('ERR_CERT_AUTHORITY_INVALID')
+    await settle()
+    expect(red.urls).toEqual([`https://${HOST}/a`, `https://${HOST}/b`])
+    red.reject(1)
+    await expect(second).rejects.toThrow('ERR_CERT_AUTHORITY_INVALID')
+    await settle()
+    expect(red.urls).toEqual([`https://${HOST}/a`, `https://${HOST}/b`, `https://${HOST}/c`])
+    red.resolve(2)
+    await third
+    expect(red.urls).toHaveLength(3)
+  })
+
+  it('cada host, con su puerto, va por su cuenta', async () => {
+    const network = build()
+    const red = manualFetch(await openSession(network))
+    const fetchEnv = network.fetchFor(ENV)
+    void fetchEnv(`https://${HOST}/a`)
+    void fetchEnv(`https://${HOST}:8443/a`)
+    void fetchEnv(`https://sso.example/token`)
+    void fetchEnv(`https://${HOST}/b`)
+    await settle()
+    expect(red.urls).toEqual([
+      `https://${HOST}/a`,
+      `https://${HOST}:8443/a`,
+      `https://sso.example/token`
+    ])
+  })
+
+  it('una sesión nueva (reset) vuelve a empezar: su primera petición va sola', async () => {
+    const network = build()
+    await network.fetchFor(ENV)(`https://${HOST}/a`)
+    network.reset(ENV)
+    await network.fetchFor(ENV)('https://otro.example/')
+    const red = manualFetch(`env-${ENV}-1`)
+    const fetchEnv = network.fetchFor(ENV)
+    void fetchEnv(`https://${HOST}/a`)
+    void fetchEnv(`https://${HOST}/b`)
+    await settle()
+    expect(red.urls).toEqual([`https://${HOST}/a`])
+  })
+
+  it('una petición que espera y se aborta sale con el motivo del aborto, sin llegar a la red', async () => {
+    const network = build()
+    const red = manualFetch(await openSession(network))
+    const fetchEnv = network.fetchFor(ENV)
+    const first = fetchEnv(`https://${HOST}/a`)
+    const controller = new AbortController()
+    const second = fetchEnv(`https://${HOST}/b`, { signal: controller.signal })
+    const reason = new Error('tiempo agotado')
+    controller.abort(reason)
+    await expect(second).rejects.toBe(reason)
+    const aborted = new AbortController()
+    aborted.abort(reason)
+    await expect(fetchEnv(`https://${HOST}/c`, { signal: aborted.signal })).rejects.toBe(reason)
+    red.resolve(0)
+    await first
+    await settle()
+    expect(red.urls).toEqual([`https://${HOST}/a`])
+  })
+
+  it('una petición que espera con una señal sin abortar sigue cuando acaba la primera', async () => {
+    const network = build()
+    const red = manualFetch(await openSession(network))
+    const fetchEnv = network.fetchFor(ENV)
+    const first = fetchEnv(`https://${HOST}/a`)
+    const second = fetchEnv(`https://${HOST}/b`, { signal: new AbortController().signal })
+    await settle()
+    red.resolve(0)
+    await first
+    await settle()
+    red.resolve(1)
+    await second
+    expect(red.urls).toEqual([`https://${HOST}/a`, `https://${HOST}/b`])
+  })
+
+  it('con un Request, el host sale de su URL y a la red llega el mismo Request', async () => {
+    const network = build()
+    const partition = await openSession(network)
+    const request = new Request(`https://${HOST}/a`)
+    await network.fetchFor(ENV)(request)
+    expect(fake.fetches.get(partition)).toHaveBeenLastCalledWith(request, undefined)
+  })
+})
