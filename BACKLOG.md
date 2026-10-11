@@ -266,7 +266,6 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `/cerrar-version`: que se pare si hay una PR de `integra/…` sin fusionar. (surgió en 0073)
 - Test de la 0072: fijar `== 'true'` en el de CA3 y llevar la lógica de `ci-ok` (CA4) a un script probado con resultados de ejemplo; `!cancelled()` evitaría el «CI ok» en rojo de un run cancelado por otro push, pero la ficha pedía `always()`. (surgió en 0072)
 - `scripts/ci-times.mjs`: un job sin `started_at` y no completado debería dejar el total del run «en curso»; y dejar en la cabecera del script todas las decisiones de la ficha. (surgió en 0074)
-- `docs/flujo.md` y `.claude/commands/tarea.md`: «Traer main» debe comprobar el checkout principal con `git status --porcelain --untracked-files=no`, porque `docs/revisiones/` (local de Dani, sin versionar) dejaría la cola parada siempre. Decidido por Dani el 2026-10-11; corregir en la próxima ficha del flujo. (surgió en 0074)
 
 - Subir como artefacto el `test-results/` del paso de inestables del CI cuando falle (`if: steps.<id>.outcome == 'failure'`): hoy el resumen dice qué falló, pero la captura y el log de `failure-capture` no se suben. (surgió en 0075)
 - `scripts/e2e-tags.cjs`: la guarda de `@inestable` solo lee la opción `tag`; un `@inestable` escrito en el título del test se saltaría la guarda. (surgió en 0075)

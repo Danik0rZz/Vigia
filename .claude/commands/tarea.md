@@ -58,8 +58,9 @@ subagentes. El detalle del flujo está en `docs/flujo.md`.
   1. `git fetch origin` y, en el checkout principal (la ruta sale de `git worktree list`),
      `git merge -m "chore(git): trae origin/main" origin/main` con `git -C <checkout principal>`.
      Si `main` local lleva documentos del Planificador, queda un merge en `main` local, sin push.
-     Si `git -C <checkout principal> status --porcelain` no está vacío (cambios sin commitear del
-     Planificador), no lo empiezas; si el merge da conflicto,
+     Si `git -C <checkout principal> status --porcelain --untracked-files=no` no está vacío
+     (cambios sin commitear del Planificador), no lo empiezas; los ficheros sin versionar, como
+     `docs/revisiones/`, no cuentan. Si el merge da conflicto,
      `git -C <checkout principal> merge --abort`. En los dos casos paras la cola y avisas a Dani
      (y al Planificador) con el **Aviso** de `parada`: nunca resuelvas conflictos en el checkout
      de otra sesión.

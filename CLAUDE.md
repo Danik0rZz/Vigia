@@ -86,6 +86,10 @@ móvil con Remote Control). Las versiones se cierran con `/cerrar-version`. Los 
   Dependencias con versión exacta (`npm install --save-exact <paquete>`).
 - Las rutas de Windows van entre comillas invertidas (`%APPDATA%\vigia`) y los ficheros se editan
   con las herramientas de edición, `sed` o `node`, nunca con `Set-Content` (ver `docs/flujo.md`).
+- Un texto con comillas invertidas (Markdown) nunca va dentro de comillas dobles en bash
+  (`node -e "…"`, `echo "…"`): bash ejecutaría lo que hay entre ellas. Para escribir texto en un
+  fichero, la herramienta de edición; si hay que hacerlo desde la shell, un heredoc con el
+  delimitador entre comillas (`<<'EOF'`) y el script entre comillas simples.
 
 ## Comandos
 
