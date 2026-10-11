@@ -1,7 +1,7 @@
 ---
 id: '0086'
 titulo: 'e2e inestable en el CI: cola de los gráficos de evidencias, «nunca más de 3 consultas a la vez» (views-problema-detalle.spec.ts)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: [13] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -101,12 +101,63 @@ Normal (`ligera: no`).
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Causa creíble y repetible: con 100 ms de retardo el test falla igual que en el CI («Received: 2»); con el límite de la cola a 4, falla con «Received: 4». Se descartan `gatedFetch` (se vería 1, no 2) y la cola de la app; CA4 no aplica. Arreglo solo en el test: sin `[ALCANCE]` ni exclusiones.
+- `sim.eventMetricGate` (`e2e/views/simulator.ts:294-303`, `sim-state.ts:33-37`) retiene las respuestas hasta ver las 20 filas; el test exige 3 en vuelo con `expect.poll` y que solo hayan salido 3, y mantiene las aserciones de antes (20 consultas, `<= 3` y `== 3`, 20 gráficos). Sin esperas fijas nuevas; `try/finally` suelta la compuerta.
+- Sin efecto en otros tests: el campo vale `null` por defecto y `harness.ts:156` lo restablece antes de cada test (patrón de `detailGate`).
+- CA3: sin `@inestable` ni anotación, fuera de «Tests en cuarentena» (la fila de la 0096 sigue); título solo con «, arreglo (0086)». Sin datos del tenant, dependencias, IPC, esquema ni cambios en `e2e/areas.json`.
 
 ## Verificación
 
-(pendiente)
+Test-writer (2026-10-11): no se escriben tests antes de conocer la causa; ningún criterio se puede
+escribir hoy como un test que falle por falta de código (es una ficha de causa y arreglo, como la
+0077 y la 0078).
+
+- CA1 es una medición, no un test nuevo. La hacen el developer antes de entregar y el verifier:
+  `npm run test:e2e:nobuild -- e2e/views-problema-detalle.spec.ts -g "nunca más de 3" --repeat-each 10`
+  con los workers de siempre (10/10), y `npm run test:e2e:nobuild -- e2e/views-problema-detalle.spec.ts --workers=1`
+  (el spec entero, 10/10, repitiendo la tanda o con `--repeat-each 10`). Para acercarse al CI, conviene
+  además una tanda con la máquina cargada (la suite de vistas entera a la vez).
+- CA2 lo comprueba el verifier en el CI de la PR de la ficha: el test corre en el proyecto `e2e`
+  (ya sin `@inestable`) y pasa.
+- CA3: hoy el test lleva `@inestable` y `arreglo: 0086` (`views-problema-detalle.spec.ts:1212`), y
+  `npx vitest run scripts/e2e-tags.test.ts` pasa (27/27 el 2026-10-11). Tras el arreglo, el test
+  lleva solo `{ tag: '@problema-detalle' }`, sale su fila de «Tests en cuarentena» del BACKLOG y la
+  guarda sigue en verde. Lo comprueba el verifier.
+- CA4 depende de dónde esté la causa. Si está en la app (cola del renderer o `gatedFetch`), el
+  developer escribe el test que la demuestra (unitario junto al código o e2e en
+  `views-problema-detalle.spec.ts`, con «(0086)» en el nombre) y el verifier comprueba que falla sin
+  el arreglo (revirtiendo solo el cambio de producción) y pasa con él. Si la causa está en el test
+  (ritmo frente al retardo fijo del simulador), CA4 no aplica y la ficha lo dice en «Resultado».
+
+Verificación 2026-10-11, commit fe24863, rango `integra/20261011-17..fix/0086-e2e-cola-graficos-evidencias`: **VERDE**.
+
+- `npm run check`: 221 ficheros, 3978 tests; cobertura: sentencias 92,74 %, ramas 90,06 %, funciones 89,83 %, líneas 93,51 %.
+- `npm run test:e2e:affected`, un pase: 284 pasados (1,5 min).
+- CA1: «…nunca más de 3 consultas a la vez, arreglo (0086)» con `-g "nunca más de 3" --repeat-each 10`: 10 de 10; `e2e/views-problema-detalle.spec.ts` entero con `--workers=1`: 46 de 46.
+- CA3: `--list --project=e2e` lo incluye; `--project=inestables` ya no; `scripts/e2e-tags.test.ts` 27 de 27.
+- CA2: pendiente: lo anota el Orquestador al abrir la PR.
 
 ## Resultado
 
 - 2026-10-11: el test está en cuarentena (`@inestable`, anotación `arreglo: 0086`) desde hoy.
+- 2026-10-11 (developer): **causa, en el test** (ritmo frente al retardo fijo). Con trazas temporales
+  en el simulador, en local cada clic de fila tarda unos 80 ms y su consulta llega a los pocos ms,
+  así que con 400 ms de retardo se juntan 3. En el CI el test tarda 11,8-15,2 s (en local, unos
+  2-3 s): cada despliegue pasa de 400 ms y cada consulta acaba antes de que salga la tercera. Se
+  reproduce en local bajando el retardo a 100 ms (la misma proporción): 3 de 3 fallan con
+  «Received: 2», como en el CI. Descartado `gatedFetch`: la primera petición al host es el detalle
+  del problema, y si serializara se vería 1, no 2. Descartada la cola: en local llega a 3 y sus tests
+  unitarios pasan. La máquina cargada (40 procesos quemando CPU en la VPS) no bastó para reproducirlo.
+- **Arreglo, en el test:** compuerta `sim.eventMetricGate` en el simulador (como `detailGate`): las
+  respuestas de los mini gráficos se retienen hasta que el test ha desplegado y visto las 20; espera a
+  3 en vuelo (`expect.poll`), comprueba que solo han salido 3, suelta y sigue con las mismas
+  aserciones (20 consultas, máximo ≤ 3 y = 3). Sin `waitForTimeout` nuevo; lo que garantiza no
+  cambia. Con el retardo a 100 ms pasa 3 de 3; con la cola a 4 (cambio temporal, sin commitear) falla
+  con «Received: 4». Título con «, arreglo (0086)»; fuera de cuarentena y de la tabla del BACKLOG.
+- CA4 no aplica: la causa no estaba en la app.
+- CA1 (developer): `-g "nunca más de 3" --repeat-each 10`, 10 de 10; el spec entero con
+  `--workers=1 --repeat-each 10`, 460 de 460.
+- CA2: pendiente: lo anota el Orquestador al abrir la PR.
+- Commits: `2ac364a` (test y simulador), `c3b78fb` (causa y arreglo), `fe24863` (revisión), `382bc91` (verificada). Ficheros principales: `e2e/views-problema-detalle.spec.ts`, `e2e/views/simulator.ts`, `e2e/views/sim-state.ts`, `BACKLOG.md`. Rondas de revisión: 1 (APROBADO). ADR nuevo: ninguno. Migraciones: no.

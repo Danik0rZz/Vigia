@@ -30,6 +30,11 @@ export const defaultSim = () => ({
   eventMetricInFlight: 0,
   eventMetricMaxInFlight: 0,
   eventMetricDelayMs: 150,
+  /**
+   * Ficha 0086: si no es null, los mini gráficos no responden hasta que se cumpla (y después,
+   * con su retardo). Así el test ve cuántas hay en vuelo sin depender de su propio ritmo.
+   */
+  eventMetricGate: null as Promise<void> | null,
   /** v0.10.2: Métricas devuelve puntos por todo el rango pedido (eje de días). */
   metricsSpread: false,
   /** v0.9.1: peticiones a /problems/{id}/comments y la última query. */
