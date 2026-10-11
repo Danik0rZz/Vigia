@@ -52,6 +52,7 @@ se pide al verse. Que haya 3 a la vez depende de que el test pida la siguiente a
    Cómo acercarse al CI: los artefactos de los runs fallidos (`test-results/`, 7 días), el log de main
    que guarda `e2e/failure-capture.ts`, y en local, el spec con la máquina cargada (la suite entera a
    la vez) o con `--repeat-each`. Nada de subir tiempos sin causa.
+
 2. **Arreglo donde está la causa.** Si es el test, que no dependa del ritmo de quien lo lanza: por
    ejemplo, que el simulador retenga las respuestas de los gráficos hasta que el test las suelte, o
    que el test espere a una condición (que haya 3 en vuelo) en lugar de comprobar un máximo al final.
@@ -108,4 +109,4 @@ Normal (`ligera: no`).
 
 ## Resultado
 
-(pendiente)
+- 2026-10-11: el test está en cuarentena (`@inestable`, anotación `arreglo: 0086`) desde hoy.
