@@ -57,8 +57,8 @@ bueno de Dani o de peticiones en su nombre.
   **e2e-inestables-2**): [0096](tasks/0096-e2e-arreglar-tooltips-en-el-ci.md) (hecha), tooltips que no se
   abren en el CI (evidencia de 45 días, grid de Problemas y tooltip de «recuperable» del host).
   Aprobadas por Dani el 2026-10-11 (lote **e2e-inestables-2**):
-  [0097](tasks/0097-e2e-arreglar-altura-fila-con-grafico.md), arreglo del test de la tabla
-  virtualizada (altura de la fila al pintar su gráfico), en cuarentena con `arreglo: 0097`; y
+  [0097](tasks/0097-e2e-arreglar-altura-fila-con-grafico.md) (hecha), arreglo del test de la tabla
+  virtualizada (altura de la fila al pintar su gráfico); y
   [0098](tasks/0098-ci-e2e-fallos-al-azar-en-windows.md) (hecha; el CI pasa a 2 workers), por qué el
   runner de Windows falla al azar en los e2e. Orden de Dani (2026-10-11) para lo que queda: 0090, 0098, 0086, 0096, 0097, 0091,
   0092, 0093, 0094 y 0095.
@@ -86,9 +86,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene el doc-writer: se añade una fila al ponerlo en cuarentena y se quita al cerrar su ficha de arreglo. La guarda no lee esta sección.
 
-| Test                                                                                                                                                                                                                                                       | Spec                                 | Ficha de arreglo                                           | Desde      |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------- | ---------- |
-| «v0.10.0: tabla virtualizada: desplegar una fila con gráfico recalcula la altura (la siguiente no se solapa)» (falló en el CI de la PR #16, run 38159322552 intento 1, y runs 38163241467 y 38164748011 intento 1; y la PR #12, run 38160295714 intento 1) | `e2e/views-problema-detalle.spec.ts` | [0097](tasks/0097-e2e-arreglar-altura-fila-con-grafico.md) | 2026-10-11 |
+| Test | Spec | Ficha de arreglo | Desde |
+| ---- | ---- | ---------------- | ----- |
 
 ## Mejoras anotadas
 
@@ -297,7 +296,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Sospechoso de inestable para la ficha B: `e2e/views-problema-detalle.spec.ts:1211`, «v0.9.2: carga diferida y cola… nunca más de 3 consultas a la vez»: falló en el CI de la PR #10 (run 38143008404, intento 1, 2026-10-11 15:34; `eventMetricMaxInFlight` menor que 3) y pasó al relanzar (intento 2). (surgió en 0081)
 - `maskLogMessage`: en el camino de reserva de `util.inspect` (solo si `JSON.stringify` falla, en la práctica con un `BigInt`), un original reutilizado porque nada cambia podría imprimir propiedades que el JSON no escribe; decidir si se copia siempre en ese caso. (surgió en 0083)
 - Test unitario de `maskLogMessage` cuando `toJSON` devuelve el mismo objeto (hoy sale `[referencia circular]`, sin test). (surgió en 0083)
-- Sospechoso de inestable: el unitario `scripts/react-compiler.test.ts` («CA3 (0059)») agotó los 5000 ms de Vitest en el `check` del verifier de la 0090 (segunda vez el 2026-10-11); pasa aislado y en un segundo `check`. Probable carga de la máquina; valorar subirle el tiempo límite. (surgió en 0090) Volvió a fallar por tiempo bajo carga el 2026-10-11 en el verifier de la 0098 y en el de la 0096, y otra vez el 2026-10-12 en el primer pase del verifier de la 0099.
+- Sospechoso de inestable: el unitario `scripts/react-compiler.test.ts` («CA3 (0059)») agotó los 5000 ms de Vitest en el `check` del verifier de la 0090 (segunda vez el 2026-10-11); pasa aislado y en un segundo `check`. Probable carga de la máquina; valorar subirle el tiempo límite. (surgió en 0090) Volvió a fallar por tiempo bajo carga el 2026-10-11 en el verifier de la 0098 y en el de la 0096, y otra vez el 2026-10-12 en el primer pase del verifier de la 0099 y en el de la 0097.
 - `CLAUDE.md` raíz («Push») y ADR-0014 (punto 29) siguen diciendo `gh pr merge --merge` sin `--match-head-commit`; alinear el `CLAUDE.md` es [ALCANCE] (lo decide Dani). (surgió en 0090)
 - Hook `PreToolUse` que bloquee `gh pr merge` con squash, rebase o delete-branch aunque se llame por la ruta completa del ejecutable (las reglas `deny` casan con el texto del comando). Decisión de Dani: ficha propia del Planificador. (surgió en 0082)
 - Force push con refspec `+` (`git push origin +rama`, `git push origin +HEAD:main`) y opciones cortas juntas (`-fu`): no los niega ninguna regla de `deny` (hueco anterior a la 0082). El pre-push podría rechazarlos: un push que no es avance rápido llega con un SHA remoto que no es antecesor del local (`git merge-base --is-ancestor`). (surgió en 0082)
@@ -442,3 +441,5 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md) (lote seguridad-revision, exclusión seguridad): el `pre-push` solo deja publicar en ramas `integra/` y con avance rápido (`checkPushRefs`, modo `--check-refs` de `scripts/scan-tenant.mjs`); `VIGIA_PUSH_ALLOW_REFS` abre refs exactos (tags); `permissions.deny` niega refspec `+`, `--mirror`, `--prune` y `git -c` con push. Ningún push a `main` pasa, tampoco el de Dani. Sin migraciones.
 - [0090](tasks/0090-fusion-atada-al-commit-del-ci.md) (lote seguridad-revision, exclusión seguridad): la fusión de la PR de `integra/…` va atada al commit que pasó «CI ok» (`gh pr view --json headRefOid`, `gh pr checks --json name,state` y `gh pr merge --merge --match-head-commit <sha>`) en `/tarea`, `/cerrar-version` y `docs/flujo.md`; el ADR-0013 ya no recomienda `[skip ci]`. Solo desarrollo.
 - [0099](tasks/0099-auto-merge-en-las-pr-de-dani.md): auto-merge de GitHub en las PR de una ficha sola: Dani lo activa («Enable auto-merge», «Create a merge commit»), GitHub fusiona con «CI ok» en verde y el Orquestador sigue al salir `MERGED` sin que Dani escriba «fusionada». Solo documentos del flujo y tests de texto; el Orquestador nunca lo activa. Sin migraciones.
+- [0097](tasks/0097-e2e-arreglar-altura-fila-con-grafico.md) (lote e2e-inestables-2): arreglo del test de la altura de la fila con gráfico en la tabla virtualizada (la causa estaba en el test: el retardo fijo de 600 ms se agotaba en el runner antes de medir «cargando»; ahora retiene la consulta con `sim.eventMetricGate`, la suelta y espera el crecimiento con `expect.poll`). Fuera de cuarentena. Sin cambios en la app ni migraciones. CA2 pendiente del CI de la PR.
+- Sospechoso de inestable sin causa: `e2e/views-problema-detalle.spec.ts`, «tabla de evidencias: estado propio por evento en un problema cerrado, columnas y celdas» (línea 581) falló 2 de 470 (2026-10-12) en el CA1 de la 0097, con el spec entero, `--workers=1` y `--repeat-each 10`; sin captura (la tanda siguiente borró `test-results/`). Pasó 15/15 solo y en el verifier. Si vuelve a fallar, guardar `test-results/` antes de relanzar y abrir su ficha. (surgió en 0097)

@@ -1,7 +1,7 @@
 ---
 id: '0097'
 titulo: 'e2e inestable en el CI: tabla de evidencias virtualizada, la altura de una fila desplegada al pintar su gráfico (views-problema-detalle.spec.ts)'
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: [13] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna # v1 | v2 | plataforma | ninguna, y los ficheros de ..\API\ consultados
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -90,16 +90,70 @@ Normal (`ligera: no`).
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Con el spec entero, `--workers=1` y `--repeat-each 10`, «v0.10.0: tabla de evidencias:
+  estado propio por evento en un problema cerrado, columnas y celdas» falló 2 de 10 en local
+  (2026-10-12); solo pasó 15/15 y el spec entero con `--repeat-each 4`, 4/4. No se capturó el error
+  (la tanda siguiente borró `test-results/`). Es otro test y otro mecanismo: si vuelve a salir,
+  su ficha.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- **Causa demostrada, en el test.** En los dos fallos del CI el valor recibido era el esperado (796 y 725 px): el detalle «cargando» se medía con el gráfico ya pintado porque el retardo fijo de 600 ms se agotaba en el runner. Reproducido en local con 40 ms (6 de 6). La tabla mide bien. CA4 no aplica.
+- **Arreglo en la causa, sin subir tiempos.** Quita `eventMetricDelayMs = 600`, sin `waitForTimeout`; retiene la consulta con `sim.eventMetricGate` (0086), mide con «cargando», la suelta en un `finally` y espera el crecimiento con `expect.poll`. Se mantienen la comprobación de solape y la de una sola consulta.
+- **CA3.** Sin `@inestable` ni `arreglo`, fuera de «Tests en cuarentena» y con «, arreglo (0097)» en el título.
+- **Reglas.** Sin `src/`, IPC, API ni dependencias; sin datos del tenant.
+- **Los 2 fallos de 470 en «tabla de evidencias: estado propio por evento en un problema cerrado…» (línea 581).** CA1 se cumple tal como está escrito (su sujeto es el test de esta ficha, 10 de 10). Esos fallos son algo nuevo y van aparte: ese test no usa la compuerta ni los mini gráficos, y con `--workers=1` el `finally` deja la compuerta en `null`. Sin captura no se puede saber si ya fallaba antes.
+
+Opcional: al relanzar ese spec, guardar `test-results/` antes de la siguiente tanda.
 
 ## Verificación
 
-(pendiente)
+Test-writer (2026-10-12): no se escriben tests antes de conocer la causa; ningún criterio se puede
+escribir hoy como un test que falle por falta de código (ficha de causa y arreglo, como la 0086).
+
+- CA1 es una medición, no un test nuevo. La hacen el developer antes de entregar y el verifier:
+  `npm run test:e2e:nobuild -- e2e/views-problema-detalle.spec.ts -g "recalcula la altura" --repeat-each 10`
+  con los workers de siempre (10/10), y `npm run test:e2e:nobuild -- e2e/views-problema-detalle.spec.ts --workers=1`
+  (el spec entero, 10/10, con `--repeat-each 10`). Como el test está en cuarentena, mientras lleve
+  `@inestable` solo corre en `--project=inestables`.
+- CA2 lo comprueba el verifier en el CI de la PR de la ficha: el test corre en el proyecto `e2e`
+  (ya sin `@inestable`) y pasa.
+- CA3: hoy el test lleva `@inestable` y `arreglo: 0097` (`views-problema-detalle.spec.ts:309-312`),
+  y `npx vitest run scripts/e2e-tags.test.ts` pasa (27/27 el 2026-10-12). Tras el arreglo, el test
+  lleva solo `{ tag: '@problema-detalle' }`, sale su fila de «Tests en cuarentena» del BACKLOG y la
+  guarda sigue en verde. Lo comprueba el verifier (`--list --project=e2e` lo incluye;
+  `--project=inestables`, no).
+- CA4 depende de dónde esté la causa. Si está en la app (medida de la fila en la tabla
+  virtualizada), el developer escribe el test que la demuestra (unitario junto al código o e2e en
+  `views-problema-detalle.spec.ts`, con «(0097)» en el nombre) y el verifier comprueba que falla sin
+  el arreglo (revirtiendo solo el cambio de producción) y pasa con él. Si la causa está en el test
+  (aserción sin espera o retardo fijo del simulador), CA4 no aplica y la ficha lo dice en «Resultado».
+
+Verificación 2026-10-12, commit 448e04b, rango `integra/20261011-20..fix/0097-e2e-altura-fila-con-grafico`: **VERDE**
+
+- `npm run check`: 4137 tests, cobertura ok (líneas 93,58 %, ramas 90,03 %). En el primer pase falló por timeout `CA3 (0059)` de `scripts/react-compiler.test.ts` (sospechoso ya anotado); aislado ×3 pasó y el `check` completo repetido salió verde.
+- `test:e2e:affected`: 62 passed en 54,3 s, un pase; incluye «tabla de evidencias: estado propio por evento en un problema cerrado…» (ok).
+- CA2 (CI de la PR): lo comprueba el Orquestador tras abrir la PR.
 
 ## Resultado
 
 - 2026-10-11 (developer): el test queda en cuarentena (`@inestable`, `arreglo: 0097`) con su fila en «Tests en cuarentena» del BACKLOG, a la espera del arreglo de esta ficha.
+- 2026-10-12 (developer): **causa en el test, no en la app.** Los dos fallos del CI tienen
+  `Received` igual a `Expected` (796 y 725): `loadingBottom` se midió con el gráfico ya pintado.
+  El retardo fijo (`eventMetricDelayMs = 600`) cuenta desde la petición, y entre que «cargando» se
+  ve y se mide pasan varias llamadas a Playwright, que en el runner saturado se comen esos 600 ms.
+  Reproducido en local con el mismo síntoma exacto bajando el retardo a 40 ms (6 de 6 fallos, con
+  `Received` = `Expected`). La tabla mide bien: con el gráfico, el detalle crece 76 px y la
+  siguiente fila baja con él; la tabla no desplaza el scroll al crecer (`scrollTop` del
+  contenedor a 0 antes y después). **Arreglo:** el test retiene la consulta con
+  `sim.eventMetricGate` (ficha 0086), espera a tenerla en vuelo, mide con «cargando» (y comprueba
+  que sigue cargando), la suelta en un `finally` y espera con `expect.poll` a que el detalle crezca;
+  la comprobación de que la siguiente no se solapa, antes y después, sigue igual. Sale de
+  cuarentena (sin `@inestable` ni `arreglo`), su fila de «Tests en cuarentena» del BACKLOG fuera y
+  el título acaba en «, arreglo (0097)». CA4 no aplica (la causa no estaba en la app).
+  Medición (CA1): `-g "recalcula la altura" --repeat-each 10`, 10/10; con respuesta instantánea
+  tras soltar la compuerta (retardo 0, solo en local), 6/6; spec entero `--workers=1 --repeat-each 10`,
+  el test 10/10 (468 pasan; 2 fallos de otro test, en «Ideas»).
+- Commits: `f1cd723` (arreglo), más los de ficha, revisión y verificación. Fichero principal: `e2e/views-problema-detalle.spec.ts`. Una ronda de revisión (APROBADO). ADR nuevo: ninguno. Sin migraciones. CA2 queda pendiente del CI de la PR. Ver nota del BACKLOG sobre el test de la línea 581 (sospechoso, sin captura).
