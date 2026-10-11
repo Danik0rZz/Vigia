@@ -1412,7 +1412,10 @@ test(
 
 test(
   'v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio',
-  { tag: '@problema-detalle' },
+  {
+    tag: ['@problema-detalle', '@inestable'],
+    annotation: { type: 'arreglo', description: '0096' }
+  },
   async () => {
     await goToRoute(`/problems/${LONG_ID}`)
     await expect(page.getByTestId('problem-page-title')).toContainText('P-784')

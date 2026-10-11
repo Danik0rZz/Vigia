@@ -732,3 +732,49 @@ describe('CA4 (0075): inestables en las PR, no bloqueantes y con resumen; el blo
     }
   })
 })
+
+/**
+ * Ficha 0089: «CI ok» falla cerrado. Si la salida `codigo` de `cambios` llega vacía o desconocida,
+ * `windows` se ejecuta igual y «CI ok» solo sale en verde si `windows` acabó en `success`. Solo una
+ * PR de documentos (`codigo` = `'false'`) salta `windows` con «CI ok» en verde.
+ */
+describe('CA1 (0089): windows se ejecuta salvo que codigo sea exactamente false', () => {
+  const windows = jobBlock(read(CI), 'windows')
+  const condition = jobField(windows, 'if')
+
+  it('el if de windows no es una igualdad con true', () => {
+    expect(condition).not.toMatch(/needs\.cambios\.outputs\.codigo\s*==\s*'true'/)
+  })
+
+  it("el if de windows es codigo != 'false' (lo vacío o desconocido se prueba)", () => {
+    expect(condition).toMatch(/needs\.cambios\.outputs\.codigo\s*!=\s*'false'/)
+  })
+})
+
+describe('CA2 (0089): ci-ok exige success de windows cuando codigo no es false', () => {
+  const ciOk = jobBlock(read(CI), 'ci-ok')
+  const steps = stepsOf(ciOk)
+  const failing = steps.filter((step) => /\bexit\s+1\b/.test(step.fields.run ?? ''))
+  const conditions = failing.map((step) => stripExpression(step.fields.if))
+
+  it('hay un paso que sale en rojo cuando codigo no es false y windows no acabó en success', () => {
+    const closed = conditions.filter(
+      (condition) =>
+        /needs\.cambios\.outputs\.codigo\s*!=\s*'false'/.test(condition) &&
+        /needs\.windows\.result\s*!=\s*'success'/.test(condition) &&
+        /&&/.test(condition)
+    )
+    expect(closed, `condiciones de rojo: ${JSON.stringify(conditions)}`).not.toHaveLength(0)
+  })
+
+  it('sigue en rojo si algún job falló o se canceló', () => {
+    const all = conditions.join('\n')
+    expect(all).toMatch(/contains\(needs\.\*\.result,\s*'failure'\)/)
+    expect(all).toMatch(/contains\(needs\.\*\.result,\s*'cancelled'\)/)
+  })
+
+  it('el echo final imprime también codigo', () => {
+    const echo = steps.map((step) => step.fields.run ?? '').find((run) => /\becho\b/.test(run))
+    expect(echo ?? '').toMatch(/needs\.cambios\.outputs\.codigo/)
+  })
+})

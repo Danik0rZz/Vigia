@@ -103,4 +103,4 @@ Normal (`ligera: no`).
 
 ## Resultado
 
-(pendiente)
+- 2026-10-11 (developer): en cuarentena el test «v0.10.2: evidencia de 45 días…» de `e2e/views-problema-detalle.spec.ts` (`@inestable`, anotación `arreglo` 0096), por decisión de Dani; fila en «Tests en cuarentena» del `BACKLOG.md`. El tooltip «Cerrado» de `views-problemas.spec.ts` no entra. El arreglo sigue pendiente.

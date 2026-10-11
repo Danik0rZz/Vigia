@@ -47,7 +47,7 @@ bueno de Dani o de peticiones en su nombre.
   **seguridad-revision**, con prioridad (hallazgos de seguridad abiertos de la revisión de código del
   2026-10-11 y el seguimiento de la 0079; todas con la exclusión `seguridad`, cada una sola en su PR):
   [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md) (hecha),
-  [0089](tasks/0089-ci-ok-falla-cerrado.md), [0090](tasks/0090-fusion-atada-al-commit-del-ci.md),
+  [0089](tasks/0089-ci-ok-falla-cerrado.md) (hecha), [0090](tasks/0090-fusion-atada-al-commit-del-ci.md),
   [0091](tasks/0091-scan-tenant-nombres-y-binarios.md),
   [0092](tasks/0092-telegram-no-envia-sin-filtro.md),
   [0093](tasks/0093-log-sin-usuario-de-windows.md) (tras la 0083),
@@ -79,9 +79,10 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene el doc-writer: se añade una fila al ponerlo en cuarentena y se quita al cerrar su ficha de arreglo. La guarda no lee esta sección.
 
-| Test                                                                                                                                                                                                                           | Spec                                 | Ficha de arreglo                                            | Desde      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------- | ---------- |
-| «v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez» (falló en el CI de la PR #10, run 38143008404; la PR #11, run 38146900333, y la PR #12, run 38152066082) | `e2e/views-problema-detalle.spec.ts` | [0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md) | 2026-10-11 |
+| Test                                                                                                                                                                                                                                       | Spec                                 | Ficha de arreglo                                            | Desde      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------- | ---------- |
+| «v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez» (falló en el CI de la PR #10, run 38143008404; la PR #11, run 38146900333, y la PR #12, run 38152066082)             | `e2e/views-problema-detalle.spec.ts` | [0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md) | 2026-10-11 |
+| «v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio» (falló en el CI de la PR #12, run 38152066082 intento 1, y en el run 38157462342 intento 1; una vez en local) | `e2e/views-problema-detalle.spec.ts` | [0096](tasks/0096-e2e-arreglar-tooltips-en-el-ci.md)        | 2026-10-11 |
 
 ## Mejoras anotadas
 
@@ -423,4 +424,5 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0082](tasks/0082-permisos-claude-fusiones-y-ramas.md) (lote ideas-backlog, exclusión seguridad): `.claude/settings.json` niega `gh pr merge` con `--squash`, `-s`, `--rebase`, `-r`, `--delete-branch` y `-d` (Bash y PowerShell), y `.githooks/pre-push` rechaza cualquier borrado de rama o tag remoto; `docs/flujo.md` dice qué queda bloqueado y cómo. Va sola en su PR. Sin migraciones.
 - [0085](tasks/0085-host-nube-zona-y-tamano.md) (lote ideas-backlog): la tarjeta «Información» del host enseña las filas «Zona» y «Tamaño de instancia» en «Nube o virtualización» según el proveedor (Google Cloud, Azure, AWS solo tamaño y OpenStack; `PROVIDER_PROPERTIES` en `host-info.ts`). En vivo solo se vio `gceMachineType`. Sin migraciones.
 - [0087](tasks/0087-e2e-seis-workers-en-local.md) (lote e2e-inestables-2, ligera): `playwright.config.ts` vuelve a 6 workers en local (con 8 subieron los fallos de tiempos; 6 cuesta unos 10-15 s más por pase); el CI sigue con 4. Solo desarrollo.
+- [0089](tasks/0089-ci-ok-falla-cerrado.md) (lote seguridad-revision, exclusión seguridad): «CI ok» falla cerrado. El job `windows` corre salvo que `codigo` sea exactamente `false`, `ci-ok` queda en rojo si hay código y `windows` no acabó en `success`, y `ci-changes.mjs` falla dentro del CI si falta `GITHUB_OUTPUT`. Una PR solo de documentos sigue en verde sin e2e. Sin migraciones.
 - [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md) (lote seguridad-revision, exclusión seguridad): el `pre-push` solo deja publicar en ramas `integra/` y con avance rápido (`checkPushRefs`, modo `--check-refs` de `scripts/scan-tenant.mjs`); `VIGIA_PUSH_ALLOW_REFS` abre refs exactos (tags); `permissions.deny` niega refspec `+`, `--mirror`, `--prune` y `git -c` con push. Ningún push a `main` pasa, tampoco el de Dani. Sin migraciones.
