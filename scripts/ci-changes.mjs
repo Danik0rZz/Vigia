@@ -6,6 +6,9 @@
 // (push a main o workflow_dispatch) siempre es `true`: el push ya filtra con su paths-ignore. En
 // pull_request compara el commit de fusión que hace GitHub (refs/pull/N/merge) con su primer
 // padre, que es main: son justo los ficheros que la PR cambia (el checkout necesita fetch-depth 2).
+//
+// Ficha 0089: dentro del CI (GITHUB_ACTIONS definido), sin GITHUB_OUTPUT falla, porque `codigo`
+// llegaría vacío. Fuera del CI, sin GITHUB_OUTPUT solo informa por la salida estándar.
 import { execFileSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
@@ -54,6 +57,9 @@ export function changedFiles(execFile = execFileSync) {
 }
 
 export function main({ env, execFile, appendOutput, stdout }) {
+  if (env.GITHUB_ACTIONS && !env.GITHUB_OUTPUT) {
+    throw new Error('GITHUB_OUTPUT no está definido: sin él, la salida codigo llegaría vacía')
+  }
   let codigo = true
   if (env.GITHUB_EVENT_NAME === 'pull_request') {
     const files = changedFiles(execFile)
@@ -67,10 +73,15 @@ export function main({ env, execFile, appendOutput, stdout }) {
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main({
-    env: process.env,
-    execFile: execFileSync,
-    appendOutput: (path, text) => appendFileSync(path, text),
-    stdout: (message) => process.stdout.write(`${message}\n`)
-  })
+  try {
+    main({
+      env: process.env,
+      execFile: execFileSync,
+      appendOutput: (path, text) => appendFileSync(path, text),
+      stdout: (message) => process.stdout.write(`${message}\n`)
+    })
+  } catch (error) {
+    process.stderr.write(`ci-changes: ${error instanceof Error ? error.message : String(error)}\n`)
+    process.exitCode = 1
+  }
 }

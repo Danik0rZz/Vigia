@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -58,5 +59,37 @@ describe('ci-changes.mjs: main', () => {
     const d = deps({ GITHUB_EVENT_NAME: 'workflow_dispatch' })
     expect(main(d)).toBe(true)
     expect(d.written).toEqual([])
+  })
+})
+
+/**
+ * Ficha 0089: dentro del CI (GITHUB_ACTIONS definido), sin GITHUB_OUTPUT el script falla en vez de
+ * no escribir nada (si no, `codigo` llegaría vacío). Fuera del CI, como hoy. Se lanza el script de
+ * verdad para ver su código de salida, con un entorno sin las variables de GitHub del que lo corre.
+ */
+describe('CA3 (0089): sin GITHUB_OUTPUT falla dentro del CI y fuera no', () => {
+  const SCRIPT = join(__dirname, 'ci-changes.mjs')
+
+  function run(extra: Record<string, string>): ReturnType<typeof spawnSync> {
+    const env: Record<string, string> = {}
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined && !key.startsWith('GITHUB_')) env[key] = value
+    }
+    // Evento push: no mira git, así el resultado no depende del checkout.
+    return spawnSync(process.execPath, [SCRIPT], {
+      env: { ...env, GITHUB_EVENT_NAME: 'push', ...extra },
+      encoding: 'utf8'
+    })
+  }
+
+  it('con GITHUB_ACTIONS=true y sin GITHUB_OUTPUT sale con código distinto de 0 y lo explica', () => {
+    const result = run({ GITHUB_ACTIONS: 'true' })
+    expect(result.status).not.toBe(0)
+    expect(String(result.stderr)).toMatch(/GITHUB_OUTPUT/)
+  })
+
+  it('sin GITHUB_ACTIONS ni GITHUB_OUTPUT sale con 0, como hoy', () => {
+    const result = run({})
+    expect(result.status).toBe(0)
   })
 })
