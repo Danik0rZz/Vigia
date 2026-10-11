@@ -459,6 +459,36 @@ const HOST_PROPERTY_KEYS = new Set([
   'hypervisorType'
 ])
 
+/**
+ * Ficha 0085: claves de zona y tamaño de instancia de cada proveedor (esquema Host de la API v1).
+ * El informe dice en cuántos hosts llegan y la forma de su texto, nunca el valor.
+ */
+const HOST_CLOUD_KEYS = [
+  'gcpZone',
+  'gceMachineType',
+  'azureZone',
+  'azureVmSizeLabel',
+  'awsInstanceType',
+  'openstackAvZone',
+  'openStackInstaceType'
+] as const
+for (const key of HOST_CLOUD_KEYS) HOST_PROPERTY_KEYS.add(key)
+
+/** Forma de un texto sin el texto: largo en tramos, espacios y tipo de caracteres. */
+function textShape(value: unknown): string {
+  if (typeof value !== 'string') return shapeOf(value)
+  if (value.trim() === '') return 'texto vacío'
+  const length =
+    value.length <= 20 ? 'corto (≤ 20)' : value.length <= 60 ? 'medio (21-60)' : 'largo (> 60)'
+  const spaces = /\s/.test(value) ? 'con espacios' : 'sin espacios'
+  const chars = /^[0-9]+$/.test(value)
+    ? 'solo dígitos'
+    : /^[a-z0-9._-]+$/.test(value)
+      ? 'minúsculas, dígitos y . _ -'
+      : 'con mayúsculas u otros signos'
+  return `texto ${length}, ${spaces}, ${chars}`
+}
+
 /** Relaciones de un HOST que nombra la ficha 0020. */
 const HOST_RELATIONS = new Set(['isProcessOf', 'runsOnHost', 'runsOn', 'isInstanceOf'])
 
@@ -530,6 +560,7 @@ describe.skipIf(live === null)('Ficha 0020: datos de un HOST (exploración)', ()
     const perHost: unknown[] = []
     const seenKeys = new Map<string, number>()
     const seenRelations = new Map<string, number>()
+    const cloudKeys = new Map<string, { hosts: number; formas: Set<string> }>()
     for (const [index, id] of hosts.entries()) {
       const { code, body } = await codeOf(get(`/entities/${id}`, { fields: FIELDS }))
       const row: Record<string, unknown> = { host: `#${index + 1}`, codigo: code }
@@ -541,6 +572,13 @@ describe.skipIf(live === null)('Ficha 0020: datos de un HOST (exploración)', ()
       const properties = asObject(body['properties']) ?? {}
       const keys = Object.keys(properties)
       for (const key of keys.filter(isApiName)) seenKeys.set(key, (seenKeys.get(key) ?? 0) + 1)
+      for (const key of HOST_CLOUD_KEYS) {
+        if (!(key in properties)) continue
+        const seen = cloudKeys.get(key) ?? { hosts: 0, formas: new Set<string>() }
+        seen.hosts += 1
+        seen.formas.add(textShape(properties[key]))
+        cloudKeys.set(key, seen)
+      }
       row['claves'] = bucket(keys.length)
       row['clavesFueraDeLaDefinicion'] = keys.filter((key) => !isApiName(key)).length
       row['formaPorClave'] = Object.fromEntries(
@@ -588,6 +626,15 @@ describe.skipIf(live === null)('Ficha 0020: datos de un HOST (exploración)', ()
     hostReport['claves de la ficha que no llegaron'] = [...HOST_PROPERTY_KEYS]
       .filter((key) => !seenKeys.has(key))
       .sort()
+    hostReport['zona y tamaño de instancia (0085)'] = Object.fromEntries(
+      HOST_CLOUD_KEYS.map((key) => {
+        const seen = cloudKeys.get(key)
+        return [
+          key,
+          seen === undefined ? 'no llegó' : { hosts: seen.hosts, formas: [...seen.formas].sort() }
+        ]
+      })
+    )
     report['hosts (0020)'] = hostReport
   })
 

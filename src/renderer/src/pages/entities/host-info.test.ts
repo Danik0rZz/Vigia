@@ -329,3 +329,179 @@ describe('CA1 (0020): grupos de filas y de relaciones de un HOST a partir de ent
     expect(onlyIncomingRunsOn.groups.map((group) => group.key)).toEqual(['other'])
   })
 })
+
+/**
+ * Ficha 0085: filas «Zona» (`cloudZone`) e «Tamaño de instancia» (`instanceSize`) del grupo
+ * `cloud`, después de cloudType e hypervisorType. Claves por proveedor (esquema `Host` de la API
+ * v1), en el orden de la tabla de la ficha: Google Cloud, Azure, AWS y OpenStack. Se toma la
+ * primera que llegue con texto, tal cual; sin ninguna, la fila no sale.
+ */
+const CLOUD_BASE: { key: string; text: string }[] = [
+  { key: 'cloudType', text: 'NUBE-PRUEBA' },
+  { key: 'hypervisorType', text: 'KVM' }
+]
+
+const cloudRows = (properties: { key: string; text: string }[]): unknown =>
+  buildHostInfo(entity({ properties })).sections.find((section) => section.key === 'cloud')?.rows
+
+const PROVIDERS: {
+  name: string
+  properties: { key: string; text: string }[]
+  zone: string | null
+  size: string
+}[] = [
+  {
+    name: 'Google Cloud',
+    properties: [
+      { key: 'gceMachineType', text: 'maquina-gcp-4' },
+      { key: 'gcpZone', text: 'zona-gcp-b' }
+    ],
+    zone: 'zona-gcp-b',
+    size: 'maquina-gcp-4'
+  },
+  {
+    name: 'Azure',
+    properties: [
+      { key: 'azureZone', text: '2' },
+      { key: 'azureVmSizeLabel', text: 'Tamaño_Azure_D4' }
+    ],
+    zone: '2',
+    size: 'Tamaño_Azure_D4'
+  },
+  {
+    name: 'AWS',
+    properties: [{ key: 'awsInstanceType', text: 'tipo-aws.grande' }],
+    zone: null,
+    size: 'tipo-aws.grande'
+  },
+  {
+    name: 'OpenStack',
+    properties: [
+      { key: 'openstackAvZone', text: 'zona-openstack-1' },
+      { key: 'openStackInstaceType', text: 'sabor-openstack-m1' }
+    ],
+    zone: 'zona-openstack-1',
+    size: 'sabor-openstack-m1'
+  }
+]
+
+describe('CA1 (0085): filas «Zona» y «Tamaño de instancia» del grupo cloud, según el proveedor', () => {
+  for (const provider of PROVIDERS) {
+    it(`${provider.name}: las filas salen con el texto de su clave, tras cloudType e hypervisorType`, () => {
+      // Las claves del proveedor, antes de las de la nube (el orden no es el de la API).
+      const rows = cloudRows([...provider.properties, ...CLOUD_BASE])
+      const expected = [
+        { key: 'cloudType', kind: 'text', text: 'NUBE-PRUEBA' },
+        { key: 'hypervisorType', kind: 'text', text: 'KVM' },
+        ...(provider.zone === null
+          ? []
+          : [{ key: 'cloudZone', kind: 'text', text: provider.zone }]),
+        { key: 'instanceSize', kind: 'text', text: provider.size }
+      ]
+      expect(rows).toEqual(expected)
+    })
+  }
+
+  it('AWS: solo «Tamaño de instancia», sin fila de zona', () => {
+    const rows = cloudRows([{ key: 'awsInstanceType', text: 'tipo-aws.grande' }, ...CLOUD_BASE])
+    expect(((rows ?? []) as { key: string }[]).map((row) => row.key)).toEqual([
+      'cloudType',
+      'hypervisorType',
+      'instanceSize'
+    ])
+  })
+
+  it('sin cloudType ni hypervisorType, las dos filas salen solas en el grupo cloud', () => {
+    const { sections } = buildHostInfo(
+      entity({
+        properties: [
+          { key: 'gcpZone', text: 'zona-gcp-b' },
+          { key: 'gceMachineType', text: 'maquina-gcp-4' }
+        ]
+      })
+    )
+    expect(sections).toEqual([
+      {
+        key: 'cloud',
+        rows: [
+          { key: 'cloudZone', kind: 'text', text: 'zona-gcp-b' },
+          { key: 'instanceSize', kind: 'text', text: 'maquina-gcp-4' }
+        ]
+      }
+    ])
+  })
+
+  it('con claves de varios proveedores, manda la primera de la tabla (Google, Azure, AWS, OpenStack)', () => {
+    const rows = cloudRows([
+      { key: 'openstackAvZone', text: 'zona-openstack-1' },
+      { key: 'openStackInstaceType', text: 'sabor-openstack-m1' },
+      { key: 'awsInstanceType', text: 'tipo-aws.grande' },
+      { key: 'azureZone', text: '2' },
+      { key: 'azureVmSizeLabel', text: 'Tamaño_Azure_D4' }
+    ])
+    expect(rows).toEqual([
+      { key: 'cloudZone', kind: 'text', text: '2' },
+      { key: 'instanceSize', kind: 'text', text: 'Tamaño_Azure_D4' }
+    ])
+    const awsFirst = cloudRows([
+      { key: 'openStackInstaceType', text: 'sabor-openstack-m1' },
+      { key: 'awsInstanceType', text: 'tipo-aws.grande' }
+    ])
+    expect(awsFirst).toEqual([{ key: 'instanceSize', kind: 'text', text: 'tipo-aws.grande' }])
+  })
+})
+
+describe('CA2 (0085): sin claves de zona ni de tamaño (o vacías), el grupo cloud queda como hoy', () => {
+  const TODAY = [
+    { key: 'cloudType', kind: 'text', text: 'NUBE-PRUEBA' },
+    { key: 'hypervisorType', kind: 'text', text: 'KVM' }
+  ]
+  const ZONE_AND_SIZE_KEYS = [
+    'gcpZone',
+    'gceMachineType',
+    'azureZone',
+    'azureVmSizeLabel',
+    'awsInstanceType',
+    'openstackAvZone',
+    'openStackInstaceType'
+  ]
+
+  it('sin ninguna de esas claves, solo cloudType e hypervisorType', () => {
+    expect(cloudRows([...CLOUD_BASE, { key: 'gceProjectId', text: 'proyecto-prueba' }])).toEqual(
+      TODAY
+    )
+  })
+
+  it('con todas vacías o en blanco, tampoco salen', () => {
+    for (const blank of ['', '   ']) {
+      const rows = cloudRows([
+        ...CLOUD_BASE,
+        ...ZONE_AND_SIZE_KEYS.map((key) => ({ key, text: blank }))
+      ])
+      expect(rows, `texto «${blank}»`).toEqual(TODAY)
+    }
+  })
+
+  it('sin nube ni esas claves con texto, no hay grupo cloud', () => {
+    const { sections } = buildHostInfo(
+      entity({ properties: ZONE_AND_SIZE_KEYS.map((key) => ({ key, text: '' })) })
+    )
+    expect(sections).toEqual([])
+  })
+
+  it('una clave vacía se salta y se toma la siguiente de la tabla que tenga texto', () => {
+    const rows = cloudRows([
+      ...CLOUD_BASE,
+      { key: 'gcpZone', text: '' },
+      { key: 'azureZone', text: '3' },
+      { key: 'gceMachineType', text: '  ' },
+      { key: 'azureVmSizeLabel', text: '' },
+      { key: 'awsInstanceType', text: 'tipo-aws.grande' }
+    ])
+    expect(rows).toEqual([
+      ...TODAY,
+      { key: 'cloudZone', kind: 'text', text: '3' },
+      { key: 'instanceSize', kind: 'text', text: 'tipo-aws.grande' }
+    ])
+  })
+})

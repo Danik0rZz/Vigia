@@ -24,7 +24,7 @@ const SECTION_ROWS = {
   network: ['ipAddress', 'networkZone'],
   monitoring: ['monitoringMode', 'state', 'installerVersion', 'firstSeen', 'lastSeen'],
   grouping: ['hostGroupName', 'managementZones'],
-  cloud: ['cloudType', 'hypervisorType']
+  cloud: ['cloudType', 'hypervisorType', 'cloudZone', 'instanceSize']
 } as const satisfies Record<HostSectionKey, readonly string[]>
 
 export type HostRowKey = (typeof SECTION_ROWS)[HostSectionKey][number]
@@ -76,6 +76,17 @@ const TEXT_PROPERTIES = new Set<HostRowKey>([
   'hypervisorType'
 ])
 
+/**
+ * Filas de la nube que salen de claves propias de cada proveedor (ficha 0085), en el orden de la
+ * ficha: Google Cloud, Azure, AWS y OpenStack. Nombres del esquema `Host` de la API v1
+ * (`openStackInstaceType` va escrito así en la API); AWS no tiene clave de zona. Manda la
+ * primera que llegue con texto.
+ */
+const PROVIDER_PROPERTIES: Partial<Record<HostRowKey, readonly string[]>> = {
+  cloudZone: ['gcpZone', 'azureZone', 'openstackAvZone'],
+  instanceSize: ['gceMachineType', 'azureVmSizeLabel', 'awsInstanceType', 'openStackInstaceType']
+}
+
 export function buildHostInfo(data: EntityData): HostInfo {
   return { sections: buildSections(data), groups: buildGroups(data) }
 }
@@ -108,6 +119,11 @@ function buildRow(
 ): HostRow | null {
   if (TEXT_PROPERTIES.has(key)) {
     const text = prop(key)
+    return text === null ? null : { key, kind: 'text', text }
+  }
+  const candidates = PROVIDER_PROPERTIES[key]
+  if (candidates !== undefined) {
+    const text = candidates.map(prop).find((value) => value !== null) ?? null
     return text === null ? null : { key, kind: 'text', text }
   }
   switch (key) {
