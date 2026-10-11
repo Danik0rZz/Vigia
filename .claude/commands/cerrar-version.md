@@ -11,7 +11,8 @@ Eres el Orquestador. Sigue "Cerrar una versión" de `docs/flujo.md`.
    `Corregido`. Antes, "Traer `main`" (`docs/flujo.md`, "Git": `git fetch origin`,
    `git merge -m "chore(git): trae origin/main" origin/main` con `git -C <checkout principal>` y,
    si hay una `integra/…` en curso, `git merge -m "chore(git): trae main" main` en ella; si el
-   checkout principal tiene cambios sin commitear, no lo empiezas, y si el merge da conflicto,
+   checkout principal tiene cambios sin commitear (`status --porcelain --untracked-files=no`; los
+   ficheros sin versionar no cuentan), no lo empiezas, y si el merge da conflicto,
    `git -C <checkout principal> merge --abort`: en los dos casos paras y avisas a Dani, sin
    resolver conflictos en el checkout de otra sesión). Rama `release/x.y.z` desde `main` en tu
    worktree.

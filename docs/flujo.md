@@ -160,10 +160,13 @@ Se integra por PR (ficha 0073, ADR-0014): un commit por ficha en una rama de int
   1. `git fetch origin` y, en el checkout principal (la ruta sale de `git worktree list`),
      `git merge -m "chore(git): trae origin/main" origin/main` con `git -C <checkout principal>`.
      Si `main` local no lleva nada propio, avanza sin más; si lleva documentos del Planificador,
-     deja un merge en `main` local, sin push. Si `git -C <checkout principal> status --porcelain`
-     no está vacío (cambios sin commitear del Planificador), no se empieza; si el merge da
-     conflicto, `git -C <checkout principal> merge --abort`. En los dos casos se para la cola y se
-     avisa a Dani (y al Planificador): nunca se resuelven conflictos en el checkout de otra sesión.
+     deja un merge en `main` local, sin push. Si
+     `git -C <checkout principal> status --porcelain --untracked-files=no` no está vacío (cambios
+     sin commitear del Planificador), no se empieza. Los ficheros sin versionar no cuentan (como
+     `docs/revisiones/`, local de Dani): no chocan con el merge, y si el merge trajera uno con la
+     misma ruta, git se niega sin tocar nada. Si el merge da conflicto,
+     `git -C <checkout principal> merge --abort`. En los dos casos se para la cola y se avisa a
+     Dani (y al Planificador): nunca se resuelven conflictos en el checkout de otra sesión.
   2. Si hay una `integra/…` en curso y `git log --oneline integra/…..main` no está vacío, en ella
      `git merge -m "chore(git): trae main" main`. Si no hay ninguna, la siguiente `integra/…` sale
      de `main` (o se le hace ese mismo merge, si sale de la anterior) y los lleva; antes de abrir
@@ -432,6 +435,12 @@ informe local). Nunca van al CI.
 - `Set-Content -Encoding utf8` de PowerShell 5.1 escribe BOM, y `Get-Content -Raw` sin
   `-Encoding utf8` lee los ficheros como ANSI y estropea las tildes al reescribirlos. Para editar
   ficheros, usar las herramientas de edición, `sed` o `node`.
+- Un texto con comillas invertidas (Markdown) nunca va dentro de comillas dobles en bash
+  (`node -e "…"`, `echo "…"`): bash ejecutaría lo que hay entre ellas. Pasó en la 0078: el
+  test-writer escribía en la ficha, con `node -e "…"`, los comandos de medición entre comillas
+  invertidas, y bash lanzó dos tandas de e2e. Para escribir texto en un fichero, la herramienta de
+  edición; si hay que hacerlo desde la shell, un heredoc con el delimitador entre comillas
+  (`<<'EOF'`) y el script entre comillas simples.
 - Si `npm run dist:win` falla en Windows con un error de enlaces simbólicos, hace falta el Modo de
   desarrollador de Windows o una terminal de administrador.
 - Carpeta de datos por modo: el zip usa `%APPDATA%\vigia`, `npm run dev` usa `%APPDATA%\vigia-dev`
