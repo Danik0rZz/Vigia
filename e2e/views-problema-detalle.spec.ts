@@ -307,7 +307,10 @@ test(
 
 test(
   'v0.10.0: tabla virtualizada: desplegar una fila con gráfico recalcula la altura (la siguiente no se solapa)',
-  { tag: '@problema-detalle' },
+  {
+    tag: ['@problema-detalle', '@inestable'],
+    annotation: { type: 'arreglo', description: '0097' }
+  },
   async () => {
     sim.eventMetricDelayMs = 600
     await goToRoute(`/problems/${BIG_ID}`)

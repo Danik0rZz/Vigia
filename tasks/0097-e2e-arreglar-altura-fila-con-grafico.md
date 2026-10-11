@@ -102,4 +102,4 @@ Normal (`ligera: no`).
 
 ## Resultado
 
-(pendiente)
+- 2026-10-11 (developer): el test queda en cuarentena (`@inestable`, `arreglo: 0097`) con su fila en «Tests en cuarentena» del BACKLOG, a la espera del arreglo de esta ficha.
