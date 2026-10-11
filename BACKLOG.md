@@ -117,8 +117,10 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
   correr el e2e completo; moverlo a `pages/entities/`. (surgió en 0008)
 - Fichas: poner las «Decisiones del developer» en su propia sección, no dentro de «Ideas surgidas».
   (surgió en 0008)
-- Marcadores del servicio: si fallan las métricas salen cuatro `role="alert"` a la vez; dejar uno
-  solo. (surgió en 0008)
+- Avisos de error repetidos que aún se anuncian varias veces: los marcadores de las otras páginas
+  de entidad (host, proceso, grupo de procesos, monitores, aplicación y disco) y los cuatro gráficos
+  del servicio, cada uno con su `role="alert"`; si el resultado de la 0081 convence, extenderle
+  `silent`. (surgió en 0081)
 - `entities:serviceMetrics`: que main devuelva `requests: null` en los totales cuando no hay
   datos, en vez de que la interfaz lo deduzca de la serie (`hasRequestData`). (surgió en 0008)
 - Gráficos del servicio: la exportación XLSX lleva los valores ya convertidos (ms y /min); añadir una
@@ -395,3 +397,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0070](tasks/0070-e2e-vistas-por-zona-y-workers.md) (lote flujo-herramientas): `views.spec.ts` se parte en 11 `views-<zona>.spec.ts` y `views-portapapeles.spec.ts`; `areas.json` con un área por zona; la guarda `checkPlacement` vigila el reparto; cada worker tiene su puerto del simulador y sus carpetas (`workerResources`, `listenOn`); `workers` es 4 con `CI` y 8 sin él (tres pases en verde). Sin migraciones.
 - [0071](tasks/0071-e2e-afectados-locales-por-zona.md) (lote flujo-herramientas): un cambio solo en `locales/` lanza los unitarios de textos y los e2e de las zonas de las claves cambiadas (`changedKeys` + mapa `locales` en `areas.json`, `--grep` de zonas y `@smoke`); prefijo sin zona o JSON roto, e2e completo; guarda del mapa en `check`. Sin migraciones.
 - [0080](tasks/0080-quitar-clave-graficos-servicio-sin-usar.md) (lote medicion-control, ligera): quitada la clave `entities.service.charts.loadError`, sin usar, de los textos en español e inglés. Sin migraciones.
+- [0081](tasks/0081-marcadores-servicio-un-solo-aviso.md) (lote medicion-control): en los marcadores del servicio, si falla el canal de métricas solo el primer aviso (`SLO`, o `Peticiones` con Solo actividad) lleva `role="alert"`; `MarkerError` y `QueryState` tienen una propiedad `silent` que lo quita. Lo que se ve no cambia. Sin migraciones.

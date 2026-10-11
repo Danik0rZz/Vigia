@@ -516,6 +516,84 @@ test(
   }
 )
 
+/**
+ * Ficha 0081: con el canal de métricas caído, cada tarjeta de métricas sigue enseñando su aviso
+ * y su «Reintentar», pero solo la primera (la que se pinta antes) lo anuncia con `role="alert"`.
+ * El marcador de «Problemas» va por su canal y conserva el suyo.
+ */
+const METRICS_FAIL_DETAIL = 'Métricas del servicio no disponibles (simulado)'
+
+async function expectMetricWarning(id: string): Promise<void> {
+  const marker = serviceMarker(id)
+  await expect(marker, id).toBeVisible()
+  await expect(marker, id).toContainText(METRICS_FAIL_DETAIL)
+  await expect(marker.getByRole('button', { name: 'Reintentar' }), id).toBeVisible()
+  await expect(marker.getByTestId('service-marker-value'), id).toHaveCount(0)
+}
+
+test(
+  'CA1 (0081): con el canal de métricas caído, un solo role="alert" en los marcadores, en «SLO», y las cinco tarjetas con su aviso y Reintentar',
+  { tag: '@servicio' },
+  async () => {
+    sim.serviceMetricsFail = true
+    const servicePage = await openServicePage(SVC_ID)
+    for (const id of METRIC_MARKERS) await expectMetricWarning(id)
+
+    const markers = servicePage.getByTestId('service-markers')
+    const alerts = markers.getByRole('alert')
+    await expect(alerts).toHaveCount(1)
+    await expect(serviceMarker('availability').getByRole('alert')).toHaveCount(1)
+    await expect(alerts).toContainText(METRICS_FAIL_DETAIL)
+    for (const id of METRIC_MARKERS.filter((marker) => marker !== 'availability')) {
+      await expect(serviceMarker(id).getByRole('alert'), id).toHaveCount(0)
+    }
+    // El de problemas, con su dato y sin aviso.
+    await expect(serviceMarker('problems').getByTestId('service-marker-open')).toHaveText(
+      loneNumber('1')
+    )
+  }
+)
+
+test(
+  'CA2 (0081): Solo actividad con el canal de métricas caído: un solo role="alert", en «Peticiones»',
+  { tag: '@servicio' },
+  async () => {
+    // El conjunto lo dice la respuesta de métricas (main elige las métricas por el serviceType):
+    // con el canal caído desde el principio no se sabe. Se carga bien y falla al «Actualizar».
+    const servicePage = await openServicePage(SVC_SET_IDS.activity)
+    await expect(serviceMarker('requests').getByTestId('service-marker-value')).toHaveText(/^10$/)
+    sim.serviceMetricsFail = true
+    await servicePage.getByTestId('module-refresh').click()
+    await expectMetricWarning('requests')
+    for (const id of METRIC_MARKERS) await expect(serviceMarker(id), id).toHaveCount(0)
+
+    const alerts = servicePage.getByTestId('service-markers').getByRole('alert')
+    await expect(alerts).toHaveCount(1)
+    await expect(serviceMarker('requests').getByRole('alert')).toHaveCount(1)
+    await expect(serviceMarker('problems').getByRole('alert')).toHaveCount(0)
+  }
+)
+
+test(
+  'CA3 (0081): con los canales de métricas y de problemas caídos, dos role="alert": «SLO» y «Problemas»',
+  { tag: '@servicio' },
+  async () => {
+    sim.serviceMetricsFail = true
+    sim.entityProblemsFail = true
+    const servicePage = await openServicePage(SVC_ID)
+    for (const id of METRIC_MARKERS) await expectMetricWarning(id)
+    const problems = serviceMarker('problems')
+    await expect(problems.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+
+    await expect(servicePage.getByTestId('service-markers').getByRole('alert')).toHaveCount(2)
+    await expect(serviceMarker('availability').getByRole('alert')).toHaveCount(1)
+    await expect(problems.getByRole('alert')).toHaveCount(1)
+    for (const id of METRIC_MARKERS.filter((marker) => marker !== 'availability')) {
+      await expect(serviceMarker(id).getByRole('alert'), id).toHaveCount(0)
+    }
+  }
+)
+
 test(
   'CA6 (0008): un servicio sin datos enseña «—» en los marcadores de métricas, no 0',
   { tag: '@servicio' },
