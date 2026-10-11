@@ -42,7 +42,7 @@ bueno de Dani o de peticiones en su nombre.
   0080, 0081, 0084, 0082, 0083 y 0085.
 - Detrás, aprobados por Dani el 2026-10-11: lote **e2e-inestables-2**
   ([0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md), arreglo del test de la cola de
-  gráficos de evidencias, en cuarentena con `arreglo: 0086`; y
+  gráficos de evidencias, hecha; y
   [0087](tasks/0087-e2e-seis-workers-en-local.md) (hecha), ligera, 6 workers en local) y lote
   **seguridad-revision**, con prioridad (hallazgos de seguridad abiertos de la revisión de código del
   2026-10-11 y el seguimiento de la 0079; todas con la exclusión `seguridad`, cada una sola en su PR):
@@ -85,10 +85,9 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 
 Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene el doc-writer: se añade una fila al ponerlo en cuarentena y se quita al cerrar su ficha de arreglo. La guarda no lee esta sección.
 
-| Test                                                                                                                                                                                                                                       | Spec                                 | Ficha de arreglo                                            | Desde      |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------------- | ---------- |
-| «v0.9.2: carga diferida y cola: una fila plegada no pide; al desplegar 20 deprisa, nunca más de 3 consultas a la vez» (falló en el CI de la PR #10, run 38143008404; la PR #11, run 38146900333, y la PR #12, run 38152066082)             | `e2e/views-problema-detalle.spec.ts` | [0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md) | 2026-10-11 |
-| «v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio» (falló en el CI de la PR #12, run 38152066082 intento 1, y en el run 38157462342 intento 1; una vez en local) | `e2e/views-problema-detalle.spec.ts` | [0096](tasks/0096-e2e-arreglar-tooltips-en-el-ci.md)        | 2026-10-11 |
+| Test                                                                                                                                                                                                                                       | Spec                                 | Ficha de arreglo                                     | Desde      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ---------------------------------------------------- | ---------- |
+| «v0.10.2: evidencia de 45 días: últimos 7 por defecto, etiquetas de fecha variadas (no «00:00»), nota y sin línea de inicio» (falló en el CI de la PR #12, run 38152066082 intento 1, y en el run 38157462342 intento 1; una vez en local) | `e2e/views-problema-detalle.spec.ts` | [0096](tasks/0096-e2e-arreglar-tooltips-en-el-ci.md) | 2026-10-11 |
 
 ## Mejoras anotadas
 
@@ -428,4 +427,5 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0083](tasks/0083-log-enmascarar-anidados.md) (lote ideas-backlog, exclusión seguridad): el filtro final de secretos del log (`log-mask.ts`) enmascara también objetos anidados, listas, `Map`, `Set`, instancias de clase, `toJSON` y la `cause` de los errores (hasta 32 niveles, sin colgarse con referencias circulares), y si el filtro falla el mensaje se descarta. Va sola en su PR. Sin migraciones.
 - [0085](tasks/0085-host-nube-zona-y-tamano.md) (lote ideas-backlog): la tarjeta «Información» del host enseña las filas «Zona» y «Tamaño de instancia» en «Nube o virtualización» según el proveedor (Google Cloud, Azure, AWS solo tamaño y OpenStack; `PROVIDER_PROPERTIES` en `host-info.ts`). En vivo solo se vio `gceMachineType`. Sin migraciones.
 - [0087](tasks/0087-e2e-seis-workers-en-local.md) (lote e2e-inestables-2, ligera): `playwright.config.ts` vuelve a 6 workers en local (con 8 subieron los fallos de tiempos; 6 cuesta unos 10-15 s más por pase); el CI sigue con 4. Solo desarrollo.
+- [0086](tasks/0086-e2e-arreglar-cola-graficos-evidencias.md) (lote e2e-inestables-2): arreglo del test de la cola de los gráficos de evidencias («nunca más de 3 consultas a la vez»). La causa estaba en el test (retardo fijo del simulador más corto que lo que tarda cada despliegue en el runner); ahora el simulador retiene las respuestas con una compuerta (`sim.eventMetricGate`) hasta que el test tiene 3 en vuelo. Fuera de cuarentena; sin cambios en la app.
 - [0089](tasks/0089-ci-ok-falla-cerrado.md) (lote seguridad-revision, exclusión seguridad): «CI ok» falla cerrado. El job `windows` corre salvo que `codigo` sea exactamente `false`, `ci-ok` queda en rojo si hay código y `windows` no acabó en `success`, y `ci-changes.mjs` falla dentro del CI si falta `GITHUB_OUTPUT`. Una PR solo de documentos sigue en verde sin e2e. Sin migraciones.

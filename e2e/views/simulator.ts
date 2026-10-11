@@ -291,11 +291,16 @@ export async function startServer(workerPort: number): Promise<void> {
           sim.eventMetricQueries.push(url.searchParams)
           sim.eventMetricInFlight += 1
           sim.eventMetricMaxInFlight = Math.max(sim.eventMetricMaxInFlight, sim.eventMetricInFlight)
-          setTimeout(() => {
-            sim.eventMetricInFlight -= 1
-            const [status, body] = eventMetricResponse(url.searchParams)
-            send(status, body)
-          }, sim.eventMetricDelayMs)
+          const respond = (): void => {
+            setTimeout(() => {
+              sim.eventMetricInFlight -= 1
+              const [status, body] = eventMetricResponse(url.searchParams)
+              send(status, body)
+            }, sim.eventMetricDelayMs)
+          }
+          // Ficha 0086: retenida hasta que el test suelte la compuerta.
+          if (sim.eventMetricGate !== null) void sim.eventMetricGate.then(respond)
+          else respond()
           return
         }
         // Ficha 0033: las del canal entities:applicationMetrics, aparte.
