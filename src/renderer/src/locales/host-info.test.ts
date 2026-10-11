@@ -107,3 +107,20 @@ describe('CA6 (0020): textos de la tarjeta «Información» del HOST en es y en'
     }
   })
 })
+
+describe('CA3 (0085): textos de las filas «Zona» y «Tamaño de instancia» en es y en', () => {
+  it('en español, como en la ficha', () => {
+    expect(esInfo['rows.cloudZone'], 'entities.host.info.rows.cloudZone (es)').toBe('Zona')
+    expect(esInfo['rows.instanceSize'], 'entities.host.info.rows.instanceSize (es)').toBe(
+      'Tamaño de instancia'
+    )
+  })
+
+  it('y en inglés, sin vacíos', () => {
+    for (const key of ['rows.cloudZone', 'rows.instanceSize']) {
+      const text = enInfo[key]
+      expect(typeof text, `entities.host.info.${key} (en)`).toBe('string')
+      expect(String(text).trim(), `entities.host.info.${key} (en)`).not.toBe('')
+    }
+  })
+})

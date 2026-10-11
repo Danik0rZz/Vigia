@@ -20,6 +20,9 @@ import {
   HOST_INFO_EC2,
   HOST_INFO_FULL_ID,
   HOST_INFO_FULL_PROPERTY_COUNT,
+  HOST_INFO_GCP_ID,
+  HOST_INFO_GCP_MACHINE,
+  HOST_INFO_GCP_ZONE,
   HOST_INFO_GROUP,
   HOST_INFO_IPS,
   HOST_INFO_OTHER,
@@ -1025,6 +1028,34 @@ test(
     }
     // El resto de la página sigue: marcadores con sus valores.
     await expectHostMarkerValues()
+  }
+)
+
+test(
+  'CA4 (0085): con un HOST de Google Cloud, «Información» enseña «Zona» y «Tamaño de instancia» con sus valores, después de la nube y el hipervisor',
+  { tag: '@host' },
+  async () => {
+    const card = await openHostInfo(HOST_INFO_GCP_ID)
+    const cloud = hostInfoSection('cloud')
+    await expect(cloud).toBeVisible()
+    await expect(cloud.getByRole('heading').first()).toContainText('Nube o virtualización')
+    await expect(cloud.getByTestId('host-info-row')).toHaveCount(4)
+    expect(await dataKeys(cloud.getByTestId('host-info-row'))).toEqual([
+      'cloudType',
+      'hypervisorType',
+      'cloudZone',
+      'instanceSize'
+    ])
+    await expect(hostInfoRow('cloudZone')).toContainText('Zona')
+    await expect(hostInfoValue('cloudZone')).toHaveText(HOST_INFO_GCP_ZONE)
+    await expect(hostInfoRow('instanceSize')).toContainText('Tamaño de instancia')
+    await expect(hostInfoValue('instanceSize')).toHaveText(HOST_INFO_GCP_MACHINE)
+    // Las claves siguen también en «Todas las propiedades».
+    await clickInPlace(card.getByTestId('host-info-properties-toggle'), { scroll: true })
+    const property = (key: string): Locator =>
+      card.locator(`[data-testid="host-info-property"][data-key="${key}"]`)
+    await expect(property('gcpZone')).toContainText(HOST_INFO_GCP_ZONE)
+    await expect(property('gceMachineType')).toContainText(HOST_INFO_GCP_MACHINE)
   }
 )
 

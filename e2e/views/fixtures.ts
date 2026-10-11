@@ -1243,6 +1243,35 @@ export function hostInfoFewBody(entityId: string): Record<string, unknown> {
 }
 
 /**
+ * Ficha 0085: un HOST en Google Cloud para las filas «Zona» (gcpZone) y «Tamaño de instancia»
+ * (gceMachineType) del grupo «Nube o virtualización». Nombres de las claves del esquema `Host` de
+ * la API v1; valores e id inventados.
+ */
+export const HOST_INFO_GCP_ID = 'HOST-00000000000E2E85'
+export const HOST_INFO_GCP_ZONE = 'europa-sur-e2e-b'
+export const HOST_INFO_GCP_MACHINE = 'maquina-estandar-e2e-4'
+export function hostInfoGcpBody(): Record<string, unknown> {
+  return {
+    entityId: HOST_INFO_GCP_ID,
+    displayName: 'host-gcp-e2e',
+    type: 'HOST',
+    lastSeenTms: HOST_INFO_LAST_SEEN,
+    managementZones: [],
+    tags: [],
+    properties: {
+      osType: 'LINUX',
+      cloudType: 'GCP',
+      hypervisorType: 'KVM',
+      gcpZone: HOST_INFO_GCP_ZONE,
+      gceMachineType: HOST_INFO_GCP_MACHINE,
+      gceProjectId: 'proyecto-e2e'
+    },
+    fromRelationships: {},
+    toRelationships: {}
+  }
+}
+
+/**
  * Ficha 0026: los dos monitores de la 0024 (MONITOR_BROWSER_ID y MONITOR_HTTP_ID) en
  * /entities/{id}, para la tarjeta «Información». Claves y relaciones, las que la 0022 vio en vivo
  * (en sus mismas direcciones); valores e ids inventados y solo tipos estándar. Las localizaciones
@@ -1554,6 +1583,8 @@ export function entityBodies(): Record<string, Record<string, unknown>> {
     // Ficha 0020.
     [HOST_INFO_FULL_ID]: hostInfoFullBody(),
     [HOST_METRICS_ID]: hostInfoFewBody(HOST_METRICS_ID),
+    // Ficha 0085.
+    [HOST_INFO_GCP_ID]: hostInfoGcpBody(),
     // Ficha 0026.
     [MONITOR_BROWSER_ID]: monitorInfoBrowserBody(),
     [MONITOR_HTTP_ID]: monitorInfoHttpBody(),
