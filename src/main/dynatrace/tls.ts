@@ -26,3 +26,23 @@ export function verifyCertificate(input: {
   if (input.pins.length === 0) return 'chromium'
   return input.pins.includes(input.fingerprint) ? 'accept' : 'reject'
 }
+
+/**
+ * Si las peticiones a un host van en fila, de una en una (ficha 0095): solo cuando la decisión del
+ * verificador depende de la huella fijada (nivel «fijada» con huella para el host, o el SSO con
+ * huella). Con «sistema», sin huella o con «ignorar» en un host del entorno, la decisión no depende
+ * del certificado concreto y basta con que la primera vaya sola (ficha 0079).
+ */
+export function queuesRequests(input: {
+  level: CertificateLevel
+  /** Huellas fijadas para ese host. */
+  pins: string[]
+  /** Nombre del host, sin puerto. */
+  hostname: string
+  /** Nombres de host de las URL del entorno (API clásica y plataforma). */
+  envHosts: string[]
+}): boolean {
+  if (input.level === 'system') return false
+  if (input.level === 'ignore' && input.envHosts.includes(input.hostname)) return false
+  return input.pins.length > 0
+}
