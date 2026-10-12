@@ -1,6 +1,6 @@
 # ADR-0015: Avisos de Telegram con tarjeta en imagen
 
-Estado: aceptado (2026-10-12). Fichas: 0104, 0105 y 0106. Amplía el ADR-0009.
+Estado: aceptado (2026-10-12). Fichas: 0104, 0105, 0106 y 0108. Amplía el ADR-0009.
 
 ## Contexto
 
@@ -77,6 +77,20 @@ que es texto no fiable que se pinta en HTML.
   comprobados en la Bot API el 2026-10-12. Límites aceptados: con dos worktrees que guardan a la
   vez gana el último `rename` (en Windows puede dar EPERM) y se pierde una entrada, y el recorte
   supone un solo chat; en el peor caso, un aviso sin respuesta al anterior.
+- **Evidencias en la tarjeta (0108):** el campo opcional `evidencias` del JSON (solo en `hecha`) es
+  la ruta del `manifiesto.json` de la 0107. `scripts/telegram-evidence.mjs` lo lee y entrega a
+  `buildCardHtml(datos, { evidencias })` las imágenes ya en `data:image/png` (la CSP no se amplía; la
+  tarjeta sigue siendo pura). Todas las evidencias, sin tope (decisión de Dani: es la prueba de que
+  está todo bien), cada una en un bloque `data-bloque="evidencia"` y el rótulo en el suyo. Solo se leen
+  ficheros dentro de `<cwd>/test-results/evidencias/`: ruta resuelta con `realpathSync.native` (sin
+  `..` ni enlaces fuera), firma PNG con IHDR, máximo 25 MB por imagen y 1 MB de manifiesto, textos
+  de 500 caracteres; lo que no vale se ignora y se dice en la terminal. Solo se pintan `src` que
+  casan con `^data:image/png;base64,…$`, y los textos mostrados pasan por el filtro del tenant. Si
+  una evidencia sola pasa del peso de foto, se reduce estrechando las capturas con CSS (60 % y 35 %
+  del ancho) y volviendo a capturar; al tercer paso sale sin capturas y con la nota «evidencia en
+  `test-results/evidencias/NNNN`». Tope de seis capturas por aviso. `telegram-capture.cjs` escribe
+  `partes.json` (qué evidencias toca cada parte); sin él se supone una parte por evidencia, y si no
+  cuadra no se reduce y la parte pesada cae al texto (0105).
 
 ## Alternativas descartadas
 
