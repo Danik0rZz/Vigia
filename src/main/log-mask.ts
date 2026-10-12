@@ -1,10 +1,12 @@
 import type { LogMessage } from 'electron-log'
-import { maskSecrets } from './dynatrace/mask'
+import { maskErrorDetails } from '@shared/error-report'
 
 /**
- * Filtro final del log (fichas 0060 y 0083): enmascara los secretos con
- * formato conocido (`maskSecrets`) en todo lo que llega a electron-log, también
- * en las excepciones de librerías que capturamos sin controlar su mensaje.
+ * Filtro final del log (fichas 0060, 0083 y 0093): enmascara los secretos con
+ * formato conocido y el nombre del usuario en las rutas locales, con la misma
+ * regla que los errores del renderer (`maskErrorDetails`), en todo lo que
+ * llega a electron-log, también en las excepciones de librerías que capturamos
+ * sin controlar su mensaje.
  *
  * Recorre lo que escribe el transporte de fichero de electron-log 5.4.4
  * (`transforms/object.js`), a cualquier profundidad (hasta `MAX_DEPTH`):
@@ -19,7 +21,7 @@ import { maskSecrets } from './dynatrace/mask'
  *
  * Es la última barrera, no un permiso para registrar secretos: cada llamada
  * sigue enmascarando lo suyo (`maskSecrets`, `redactQueryEcho`,
- * `maskErrorDetails`). Solo ve los formatos que `maskSecrets` conoce.
+ * `maskErrorDetails`). Solo ve los formatos que `maskErrorDetails` conoce.
  */
 export function maskLogMessage(message: LogMessage): LogMessage | false {
   try {
@@ -46,7 +48,7 @@ const CIRCULAR_MARKER = '[referencia circular]'
 type Seen = WeakMap<object, unknown>
 
 function maskValue(value: unknown, depth: number, seen: Seen): unknown {
-  if (typeof value === 'string') return maskSecrets(value)
+  if (typeof value === 'string') return maskErrorDetails(value)
   if (value === null || typeof value !== 'object') return value
   const done = seen.get(value)
   if (done !== undefined) return done
@@ -157,7 +159,7 @@ function maskError(error: Error, depth: number, seen: Seen): Error {
     Object.defineProperty(copy, key, descriptor)
   }
   const define = (key: 'message' | 'stack', text: string): void => {
-    const out = maskSecrets(text)
+    const out = maskErrorDetails(text)
     if (out !== text) changed = true
     Object.defineProperty(copy, key, {
       value: out,

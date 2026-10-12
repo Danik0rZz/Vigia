@@ -62,6 +62,9 @@ describe('CA3 (0060): maskLogMessage enmascara los secretos del mensaje', () => 
 
   it('un Error: conserva name y cause, y no modifica el original', () => {
     const cause = new Error('causa')
+    // Pila fija sin rutas: la real pasa por la carpeta del checkout y, si está bajo C:\Users,
+    // desde la 0093 se enmascara y la cause ya no se conservaría por identidad.
+    cause.stack = 'Error: causa'
     const error = new Error(`token ${TOKEN}`, { cause })
     error.name = 'FetchError'
     const originalMessage = error.message
@@ -390,5 +393,63 @@ describe('CA6 (0083): si el filtro falla, el mensaje se descarta', () => {
       result = hook?.(message(`Api-Token ${TOKEN}`, hostile), undefined, 'file')
     }).not.toThrow()
     expect(result).toBe(false)
+  })
+})
+
+/**
+ * Ficha 0093: el filtro final del log quita también el nombre del usuario de
+ * Windows (y de Linux) de las rutas, con la misma regla que
+ * `maskErrorDetails`, en todo lo que recorre desde la 0083. Nombres de
+ * usuario y rutas inventados.
+ */
+
+const WIN_USER = 'Usuaria.Inventada'
+const UNIX_USER = 'inventado'
+const WIN_PATH = `C:\\Users\\${WIN_USER}\\Descargas\\vigia\\resources\\app.asar\\out\\main\\index.js`
+const WIN_MASKED =
+  'C:\\Users\\<usuario>\\Descargas\\vigia\\resources\\app.asar\\out\\main\\index.js'
+const UNIX_PATH = `/home/${UNIX_USER}/.config/vigia/logs/main.log`
+const UNIX_MASKED = '/home/<usuario>/.config/vigia/logs/main.log'
+
+describe('CA1 (0093): la pila de un Error sale sin el usuario de Windows', () => {
+  it('cambia C:\\Users\\<nombre>\\… por C:\\Users\\<usuario>\\… y no toca el original', () => {
+    const error = new Error('fallo al arrancar')
+    const stack = `Error: fallo al arrancar\n    at arrancar (${WIN_PATH}:10:5)`
+    error.stack = stack
+    const copy = masked(error)[0] as Error
+    expect(copy).toBeInstanceOf(Error)
+    expect(copy.stack).toBe(`Error: fallo al arrancar\n    at arrancar (${WIN_MASKED}:10:5)`)
+    expect(copy.stack).not.toContain(WIN_USER)
+    expect(error.stack).toBe(stack)
+    expect(error.message).toBe('fallo al arrancar')
+  })
+})
+
+describe('CA2 (0093): cadenas, objetos anidados y cause salen sin el usuario', () => {
+  it('una cadena con una ruta de Windows y otra de Linux', () => {
+    const [out] = masked(`copia en ${WIN_PATH} y en ${UNIX_PATH}`)
+    expect(out).toBe(`copia en ${WIN_MASKED} y en ${UNIX_MASKED}`)
+  })
+
+  it('un objeto anidado con rutas de usuario', () => {
+    const tree = { a: { b: { win: WIN_PATH, list: [UNIX_PATH, 7] } } }
+    const [out] = masked(tree)
+    expect(out).toEqual({ a: { b: { win: WIN_MASKED, list: [UNIX_MASKED, 7] } } })
+    expect(tree.a.b.win).toBe(WIN_PATH)
+  })
+
+  it('la cause de un error (texto y Error) con rutas de usuario', () => {
+    const inner = new Error(`no se pudo leer ${UNIX_PATH}`)
+    inner.stack = `Error: no se pudo leer ${UNIX_PATH}\n    at leer (${WIN_PATH}:3:1)`
+    const error = new Error(`fallo en ${WIN_PATH}`, { cause: inner })
+    const withText = new Error('fallo', { cause: `ruta ${WIN_PATH}` })
+    const [copy, copyText] = masked(error, withText) as [Error, Error]
+    expect(copy.message).toBe(`fallo en ${WIN_MASKED}`)
+    const copyInner = copy.cause as Error
+    expect(copyInner.message).toBe(`no se pudo leer ${UNIX_MASKED}`)
+    expect(copyInner.stack ?? '').not.toContain(WIN_USER)
+    expect(copyInner.stack ?? '').not.toContain(UNIX_USER)
+    expect(copyText.cause).toBe(`ruta ${WIN_MASKED}`)
+    expect(inner.message).toBe(`no se pudo leer ${UNIX_PATH}`)
   })
 })
