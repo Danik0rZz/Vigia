@@ -1494,13 +1494,17 @@ describe('CA5 (0106): el fichero está en la carpeta común de git y git status 
     const { repo, worktree } = repoWithWorktree()
     const resolve = api0106().resolveGitCommonDir
     expect(typeof resolve).toBe('function')
-    const expected = realpathSync(join(repo, '.git'))
+    // Se compara la carpeta real, no el texto: en Windows, os.tmpdir() puede dar la
+    // ruta corta 8.3 (RUNNER~1, en el CI) y git la larga. realpathSync.native las
+    // deja iguales; realpathSync (la de JavaScript) no desdobla los nombres cortos.
+    const real = (p: string): string => realpathSync.native(p)
+    const expected = real(join(repo, '.git'))
     const fromWorktree = resolve?.(worktree)
     const fromRepo = resolve?.(repo)
     expect(fromWorktree).toBeDefined()
     expect(fromRepo).toBeDefined()
-    expect(realpathSync(fromWorktree as string)).toBe(expected)
-    expect(realpathSync(fromRepo as string)).toBe(expected)
+    expect(real(fromWorktree as string)).toBe(expected)
+    expect(real(fromRepo as string)).toBe(expected)
   })
 
   it('CA5 (0106): tras un aviso desde un worktree, el fichero está en la carpeta común y git status sale limpio en los dos', async () => {

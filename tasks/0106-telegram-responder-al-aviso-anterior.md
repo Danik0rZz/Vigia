@@ -9,12 +9,12 @@ medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "
 lote: telegram-imagen # nombre corto del lote, si la ficha es parte de uno
 depende_de: ['0105'] # fichas que tienen que estar hechas antes, por número
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
-rama: feat/0106-telegram-responder-anterior
+rama: fix/0106-ci
 adrs: ['0009'] # ADR que aplican, por número
 adr_nuevo: # el de la 0104; el doc-writer añade este punto
 api: ninguna (Telegram Bot API, https://core.telegram.org/bots/api#replyparameters; no es Dynatrace)
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 2
+rondas_revision: 3
 ---
 
 ## Petición original
@@ -100,6 +100,13 @@ Opcional:
 - CA1 (0106) sigue probando lo mismo: la precarga solo saca de su tiempo la primera importación y el script reutiliza el módulo en caché.
 - La nota de «Verificación» coincide con el commit; sin datos del tenant ni secretos.
 
+### Ronda 3 (arreglo de CI): APROBADO
+
+- **Alcance:** en `integra/20261012-13..fix/0106-ci` solo cambian `scripts/notify-telegram.test.ts` (f980d07, 10 líneas) y la ficha; `notify-telegram.mjs` no se toca.
+- **CA5 no se afloja:** sigue pidiendo con `toBe` que `resolveGitCommonDir` dé exactamente la carpeta `.git` del checkout principal, desde el worktree y desde el repositorio; solo cambia la función que normaliza las rutas, aplicada a los dos lados. Con otra carpeta (p. ej. `.git/worktrees/wt`) seguiría fallando. Los otros dos tests de CA5 no cambian.
+- **`realpathSync.native` (deducido, no probado):** en Windows pasa por libuv `uv_fs_realpath`, que usa `GetFinalPathNameByHandleW` y devuelve los nombres largos (`RUNNER~1` → `runneradmin`), sin el prefijo `\?\`; `realpathSync` en JavaScript recorre con `lstat` y no amplía los nombres 8.3, que es el fallo del CI. La prueba real será «CA5 (0106)» en verde en el CI de la PR #35.
+- **Ficha:** la nota explica el motivo y el run sin datos del tenant; `en_revision` con `rama: fix/0106-ci` es coherente.
+
 ## Verificación
 
 Tests escritos en el commit 03b96ff, en `scripts/notify-telegram.test.ts` (fallan hasta que exista el código):
@@ -121,11 +128,19 @@ Verificación 2026-10-12, commit edb45e9, rango main..feat/0106-telegram-respond
 - Con carga: `scripts/notify-telegram.test.ts` con 6 y con 12 ejecuciones a la vez: las 18 con 126 de 126 y salida 0.
 - Una verificación anterior (commit 7c3737b) vio fallar una vez por timeout «CA1 (0106)» en un check completo; arreglado en 3bbc3ef (precarga de la tarjeta).
 
+Reabierta por el CI de la PR #35 (run 38276010784): «CA5 (0106): resolveGitCommonDir da la carpeta .git…» comparaba la ruta de `os.tmpdir()` (corta 8.3, `RUNNER~1`, en el runner de Windows) con la de git (larga) usando `realpathSync`, que no desdobla los nombres cortos. Ahora compara `realpathSync.native` en los dos lados, con la misma aserción (commit de tests de esta línea, `test(scripts): … (#0106)`). Ningún otro test de la 0105, 0106 ni 0107 compara rutas de `tmpdir()`.
+
+Verificación del arreglo de CI 2026-10-12, commit 9a8bdee, rango integra/20261012-13..fix/0106-ci: VERDE
+
+- check: 231 ficheros, 4338 tests, cobertura ok (sentencias 92,98 %, ramas 90,13 %, funciones 90,37 %, líneas 93,75 %).
+- e2e: `test:e2e:affected` no seleccionó ninguno. La ruta corta 8.3 no se puede reproducir aquí: lo confirma el CI de la PR #35.
+
 ## Resultado
 
 - Commits: tests f0598c9; código a42654f; ronda 2 (precarga de la tarjeta en el test) 3bbc3ef; fichas y cierre en los commits `docs(tasks)`.
 - Ficheros principales: `scripts/notify-telegram.mjs` (guardar y leer `vigia-telegram-avisos.json` en `git rev-parse --git-common-dir`, `reply_parameters`), `scripts/notify-telegram.test.ts` (CA1 a CA5). Documentado en `docs/flujo.md`, ADR-0015, `CHANGELOG.md` y `BACKLOG.md`.
-- Rondas de revisión: 2 (ambas APROBADO). Verifier: VERDE.
+- Arreglo de CI (rama `fix/0106-ci`, commit f980d07): «CA5 (0106)» comparaba como texto la ruta corta 8.3 de `os.tmpdir()` del CI (`RUNNER~1`) con la larga que devuelve git. Ahora usa `fs.realpathSync.native` en los dos lados. Run 38276010784.
+- Rondas de revisión: 3 (todas APROBADO; la tercera, el arreglo de CI). Verifier: VERDE.
 - ADR nuevo: ninguno; completa el ADR-0015 (punto «Responder al aviso anterior»).
 - Sin migraciones.
 - Ideas al BACKLOG («Mejoras anotadas»): dos opcionales del revisor (carrera entre worktrees al guardar; recorte con un solo chat) y sospechosos de inestables solo con carga extrema.
