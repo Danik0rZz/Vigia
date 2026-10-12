@@ -70,6 +70,16 @@ bueno de Dani o de peticiones en su nombre.
   [0101](tasks/0101-tests-sin-variables-git-heredadas.md), los tests no heredan las variables
   `GIT_*` (el `core.bare=true` que rompió git en el checkout principal) (hecha). Sin exclusiones; va antes
   de la 0092.
+- Aprobadas por Dani el 2026-10-12, detrás de la cola de seguridad y en este orden (peticiones
+  que pasó el Orquestador): [0102](tasks/0102-host-marcadores-ventana-pequena.md), marcadores del
+  HOST que se parten o se salen con la ventana de 1024 px; y lote **telegram-imagen**, avisos de
+  Telegram en un hilo y como tarjeta en imagen con evidencias:
+  [0103](tasks/0103-telegram-avisos-en-un-hilo.md),
+  [0104](tasks/0104-telegram-tarjeta-html.md), [0105](tasks/0105-telegram-aviso-en-imagen.md),
+  [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
+  [0107](tasks/0107-e2e-capturas-de-evidencias.md) y
+  [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
+  exclusiones: cada una sola en su PR.
 - Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
   app. Al acabar la cola de seguridad, el Planificador propone para «Próximo» mejoras de la app
   (de «Propuestas»).
