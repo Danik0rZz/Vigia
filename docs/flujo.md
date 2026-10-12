@@ -434,10 +434,17 @@ Orquestador sin datos del tenant ni nombres de clientes; además, el script lo p
   envía sin filtrar (y lo dice); con un `.env` con valores, esa variable no se salta el filtro.
 
 - **Variables** (de usuario de Windows, nunca en el repositorio): `VIGIA_TELEGRAM_TOKEN` (token del
-  bot) y `VIGIA_TELEGRAM_CHAT_ID`. Se fijan con `setx` (ver el README). Si la sesión se abrió antes,
-  el script las lee del registro.
+  bot) y `VIGIA_TELEGRAM_CHAT_ID`, y opcional `VIGIA_TELEGRAM_THREAD_ID` (ficha 0103). Se fijan con
+  `setx` (ver el README). Si la sesión se abrió antes, el script las lee del registro.
+- **Hilo del grupo** (`VIGIA_TELEGRAM_THREAD_ID`): el id del mensaje que abre el hilo, un entero
+  positivo. El aviso se envía con `message_thread_id` y como respuesta a ese mensaje
+  (`reply_parameters`): el grupo no es un foro, y solo con `message_thread_id` caería en el chat
+  principal. El bot tiene que ser **administrador del grupo**; si no, Telegram responde «message to
+  be replied not found». Si el valor no es un entero positivo, se envía sin hilo y se avisa; si
+  Telegram rechaza el envío al hilo, se reintenta una vez sin hilo, al chat principal. Sin la
+  variable, el aviso va al chat como siempre.
 - **Nunca para el flujo:** sin variables, sin red o con un error de Telegram, sale con 0 y lo dice
-  en la terminal con el prefijo `[aviso telegram]`, sin el token ni el chat_id.
+  en la terminal con el prefijo `[aviso telegram]`, sin el token, el chat_id ni el id del hilo.
 - **Probarlo:** los tests (`npx vitest run scripts/notify-telegram.test.ts`) no usan la red. Para
   un envío real, un JSON en el scratchpad, por ejemplo
   `{ "tipo": "tarea", "ficha": "0000", "titulo": "Prueba", "estado": "hecha", "resumen": "Aviso de prueba", "rondas": 1, "verifier": "VERDE" }`,

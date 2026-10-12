@@ -162,6 +162,7 @@ beforeEach(() => {
   // Nunca las variables reales: fuera del entorno del proceso de test.
   vi.stubEnv('VIGIA_TELEGRAM_TOKEN', undefined)
   vi.stubEnv('VIGIA_TELEGRAM_CHAT_ID', undefined)
+  vi.stubEnv('VIGIA_TELEGRAM_THREAD_ID', undefined)
   // Red de seguridad: si el script ignorase fetchImpl, no saldría a la red.
   globalFetch = vi.fn(() => Promise.reject(new Error('fetch global no permitido en tests')))
   vi.stubGlobal('fetch', globalFetch)
@@ -943,5 +944,221 @@ describe('CA4 (0055): notify-telegram usa la función común para encontrar el .
 
   it('CA4 (0055): scan-tenant.mjs importa la misma función', () => {
     expect(readFileSync(join(__dirname, 'scan-tenant.mjs'), 'utf8')).toMatch(IMPORT)
+  })
+})
+
+// Ficha 0103: avisos en un hilo del grupo (VIGIA_TELEGRAM_THREAD_ID). Valores inventados.
+const THREAD_ID = '48151'
+const REG_THREAD_ID = '62342'
+const THREAD_ENV = {
+  VIGIA_TELEGRAM_TOKEN: TOKEN,
+  VIGIA_TELEGRAM_CHAT_ID: CHAT_ID,
+  VIGIA_TELEGRAM_THREAD_ID: THREAD_ID
+}
+
+function bodyOf(fetchImpl: ReturnType<typeof vi.fn>, call: number): Record<string, unknown> {
+  const [, init] = fetchImpl.mock.calls[call] as unknown as [string, RequestInit]
+  return JSON.parse(String(init.body)) as Record<string, unknown>
+}
+
+function expectNoThread(body: Record<string, unknown>): void {
+  expect(body).not.toHaveProperty('message_thread_id')
+  expect(body).not.toHaveProperty('reply_parameters')
+}
+
+function telegramError(description: string, status = 400): Promise<Response> {
+  return Promise.resolve(
+    new Response(JSON.stringify({ ok: false, error_code: 400, description }), {
+      status,
+      headers: { 'content-type': 'application/json' }
+    })
+  )
+}
+
+/** Primer envío (con hilo) con `first`; los siguientes, con `rest`. */
+function sequence(first: FetchImpl, rest: FetchImpl): FetchImpl {
+  let calls = 0
+  return (url, init) => (calls++ === 0 ? first(url, init) : rest(url, init))
+}
+
+describe('CA1 (0103): sendMessage con el hilo', () => {
+  it('CA1 (0103): con VIGIA_TELEGRAM_THREAD_ID entero positivo, el cuerpo lleva message_thread_id y reply_parameters con ese número', async () => {
+    const datos = tarea()
+    const { code, fetchImpl } = await run({ datos, env: THREAD_ENV, cwdEnv: ENV_UNRELATED })
+    expect(code).toBe(0)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(bodyOf(fetchImpl, 0)).toMatchObject({
+      chat_id: CHAT_ID,
+      text: api().buildMessage(datos),
+      message_thread_id: Number(THREAD_ID),
+      reply_parameters: { message_id: Number(THREAD_ID), allow_sending_without_reply: false }
+    })
+    expect(globalFetch).not.toHaveBeenCalled()
+  })
+
+  it('CA1 (0103): sin VIGIA_TELEGRAM_THREAD_ID (ni en el entorno ni en el registro), no lleva ninguno de los dos', async () => {
+    const { code, fetchImpl } = await run({ cwdEnv: ENV_UNRELATED })
+    expect(code).toBe(0)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expectNoThread(bodyOf(fetchImpl, 0))
+  })
+})
+
+describe('CA2 (0103): el hilo se lee también del registro', () => {
+  it('CA2 (0103): sin la variable en el entorno pero con ella en el registro simulado, envía al hilo del registro', async () => {
+    const { code, fetchImpl } = await run({
+      registry: { VIGIA_TELEGRAM_THREAD_ID: REG_THREAD_ID },
+      cwdEnv: ENV_UNRELATED
+    })
+    expect(code).toBe(0)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(bodyOf(fetchImpl, 0)).toMatchObject({
+      message_thread_id: Number(REG_THREAD_ID),
+      reply_parameters: { message_id: Number(REG_THREAD_ID), allow_sending_without_reply: false }
+    })
+  })
+
+  it('CA2 (0103): con las tres variables solo en el registro, también envía al hilo', async () => {
+    const { fetchImpl } = await run({
+      env: {},
+      registry: {
+        VIGIA_TELEGRAM_TOKEN: REG_TOKEN,
+        VIGIA_TELEGRAM_CHAT_ID: REG_CHAT_ID,
+        VIGIA_TELEGRAM_THREAD_ID: REG_THREAD_ID
+      },
+      cwdEnv: ENV_UNRELATED
+    })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(bodyOf(fetchImpl, 0)).toMatchObject({
+      chat_id: REG_CHAT_ID,
+      message_thread_id: Number(REG_THREAD_ID)
+    })
+  })
+})
+
+describe('CA3 (0103): un hilo que no es un entero positivo', () => {
+  it.each(['hilo-xyz', '-48151', '48151.5', '48151abc', '0'])(
+    'CA3 (0103): con VIGIA_TELEGRAM_THREAD_ID=%j envía sin hilo y avisa con [aviso telegram] sin el valor',
+    async (value) => {
+      const warnings = (text: string): number => text.split('[aviso telegram]').length - 1
+      // Lo que se escribe sin la variable: el aviso del hilo tiene que ser una línea más.
+      const baseline = await run({ cwdEnv: ENV_UNRELATED })
+      const expected = warnings(`${baseline.stdout}\n${baseline.stderr}`) + 1
+      captured = { stdout: [], stderr: [] }
+      const { code, fetchImpl, stderr, stdout, all } = await run({
+        env: { ...THREAD_ENV, VIGIA_TELEGRAM_THREAD_ID: value },
+        cwdEnv: ENV_UNRELATED
+      })
+      expect(code).toBe(0)
+      expect(fetchImpl).toHaveBeenCalledTimes(1)
+      expectNoThread(bodyOf(fetchImpl, 0))
+      expect(warnings(`${stdout}\n${stderr}`)).toBeGreaterThanOrEqual(expected)
+      // «0» aparece en cualquier salida: solo se comprueban los valores reconocibles.
+      if (value !== '0') expect(all).not.toContain(value)
+    }
+  )
+})
+
+describe('CA4 (0103): si Telegram rechaza el envío por el hilo, se reintenta una vez sin hilo', () => {
+  const rejectThread = (): Promise<Response> =>
+    telegramError('Bad Request: message to be replied not found')
+
+  it.each([
+    ['el segundo envío va bien', () => Promise.resolve(okResponse())],
+    ['el segundo envío también falla', () => telegramError('Bad Request: chat not found')],
+    ['el segundo envío da error de red', () => Promise.reject(new TypeError('fetch failed'))]
+  ] as [string, FetchImpl][])(
+    'CA4 (0103): %s: dos envíos, el segundo sin message_thread_id ni reply_parameters, y main devuelve 0',
+    async (_case, second) => {
+      const { code, fetchImpl, stdout, stderr } = await run({
+        env: THREAD_ENV,
+        fetchImpl: sequence(rejectThread, second),
+        cwdEnv: ENV_UNRELATED
+      })
+      expect(code).toBe(0)
+      expect(fetchImpl).toHaveBeenCalledTimes(2)
+      const first = bodyOf(fetchImpl, 0)
+      expect(first).toHaveProperty('message_thread_id', Number(THREAD_ID))
+      const retry = bodyOf(fetchImpl, 1)
+      expectNoThread(retry)
+      expect(retry).toMatchObject({ chat_id: CHAT_ID, text: first.text })
+      expect(`${stdout}\n${stderr}`).toContain('[aviso telegram]')
+      expect(globalFetch).not.toHaveBeenCalled()
+    }
+  )
+
+  it('CA4 (0103): con un 200 y ok: false en el envío con hilo, también reintenta una vez sin hilo', async () => {
+    const { code, fetchImpl } = await run({
+      env: THREAD_ENV,
+      fetchImpl: sequence(
+        () => telegramError('Bad Request: message to be replied not found', 200),
+        () => Promise.resolve(okResponse())
+      ),
+      cwdEnv: ENV_UNRELATED
+    })
+    expect(code).toBe(0)
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expectNoThread(bodyOf(fetchImpl, 1))
+  })
+
+  it('CA4 (0103): con el envío con hilo correcto, no hay segundo envío', async () => {
+    const { fetchImpl } = await run({ env: THREAD_ENV, cwdEnv: ENV_UNRELATED })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('CA4 (0103): sin hilo, un error de Telegram no provoca reintento', async () => {
+    const { code, fetchImpl } = await run({ fetchImpl: rejectThread, cwdEnv: ENV_UNRELATED })
+    expect(code).toBe(0)
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('CA5 (0103): el id del hilo no sale nunca', () => {
+  const withThreadInDescription = (): Promise<Response> =>
+    telegramError(
+      `Bad Request: message ${THREAD_ID} to be replied not found in thread ${THREAD_ID}`
+    )
+  const withThreadInNetworkError = (): Promise<Response> =>
+    Promise.reject(new TypeError(`request failed: message_thread_id=${THREAD_ID}`))
+
+  const scenarios: [string, RunOptions][] = [
+    ['envío correcto con hilo', { env: THREAD_ENV, cwdEnv: ENV_UNRELATED }],
+    [
+      'rechazo por el hilo con el id en la descripción y reintento correcto',
+      {
+        env: THREAD_ENV,
+        fetchImpl: sequence(withThreadInDescription, () => Promise.resolve(okResponse())),
+        cwdEnv: ENV_UNRELATED
+      }
+    ],
+    [
+      'rechazo por el hilo y reintento que también falla con el id',
+      { env: THREAD_ENV, fetchImpl: withThreadInDescription, cwdEnv: ENV_UNRELATED }
+    ],
+    [
+      'error de red con el id',
+      { env: THREAD_ENV, fetchImpl: withThreadInNetworkError, cwdEnv: ENV_UNRELATED }
+    ],
+    ['sin .env (no envía)', { env: THREAD_ENV }],
+    ['solo el hilo, sin token ni chat', { env: { VIGIA_TELEGRAM_THREAD_ID: THREAD_ID } }]
+  ]
+
+  it.each(scenarios)(
+    'CA5 (0103): %s: el id del hilo no está en stdout, stderr ni en lo que devuelve main (ni el chat_id)',
+    async (_case, options) => {
+      const { all } = await run(options)
+      expect(all).not.toContain(THREAD_ID)
+      expect(all).not.toContain(CHAT_ID)
+      expect(all).not.toContain(TOKEN_SECRET)
+    }
+  )
+
+  it('CA5 (0103): con el hilo del registro y un rechazo que lo repite, tampoco sale', async () => {
+    const { all } = await run({
+      registry: { VIGIA_TELEGRAM_THREAD_ID: REG_THREAD_ID },
+      fetchImpl: () => telegramError(`Bad Request: reply to ${REG_THREAD_ID} not found`),
+      cwdEnv: ENV_UNRELATED
+    })
+    expect(all).not.toContain(REG_THREAD_ID)
   })
 })

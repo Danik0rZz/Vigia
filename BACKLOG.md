@@ -70,6 +70,16 @@ bueno de Dani o de peticiones en su nombre.
   [0101](tasks/0101-tests-sin-variables-git-heredadas.md), los tests no heredan las variables
   `GIT_*` (el `core.bare=true` que rompió git en el checkout principal) (hecha). Sin exclusiones; va antes
   de la 0092.
+- Aprobadas por Dani el 2026-10-12, detrás de la cola de seguridad y en este orden (peticiones
+  que pasó el Orquestador): [0102](tasks/0102-host-marcadores-ventana-pequena.md), marcadores del
+  HOST que se parten o se salen con la ventana de 1024 px; y lote **telegram-imagen**, avisos de
+  Telegram en un hilo y como tarjeta en imagen con evidencias:
+  [0103](tasks/0103-telegram-avisos-en-un-hilo.md) (hecha),
+  [0104](tasks/0104-telegram-tarjeta-html.md), [0105](tasks/0105-telegram-aviso-en-imagen.md),
+  [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
+  [0107](tasks/0107-e2e-capturas-de-evidencias.md) y
+  [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
+  exclusiones: cada una sola en su PR.
 - Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
   app. Al acabar la cola de seguridad, el Planificador propone para «Próximo» mejoras de la app
   (de «Propuestas»).
@@ -91,7 +101,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   vaya a darse a otras personas.
 - Vista de Entidades (propuesta 1, L). Pide `entities.read`.
 - Usuario de Windows con espacios en el log y en los errores del renderer (surgió en 0093, S, exclusión seguridad). La regla compartida (`src/shared/error-report.ts`, la clase de la línea 52) se para en el espacio: `C:UsersAna Lopez…` queda `C:Users<usuario> Lopez…`, y la carpeta `OneDrive - <Organización>` del perfil puede llevar el nombre de un cliente. Arreglarlo cambia también el renderer. Decide Dani si se hace.
-- Aviso privado a Electron sobre las conexiones nuevas a la vez (surgió en 0079, pendiente de Dani): Dani tiene pendiente enviarlo. Si Electron responde, se revisa lo decidido en la 0095 (ADR-0003, sección «Seguimiento»), incluido el riesgo aceptado de «ignorar». Lo decide Dani. (surgió en 0095)
+- Aviso privado a Electron sobre las conexiones nuevas a la vez (surgió en 0079): **Dani lo envió el 2026-10-12** por GitHub Security Advisories; a la espera de respuesta. Si en 6 días laborables no hay acuse de recibo, se escala a la dirección de seguridad de OpenJS (norma de Electron); Dani tiene un recordatorio. Si Electron responde, se revisa lo decidido en la 0095 (ADR-0003, sección «Seguimiento»), incluido el riesgo aceptado de «ignorar». Lo decide Dani. (surgió en 0095)
 - La fila de `gatedFetch` va por host con puerto (`URL.host`) y el verificador decide por nombre de host: dos puertos del mismo host con huella fijada no comparten fila. Ya pasaba en la 0079; ponerlos en la misma fila cambia cómo van las peticiones, `[ALCANCE]`. (surgió en 0095)
 - Fase 8: DQL y Logs (propuesta 4, L). Coste por GiB escaneado; incluye el streaming de
   exportaciones y el aviso de filas de Excel en CSV.
@@ -105,6 +115,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- `scripts/notify-telegram.mjs`, `redact`: tapa por subcadena, así que un id de hilo corto (una o dos cifras) también taparía esas cifras en otros textos de la salida (`HTTP 400`). Es seguro pero estropea el mensaje; para ids numéricos se podría tapar solo el número completo. Además, partir la línea de comentario de la cabecera (línea 13), de unos 130 caracteres. Opcional. (surgió en 0103)
 - `gatedFetch` (`network.ts`): una espera cancelada deja un `.then` enganchado a la promesa de la fila; es inofensivo (se resuelve siempre en el `finally`), pero se podría desenganchar. Opcional. (surgió en 0095)
 - `src/renderer/src/lib/markdown-color.ts`, `paintElement`: usar `hexToRgba` y quitar el `style` si da `null` (en vez de `knownHex`, que lanza `TypeError`), para que una regresión pierda el color y no el panel; `knownHex` se quedaría para `THEME_PAINT`. Opcional. (surgió en 0094)
 - `markdown-color.test.ts`: tests de la rama que lanza (`readableColor` con algo que no es `#rgb`/`#rrggbb`) y del `null` de `hexToRgba`. (surgió en 0094)
