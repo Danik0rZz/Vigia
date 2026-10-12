@@ -1,7 +1,7 @@
 ---
 id: '0109'
 titulo: Descripción breve de cómo se usa la página de Métricas
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: [] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -78,18 +78,43 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - Descripciones en otras páginas (Problemas, Inicio, entidades).
 - Una guía de la sintaxis de los selectores (transformaciones, filtros).
 
+## Notas del developer
+
+- Contrato de los tests (ficha ligera): `metrics.howTo` lleva el ejemplo por interpolación,
+  `<code>{{example}}</code>`, y la página le pasa `builtin:host.cpu.usage:avg` (constante
+  `HOW_TO_EXAMPLE` de `MetricsPage.tsx`); así no se repite en cada idioma. El párrafo lleva
+  `data-testid="metrics-how-to"`.
+- `Trans` lleva `t={t}`: sin él, al cambiar de idioma el texto seguía en español (`Trans` no
+  escucha el cambio de idioma y el React Compiler memoiza el subtítulo). Lo destapó el paso a inglés
+  del e2e de CA1. Candidata a lección de `src/renderer/CLAUDE.md` (doc-writer).
+
 ## Ideas surgidas (fuera de alcance)
 
 (ninguna)
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: cada CA tiene su test con el número. CA1 está en `e2e/views-metricas.spec.ts` y comprueba que el texto sale dentro del `header`, debajo del h1 y alineado con él, con el ejemplo en `code`, la clase `text-muted-foreground` y el paso a inglés. CA2, en el mismo spec, prueba «Sin métricas» y «Sin token», con `module-unavailable` y `metrics-how-to` en 0. CA3 está en `src/renderer/src/locales/metrics-how-to.test.ts` y compara interpolaciones y etiquetas entre es y en; además comprueba el texto es literal que aprobó Dani. CA4, en el mismo spec, mira desbordamiento y caja, `scrollTop` 0 y `metric-run` en la vista con `ratio: 1`. Todos fallarían sin el código, porque sin la clave o sin `data-testid` no hay texto. `git diff 2ae0ca4..HEAD` sobre los tests sale vacío: el developer no tocó los tests después del commit de tests. El `beforeEach` (`resetState`) del arnés vuelve a activar Producción, así que el entorno «Sin token» que deja activo CA2 no afecta a CA4.
+- Arquitectura y reglas: el cambio se queda en el renderer y usa el `subtitle` que ya tenía `PageHeader`. `Trans` lleva `t={t}` y los textos van por interpolación, sin HTML en la cadena; la clave está en es y en. No hay ficheros nuevos de `src/` fuera de los tests ni dependencias nuevas, y `MetricsPage` y el prefijo `metrics` ya tienen área `@metricas`. El texto es coincide palabra por palabra con el aprobado y la traducción en inglés dice lo mismo.
+- Carril: lo cumple. Solo se añade una constante de texto (`HOW_TO_EXAMPLE`) y una clave, sin componentes, funciones ni cálculos nuevos. No se quita nada visible y no se tocan datos, API ni lógica. `wrap-anywhere` ya se usa en otras páginas (Tailwind 4.3.3).
+- Seguridad y datos: el ejemplo es una métrica integrada de Dynatrace (`builtin:host.cpu.usage:avg`) y no aparece nada del tenant, de clientes ni secretos en el código, los tests o la ficha.
 
 ## Verificación
 
 (pendiente)
 
+Verificación 2026-10-12, commit 45dc3df, rango integra/20261012-15..feat/0109-metricas-descripcion-de-uso: VERDE
+
+- check: pasa (lint, tipos, formato y tests unitarios). Cobertura ok: sentencias 92,98 %, ramas 90,13 %, funciones 90,37 %, líneas 93,75 %.
+- e2e: un único pase de `test:e2e:affected`, 340 passed (1,6 min), 0 fallos. Sin `--repeat-each`: no había sospechas de inestabilidad.
+- evidencias: se piden en una tirada aparte con `VIGIA_EVIDENCIAS=1`.
+
 ## Resultado
 
-(pendiente)
+- Commits: `2ae0ca4` (tests), `08bad53` (código), más los de ficha, revisión y verificación.
+- Ficheros principales: `src/renderer/src/pages/MetricsPage.tsx` (subtítulo con `Trans` y `HOW_TO_EXAMPLE`), `locales/es|en/common.json` (`metrics.howTo`), `locales/metrics-how-to.test.ts` y `e2e/views-metricas.spec.ts`.
+- Rondas de revisión: 1 (aprobada). ADR nuevo: no. Migraciones: no.
+- Lección: `Trans` necesita `t={t}`; anotada en `src/renderer/CLAUDE.md`.
+- Nota de flujo: el verifier no hizo la tirada de evidencias; anotada en el BACKLOG.

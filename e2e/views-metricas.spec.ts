@@ -374,6 +374,110 @@ test(
 )
 
 /**
+ * Ficha 0109: descripción de uso bajo el título de Métricas (`metrics-how-to`, el `subtitle` de
+ * `PageHeader`), con el ejemplo del selector en `code` (interpolación `{{example}}`).
+ */
+const HOW_TO_EXAMPLE = 'builtin:host.cpu.usage:avg'
+
+/** `metrics.howTo` de un idioma tal y como se lee en pantalla (sin etiquetas, con el ejemplo). */
+function howToText(messages: typeof es): string {
+  const howTo = String((messages.metrics as Record<string, unknown>)['howTo'] ?? '')
+  return howTo.replace(/<\/?code>/g, '').replace('{{example}}', HOW_TO_EXAMPLE)
+}
+
+test(
+  'CA1 (0109): con el módulo disponible, la descripción sale debajo del título con el ejemplo en code',
+  { tag: '@metricas' },
+  async () => {
+    await goTo('metrics')
+    const title = page.getByRole('heading', { level: 1, name: es.nav.metrics })
+    const howTo = page.getByTestId('metrics-how-to')
+    await expect(howTo).toBeVisible()
+    await expect(howTo).toHaveText(howToText(es))
+    await expect(howTo.locator('code')).toHaveText(HOW_TO_EXAMPLE)
+    // Dentro de la cabecera de la página, debajo del título y alineada con él a la izquierda.
+    await expect(
+      page.locator('header').filter({ has: title }).getByTestId('metrics-how-to')
+    ).toBeVisible()
+    const titleBox = await title.boundingBox()
+    const howToBox = await howTo.boundingBox()
+    expect(howToBox?.y ?? 0).toBeGreaterThanOrEqual(
+      (titleBox?.y ?? 0) + (titleBox?.height ?? 0) - 1
+    )
+    expect(Math.abs((howToBox?.x ?? 0) - (titleBox?.x ?? 0))).toBeLessThanOrEqual(1)
+    await expect(howTo).toHaveClass(/text-muted-foreground/)
+    await captureEvidence(page, { criterio: 'CA1 (0109)', zona: howTo })
+
+    // En inglés, el mismo contenido traducido.
+    await page.getByRole('button', { name: es.topbar.language }).click()
+    await expect(howTo).toHaveText(howToText(en))
+    await expect(howTo.locator('code')).toHaveText(HOW_TO_EXAMPLE)
+  }
+)
+
+test(
+  'CA2 (0109): sin acceso al módulo, el aviso de siempre y no la descripción',
+  { tag: '@metricas' },
+  async () => {
+    await invoke('connection:test', { environmentId: env['Sin métricas'] })
+    await activate('Sin métricas')
+    await goTo('metrics')
+    await expect(page.getByTestId('module-unavailable')).toContainText('metrics.read')
+    await expect(page.getByRole('heading', { level: 1, name: es.nav.metrics })).toBeVisible()
+    await expect(page.getByTestId('metrics-how-to')).toHaveCount(0)
+
+    await activate('Sin token')
+    await goTo('metrics')
+    await expect(page.getByTestId('module-unavailable')).toContainText(
+      'Este módulo usa el token clásico'
+    )
+    await expect(page.getByTestId('metrics-how-to')).toHaveCount(0)
+  }
+)
+
+test(
+  'CA4 (0109): con la ventana del CI, la descripción cabe en su caja y Consultar se ve sin desplazar',
+  { tag: '@metricas' },
+  async () => {
+    await goTo('metrics')
+    const howTo = page.getByTestId('metrics-how-to')
+    await expect(howTo).toBeVisible()
+    const fits = await howTo.evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      const header = element.closest('header')?.getBoundingClientRect()
+      const main = element.closest('main')
+      const mainBox = main?.getBoundingClientRect()
+      return {
+        noOverflow: element.scrollWidth <= element.clientWidth + 1,
+        insideHeader:
+          header !== undefined && box.left >= header.left - 1 && box.right <= header.right + 1,
+        insideMain:
+          mainBox !== undefined && box.left >= mainBox.left - 1 && box.right <= mainBox.right + 1,
+        mainScrollTop: main?.scrollTop ?? -1
+      }
+    })
+    expect(fits).toEqual({
+      noOverflow: true,
+      insideHeader: true,
+      insideMain: true,
+      mainScrollTop: 0
+    })
+
+    // El botón Consultar está entero a la vista sin haber desplazado nada.
+    const run = page.getByTestId('metric-run')
+    await expect(run).toBeVisible()
+    const runBox = await run.boundingBox()
+    const viewport = await viewportSize()
+    expect(runBox).not.toBeNull()
+    expect((runBox?.y ?? 0) + (runBox?.height ?? 0)).toBeLessThanOrEqual(viewport.height)
+    expect((runBox?.x ?? 0) + (runBox?.width ?? 0)).toBeLessThanOrEqual(viewport.width)
+    await expect(run).toBeInViewport({ ratio: 1 })
+    expect(await page.locator('main').evaluate((main) => main.scrollTop)).toBe(0)
+    await captureEvidence(page, { criterio: 'CA4 (0109)', zona: page.locator('main') })
+  }
+)
+
+/**
  * Ficha 0107: capturas de evidencias (`captureEvidence`, de `e2e/evidence.ts`). Se prueban sobre
  * Métricas porque tiene un gráfico de ECharts que anima al pintarse, un campo de texto
  * (`metric-selector`) y, en el menú, enlaces con tooltip de Radix.
