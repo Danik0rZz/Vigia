@@ -562,3 +562,20 @@ describe('CA7 (0043): rehype-raw y rehype-sanitize con versión exacta', () => {
     expect(version).toMatch(/^\d+\.\d+\.\d+$/)
   })
 })
+
+describe('CA2 (0094): un color con nombre del prototipo no se pinta', () => {
+  it.each(['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty'])(
+    '<span style="color:%s"> se pinta sin style',
+    (name) => {
+      const text = `Texto <span style="color:${name}">x</span> fin`
+      const tree = render(text)
+      expectSafe(tree, name)
+      for (const node of all(tree)) {
+        expect(node.attrs['style'], `<${node.tag}> style="${node.attrs['style'] ?? ''}"`).toBe(
+          undefined
+        )
+      }
+      expect(textOf(tree)).toContain('x')
+    }
+  )
+})
