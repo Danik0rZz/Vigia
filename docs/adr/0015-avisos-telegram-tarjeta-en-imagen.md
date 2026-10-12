@@ -1,6 +1,6 @@
 # ADR-0015: Avisos de Telegram con tarjeta en imagen
 
-Estado: aceptado (2026-10-12). Fichas: 0104 y 0105. Amplía el ADR-0009.
+Estado: aceptado (2026-10-12). Fichas: 0104, 0105 y 0106. Amplía el ADR-0009.
 
 ## Contexto
 
@@ -65,6 +65,18 @@ que es texto no fiable que se pinta en HTML.
   Telegram) envía el texto de siempre (ADR-0009); el script sale con 0. `VIGIA_TELEGRAM_TEXTO=1`
   lo fuerza. Defecto aceptado: si la primera foto falla por tiempo o red y llega tarde, el aviso
   sale dos veces.
+- **Responder al aviso anterior (0106):** tras un envío bien, el script guarda el `message_id` de
+  `result` (el de la primera parte si la tarjeta va en varias) en `vigia-telegram-avisos.json`, en
+  la carpeta de `git rev-parse --git-common-dir` (compartida por el checkout y los worktrees, fuera
+  del árbol de trabajo, sin versionar), como `{ "<ficha o versión>": <message_id> }` con las 200
+  más recientes (por `message_id`) y sin token ni chat_id. El aviso siguiente de esa clave lleva
+  `reply_parameters: { message_id, allow_sending_without_reply: true }`, en vez de responder al
+  mensaje que abre el hilo (0103); el `message_thread_id` se mantiene. El reintento sin hilo va sin
+  respuesta. Se escribe releyendo antes y con un temporal más `rename`; un fichero ausente,
+  ilegible o con otra forma se trata como «sin aviso anterior» y se dice, sin parar nunca. Campos
+  comprobados en la Bot API el 2026-10-12. Límites aceptados: con dos worktrees que guardan a la
+  vez gana el último `rename` (en Windows puede dar EPERM) y se pierde una entrada, y el recorte
+  supone un solo chat; en el peor caso, un aviso sin respuesta al anterior.
 
 ## Alternativas descartadas
 
