@@ -1,7 +1,7 @@
 ---
 id: '0105'
 titulo: Enviar el aviso de Telegram como imagen, con pie de texto buscable
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: L # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [externos, seguridad] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -11,10 +11,10 @@ depende_de: ['0103', '0104'] # fichas que tienen que estar hechas antes, por nú
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
 rama: feat/0105-telegram-aviso-en-imagen
 adrs: ['0009'] # ADR que aplican, por número
-adr_nuevo: # el de la 0104; el doc-writer lo completa con la captura y el envío
+adr_nuevo: '0015' # el de la 0104; el doc-writer lo completa con la captura y el envío
 api: ninguna (Telegram Bot API, https://core.telegram.org/bots/api#sendphoto; no es Dynatrace)
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -139,18 +139,91 @@ En `scripts/`, sin red (`fetchImpl` simulado), salvo CA6, que usa Electron de ve
 - Responder al aviso anterior de la misma ficha (0106) y las evidencias (0107 y 0108).
 - Avisos en otros momentos (cada ronda, CI en rojo): ya está en «Mejoras anotadas».
 
+## Decisiones del developer
+
+- **Documentación de `sendPhoto` comprobada el 2026-10-12** (https://core.telegram.org/bots/api#sendphoto):
+  campos `chat_id`, `message_thread_id`, `photo`, `caption`, `parse_mode` y `reply_parameters`
+  (JSON en multipart); foto de hasta 10 MB, ancho más alto hasta 10 000 px y proporción hasta 20;
+  pie de 0 a 1 024 caracteres después de interpretar las entidades. El título del pie se corta a
+  300 caracteres para no pasar nunca de ese límite.
+- **Alto máximo de cada parte: 3 200 px de imagen** (1600 × 3200, proporción 2; `DEFAULT_MAX_HEIGHT`
+  en `scripts/telegram-capture.cjs`): Telegram reduce las fotos a unos 2 560 px por el lado largo, y
+  a 1 280 px de ancho la tarjeta se lee en el móvil. Tope duro de 8 400 px (ancho más alto 10 000):
+  un bloque más alto que eso se corta, porque Telegram no lo aceptaría.
+- **Multipart hecho a mano** (`multipart` en `notify-telegram.mjs`), no `FormData`: el `FormData` de
+  Node cambia los saltos de línea de los campos por CRLF al enviarlo, y el pie tiene que llegar tal
+  cual (CA3). Sigue sin dependencias.
+- **Escala 2 con `force-device-scale-factor`** y captura por partes desplazando la página (la
+  ventana, del alto de la parte más alta): no depende del alto de la pantalla.
+- **Tiempo máximo de la captura: 45 s** (`CAPTURE_TIMEOUT_MS`); el script de captura se corta solo
+  a los 60 s y se mata al pasar el tiempo.
+- **Enlace de la ficha:** al fichero `tasks/NNNN-….md`, buscado en `tasks/` de la carpeta desde la
+  que se lanza y en la del checkout del script; si no se encuentra, a la carpeta `tasks/`. Una
+  `rama` con caracteres raros o `..` se cambia por `main`.
+- **Primera parte rechazada en el hilo:** se reintenta una vez sin hilo, como el texto (0103); si
+  tampoco, el texto de siempre.
+- **Para el Orquestador (test de CA6, sin tocar):** el script de medida del test (`MEASURE` en
+  `scripts/telegram-capture.test.ts`) mide a la escala de la pantalla. En una pantalla al 150 %
+  (esta máquina) los bordes se ajustan a píxeles físicos y la tarjeta corta mide 419 px en lugar
+  de 421, y CA6 falla por 4 px de imagen (tolerancia 3). A escala 1 forzada mide 421, igual que la
+  captura a escala 2; en el CI (pantalla al 100 %) pasa. Arreglo propuesto para el test:
+  `app.commandLine.appendSwitch('force-device-scale-factor', '1')` en `MEASURE`.
+
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) Con `estado: hecha`, la rama de la ficha ya la ha borrado GitHub al fusionar y el
+  enlace de la ficha daría 404: `tarea.md` podría pedir `rama` vacía (main) en ese aviso.
+- (developer) `.claude/agents/planner.md` también manda avisos: podría pedir el resumen en Markdown
+  y los campos nuevos como `tarea.md`.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- **Criterios y tests.** CA1 a CA11 tienen su test con el número en el nombre y fallarían sin el código: el pie compara líneas exactas, CA2 prueba dominios parecidos y `javascript:`, CA4 un caso por cada fallo y CA7 levanta un servidor TCP local que cuenta conexiones. El developer no tocó los tests tras `ce821b4`; el único cambio posterior es `eb04939`, del test-writer, anotado en la ficha: `force-device-scale-factor=1` solo en el script de medida de los tests. No afloja el criterio: la tolerancia sigue igual (`TOL = 1.5`), la captura de verdad sigue a escala 2 y la referencia ya no depende del escalado de la pantalla.
+- **Aislamiento de la captura (CA7), `scripts/telegram-capture.cjs`.** `sandbox: true`, `contextIsolation`, sin preload, `nodeIntegration` por defecto (falso). Sesión propia en memoria; `onBeforeRequest` cancela todo lo que no sea `data:` o el propio documento (comparado por ruta resuelta, así que los demás `file:` también se cancelan). Permisos denegados en petición y comprobación. Bloqueados `window.open`, `will-navigate`, `will-redirect`, `will-frame-navigate` y `will-attach-webview`, sin herramientas de desarrollo. Perfil temporal que se borra al salir y sin `ELECTRON_RUN_AS_NODE`. La medida la ejecuta el script, no la página.
+- **Multipart de `sendPhoto` a mano (`scripts/notify-telegram.mjs`).** Separador con `randomUUID()`, no inyectable desde el pie; nombres con comillas y saltos escapados; `reply_parameters` como JSON. Campos de la documentación oficial de `sendPhoto`. Los errores pasan por `redact` (token, chat_id e hilo). El filtro del tenant cubre el pie y todos los campos de la tarjeta, incluidos `duracion`, `rama`, `pr` y `origen`, y actúa antes de capturar.
+- **Decisiones del developer: razonables y documentadas.** 3 200 px por parte y tope duro de 8 400 px respetan los límites de Telegram; captura con tiempo máximo de 45 s y corte del script a los 60 s; reintento sin hilo de la primera parte como en la 0103. Comentarios en español, identificadores en inglés, sin dependencias nuevas. `flujo.md`, `tarea.md` y `cerrar-version.md` cumplen la especificación y CA11. Sin datos del tenant ni nombres de clientes.
+
+Opcional (no bloquea):
+
+1. `sendImage`: si la primera parte falla por tiempo agotado o red (no por rechazo de Telegram), se envía el texto; si la foto llegó tarde, el aviso sale dos veces. Aceptable porque el aviso nunca para el flujo; conviene anotarlo.
+2. En la ventana de captura, `<link rel="dns-prefetch">` y `preconnect` no pasan por `webRequest`. Hoy no tiene efecto (la tarjeta escapa todo y su CSP es estricta). Para cerrarlo: `app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND')` en `telegram-capture.cjs`.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `ce821b4` (fallan hasta que exista el código). Contrato que fijan (detalle en la
+cabecera de cada fichero): `buildCaption` exportada de `notify-telegram.mjs`; `main` con
+`deps.capture(html)` (promesa con los PNG en orden; sin ella, texto) y `deps.captureTimeoutMs`;
+`electron scripts/telegram-capture.cjs --html <f> --out <dir> [--max-height <px de la imagen>]`, que
+deja `parte-1.png`, `parte-2.png`… y sale con 0.
+
+- CA1: `scripts/notify-telegram-image.test.ts`, «CA1 (0105): buildCaption da las líneas del pie».
+- CA2: ídem, «CA2 (0105): escapado y enlaces solo al repositorio».
+- CA3: ídem, «CA3 (0105): sendPhoto con la captura bien».
+- CA4: ídem, «CA4 (0105): si falla la imagen, el texto de siempre» (falla, tiempo, 10 MB, ancho más
+  alto, proporción y error de `sendPhoto`).
+- CA5: ídem, «CA5 (0105): VIGIA_TELEGRAM_TEXTO=1» (con un control sin la variable).
+- CA6: `scripts/telegram-capture.test.ts`, «CA6 (0105): captura con el Electron del proyecto».
+- CA7: ídem, «CA7 (0105): la ventana de captura, cerrada» (servidor TCP local que cuenta conexiones y
+  marca de `require`; y `sandbox: true` sin `nodeIntegration: true` en el fuente).
+- CA8: `notify-telegram-image.test.ts`, «CA8 (0105): …» (título, rama, pr, duración y resumen).
+- CA9: `telegram-capture.test.ts`, «CA9 (0105): …» (posiciones de `data-bloque` medidas con un
+  Electron propio del test).
+- CA10: `notify-telegram-image.test.ts`, «CA10 (0105): varias partes».
+- CA11: ídem, «CA11 (0105): tarea.md y cerrar-version.md piden el resumen en Markdown…».
+- Arreglo del test (ronda de revisión): el script de medida de CA6 y CA9 fuerza
+  `force-device-scale-factor` a 1; con la escala de la pantalla (150 %) medía 419 px CSS en vez de 421. CA6, CA7 y CA9 pasan en esta máquina.
+
+Verificación 2026-10-12, commit f4f5994, rango main..feat/0105-telegram-aviso-en-imagen: VERDE
+
+- check: 229 ficheros, 4304 tests, cobertura dentro del umbral. En el primer pase falló por timeout de 5 s «CA3 (0105)» (`scripts/notify-telegram-image.test.ts`, multipart/form-data); aislado ×3 con los 37 tests del fichero pasó siempre (~0,7 s) y un segundo `npm run check` completo salió verde. Intermitente, probablemente por la carga de la máquina con 229 ficheros a la vez; si se repite, subir su timeout o revisar el servidor local que levanta.
+- e2e: `test:e2e:affected`, un único pase: 370 pasan, ninguno falla (1,6 min).
+- No se envió nada a Telegram.
 
 ## Resultado
 
-(pendiente)
+- Commits: `ce821b4` y `790b288` (tests), `4d9b502` (código), `0ad9c04` (flujo y comandos), `eb04939` (medida a escala 1). Rondas de revisión: 1 (APROBADO). Verificación en verde.
+- Ficheros principales: `scripts/notify-telegram.mjs`, `scripts/telegram-capture.cjs`, `scripts/notify-telegram-image.test.ts`, `scripts/telegram-capture.test.ts`, `docs/flujo.md`, `.claude/commands/tarea.md` y `cerrar-version.md`.
+- ADR: completado el ADR-0015 (captura y envío). Sin migraciones.
+- Ideas y sospechosos pasados al BACKLOG: aviso duplicado si la foto llega tarde, `host-resolver-rules`, rama vacía con `hecha`, aviso del Planificador y el timeout de «CA3 (0105)».

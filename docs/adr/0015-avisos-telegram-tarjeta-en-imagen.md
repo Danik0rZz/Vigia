@@ -1,6 +1,6 @@
 # ADR-0015: Avisos de Telegram con tarjeta en imagen
 
-Estado: aceptado (2026-10-12). Ficha: 0104. Amplía el ADR-0009.
+Estado: aceptado (2026-10-12). Fichas: 0104 y 0105. Amplía el ADR-0009.
 
 ## Contexto
 
@@ -46,6 +46,25 @@ que es texto no fiable que se pinta en HTML.
   `rehype-raw`, ADR-0011, vía `hast-util-raw`) y el CSS con `postcss` (8.5.28, que llega por `vite`).
   No están declarados: declararlos sería una dependencia nueva. El lockfile fija sus versiones, solo
   los usan los tests y, si desaparecen, el test falla de forma visible.
+- **Captura (0105): Electron, el que ya está instalado.** `scripts/telegram-capture.cjs` abre la
+  tarjeta en una ventana oculta de 800 px a escala 2, mide el alto con `scrollHeight` en `load`
+  (medido antes sale menor) y captura con `webContents.capturePage()`. Sin dependencias ni
+  descargas nuevas (el Chromium de Playwright no está; Edge depende de la máquina).
+- **Ventana cerrada:** `sandbox`, `contextIsolation`, sin `nodeIntegration` ni preload, sesión
+  propia en memoria, `webRequest` cancela todo salvo `data:` y el propio documento, permisos
+  denegados, sin navegación ni ventanas nuevas; la medida la ejecuta el script, no la página.
+- **Imagen alta, en partes:** máximo 3 200 px de imagen por parte (1600 × 3200; Telegram reduce a
+  unos 2 560 px el lado largo); los cortes caen entre las marcas `data-bloque`; un bloque más alto
+  que el tope duro de 8 400 px (límite de 10 000 de ancho más alto) se corta. La primera parte lleva
+  el pie y las demás son respuesta a ella con «(n/N)».
+- **Envío:** `sendPhoto` con multipart escrito a mano (el `FormData` de Node cambia los saltos
+  de línea por CRLF y el pie debe llegar tal cual), sin dependencias. Pie en `parse_mode` HTML,
+  escapado, con enlaces solo `https://github.com/` del repositorio; título cortado a 300 caracteres
+  para no pasar de 1 024.
+- **Respaldo:** cualquier fallo de la imagen (captura, 45 s de tiempo máximo, límites, rechazo de
+  Telegram) envía el texto de siempre (ADR-0009); el script sale con 0. `VIGIA_TELEGRAM_TEXTO=1`
+  lo fuerza. Defecto aceptado: si la primera foto falla por tiempo o red y llega tarde, el aviso
+  sale dos veces.
 
 ## Alternativas descartadas
 
@@ -53,6 +72,8 @@ que es texto no fiable que se pinta en HTML.
   el aviso.
 - Markdown y resaltado desde un CDN: contenido remoto y red en la captura, contra el ADR-0008.
 - Permitir HTML crudo en el resumen (`rehype-raw`): lo escriben agentes; el riesgo no compensa.
+- El Chromium de Playwright o Edge para capturar: descarga y servicio externo más, o dependencia de
+  cada máquina.
 - Dejar los enlaces: en la imagen no se pulsan.
 - Recortar el resumen a un tamaño fijo: contradice lo que pidió Dani.
 - Declarar `parse5` y `postcss` en `devDependencies`: dependencia nueva sin necesidad.

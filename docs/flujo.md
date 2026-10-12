@@ -421,10 +421,25 @@ numeradas). Telegram solo avisa: la respuesta se da en la sesión, en el PC o de
 con Remote Control (ver "Cómo se arranca"). Recibir órdenes por Telegram (Channels de Claude Code,
 en vista previa) queda fuera de momento (ADR-0010).
 
-El mensaje es texto plano y corto: ficha o versión, título, estado, rondas, resultado del verifier,
-la decisión que se espera de Dani si la hay, un resumen y el enlace del CI. Lo redacta el
-Orquestador sin datos del tenant ni nombres de clientes; además, el script lo pasa por el filtro de
-`scan:tenant` y, si encuentra algo, no lo envía.
+El aviso es una **imagen** (ficha 0105): la tarjeta de la 0104 (ficha o versión, título, estado,
+rondas, verifier, CI, duración, el resumen en Markdown, la decisión que se espera de Dani si la hay,
+rama y PR), capturada con el Electron del proyecto (`scripts/telegram-capture.cjs`, en una ventana
+oculta y cerrada a todo) y enviada con `sendPhoto`. Lleva un **pie de texto** en HTML de Telegram,
+que se puede buscar y pulsar: Estado con su icono, Título, `Tarea: NNNN` (o `Versión: X.Y.Z`) y
+Ficha, PR y CI como enlaces (solo al repositorio). Campos del JSON además de los de siempre,
+opcionales: `duracion`, `rama` y `pr`. Lo redacta el Orquestador sin datos del tenant ni nombres
+de clientes; además, el script pasa el pie y todos los campos por el filtro de `scan:tenant` antes
+de capturar nada y, si encuentra algo, no envía ni la imagen ni el texto.
+
+- **Tarjeta alta, en partes:** más de 3 200 px de alto (a 1 600 de ancho) se parte entre bloques,
+  nunca por la mitad de uno; la primera parte lleva el pie y las demás van como respuesta a ella,
+  con «(2/3)», «(3/3)». Un bloque que solo ya pasa del máximo va en su propia parte (y, si pasa
+  del límite de Telegram, ancho más alto hasta 10 000 px, se corta).
+- **El texto, de respaldo:** si no está Electron, la captura falla o tarda más de 45 s, la imagen
+  se pasa de los límites de Telegram (10 MB, ancho más alto hasta 10 000 px, proporción hasta 20)
+  o Telegram rechaza la foto, se envía el aviso de texto de siempre (`sendMessage`) y se dice en
+  la terminal. Con `VIGIA_TELEGRAM_TEXTO=1` (del entorno o del registro, como las demás), siempre
+  el texto.
 
 - **Sin filtro, no se envía** (ficha 0092): si no hay `.env.live.local` con valores (ni en la
   carpeta ni en el checkout principal), el texto no se puede filtrar y el script no lo envía:
@@ -445,7 +460,8 @@ Orquestador sin datos del tenant ni nombres de clientes; además, el script lo p
   variable, el aviso va al chat como siempre.
 - **Nunca para el flujo:** sin variables, sin red o con un error de Telegram, sale con 0 y lo dice
   en la terminal con el prefijo `[aviso telegram]`, sin el token, el chat_id ni el id del hilo.
-- **Probarlo:** los tests (`npx vitest run scripts/notify-telegram.test.ts`) no usan la red. Para
+- **Probarlo:** los tests (`npx vitest run scripts/notify-telegram.test.ts scripts/notify-telegram-image.test.ts`)
+  no usan la red; `scripts/telegram-capture.test.ts` lanza el Electron del proyecto, sin red. Para
   un envío real, un JSON en el scratchpad, por ejemplo
   `{ "tipo": "tarea", "ficha": "0000", "titulo": "Prueba", "estado": "hecha", "resumen": "Aviso de prueba", "rondas": 1, "verifier": "VERDE" }`,
   y `node scripts/notify-telegram.mjs <ruta-del-json>`.
