@@ -32,7 +32,10 @@ Pedida por Dani a través del Orquestador (sesión vigia-c0, 2026-10-12), segund
   cada evidencia del manifiesto: la captura de la zona y la de la ventana entera, a lo ancho de la
   tarjeta (sin agrandarlas si son más pequeñas), y debajo, a la izquierda,
   «CA1 (0018) · <título del test sin el prefijo>» y la `nota` si la hay. Las imágenes van como
-  `data:` (la CSP de la 0104 ya lo permite). Cada evidencia es un bloque (marca de la 0104), para
+  `data:` (la CSP de la 0104 ya lo permite). Diseño del prototipo: cada captura a todo el ancho,
+  con borde `#26303b` y radio 10 px; debajo, «CA1 (0018)» en el acento (`#D97757`) con peso 650,
+  « · » y el texto en `#cfd8e1` a 15 px; 16 px entre capturas. Si el manifiesto dice
+  `estable: false` (0107), debajo de esa evidencia sale «captura tomada con movimiento». Cada evidencia es un bloque (marca de la 0104), para
   que la 0105 parta la imagen entre evidencias y no por la mitad de una.
 - **Todas las evidencias, sin tope** (Dani, 2026-10-12): «es la prueba empírica de que está todo
   ok; no puede ni debe tener falta de detalles». Zona y ventana, y todas las que haya. Si no caben

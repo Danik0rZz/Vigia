@@ -37,8 +37,10 @@ de Telegram en imagen»:
   descargarlo es una dependencia y un servicio externo más; Edge depende de cada máquina. Electron
   44 ya está fijado en `devDependencies` y tiene `webContents.capturePage()`. Un script aparte (por
   ejemplo `scripts/telegram-capture.cjs`) se lanza con el binario de Electron del proyecto: abre el
-  HTML de la 0104 en una ventana oculta, mide el alto del contenido tras cargar, ajusta la ventana a
-  ese alto y guarda el PNG en una carpeta temporal.
+  HTML de la 0104 en una ventana oculta de 800 px a escala 2 (sale de 1600 px de ancho, como el
+  prototipo), mide el alto con `document.documentElement.scrollHeight` en el evento `load` (después
+  de que carguen las imágenes; medido antes sale menor, se vio en el prototipo), ajusta la ventana a
+  ese alto, captura con `webContents.capturePage()` y guarda el PNG en una carpeta temporal.
 - **Ventana de la captura cerrada a todo:** `sandbox`, sin `nodeIntegration`, sin preload, todas las
   peticiones que no sean el propio documento o `data:` canceladas (`session.webRequest`), sin
   permisos (`setPermissionRequestHandler` que dice que no) y sin navegación ni ventanas nuevas. Si
@@ -50,18 +52,22 @@ de Telegram en imagen»:
   que da Telegram para fotos y que el developer confirma: hasta 10 MB, ancho más alto hasta 10 000
   px y proporción hasta 20; el pie, hasta 1 024 caracteres.
 - **Pie (`caption`):** una línea por dato, lo que no aplica no sale:
-  - `Estado: <icono> <texto>` (✅ OK para `hecha` y `cerrada`, ⏸️ Pausa para `parada`, ⛔
-    Bloqueada para `bloqueada` y `fallida`, 🔄 En proceso para `en_proceso`).
-  - El título, en `<b><u>…</u></b>`.
-  - `Tarea: NNNN` (o `Versión: X.Y.Z`).
+  - `<b>Estado:</b> <icono> <texto>` (✅ OK para `hecha` y `cerrada`, ⏸️ Pausa, espera a Dani
+    para `parada`, ⛔ Bloqueada para `bloqueada` y `fallida`, 🔄 En proceso para `en_proceso`). En
+    el pie sí van emoji; en la imagen, símbolos de texto (0104).
+  - `<b>Título:</b> <b><u>…</u></b>`.
+  - `<b>Tarea:</b> NNNN` (o `<b>Versión:</b> X.Y.Z`).
+  - `<b>Ficha:</b>`, `<b>PR:</b>` y `<b>CI:</b>` con sus enlaces (abajo).
   - `Ficha`, `PR` y `CI` como `<a href>`: la ficha, al fichero en GitHub de la rama `rama` si viene
     y, si no, de `main`; la PR, de `pr`; el CI, de `ci`. Solo URLs `https://github.com/` del
     repositorio; cualquier otra no se pone.
   - Todo escapado para el HTML de Telegram (`<`, `>`, `&`, y las comillas en los atributos).
 - **Imagen alta, en partes** (decidido por el Planificador, porque Dani quiere detalle sin recortar
   y Telegram tiene límites): Telegram reduce las fotos grandes y una tarjeta muy alta se leería mal
-  en el móvil. Si la tarjeta pasa de un alto máximo (el developer lo fija tras comprobar en la
-  documentación cómo reduce Telegram las fotos y lo anota; orientativo, 2 560 px), el script de
+  en el móvil. Si la tarjeta pasa de un alto máximo, el script de captura la parte. El developer
+  fija ese máximo y lo anota, con los límites de la documentación (ancho más alto hasta 10 000 px,
+  proporción hasta 20) y con lo que se lee en el móvil. Dato del prototipo: Telegram aceptó una foto
+  de 1600×3750 px. Al partir, el script de
   captura la parte entre bloques (las marcas de la 0104), nunca por la mitad de un bloque, y se
   envían en orden: la primera con el pie y las demás como respuesta a la primera, con
   «(2/3)», «(3/3)» en su pie. Un bloque que por sí solo pasa del máximo va en su propia parte.
@@ -95,8 +101,8 @@ los agentes en un navegador):
 Cada uno se comprueba con un test automático (unitario o e2e) que lleva su número en el nombre.
 En `scripts/`, sin red (`fetchImpl` simulado), salvo CA6, que usa Electron de verdad.
 
-- CA1: `buildCaption(datos)` da las líneas de la especificación, en ese orden, con el icono de
-  cada estado, el título en `<b><u>` y los enlaces de Ficha, PR y CI; sin `pr` ni `ci`, esas líneas
+- CA1: `buildCaption(datos)` da las líneas de la especificación, en ese orden, con sus rótulos en
+  `<b>`, el emoji y el texto de cada estado, el título en `<b><u>` y los enlaces de Ficha, PR y CI; sin `pr` ni `ci`, esas líneas
   no salen.
 - CA2: un título con `<`, `>`, `&` y comillas sale escapado en el pie, y una URL de `ci` o `pr`
   que no es `https://github.com/<el repositorio>/…` no sale como enlace.
@@ -107,7 +113,8 @@ En `scripts/`, sin red (`fetchImpl` simulado), salvo CA6, que usa Electron de ve
   cada caso, un test.
 - CA5: con `VIGIA_TELEGRAM_TEXTO=1` no se captura nada y se envía el texto.
 - CA6: el script de captura, con el Electron del proyecto y una tarjeta de prueba de la 0104, da un
-  PNG válido (firma PNG), del ancho de la tarjeta y con el alto del contenido (más alto con un
+  PNG válido (firma PNG), de 1600 px de ancho (800 a escala 2) y con el alto del contenido, incluida
+  una imagen `data:` de la tarjeta (no se mide antes de que cargue) (más alto con un
   resumen largo que con uno corto).
 - CA7: en la ventana de captura, una petición a una URL `https://` metida en la página no sale
   (queda cancelada) y la ventana tiene `sandbox` y no tiene `nodeIntegration`.

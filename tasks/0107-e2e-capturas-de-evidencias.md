@@ -38,6 +38,9 @@ Esta ficha solo **produce las capturas** al pasar los e2e; meterlas en el aviso 
   `manifiesto.json` con el criterio, el título del test, un texto corto opcional (`nota`) y las dos
   rutas. Un criterio puede tener **varias** evidencias (varias llamadas, cada una con su zona),
   con nombres que no se pisan (`<CA>-<n>-zona.png`, `<CA>-<n>-ventana.png`).
+- Como en el prototipo: el test usa el arnés de vistas tal cual (`setupViewsApp`, `openHostPage` u
+  otros) y, después de sus `expect`, `locator.screenshot()` de la zona y `page.screenshot()` de la
+  ventana (1024×720, de `applyCiWindow`).
 - **Que no falte detalle** (Dani, 2026-10-12): las evidencias son la prueba empírica de que todo
   está bien. Van la zona y la ventana entera, para ver el conjunto; si el cambio toca varias cosas,
   una evidencia por cada una.
@@ -46,9 +49,15 @@ Esta ficha solo **produce las capturas** al pasar los e2e; meterlas en el aviso 
 - **Solo del simulador:** los e2e de Playwright solo hablan con el simulador (ADR-0006); la ayuda
   además se niega a capturar si la app no está apuntando al simulador (la URL del tenant de la
   prueba no es la del simulador local) y lo dice en el log del test.
-- **Sin animaciones a medias:** antes de capturar, `reducedMotion: 'reduce'` y espera a que los
-  gráficos de la zona hayan terminado de pintar (el developer elige cómo, por ejemplo el evento
-  `finished` de ECharts o que dos capturas seguidas den lo mismo) y deja la emulación como estaba.
+- **Sin animaciones a medias.** En el prototipo, esperar a que `data-series` tuviera series no
+  bastó: la captura de la ventana salió con los gráficos aún vacíos, porque ECharts sigue animando.
+  ECharts no hace caso de `prefers-reduced-motion` en la app (solo Motion y el CSS), así que
+  `reducedMotion: 'reduce'` no basta. Decisión del Planificador: **sin tocar la app**, la ayuda
+  captura hasta que dos capturas seguidas den los mismos bytes (lo que hace `toHaveScreenshot` de
+  Playwright), con un tiempo máximo. Si se pasa del tiempo, guarda la última y lo apunta en el
+  manifiesto (`estable: false`). Desactivar la animación de ECharts en la app con una marca de e2e
+  o hacer que respete `prefers-reduced-motion` cambia la app: si el developer lo ve necesario, es
+  un `[ALCANCE]`.
 - `.claude/agents/test-writer.md`: en cada e2e de un criterio que cambia algo visible, una llamada
   a `captureEvidence` por cada cosa que cambia (con su zona), al final del test (cuando ya ha
   comprobado lo que tiene que comprobar). En el carril rápido lo hace el developer al escribir los
@@ -79,8 +88,10 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 - CA2: sin `VIGIA_EVIDENCIAS`, el mismo test no deja ningún fichero en `test-results/evidencias`.
   e2e.
 - CA3: con un gráfico de ECharts en la zona, dos capturas seguidas de la zona dan los mismos bytes
-  (no se capturó a media animación), y tras capturar la emulación de movimiento vuelve a la de antes.
-  e2e.
+  (no se capturó a media animación), tanto en la zona como en la ventana, y el manifiesto dice
+  `estable: true`. e2e.
+- CA3b: si la zona no deja de cambiar antes del tiempo máximo (una zona de prueba que cambia sin
+  parar), se guarda la última captura con `estable: false` y el test no falla. e2e.
 - CA4: si la app no apunta al simulador, `captureEvidence` no guarda nada. Unitario de la función
   que lo decide.
 - CA5: `test-writer.md` pide `captureEvidence` en los e2e de los criterios visibles, y

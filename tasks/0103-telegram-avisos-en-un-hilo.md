@@ -33,8 +33,13 @@ Telegram en imagen», con un prototipo probado fuera del repositorio:
 - Variable nueva de usuario de Windows, `VIGIA_TELEGRAM_THREAD_ID`, leída igual que las otras dos
   (del entorno o del registro, ADR-0009). Es opcional: sin ella, el aviso va al chat como hoy.
 - Con la variable, `sendMessage` lleva `message_thread_id` con ese valor y
-  `reply_parameters: { message_id: <el mismo valor> }` (el mensaje que abre el hilo tiene ese id;
-  así lo observó el prototipo). Los nombres de los campos, de la documentación oficial de
+  `reply_parameters: { message_id: <el mismo valor>, allow_sending_without_reply: false }` (el
+  mensaje que abre el hilo tiene ese id). Lo observado en el prototipo (2026-10-12): el grupo **no
+  es un foro** (`is_forum: false`), son hilos de respuestas y no temas; solo con
+  `message_thread_id` el mensaje cae en el chat principal, así que hace falta responder a un mensaje
+  del hilo. Sin el bot como administrador, Telegram responde «message to be replied not found»
+  incluso con mensajes escritos después de que entrara. El reintento sin hilo (abajo) deja el aviso
+  en el chat principal. Los nombres de los campos, de la documentación oficial de
   `sendMessage` (https://core.telegram.org/bots/api#sendmessage); el developer los comprueba allí y
   anota la fecha en la ficha, como se hizo en el ADR-0009 con `link_preview_options`.
 - El valor se valida antes de usarlo (un entero positivo); si no lo es, se envía sin hilo y se avisa
@@ -64,7 +69,8 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 Todos en `scripts/notify-telegram.test.ts`, sin red (`fetchImpl` simulado).
 
 - CA1: con `VIGIA_TELEGRAM_THREAD_ID` con un entero positivo, el cuerpo de `sendMessage` lleva
-  `message_thread_id` y `reply_parameters.message_id` con ese número; sin la variable, no lleva
+  `message_thread_id` y `reply_parameters.message_id` con ese número (y
+  `allow_sending_without_reply: false`); sin la variable, no lleva
   ninguno de los dos (como hoy).
 - CA2: la variable se lee también del registro de Windows cuando no está en el entorno (como las
   otras dos).
