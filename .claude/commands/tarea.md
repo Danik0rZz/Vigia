@@ -182,7 +182,7 @@ pregunta (con el **Aviso** de `parada`).
 **Aviso** (`docs/flujo.md`; opcional, nunca para el flujo): escribe un JSON en tu scratchpad y
 ejecuta `node scripts/notify-telegram.mjs <ruta-del-json>`. Campos: `tipo: "tarea"`, `ficha`,
 `titulo`, `estado`, `resumen`, `rondas`, `verifier` (`VERDE` | `ROJO` | `sin pasar`), `ci` y
-`decision`. Cuándo:
+`decision` (opcionales, abajo). Cuándo:
 
 - `estado: hecha`: al fusionar su PR (paso 10), con el enlace del CI de la PR en `ci`.
 - `estado: bloqueada`: tres rondas sin aprobar (también si la última fue un ROJO del verifier), con
@@ -196,6 +196,13 @@ ejecuta `node scripts/notify-telegram.mjs <ruta-del-json>`. Campos: `tipo: "tare
   `estado: hecha` si todas acabaron hechas o `parada` si alguna espera a Dani (con las preguntas en
   `decision`), y en `resumen` qué quedó en cada una.
 
-El `resumen` lo redactas tú desde el briefing del doc-writer (o el motivo), en pocas líneas, sin
-datos del tenant ni nombres de clientes: el filtro del script es la red de seguridad, no la única
-defensa. Si el script avisa en la terminal, se lo dices a Dani y sigues.
+Opcionales: `duracion` (por ejemplo `1 h 20 min`), `rama` (la de la ficha, para el enlace a su
+fichero en GitHub) y `pr` (el enlace de la PR). El aviso sale como una imagen de la tarjeta, con un
+pie de texto que se puede buscar y pulsar (ficha 0105); si la imagen falla, el de texto de siempre.
+
+El `resumen` lo redactas tú desde el briefing del doc-writer (o el motivo), en Markdown (títulos,
+listas, negritas y bloques de código, que la tarjeta pinta) y con lo relevante, no una línea: qué
+cambia, los criterios y cómo se probaron, las decisiones tomadas, las ideas surgidas y lo que queda
+para Dani (pruebas a mano o decisiones). Sin datos del tenant ni nombres de clientes: el filtro del
+script es la red de seguridad, no la única defensa. Si el script avisa en la terminal, se lo dices
+a Dani y sigues.

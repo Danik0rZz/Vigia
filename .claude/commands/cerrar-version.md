@@ -47,5 +47,9 @@ Eres el Orquestador. Sigue "Cerrar una versión" de `docs/flujo.md`.
      Sin la ruta del zip: es una ruta local.
    - `estado: fallida`: ROJO del verifier u otra parada, con el motivo en `resumen`.
 
-   El `resumen`, en pocas líneas y sin datos del tenant ni nombres de clientes. Si el script avisa
-   en la terminal, se lo dices a Dani y sigues.
+   El `resumen`, en Markdown (títulos, listas, negritas y bloques de código, que la tarjeta pinta)
+   y con lo relevante, no una línea: qué cambia en la versión, los criterios y cómo se probaron,
+   las decisiones tomadas, las ideas surgidas y lo que queda para Dani (pruebas a mano y el zip).
+   Sin datos del tenant ni nombres de clientes. Opcionales: `duracion`, `rama` y `pr` (el enlace
+   de la PR). El aviso sale como una imagen con un pie de texto (ficha 0105); si la imagen falla,
+   el de texto de siempre. Si el script avisa en la terminal, se lo dices a Dani y sigues.

@@ -75,7 +75,7 @@ bueno de Dani o de peticiones en su nombre.
   HOST que se parten o se salen con la ventana de 1024 px; y lote **telegram-imagen**, avisos de
   Telegram en un hilo y como tarjeta en imagen con evidencias:
   [0103](tasks/0103-telegram-avisos-en-un-hilo.md) (hecha),
-  [0104](tasks/0104-telegram-tarjeta-html.md) (hecha), [0105](tasks/0105-telegram-aviso-en-imagen.md),
+  [0104](tasks/0104-telegram-tarjeta-html.md) (hecha), [0105](tasks/0105-telegram-aviso-en-imagen.md) (hecha),
   [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
   [0107](tasks/0107-e2e-capturas-de-evidencias.md) (hecha) y
   [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
@@ -114,8 +114,14 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 | Test | Spec | Ficha de arreglo | Desde |
 | ---- | ---- | ---------------- | ----- |
 
+Sospechoso sin cuarentena (unitario, no e2e): `scripts/notify-telegram-image.test.ts`, «CA3 (0105)» (multipart/form-data). Agotó los 5 s de Vitest en un `npm run check` completo del verifier el 2026-10-12; pasó aislado tres veces (~0,7 s) y en un segundo `check` completo. Probablemente carga de la máquina con 229 ficheros a la vez. Si se repite: subir su timeout o revisar el servidor local que levanta. (surgió en 0105)
+
 ## Mejoras anotadas
 
+- `scripts/notify-telegram.mjs` (`sendImage`): si la primera foto falla por tiempo agotado o por red (no por rechazo de Telegram), se envía el texto; si la foto llegó tarde, el aviso sale dos veces. Aceptado porque el aviso nunca para el flujo. Opcional. (surgió en 0105)
+- `scripts/telegram-capture.cjs`: `<link rel="dns-prefetch">` y `preconnect` no pasan por `webRequest`. Hoy no tiene efecto (la tarjeta escapa todo y su CSP es estricta); para cerrarlo, `app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND')`. Ficha con exclusión `seguridad`. (surgió en 0105)
+- `tarea.md`: con `estado: hecha` la rama de la ficha ya la ha borrado GitHub al fusionar y el enlace de la ficha daría 404; pedir `rama` vacía (main) en ese aviso. (surgió en 0105)
+- `.claude/agents/planner.md` también manda avisos: podría pedir el resumen en Markdown y los campos nuevos (`duracion`, `rama`, `pr`) como `tarea.md`. (surgió en 0105)
 - `scripts/telegram-card.mjs`, `prNumber`: no saca el número de una URL como `…/pull/321/files`; hoy no ocurre. Opcional. (surgió en 0104)
 - `e2e/views-metricas.spec.ts`, CA2 (0107): reforzarlo para que sea tan estricto como antes: con `repeatEachIndex === 0` y un solo worker, comparar la lista completa de ficheros de `test-results/evidencias` y los bytes del manifiesto, no solo los `CA2-…`. Opcional. (surgió en 0107)
 - `e2e/evidence.ts`, `captureEvidence`: llamar a `scrollIntoViewIfNeeded` antes de quitar foco y ratón, no después, para que el puntero no quede sobre algo con tooltip al desplazar. Opcional. (surgió en 0107)
@@ -491,4 +497,5 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0092](tasks/0092-telegram-no-envia-sin-filtro.md): el aviso de Telegram no se envía si no hay `.env.live.local` con valores con el que filtrar el texto, salvo con `VIGIA_TELEGRAM_UNFILTERED=1`. Sale siempre con 0. Con exclusiones `seguridad` y `externos`: va sola en su PR y la fusiona Dani. Sin migraciones.
 - [0093](tasks/0093-log-sin-usuario-de-windows.md) (lote seguridad-revision, exclusión seguridad): el filtro final del log de main tapa también el usuario de las rutas (`C:Users<usuario>`, `/home/<usuario>`) con `maskErrorDetails`, la misma regla que los errores del renderer; la copia antes de migrar registra solo el nombre del fichero. Sin migraciones.
 - [0104](tasks/0104-telegram-tarjeta-html.md) (exclusión seguridad): `scripts/telegram-card.mjs` construye el HTML de la tarjeta del aviso de Telegram (resumen en Markdown con lista blanca, CSP propia, nada externo); ADR-0015. Capturarla y enviarla es la 0105. Sin migraciones.
+- [0105](tasks/0105-telegram-aviso-en-imagen.md) (exclusiones seguridad y externos): el aviso de Telegram sale como imagen de la tarjeta (Electron sin ventana, partida por bloques si es alta) con un pie en texto buscable y enlaces a ficha, PR y CI; si falla la imagen, el texto de siempre; `VIGIA_TELEGRAM_TEXTO=1` lo apaga. Completa el ADR-0015. Sin migraciones.
 - [0107](tasks/0107-e2e-capturas-de-evidencias.md) (lote telegram-imagen): ayuda `captureEvidence` en `e2e/evidence.ts` que, con `VIGIA_EVIDENCIAS=1` y solo contra el simulador, guarda la captura de la zona y de la ventana de cada criterio visible y su línea en `manifiesto.json`, esperando a que dos capturas seguidas coincidan. El test-writer, el verifier y `e2e/CLAUDE.md` la piden. No toca la app.

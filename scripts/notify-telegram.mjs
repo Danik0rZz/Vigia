@@ -13,10 +13,20 @@
 // Antes de enviar, el texto se compara con los valores de .env.live.local, con las mismas reglas que scan:tenant; si coincide, no se
 // envía. Sin .env.live.local con valores tampoco se envía, salvo con
 // VIGIA_TELEGRAM_UNFILTERED=1 (ficha 0092).
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { win32 } from 'node:path'
-import { pathToFileURL } from 'node:url'
+//
+// Desde la ficha 0105, el aviso es una imagen: la tarjeta de la 0104 (telegram-card.mjs), capturada
+// con el Electron del proyecto (telegram-capture.cjs) y enviada con sendPhoto, con un pie en HTML
+// de Telegram que se puede buscar y pulsar (buildCaption). Si la tarjeta es alta, va en partes: la
+// primera con el pie y las demás como respuesta a ella. Si la imagen falla (no hay Electron, la
+// captura falla o tarda, la imagen se pasa de los límites o Telegram la rechaza), se envía el
+// texto de siempre. Con VIGIA_TELEGRAM_TEXTO=1, siempre el texto.
+import { execFileSync, spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { dirname, join, win32 } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { findLiveEnv, LIVE_ENV_FILE } from './lib/env-file.mjs'
 import { extractNeedles } from './scan-tenant.mjs'
 
@@ -27,6 +37,25 @@ const CHAT_VAR = 'VIGIA_TELEGRAM_CHAT_ID'
 const UNFILTERED_VAR = 'VIGIA_TELEGRAM_UNFILTERED'
 const THREAD_VAR = 'VIGIA_TELEGRAM_THREAD_ID'
 const TIMEOUT_MS = 10_000
+const TEXT_ONLY_VAR = 'VIGIA_TELEGRAM_TEXTO'
+
+/** Repositorio público: los únicos enlaces que lleva el pie. */
+export const REPO_URL = 'https://github.com/Danik0rZz/Vigia'
+const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url))
+const CAPTURE_SCRIPT = join(SCRIPTS_DIR, 'telegram-capture.cjs')
+/** Tiempo máximo de la captura (el script de captura se corta solo a los 60 s). */
+export const CAPTURE_TIMEOUT_MS = 45_000
+/** Tiempo máximo de cada sendPhoto: sube una imagen, más que el texto. */
+const PHOTO_TIMEOUT_MS = 30_000
+// Límites de sendPhoto (https://core.telegram.org/bots/api#sendphoto, comprobados el 2026-10-12):
+// hasta 10 MB, ancho más alto hasta 10 000 px, proporción hasta 20 y pie de 0 a 1 024 caracteres
+// después de interpretar las entidades.
+export const PHOTO_MAX_BYTES = 10_000_000
+export const PHOTO_MAX_SIDES = 10_000
+export const PHOTO_MAX_RATIO = 20
+export const CAPTION_MAX_LENGTH = 1024
+/** Tope del título en el pie: con él, el pie nunca pasa de 1 024 caracteres visibles. */
+const CAPTION_MAX_TITLE = 300
 
 const ICONS = {
   hecha: '✅',
@@ -88,6 +117,307 @@ export function buildMessage(datos) {
   return length(message) > MAX_LENGTH ? `${cut(message, MAX_LENGTH - 1)}…` : message
 }
 
+// --- Pie de la imagen (ficha 0105) ---
+
+/** Estado del pie: con emoji (en la imagen van símbolos de texto, 0104). */
+const CAPTION_ESTADOS = {
+  hecha: '✅ OK',
+  cerrada: '✅ OK',
+  parada: '⏸️ Pausa, espera a Dani',
+  bloqueada: '⛔ Bloqueada',
+  fallida: '⛔ Bloqueada',
+  en_proceso: '🔄 En proceso'
+}
+
+/** Escapado del HTML de Telegram: solo admite `&lt;`, `&gt;`, `&amp;` y `&quot;` con nombre. */
+export function escapeTelegramHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * La URL normalizada si es `https://github.com/` del repositorio (`REPO_URL`), sin puerto ni
+ * usuario; si no, undefined. La normalización de `URL` resuelve los `..` antes de comprobar.
+ */
+export function repoUrl(value) {
+  const s = text(value)
+  if (!s) return undefined
+  let url
+  try {
+    url = new URL(s)
+  } catch {
+    return undefined
+  }
+  const repo = new URL(REPO_URL)
+  if (url.protocol !== 'https:' || url.host !== repo.host || url.username || url.password)
+    return undefined
+  if (!url.pathname.startsWith(`${repo.pathname}/`)) return undefined
+  return url.href
+}
+
+/** Rama válida para un enlace (letras, números, `.`, `_`, `-` y `/`, sin `..`); si no, main. */
+function branchOf(value) {
+  const rama = text(value)
+  if (!rama || !/^[\w./-]+$/.test(rama) || rama.split('/').some((p) => p === '' || p === '..'))
+    return 'main'
+  return rama
+}
+
+/** Nombre del fichero de la ficha (`NNNN-….md`) en la primera carpeta que lo tenga. */
+export function findTaskFile(ficha, dirs) {
+  const id = text(ficha)
+  if (!/^\d{4}$/.test(id)) return undefined
+  for (const dir of dirs) {
+    let names
+    try {
+      names = readdirSync(dir)
+    } catch {
+      continue
+    }
+    const name = names
+      .filter((n) => n.endsWith('.md') && (n === `${id}.md` || n.startsWith(`${id}-`)))
+      .sort()[0]
+    if (name) return name
+  }
+  return undefined
+}
+
+function link(href, label) {
+  return `<a href="${escapeTelegramHtml(href)}">${escapeTelegramHtml(label)}</a>`
+}
+
+/** Enlace de la ficha, al fichero en GitHub de `rama` (o de main). */
+function taskLink(datos, taskDirs) {
+  const ficha = text(datos.ficha)
+  if (!/^\d{4}$/.test(ficha)) return undefined
+  const branch = branchOf(datos.rama)
+  const file = findTaskFile(ficha, taskDirs)
+  const encoded = branch.split('/').map(encodeURIComponent).join('/')
+  const href = repoUrl(
+    file
+      ? `${REPO_URL}/blob/${encoded}/tasks/${encodeURIComponent(file)}`
+      : `${REPO_URL}/tree/${encoded}/tasks`
+  )
+  return href ? link(href, file ? file.replace(/\.md$/, '') : `tasks (${ficha})`) : undefined
+}
+
+/** Número de la PR o de la ejecución del CI, como texto del enlace. */
+function linkLabel(href) {
+  const pull = /\/pull\/(\d+)/.exec(href)
+  if (pull) return `#${pull[1]}`
+  const run = /\/actions\/runs\/(\d+)/.exec(href)
+  if (run) return `ejecución ${run[1]}`
+  return 'abrir'
+}
+
+/** «Tarea: NNNN» o «Versión: X.Y.Z», escapado. */
+function idLine(datos) {
+  if (datos.tipo === 'version')
+    return `<b>Versión:</b> ${escapeTelegramHtml(text(datos.version).replace(/^v+/i, ''))}`
+  return `<b>Tarea:</b> ${escapeTelegramHtml(text(datos.ficha))}`
+}
+
+const DEFAULT_TASK_DIRS = [join(SCRIPTS_DIR, '..', 'tasks')]
+
+/**
+ * Pie de la imagen en HTML de Telegram, una línea por dato y sin las que no aplican: Estado (con
+ * emoji), Título (en negrita y subrayado), Tarea o Versión, y Ficha, PR y CI como enlaces. Solo
+ * enlaza al repositorio (`repoUrl`); lo demás no sale. `options.taskDirs`: dónde buscar el
+ * fichero de la ficha (por defecto, `tasks/` de este checkout).
+ */
+export function buildCaption(datos, options = {}) {
+  const taskDirs = options.taskDirs ?? DEFAULT_TASK_DIRS
+  const estado = text(datos.estado)
+  const lines = [
+    `<b>Estado:</b> ${escapeTelegramHtml(CAPTION_ESTADOS[estado] ?? `• ${estado || '—'}`)}`
+  ]
+  let titulo = text(datos.titulo)
+  if (length(titulo) > CAPTION_MAX_TITLE) titulo = `${cut(titulo, CAPTION_MAX_TITLE - 1)}…`
+  if (titulo) lines.push(`<b>Título:</b> <b><u>${escapeTelegramHtml(titulo)}</u></b>`)
+  lines.push(idLine(datos))
+  if (datos.tipo !== 'version') {
+    const ficha = taskLink(datos, taskDirs)
+    if (ficha) lines.push(`<b>Ficha:</b> ${ficha}`)
+  }
+  const pr = repoUrl(datos.pr)
+  if (pr) lines.push(`<b>PR:</b> ${link(pr, linkLabel(pr))}`)
+  const ci = repoUrl(datos.ci)
+  if (ci) lines.push(`<b>CI:</b> ${link(ci, linkLabel(ci))}`)
+  return lines.join('\n')
+}
+
+/** Pie de las partes 2 en adelante: «Tarea: NNNN (n/N)». */
+export function buildPartCaption(datos, n, total) {
+  return `${idLine(datos)} (${n}/${total})`
+}
+
+// --- Imagen: límites de Telegram ---
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
+/** Por qué la imagen no vale para sendPhoto, o undefined si vale. */
+export function photoProblem(bytes) {
+  const data = Buffer.from(bytes.buffer ?? bytes, bytes.byteOffset ?? 0, bytes.byteLength)
+  if (data.length < 24 || !data.subarray(0, 8).equals(PNG_SIGNATURE)) return 'no es un PNG válido'
+  if (data.subarray(12, 16).toString('ascii') !== 'IHDR') return 'no es un PNG válido'
+  if (data.length > PHOTO_MAX_BYTES) return 'pasa de 10 MB'
+  const width = data.readUInt32BE(16)
+  const height = data.readUInt32BE(20)
+  if (width === 0 || height === 0) return 'no es un PNG válido'
+  if (width + height > PHOTO_MAX_SIDES) return 'el ancho más el alto pasan de 10 000 px'
+  if (Math.max(width / height, height / width) > PHOTO_MAX_RATIO) return 'la proporción pasa de 20'
+  return undefined
+}
+
+/**
+ * Cuerpo multipart/form-data hecho a mano, con los campos de texto y un fichero. No se usa el
+ * `FormData` de Node porque al enviarlo cambia los saltos de línea de los campos por CRLF (lo pide
+ * la especificación de los formularios), y el pie tiene que llegar tal cual.
+ */
+export function multipart(fields, file) {
+  const CRLF = '\r\n'
+  const boundary = `----vigia-${randomUUID()}`
+  const quote = (value) => String(value).replace(/["\r\n]/g, (c) => encodeURIComponent(c))
+  const chunks = []
+  for (const [name, value] of fields)
+    chunks.push(
+      Buffer.from(
+        `--${boundary}${CRLF}Content-Disposition: form-data; name="${quote(name)}"${CRLF}${CRLF}${value}${CRLF}`,
+        'utf8'
+      )
+    )
+  chunks.push(
+    Buffer.from(
+      `--${boundary}${CRLF}Content-Disposition: form-data; name="${quote(file.name)}"; ` +
+        `filename="${quote(file.filename)}"${CRLF}Content-Type: ${file.type}${CRLF}${CRLF}`,
+      'utf8'
+    ),
+    Buffer.from(file.data),
+    Buffer.from(`${CRLF}--${boundary}--${CRLF}`, 'utf8')
+  )
+  return { body: Buffer.concat(chunks), contentType: `multipart/form-data; boundary=${boundary}` }
+}
+
+/**
+ * Envía una foto con sendPhoto (multipart/form-data con `multipart`, y `fetch`). Con
+ * `threadId`, al hilo (message_thread_id); `replyTo` es el mensaje al que responde (el que abre el
+ * hilo o la primera parte). No lanza: devuelve { ok: true, messageId } o { ok: false, error,
+ * rejected }, con el error ya filtrado.
+ */
+export async function sendTelegramPhoto({
+  token,
+  chatId,
+  threadId,
+  replyTo,
+  photo,
+  caption,
+  fetchImpl
+}) {
+  const clean = (value) => redact(value, [token, chatId, threadId])
+  const fields = [['chat_id', String(chatId)]]
+  if (threadId !== undefined) fields.push(['message_thread_id', String(threadId)])
+  if (replyTo !== undefined)
+    fields.push([
+      'reply_parameters',
+      JSON.stringify({ message_id: replyTo, allow_sending_without_reply: false })
+    ])
+  fields.push(['caption', caption], ['parse_mode', 'HTML'])
+  const { body: form, contentType } = multipart(fields, {
+    name: 'photo',
+    filename: 'aviso.png',
+    type: 'image/png',
+    data: photo
+  })
+  try {
+    const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: 'POST',
+      headers: { 'content-type': contentType },
+      body: form,
+      signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS)
+    })
+    let body
+    try {
+      body = await response.json()
+    } catch {
+      body = undefined
+    }
+    if (response.status === 200 && body?.ok === true)
+      return { ok: true, messageId: body.result?.message_id }
+    const description = typeof body?.description === 'string' ? `: ${body.description}` : ''
+    return { ok: false, rejected: true, error: clean(`HTTP ${response.status}${description}`) }
+  } catch (error) {
+    if (error?.name === 'TimeoutError' || error?.name === 'AbortError')
+      return { ok: false, error: `tiempo agotado (${PHOTO_TIMEOUT_MS / 1000} s)` }
+    const message = error instanceof Error ? error.message : String(error)
+    return { ok: false, error: clean(`error de red: ${message.split('\n')[0]}`) }
+  }
+}
+
+/**
+ * Captura la tarjeta con el Electron del proyecto (telegram-capture.cjs) y devuelve sus PNG en
+ * orden. Escribe el HTML en una carpeta temporal y la borra al acabar. Con `signal` (el tiempo
+ * máximo de `main`), mata el proceso. Rechaza si falta Electron o la captura falla.
+ */
+export async function captureWithElectron(html, { signal } = {}) {
+  const electron = createRequire(import.meta.url)('electron')
+  if (typeof electron !== 'string') throw new Error('no se encuentra el binario de Electron')
+  const dir = mkdtempSync(join(tmpdir(), 'vigia-aviso-'))
+  try {
+    const file = join(dir, 'tarjeta.html')
+    const out = join(dir, 'partes')
+    writeFileSync(file, html)
+    const env = { ...process.env }
+    delete env.ELECTRON_RUN_AS_NODE
+    await new Promise((resolve, reject) => {
+      const child = spawn(electron, [CAPTURE_SCRIPT, '--html', file, '--out', out], {
+        env,
+        stdio: ['ignore', 'ignore', 'pipe'],
+        windowsHide: true
+      })
+      let stderr = ''
+      child.stderr.on('data', (data) => {
+        if (stderr.length < 4000) stderr += data.toString()
+      })
+      const abort = () => child.kill()
+      signal?.addEventListener('abort', abort, { once: true })
+      child.on('error', (error) => {
+        signal?.removeEventListener('abort', abort)
+        reject(error)
+      })
+      child.on('close', (code) => {
+        signal?.removeEventListener('abort', abort)
+        // Solo la línea del script de captura, no lo que Chromium escribe en stderr.
+        const reason = /\[captura\] (.*)/.exec(stderr)?.[1] ?? `salida ${code}`
+        if (code === 0) resolve()
+        else reject(new Error(`la captura ha fallado (${reason})`))
+      })
+    })
+    const number = (name) => Number(/(\d+)/.exec(name)?.[1] ?? NaN)
+    const names = readdirSync(out)
+      .filter((name) => /^parte-\d+\.png$/.test(name))
+      .sort((a, b) => number(a) - number(b))
+    if (names.length === 0) throw new Error('la captura no ha dejado ninguna imagen')
+    return names.map((name) => readFileSync(join(out, name)))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+/** `promise`, o un rechazo si tarda más de `ms` (y entonces se aborta `controller`). */
+function withTimeout(promise, ms, controller) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error(`tiempo agotado (${Math.round(ms / 100) / 10} s)`))
+    }, ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
 /** Tipos (`kind`) de los valores del .env que aparecen en el texto, sin mayúsculas. */
 export function checkTenantLeftovers(value, needles) {
   const lower = String(value).toLowerCase()
@@ -98,7 +428,21 @@ export function checkTenantLeftovers(value, needles) {
 
 /** Los campos del aviso tal como llegan, sin recortar (para el filtro del tenant). */
 function fieldValues(datos) {
-  return ['ficha', 'titulo', 'version', 'estado', 'resumen', 'rondas', 'verifier', 'ci', 'decision']
+  return [
+    'ficha',
+    'titulo',
+    'version',
+    'estado',
+    'resumen',
+    'rondas',
+    'verifier',
+    'ci',
+    'decision',
+    'duracion',
+    'rama',
+    'pr',
+    'origen'
+  ]
     .map((key) => text(datos[key]))
     .filter((value) => value !== '')
 }
@@ -226,6 +570,10 @@ export async function main(argv, deps) {
     }
 
     const message = buildMessage(datos)
+    // La ficha se busca primero en la carpeta desde la que se lanza (el worktree).
+    const caption = buildCaption(datos, {
+      taskDirs: [join(deps.cwd, 'tasks'), ...DEFAULT_TASK_DIRS]
+    })
 
     // Sin deps.mainCheckout, findLiveEnv pregunta a git por el checkout principal.
     const envFile = findLiveEnv(deps.cwd, { mainCheckout: deps.mainCheckout })
@@ -244,7 +592,11 @@ export async function main(argv, deps) {
     } else {
       // Sobre el mensaje y sobre los campos completos: el recorte a 1 500
       // caracteres podría partir un valor y dejarlo pasar a medias.
-      const kinds = checkTenantLeftovers([message, ...fieldValues(datos)].join('\n'), needles)
+      // También el pie de la imagen; la tarjeta sale de los mismos campos.
+      const kinds = checkTenantLeftovers(
+        [message, caption, ...fieldValues(datos)].join('\n'),
+        needles
+      )
       if (kinds.length > 0) {
         warn(`el texto lleva restos del tenant (${kinds.join(', ')}): no se envía.`)
         return 0
@@ -253,6 +605,14 @@ export async function main(argv, deps) {
 
     if (threadRaw && threadId === undefined)
       warn(`${THREAD_VAR} no es un entero positivo: se envía sin hilo.`)
+
+    // Imagen primero (0105); el texto de siempre, de respaldo. Con VIGIA_TELEGRAM_TEXTO=1 o sin
+    // `deps.capture`, solo el texto.
+    const textOnly = (await credential(TEXT_ONLY_VAR, deps)) === '1'
+    if (!textOnly && typeof deps.capture === 'function') {
+      const sent = await sendImage({ datos, caption, token, chatId, threadId, deps, warn, info })
+      if (sent) return 0
+    }
 
     const send = (thread) =>
       sendTelegram({ token, chatId, threadId: thread, text: message, fetchImpl: deps.fetchImpl })
@@ -273,6 +633,76 @@ export async function main(argv, deps) {
     warn(`error inesperado (${reason}); el flujo sigue.`)
     return 0
   }
+}
+
+/**
+ * Captura la tarjeta y la envía con sendPhoto, en partes si hace falta. Devuelve true si la
+ * primera parte ha llegado (las demás, si fallan, solo se dicen en la terminal) y false si hay que
+ * enviar el texto de siempre (lo que ha fallado ya se ha dicho con `warn`).
+ */
+async function sendImage({ datos, caption, token, chatId, threadId, deps, warn, info }) {
+  let parts
+  try {
+    const { buildCardHtml } = await import('./telegram-card.mjs')
+    const html = buildCardHtml(datos)
+    const controller = new AbortController()
+    const ms = deps.captureTimeoutMs ?? CAPTURE_TIMEOUT_MS
+    parts = await withTimeout(
+      Promise.resolve().then(() => deps.capture(html, { signal: controller.signal })),
+      ms,
+      controller
+    )
+    if (!Array.isArray(parts) || parts.length === 0) throw new Error('no ha dado ninguna imagen')
+  } catch (error) {
+    const reason = error instanceof Error ? error.message.split('\n')[0] : String(error)
+    warn(`no se ha podido capturar la imagen (${reason}): se envía el texto.`)
+    return false
+  }
+  for (const [i, part] of parts.entries()) {
+    const problem = photoProblem(part)
+    if (problem) {
+      warn(`la imagen ${i + 1} no vale para Telegram (${problem}): se envía el texto.`)
+      return false
+    }
+  }
+
+  const total = parts.length
+  const send = (photo, partCaption, thread, replyTo) =>
+    sendTelegramPhoto({
+      token,
+      chatId,
+      threadId: thread,
+      replyTo,
+      photo,
+      caption: partCaption,
+      fetchImpl: deps.fetchImpl
+    })
+  let thread = threadId
+  let first = await send(parts[0], caption, thread, thread)
+  if (!first.ok && first.rejected && thread !== undefined) {
+    // Como con el texto (0103): una sola vez más, sin hilo.
+    warn(`Telegram ha rechazado la imagen en el hilo (${first.error}): se reintenta sin hilo.`)
+    thread = undefined
+    first = await send(parts[0], caption, undefined, undefined)
+  }
+  if (!first.ok) {
+    warn(`no se ha podido enviar la imagen (${first.error}): se envía el texto.`)
+    return false
+  }
+  // Las demás partes, como respuesta a la primera y en orden; si una falla, se sigue.
+  const replyTo = Number.isSafeInteger(first.messageId) ? first.messageId : thread
+  let failed = 0
+  for (let i = 1; i < total; i++) {
+    const result = await send(parts[i], buildPartCaption(datos, i + 1, total), thread, replyTo)
+    if (!result.ok) {
+      failed++
+      warn(`no se ha podido enviar la parte ${i + 1}/${total} (${result.error}); se sigue.`)
+    }
+  }
+  const how = total === 1 ? 'como imagen' : `como imagen en ${total} partes`
+  const where = thread === threadId ? '' : ' sin hilo'
+  info(`enviado ${how}${where}${failed ? ` (${failed} sin enviar)` : ''}.`)
+  return true
 }
 
 /**
@@ -307,6 +737,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     cwd: process.cwd(),
     fetchImpl: (url, init) => fetch(url, init),
     stdout: (message) => process.stdout.write(`${message}\n`),
-    stderr: (message) => process.stderr.write(`${message}\n`)
+    stderr: (message) => process.stderr.write(`${message}\n`),
+    capture: captureWithElectron
   })
 }
