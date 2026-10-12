@@ -75,7 +75,7 @@ bueno de Dani o de peticiones en su nombre.
   HOST que se parten o se salen con la ventana de 1024 px; y lote **telegram-imagen**, avisos de
   Telegram en un hilo y como tarjeta en imagen con evidencias:
   [0103](tasks/0103-telegram-avisos-en-un-hilo.md) (hecha),
-  [0104](tasks/0104-telegram-tarjeta-html.md), [0105](tasks/0105-telegram-aviso-en-imagen.md),
+  [0104](tasks/0104-telegram-tarjeta-html.md) (hecha), [0105](tasks/0105-telegram-aviso-en-imagen.md),
   [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
   [0107](tasks/0107-e2e-capturas-de-evidencias.md) y
   [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
@@ -103,6 +103,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
 - Usuario de Windows con espacios en el log y en los errores del renderer (surgió en 0093, S, exclusión seguridad). La regla compartida (`src/shared/error-report.ts`, la clase de la línea 52) se para en el espacio: `C:UsersAna Lopez…` queda `C:Users<usuario> Lopez…`, y la carpeta `OneDrive - <Organización>` del perfil puede llevar el nombre de un cliente. Arreglarlo cambia también el renderer. Decide Dani si se hace.
 - Aviso privado a Electron sobre las conexiones nuevas a la vez (surgió en 0079): **Dani lo envió el 2026-10-12** por GitHub Security Advisories; a la espera de respuesta. Si en 6 días laborables no hay acuse de recibo, se escala a la dirección de seguridad de OpenJS (norma de Electron); Dani tiene un recordatorio. Si Electron responde, se revisa lo decidido en la 0095 (ADR-0003, sección «Seguimiento»), incluido el riesgo aceptado de «ignorar». Lo decide Dani. (surgió en 0095)
 - La fila de `gatedFetch` va por host con puerto (`URL.host`) y el verificador decide por nombre de host: dos puertos del mismo host con huella fijada no comparten fila. Ya pasaba en la 0079; ponerlos en la misma fila cambia cómo van las peticiones, `[ALCANCE]`. (surgió en 0095)
+- Estado del CI escrito en el aviso de Telegram (surgió en 0104, `[ALCANCE]`, lo decide Dani): que el Orquestador ponga el estado («en verde», «en rojo», «sin pasar») en `ci` o en un campo nuevo del JSON del aviso, porque la tarjeta lo deduce del estado (`cerrada` y `fallida` pueden equivocarse). Cambia el contrato de `tarea.md` y `cerrar-version.md`.
 - Fase 8: DQL y Logs (propuesta 4, L). Coste por GiB escaneado; incluye el streaming de
   exportaciones y el aviso de filas de Excel en CSV.
 
@@ -115,6 +116,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- `scripts/telegram-card.mjs`, `prNumber`: no saca el número de una URL como `…/pull/321/files`; hoy no ocurre. Opcional. (surgió en 0104)
 - `scripts/notify-telegram.mjs`, `redact`: tapa por subcadena, así que un id de hilo corto (una o dos cifras) también taparía esas cifras en otros textos de la salida (`HTTP 400`). Es seguro pero estropea el mensaje; para ids numéricos se podría tapar solo el número completo. Además, partir la línea de comentario de la cabecera (línea 13), de unos 130 caracteres. Opcional. (surgió en 0103)
 - `gatedFetch` (`network.ts`): una espera cancelada deja un `.then` enganchado a la promesa de la fila; es inofensivo (se resuelve siempre en el `finally`), pero se podría desenganchar. Opcional. (surgió en 0095)
 - `src/renderer/src/lib/markdown-color.ts`, `paintElement`: usar `hexToRgba` y quitar el `style` si da `null` (en vez de `knownHex`, que lanza `TypeError`), para que una regresión pierda el color y no el panel; `knownHex` se quedaría para `THEME_PAINT`. Opcional. (surgió en 0094)
@@ -484,3 +486,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0094](tasks/0094-markdown-color-sin-prototipo.md) (exclusión seguridad): los colores con nombre del visor de Markdown se buscan con `Object.hasOwn` (nada de `constructor` o `__proto__`) y `hexToRgba` devuelve `null` si no es hexadecimal. Sin migraciones.
 - [0092](tasks/0092-telegram-no-envia-sin-filtro.md): el aviso de Telegram no se envía si no hay `.env.live.local` con valores con el que filtrar el texto, salvo con `VIGIA_TELEGRAM_UNFILTERED=1`. Sale siempre con 0. Con exclusiones `seguridad` y `externos`: va sola en su PR y la fusiona Dani. Sin migraciones.
 - [0093](tasks/0093-log-sin-usuario-de-windows.md) (lote seguridad-revision, exclusión seguridad): el filtro final del log de main tapa también el usuario de las rutas (`C:Users<usuario>`, `/home/<usuario>`) con `maskErrorDetails`, la misma regla que los errores del renderer; la copia antes de migrar registra solo el nombre del fichero. Sin migraciones.
+- [0104](tasks/0104-telegram-tarjeta-html.md) (exclusión seguridad): `scripts/telegram-card.mjs` construye el HTML de la tarjeta del aviso de Telegram (resumen en Markdown con lista blanca, CSP propia, nada externo); ADR-0015. Capturarla y enviarla es la 0105. Sin migraciones.

@@ -1,7 +1,7 @@
 ---
 id: '0104'
 titulo: Tarjeta HTML del aviso de Telegram
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [seguridad] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: ['0009', '0011'] # ADR que aplican, por número
 adr_nuevo: Avisos de Telegram con tarjeta en imagen (amplía el ADR-0009)
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -154,12 +154,83 @@ Unitarios en `scripts/telegram-card.test.ts`, sobre el HTML que devuelve `buildC
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- **Criterios:** CA1 a CA9 cubiertos en `scripts/telegram-card.test.ts`, cada uno con su número. Fallan sin el módulo y comprueban cosas reales: parsean el HTML y el CSS, aplican selectores y miran los colores del diseño. Los tests no se tocaron tras `3c1a45c`: `dfc0bf2` solo añade `scripts/telegram-card.mjs` y `971ca13` solo cambia la ficha.
+- **Seguridad (exclusión `seguridad`):** el resumen pasa por react-markdown con `skipHtml` y sin `rehype-raw`, y después por `rehype-sanitize` con lista blanca propia: sin `a` ni `img`, `protocols: {}`, atributos solo `language-*` en `code` y `start` en `ol`; script, style, iframe, svg y similares se quitan enteros. Las clases `hljs-*` y las marcas `data-bloque` se añaden tras el saneado y salen de lowlight, nunca del resumen. El resto de campos va como texto de React y el `<title>` con `escapeHtml`. CSP de la especificación; nada externo. Datos de prueba inventados; sin tenant ni secretos.
+- **Reglas:** sin dependencias nuevas en `package.json`. Sin IPC, API de Dynatrace ni esquema. `scripts/**` está en `ignore` de `e2e/areas.json`. Comentarios en español, identificadores en inglés.
+- **`parse5` y `postcss` sin declarar: aceptado.** `parse5` 7.3.0 viene de `rehype-raw` 7.0.0 (por `hast-util-raw`, ADR-0011) y `postcss` 8.5.28 de `vite` 7.3.6; el lockfile fija sus versiones y solo los usan los tests. Si desaparecen, el test falla de forma visible. Declararlos sería una dependencia nueva, en contra de la ficha.
+- **Cajita del CI: aceptada.** La ficha fija los valores pero no cómo se sacan, y `ci` es solo un enlace (`.claude/commands/tarea.md`). Con `tarea.md` y `cerrar-version.md` la deducción acierta: `hecha` solo se avisa tras «CI ok»; `parada` con el enlace de la PR es «sin pasar»; `bloqueada` con enlace solo llega tras dos intentos de CI sin verde (el bloqueo por revisión no trae `ci` y sale «—»). Dos casos sin garantía, que no bloquean: `cerrada` (el enlace es la última ejecución de `main`, que puede seguir en marcha) y `fallida` por un ROJO del verifier con un enlace de un CI que pasó (diría «en rojo»).
+
+Opcional:
+
+- El arreglo de fondo es que el Orquestador ponga el estado escrito en `ci` (ya lo admite `ciLabel`) o en un campo nuevo; cambia el contrato de `tarea.md` y `cerrar-version.md`, así que es `[ALCANCE]` para Dani, no de esta ficha.
+- Que el ADR nuevo recoja la regla del CI y de dónde vienen `parse5` y `postcss`.
+- `prNumber` no saca el número de una URL como `…/pull/321/files`; hoy no ocurre.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en `3c1a45c` (`scripts/telegram-card.test.ts`, 24 tests; fallan porque aún no
+existe `scripts/telegram-card.mjs`). Contrato que fijan: `buildCardHtml(datos)` exportada de
+`scripts/telegram-card.mjs`; marcas `data-bloque` con los valores `cabecera`, `cajitas`,
+`resumen` (una por bloque del Markdown), `decision` y `pie`, sin anidarse; la fecha es la del
+momento de la llamada (`Date`). El HTML se lee con `parse5` y el CSS con `postcss`, que ya están
+en `node_modules` como dependencias de otras.
+
+- CA1 → `CA1 (0104)`: cabecera con fecha y hora (y «Vigía · Planificador» con `origen`), ficha,
+  título, etiqueta, cajitas, resumen, decisión y pie.
+- CA2 → `CA2 (0104)`: sin decisión ni pie, Duración y CI con «—», decisión vacía, solo la rama.
+- CA3 → `CA3 (0104)`: un test por estado (símbolo, sin emoji, clase con el color y el fondo del
+  diseño), clases compartidas, y «Versión X.Y.Z».
+- CA4 → `CA4 (0104)`: h2, h3, code en línea, ul, ol, tabla, bloque con clases `hljs-*` y su CSS.
+- CA5 → `CA5 (0104)`: resumen malicioso sin etiquetas, `on*`, `style`, `src` ni enlaces; título y
+  decisión escapados.
+- CA6 → `CA6 (0104)`: sin URL externas en `src`/`href`, sin `<link>`/`<script>`, CSP exacta.
+- CA7 → `CA7 (0104)`: sin `uppercase` ni `letter-spacing`; centrado solo en las cajitas.
+- CA8 → `CA8 (0104)`: 10 000 caracteres enteros; 100 000 se cortan con «…».
+- CA9 → `CA9 (0104)`: marcas `data-bloque` de primer nivel, una por bloque del resumen.
+
+Verificación 2026-10-12, commit 496d927, rango main..feat/0104-telegram-tarjeta-html: VERDE
+
+- check: 4240 tests (227 ficheros), cobertura ok (sentencias 92,98 %, ramas 90,13 %, funciones 90,37 %, líneas 93,75 %).
+- e2e: `test:e2e:affected` no seleccionó ninguno (solo `scripts/` y documentos).
 
 ## Resultado
 
-(pendiente)
+Developer (2026-10-12): `scripts/telegram-card.mjs` exporta `buildCardHtml(datos)` (y, sueltas,
+`ciLabel`, `verifierLabel`, `limitResumen`, `formatDate`, `MAX_RESUMEN` y `CSP`). Sin dependencias
+nuevas: `react`, `react-dom/server`, `react-markdown`, `remark-gfm`, `rehype-sanitize`, `lowlight` y
+`highlight.js`, con los mismos lenguajes que el visor de la app.
+
+Decisiones:
+
+- **Cajita del CI.** `ci` es un enlace sin estado (`tarea.md`: el del CI de la PR al fusionar, el
+  de la PR al abrirla si va sola), así que el estado se deduce de cuándo se avisa: sin `ci`, «—»; si
+  `ci` trae un estado escrito (`VERDE`, `ROJO`, `sin pasar`, como `verifier`), ese; con enlace,
+  `hecha` y `cerrada` dan «en verde» (solo se avisan tras «CI ok»), `bloqueada` y `fallida` «en
+  rojo» (el bloqueo por CI es tras dos intentos sin verde) y el resto, «sin pasar» (`parada` al
+  abrir la PR de una ficha sola, `en_proceso`). Si la 0105 quiere el estado real, basta con que el
+  Orquestador ponga el literal en `ci` o en un campo nuevo.
+- **Saneado del resumen:** `skipHtml` (el HTML crudo ni se interpreta ni sale como texto) y
+  `rehype-sanitize` con lista blanca propia: títulos, párrafos, `strong`, `em`, `del`, `code`,
+  `pre`, citas, listas, tablas, `br` y `hr`; atributos solo `language-*` en `code` y `start` en
+  `ol`. `a` e `img` fuera: el enlace deja su texto y la imagen desaparece. Las casillas de tareas
+  de GFM y la alineación de columnas de las tablas se pierden (la alineación centraría texto fuera
+  de las cajitas). Los colores (`hljs-*`) y las marcas se añaden después del saneado.
+- **Marcas:** además de las de los tests, el bloque del título (`Ficha NNNN`, título y etiqueta)
+  lleva `data-bloque="titulo"`, para que la 0105 no lo pegue a la cabecera ni a las cajitas.
+- **Tope del resumen:** 20 000 caracteres (puntos de código); al pasarlo, se corta y acaba en «…».
+- **Valores de las cajitas:** Revisión, «N rondas» («1 ronda»); Verifier y CI, «en verde» (verde),
+  «en rojo» (rojo) o «sin pasar» (ámbar); Duración, el texto tal cual. El pie enseña «PR #N»
+  sacado de la URL (`…/pull/N`); si no se puede sacar el número, no sale.
+- La fecha va en `dd/mm/aaaa hh:mm`, hora local.
+
+Doc-writer (2026-10-12):
+
+- **Commits:** `3c1a45c` (tests), `dfc0bf2` (módulo) y los de la ficha; ficheros principales:
+  `scripts/telegram-card.mjs` y `scripts/telegram-card.test.ts`.
+- **Rondas de revisión:** 1 (APROBADO).
+- **ADR nuevo:** [0015](../docs/adr/0015-avisos-telegram-tarjeta-en-imagen.md), con la regla del CI
+  y el origen de `parse5` y `postcss`.
+- Ideas al BACKLOG: estado del CI escrito en el aviso (`[ALCANCE]`) y `prNumber` con
+  `…/pull/N/files`.
