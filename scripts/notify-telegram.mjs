@@ -9,7 +9,8 @@
 // las variables de usuario del registro) y nunca se imprimen: todo texto pasa
 // antes por `redact`. Antes de enviar, el texto se compara con los valores de
 // .env.live.local, con las mismas reglas que scan:tenant; si coincide, no se
-// envía.
+// envía. Sin .env.live.local con valores tampoco se envía, salvo con
+// VIGIA_TELEGRAM_UNFILTERED=1 (ficha 0092).
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { win32 } from 'node:path'
@@ -21,6 +22,7 @@ export const MAX_LENGTH = 1500
 const PREFIX = '[aviso telegram]'
 const TOKEN_VAR = 'VIGIA_TELEGRAM_TOKEN'
 const CHAT_VAR = 'VIGIA_TELEGRAM_CHAT_ID'
+const UNFILTERED_VAR = 'VIGIA_TELEGRAM_UNFILTERED'
 const TIMEOUT_MS = 10_000
 
 const ICONS = {
@@ -202,9 +204,16 @@ export async function main(argv, deps) {
     const envFile = findLiveEnv(deps.cwd, { mainCheckout: deps.mainCheckout })
     const needles = envFile ? extractNeedles(readFileSync(envFile, 'utf8')) : []
     if (needles.length === 0) {
-      warn(
-        `sin ${LIVE_ENV_FILE} con valores: no se ha podido filtrar el texto; se envía igualmente.`
-      )
+      // Sin valores con los que filtrar, no se envía (ficha 0092), salvo que se pida
+      // expresamente con VIGIA_TELEGRAM_UNFILTERED=1 (un clon sin tenant de pruebas). Se lee
+      // como las credenciales: del entorno o, en Windows, del registro (lo deja `setx`).
+      if ((await credential(UNFILTERED_VAR, deps)) !== '1') {
+        warn(
+          `sin ${LIVE_ENV_FILE} con valores: no se envía (con ${UNFILTERED_VAR}=1 se envía sin filtrar).`
+        )
+        return 0
+      }
+      warn(`sin ${LIVE_ENV_FILE} con valores y con ${UNFILTERED_VAR}=1: se envía sin filtrar.`)
     } else {
       // Sobre el mensaje y sobre los campos completos: el recorte a 1 500
       // caracteres podría partir un valor y dejarlo pasar a medias.
