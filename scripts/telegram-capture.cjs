@@ -94,9 +94,10 @@ function planParts(height, blocks, max, hard) {
 }
 
 // Se ejecuta en la página (desde este script, no desde la tarjeta): alto y cajas de las marcas,
-// cuando han cargado las fuentes.
-const MEASURE = `(async () => {
-  await document.fonts.ready
+// o null si aún no han cargado las fuentes. Síncrono, como todo lo que se ejecuta en la página
+// (ver `evaluate`).
+const MEASURE = `(() => {
+  if (document.fonts.status !== 'loaded') return null
   return {
     height: document.documentElement.scrollHeight,
     blocks: [...document.querySelectorAll('[data-bloque]')].map((el) => {
@@ -106,9 +107,58 @@ const MEASURE = `(async () => {
   }
 })()`
 
-function waitFrames(contents) {
-  return contents.executeJavaScript(
-    'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(window.scrollY))))'
+// Tiempo máximo de cada llamada a la página y de cada espera, y cada cuánto se pregunta.
+const EVALUATE_TIMEOUT_MS = 5_000
+const WAIT_TIMEOUT_MS = 15_000
+const POLL_MS = 25
+
+/**
+ * `executeJavaScript` con tiempo máximo, solo con código síncrono. Si el código devuelve una
+ * promesa y la página intenta navegar mientras tanto (la navegación se cancela, arriba), Electron
+ * pierde el resultado y la promesa no se resuelve nunca, ni la de esa llamada ni las siguientes
+ * que esperen algo; las síncronas siguen respondiendo. Se vio en el CI de Windows con la máquina
+ * cargada (0105, CA7). Por eso las esperas se hacen preguntando desde aquí (`waitFor`).
+ */
+async function evaluate(contents, code) {
+  let timer
+  const timeout = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('la página no responde')), EVALUATE_TIMEOUT_MS)
+  })
+  try {
+    return await Promise.race([contents.executeJavaScript(code), timeout])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Repite `code` (síncrono) hasta que devuelve algo que no es null. */
+async function waitFor(contents, code, what) {
+  const deadline = Date.now() + WAIT_TIMEOUT_MS
+  for (;;) {
+    const value = await evaluate(contents, code)
+    if (value !== null && value !== undefined) return value
+    if (Date.now() > deadline) throw new Error(`tiempo agotado esperando ${what}`)
+    await new Promise((resolveWait) => setTimeout(resolveWait, POLL_MS))
+  }
+}
+
+// Marca de los fotogramas pintados tras desplazar, en una propiedad que no se enumera.
+const FRAMES_KEY = '__vigiaCapturaFrames'
+
+/** Espera dos fotogramas (lo desplazado ya está pintado) y devuelve el desplazamiento. */
+async function waitFrames(contents) {
+  await evaluate(
+    contents,
+    `(() => {
+      const key = ${JSON.stringify(FRAMES_KEY)}
+      Object.defineProperty(window, key, { value: false, writable: true, configurable: true })
+      requestAnimationFrame(() => requestAnimationFrame(() => { window[key] = true }))
+    })()`
+  )
+  return waitFor(
+    contents,
+    `window[${JSON.stringify(FRAMES_KEY)}] === true ? window.scrollY : null`,
+    'a que se pinte la página'
   )
 }
 
@@ -175,7 +225,7 @@ async function run(args) {
     })
     win.loadURL(documentUrl).catch(() => undefined)
   })
-  const { height: rawHeight, blocks } = await contents.executeJavaScript(MEASURE)
+  const { height: rawHeight, blocks } = await waitFor(contents, MEASURE, 'a las fuentes')
   const height = Math.max(1, Math.ceil(rawHeight))
   const parts = planParts(height, blocks, max, hard)
 
@@ -184,7 +234,7 @@ async function run(args) {
   win.setContentSize(WIDTH, viewport)
   mkdirSync(args.out, { recursive: true })
   for (const [i, [start, end]] of parts.entries()) {
-    await contents.executeJavaScript(`window.scrollTo(0, ${start})`)
+    await evaluate(contents, `window.scrollTo(0, ${start})`)
     const scrollY = Math.round(await waitFrames(contents))
     const image = await contents.capturePage(
       { x: 0, y: start - scrollY, width: WIDTH, height: end - start },

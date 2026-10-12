@@ -114,10 +114,11 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 | Test | Spec | Ficha de arreglo | Desde |
 | ---- | ---- | ---------------- | ----- |
 
-Sospechoso sin cuarentena (unitario, no e2e): `scripts/notify-telegram-image.test.ts`, «CA3 (0105)» (multipart/form-data). Agotó los 5 s de Vitest en un `npm run check` completo del verifier el 2026-10-12; pasó aislado tres veces (~0,7 s) y en un segundo `check` completo. Probablemente carga de la máquina con 229 ficheros a la vez. Si se repite: subir su timeout o revisar el servidor local que levanta. (surgió en 0105)
-
 ## Mejoras anotadas
 
+- `scripts/telegram-capture.cjs`: para la medida del alto, exigir dos medidas iguales seguidas en vez de fiarse de `document.fonts.status`. Opcional. (surgió en 0105)
+- `scripts/notify-telegram.mjs`: medir lo que tarda el aviso con imagen en Node normal (los 4,3 s de la carga en frío de la tarjeta son con la transformación de Vitest). Opcional. (surgió en 0105)
+- Flujo (`.claude/agents/*.md`): en la 0105, el test-writer y el developer dejaron en segundo plano un Electron de experimento que se colgó (con un diálogo de error de JavaScript en el escritorio) y los agentes no terminaron hasta unas 2,5 h después. Las reglas de los agentes deberían pedir que lo que lanzan para experimentar vaya en primer plano y con tiempo máximo, nunca en segundo plano sin cerrarlo. (surgió en 0105)
 - `scripts/notify-telegram.mjs` (`sendImage`): si la primera foto falla por tiempo agotado o por red (no por rechazo de Telegram), se envía el texto; si la foto llegó tarde, el aviso sale dos veces. Aceptado porque el aviso nunca para el flujo. Opcional. (surgió en 0105)
 - `scripts/telegram-capture.cjs`: `<link rel="dns-prefetch">` y `preconnect` no pasan por `webRequest`. Hoy no tiene efecto (la tarjeta escapa todo y su CSP es estricta); para cerrarlo, `app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND')`. Ficha con exclusión `seguridad`. (surgió en 0105)
 - `tarea.md`: con `estado: hecha` la rama de la ficha ya la ha borrado GitHub al fusionar y el enlace de la ficha daría 404; pedir `rama` vacía (main) en ese aviso. (surgió en 0105)
