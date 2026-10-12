@@ -49,7 +49,7 @@ bueno de Dani o de peticiones en su nombre.
   [0088](tasks/0088-pre-push-solo-integra-y-hacia-delante.md) (hecha),
   [0089](tasks/0089-ci-ok-falla-cerrado.md) (hecha), [0090](tasks/0090-fusion-atada-al-commit-del-ci.md),
   [0091](tasks/0091-scan-tenant-nombres-y-binarios.md) (hecha),
-  [0092](tasks/0092-telegram-no-envia-sin-filtro.md),
+  [0092](tasks/0092-telegram-no-envia-sin-filtro.md) (hecha),
   [0093](tasks/0093-log-sin-usuario-de-windows.md) (tras la 0083),
   [0094](tasks/0094-markdown-color-sin-prototipo.md) y
   [0095](tasks/0095-tls-seguimiento-conexiones-nuevas.md). Cola: 0087, 0088, 0089, 0090, 0091,
@@ -102,6 +102,8 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- El pre-commit lanza `vitest related` con un `.mjs` de `scripts/` y dice «No test files found»: los tests de `scripts/` no se relacionan con su `.mjs`, así que el pre-commit no los corre al tocar un script (sí los corre `check`). (surgió en 0092)
+- `scripts/notify-telegram.test.ts`: falta un caso de CA3 (0092) con `VIGIA_TELEGRAM_UNFILTERED=1` solo en el registro de Windows (hoy se prueba con la variable en el entorno). (surgió en 0092)
 - `scripts/scan-tenant.mjs`, `scanRange`: una línea añadida que empieza por `++ ` sale en el diff como `+++ …` y se toma por cabecera de fichero; esa línea no se revisa y la ruta de los hallazgos siguientes cambia. Anterior a la 0091. (surgió en 0091)
 - `scripts/scan-tenant.mjs`, `shownExtension`: no mira si la extensión se solapa con otra aparición del mismo valor (`foo-falso.int-foo-falso.internal` deja ver `.internal`); exige el valor dos veces en el nombre. Se cerraría con `lastIndexOf(value) + value.length <= stem.length`. Opcional. (surgió en 0091)
 - `scripts/scan-tenant.mjs`: para los hallazgos de `host` e `id-de-entorno` se podría tapar solo el valor en vez del tramo entero de la ruta; hoy se tapa el tramo entero, que es lo seguro. (surgió en 0091)
@@ -461,3 +463,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0100](tasks/0100-unitario-react-compiler-intermitente.md) (ligera): arreglo del unitario intermitente `scripts/react-compiler.test.ts` («CA3 (0059)»). La causa era la carga en frío (importar la configuración con `electron-vite` y la primera transformación con Babel y el compilador, hasta 2,1 s bajo carga, el 98 % del tiempo); ahora esa preparación va en un `beforeAll` y la prueba solo transforma (0,55 s en el peor medido). Sin subir ningún límite. Cinco `check` seguidos en verde, tres con el e2e a la vez. Solo desarrollo, sin migraciones. (cierra los sospechosos de 0088 y 0090)
 - Sospechoso de inestable sin causa (e2e): `e2e/views-entidad.spec.ts:543`, «CA1 (0036): … la tarjeta «Información» es la última sección …», agotó su minuto una vez en 369 con la máquina cargada (tanda de 4,4 min frente a 1,8 min de las otras dos), sin cambios de código entre tomas; ya había un aviso parecido de esta prueba en la 0069. Si vuelve a fallar, guardar `test-results/` antes de relanzar y abrir su ficha. (surgió en 0100)
 - [0101](tasks/0101-tests-sin-variables-git-heredadas.md): los tests no heredan las variables `GIT_*`. El culpable del `core.bare=true` en el checkout principal era `scripts/lib/env-file.test.ts` (un `git init` con el `GIT_DIR` de un hook lanzado desde un worktree); ahora Vitest borra las `GIT_*` antes de cada fichero (`scripts/lib/git-env.mjs` y `vitest-git-env.setup.mjs`). Regla en `src/CLAUDE.md`. Solo desarrollo, sin migraciones.
+- [0092](tasks/0092-telegram-no-envia-sin-filtro.md): el aviso de Telegram no se envía si no hay `.env.live.local` con valores con el que filtrar el texto, salvo con `VIGIA_TELEGRAM_UNFILTERED=1`. Sale siempre con 0. Con exclusiones `seguridad` y `externos`: va sola en su PR y la fusiona Dani. Sin migraciones.
