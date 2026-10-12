@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { MarkdownText } from './MarkdownText'
-import { readableColor, THEME_BACKGROUNDS, THEME_FOREGROUNDS } from './markdown-color'
+import { parseColor, readableColor, THEME_BACKGROUNDS, THEME_FOREGROUNDS } from './markdown-color'
 import {
   all,
   contrastOver,
@@ -318,5 +318,29 @@ describe('CA2 y CA5 (0043): background-color solo si el texto encima se lee en l
       }
     }
     expectReadable(tree, 'texto')
+  })
+})
+
+describe('CA1 (0094): los colores con nombre no se buscan en el prototipo', () => {
+  it.each(['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty'])(
+    'parseColor(%s) devuelve null',
+    (name) => {
+      expect(parseColor(name)).toBeNull()
+    }
+  )
+
+  it.each([
+    ['red', '#ff0000'],
+    ['green', '#008000'],
+    ['navy', '#000080'],
+    ['orange', '#ffa500'],
+    ['gray', '#808080'],
+    ['white', '#ffffff'],
+    ['black', '#000000']
+  ])('el nombre válido %s sigue dando su color (%s)', (name, hex) => {
+    const color = parseColor(name)
+    expect(color).not.toBeNull()
+    expect(color).toEqual(parseColor(hex))
+    for (const channel of Object.values(color ?? {})) expect(Number.isNaN(channel)).toBe(false)
   })
 })

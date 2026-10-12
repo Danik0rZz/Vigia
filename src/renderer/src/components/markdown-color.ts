@@ -179,7 +179,9 @@ const RGB = new RegExp(
   String.raw`^rgba?\(\s*${NUMBER}\s*,\s*${NUMBER}\s*,\s*${NUMBER}\s*(?:,\s*${ALPHA}\s*)?\)$`
 )
 
-function hexToRgba(hex: string): Rgba {
+/** Un `#rgb` o `#rrggbb` en minúsculas a canales; cualquier otra cosa da null (nunca canales NaN). */
+function hexToRgba(hex: string): Rgba | null {
+  if (!HEX.test(hex)) return null
   const digits = hex.length === 4 ? [...hex.slice(1)].map((c) => c + c).join('') : hex.slice(1)
   return {
     r: parseInt(digits.slice(0, 2), 16),
@@ -187,6 +189,13 @@ function hexToRgba(hex: string): Rgba {
     b: parseInt(digits.slice(4, 6), 16),
     a: 1
   }
+}
+
+/** Un `#rrggbb` que tiene que ser válido (constantes del tema y colores ya formateados). */
+function knownHex(hex: string): Rgba {
+  const color = hexToRgba(hex)
+  if (color === null) throw new TypeError(`Color hexadecimal no válido: ${hex}`)
+  return color
 }
 
 /**
@@ -197,8 +206,8 @@ function hexToRgba(hex: string): Rgba {
 export function parseColor(value: string): Rgba | null {
   const text = value.trim().toLowerCase()
   if (HEX.test(text)) return hexToRgba(text)
-  const named = NAMED_COLORS[text]
-  if (named !== undefined) return hexToRgba(`#${named}`)
+  // Solo los nombres propios del mapa: `constructor`, `__proto__`… no son colores (ficha 0094).
+  if (Object.hasOwn(NAMED_COLORS, text)) return hexToRgba(`#${NAMED_COLORS[text]}`)
   const match = RGB.exec(text)
   if (match === null) return null
   const [r, g, b] = match.slice(1, 4).map(Number) as [number, number, number]
@@ -284,8 +293,8 @@ const STEPS = 1000
  * que cumple es el que menos cambia). Si ninguno cumple, el que más contraste mínimo consigue.
  */
 export function readableColor(color: string, backgrounds: readonly string[]): string {
-  const original = hexToRgba(color.toLowerCase())
-  const bgs = backgrounds.map((background) => hexToRgba(background.toLowerCase()))
+  const original = knownHex(color.toLowerCase())
+  const bgs = backgrounds.map((background) => knownHex(background.toLowerCase()))
   if (readsOn(original, bgs)) return toHex(original)
   const hsl = toHsl(original)
   const start = Math.round(hsl.l * STEPS)
@@ -319,8 +328,8 @@ type Node = {
 type Paint = { fg: [Rgba, Rgba]; bg: [Rgba, Rgba] }
 
 const THEME_PAINT: Paint = {
-  fg: [hexToRgba(THEME_FOREGROUNDS[0]), hexToRgba(THEME_FOREGROUNDS[1])],
-  bg: [hexToRgba(THEME_BACKGROUNDS[0]), hexToRgba(THEME_BACKGROUNDS[1])]
+  fg: [knownHex(THEME_FOREGROUNDS[0]), knownHex(THEME_FOREGROUNDS[1])],
+  bg: [knownHex(THEME_BACKGROUNDS[0]), knownHex(THEME_BACKGROUNDS[1])]
 }
 
 /**
@@ -383,7 +392,7 @@ function paintElement(
   if (color === undefined) return { style: undefined, paint: inherited }
   if (!readsOn(color, inherited.bg)) {
     // Se ajusta el color opaco; si ni así se lee (fondos heredados imposibles), se quita.
-    const adjusted = hexToRgba(readableColor(toHex(color), inherited.bg.map(toHex)))
+    const adjusted = knownHex(readableColor(toHex(color), inherited.bg.map(toHex)))
     if (!readsOn(adjusted, inherited.bg)) return { style: undefined, paint: inherited }
     color = adjusted
   }
