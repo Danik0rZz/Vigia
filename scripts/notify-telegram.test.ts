@@ -1,4 +1,14 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -76,6 +86,12 @@ type Api = {
 
 // Si el script aún no existe, solo fallan los tests que lo usan (CA11 no lo necesita).
 const loaded = existsSync(SCRIPT) ? ((await import(pathToFileURL(SCRIPT).href)) as Api) : undefined
+// El script importa la tarjeta (0104) solo cuando hay que capturar, y esa primera carga (React,
+// react-markdown, highlight.js…) tarda segundos: se la llevaba el único test de este fichero que
+// envía la foto (CA1 de la 0106), que con la máquina cargada pasaba de los 5 s de Vitest. Se
+// precarga aquí, al cargar el fichero, fuera del tiempo de cada test (como en la 0105).
+const CARD = join(__dirname, 'telegram-card.mjs')
+if (existsSync(CARD)) await import(pathToFileURL(CARD).href)
 function api(): Api {
   if (!loaded) throw new Error('No existe scripts/notify-telegram.mjs')
   return loaded
@@ -1160,5 +1176,351 @@ describe('CA5 (0103): el id del hilo no sale nunca', () => {
       cwdEnv: ENV_UNRELATED
     })
     expect(all).not.toContain(REG_THREAD_ID)
+  })
+})
+
+// Ficha 0106: cada aviso de una ficha responde al anterior de la misma ficha.
+//
+// Contrato que fijan estos tests (la ficha no lo detallaba):
+// - `main(argv, deps)` acepta `deps.gitCommonDir()`: la carpeta donde se guarda el fichero de los
+//   avisos (string, o undefined si no se sabe). Sin `deps.gitCommonDir` (los tests de la 0004, la
+//   0103 y la 0105) no se lee ni se guarda nada, para no tocar el repositorio real. La entrada de
+//   la línea de órdenes pasa la carpeta común de git.
+// - El script exporta `resolveGitCommonDir(cwd)`: la ruta absoluta de
+//   `git rev-parse --git-common-dir` desde `cwd`, o undefined si falla.
+// - En la carpeta solo se crea un fichero (el de los avisos); su nombre lo decide el developer.
+//   Los tests lo buscan como el único fichero nuevo de la carpeta.
+// - Los problemas con el fichero se dicen en stderr con «[aviso telegram]», como en la 0103.
+
+type Api0106 = {
+  main: (
+    argv: string[],
+    deps: Deps & {
+      gitCommonDir?: () => string | undefined
+      capture?: (html: string) => Promise<Uint8Array[]>
+    }
+  ) => number | Promise<number>
+  resolveGitCommonDir?: (cwd: string) => string | undefined
+}
+function api0106(): Api0106 {
+  return api() as unknown as Api0106
+}
+
+type TgCall = { method: string; fields: Record<string, unknown> }
+
+/** Telegram simulado con message_id crecientes desde `firstId`; lee JSON o multipart. */
+function telegram0106(firstId: number): { fetchImpl: FetchImpl; calls: TgCall[] } {
+  const calls: TgCall[] = []
+  let next = firstId
+  const fetchImpl: FetchImpl = async (url, init) => {
+    const request = new Request(url, init)
+    const method = String(url).split('/').pop() ?? ''
+    const contentType = request.headers.get('content-type') ?? ''
+    const fields: Record<string, unknown> = {}
+    if (contentType.startsWith('multipart/form-data')) {
+      const form = await request.formData()
+      for (const [key, value] of form.entries()) {
+        if (
+          typeof value === 'string' &&
+          (key === 'reply_parameters' || key === 'message_thread_id')
+        )
+          fields[key] = JSON.parse(value) as unknown
+        else fields[key] = value
+      }
+    } else Object.assign(fields, JSON.parse(await request.text()) as Record<string, unknown>)
+    calls.push({ method, fields })
+    const messageId = next++
+    return new Response(JSON.stringify({ ok: true, result: { message_id: messageId } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    })
+  }
+  return { fetchImpl, calls }
+}
+
+// PNG válido de 1x1 en escala de grises, para el camino de sendPhoto.
+const PNG_1X1 = Buffer.from(
+  '89504e470d0a1a0a0000000d49484452000000010000000108000000003a7e9b55' +
+    '0000000a49444154789c636000000002000148afa4710000000049454e44ae426082',
+  'hex'
+)
+
+type Run0106 = {
+  commonDir: string
+  firstId: number
+  datos?: Datos
+  env?: Record<string, string | undefined>
+  capture?: (html: string) => Promise<Uint8Array[]>
+  cwd?: string
+}
+
+async function run0106(options: Run0106): Promise<{
+  code: unknown
+  calls: TgCall[]
+  stderr: string
+}> {
+  captured = { stdout: [], stderr: [] }
+  let cwd = options.cwd
+  if (cwd === undefined) {
+    cwd = tempDir()
+    writeFileSync(join(cwd, '.env.live.local'), ENV_UNRELATED)
+  }
+  const { fetchImpl, calls } = telegram0106(options.firstId)
+  const deps: Parameters<Api0106['main']>[1] = {
+    env: options.env ?? { VIGIA_TELEGRAM_TOKEN: TOKEN, VIGIA_TELEGRAM_CHAT_ID: CHAT_ID },
+    platform: 'win32',
+    readRegistry: () => undefined,
+    cwd,
+    mainCheckout: () => undefined,
+    fetchImpl,
+    stdout: (text) => void captured.stdout.push(String(text)),
+    stderr: (text) => void captured.stderr.push(String(text)),
+    gitCommonDir: () => options.commonDir
+  }
+  if (options.capture) deps.capture = options.capture
+  const code = await api0106().main([inputFile(options.datos ?? tarea({ ficha: '0001' }))], deps)
+  return { code, calls, stderr: captured.stderr.join('\n') }
+}
+
+/** El único fichero de la carpeta (el de los avisos). */
+function avisosFile(commonDir: string): string {
+  const files = readdirSync(commonDir)
+  expect(files).toHaveLength(1)
+  return join(commonDir, files[0] as string)
+}
+function avisos(commonDir: string): unknown {
+  return JSON.parse(readFileSync(avisosFile(commonDir), 'utf8')) as unknown
+}
+
+const THREAD_ENV_0106 = {
+  VIGIA_TELEGRAM_TOKEN: TOKEN,
+  VIGIA_TELEGRAM_CHAT_ID: CHAT_ID,
+  VIGIA_TELEGRAM_THREAD_ID: THREAD_ID
+}
+
+describe('CA1 (0106): el siguiente aviso de la misma ficha responde al anterior', () => {
+  it('CA1 (0106): con sendMessage, el fichero guarda el message_id y el siguiente aviso de la 0001 responde a él', async () => {
+    const commonDir = tempDir()
+    const first = await run0106({ commonDir, firstId: 5001 })
+    expect(first.code).toBe(0)
+    expect(first.calls.map((call) => call.method)).toEqual(['sendMessage'])
+    expect(first.calls[0]?.fields).not.toHaveProperty('reply_parameters')
+    expect(avisos(commonDir)).toEqual({ '0001': 5001 })
+
+    const second = await run0106({ commonDir, firstId: 5002 })
+    expect(second.code).toBe(0)
+    expect(second.calls).toHaveLength(1)
+    expect(second.calls[0]?.fields).toMatchObject({
+      reply_parameters: { message_id: 5001, allow_sending_without_reply: true }
+    })
+    expect(avisos(commonDir)).toEqual({ '0001': 5002 })
+  })
+
+  it('CA1 (0106): con hilo (0103), mantiene message_thread_id y responde al aviso anterior, no al que abre el hilo', async () => {
+    const commonDir = tempDir()
+    await run0106({ commonDir, firstId: 5101, env: THREAD_ENV_0106 })
+    const second = await run0106({ commonDir, firstId: 5102, env: THREAD_ENV_0106 })
+    expect(second.code).toBe(0)
+    expect(second.calls).toHaveLength(1)
+    expect(second.calls[0]?.fields).toMatchObject({
+      message_thread_id: Number(THREAD_ID),
+      reply_parameters: { message_id: 5101, allow_sending_without_reply: true }
+    })
+  })
+
+  it('CA1 (0106): con sendPhoto en varias partes, se guarda el message_id de la primera y el siguiente aviso responde a ella', async () => {
+    const commonDir = tempDir()
+    const partes = (): Promise<Uint8Array[]> => Promise.resolve([PNG_1X1, PNG_1X1, PNG_1X1])
+    const first = await run0106({ commonDir, firstId: 9100, capture: partes })
+    expect(first.code).toBe(0)
+    expect(first.calls.map((call) => call.method)).toEqual(['sendPhoto', 'sendPhoto', 'sendPhoto'])
+    expect(first.calls[0]?.fields).not.toHaveProperty('reply_parameters')
+    expect(avisos(commonDir)).toEqual({ '0001': 9100 })
+
+    const second = await run0106({ commonDir, firstId: 9200, capture: partes })
+    expect(second.code).toBe(0)
+    expect(second.calls.map((call) => call.method)).toEqual(['sendPhoto', 'sendPhoto', 'sendPhoto'])
+    expect(second.calls[0]?.fields).toMatchObject({
+      reply_parameters: { message_id: 9100, allow_sending_without_reply: true }
+    })
+    // Las demás partes siguen respondiendo a la primera de su propio aviso (0105).
+    expect(second.calls[1]?.fields).toMatchObject({ reply_parameters: { message_id: 9200 } })
+    expect(avisos(commonDir)).toEqual({ '0001': 9200 })
+  })
+})
+
+describe('CA2 (0106): un aviso de otra ficha no responde al de la 0001', () => {
+  it('CA2 (0106): sin hilo, el aviso de la 0002 no lleva reply_parameters', async () => {
+    const commonDir = tempDir()
+    await run0106({ commonDir, firstId: 6001 })
+    const other = await run0106({ commonDir, firstId: 6002, datos: tarea({ ficha: '0002' }) })
+    expect(other.code).toBe(0)
+    expect(other.calls).toHaveLength(1)
+    expect(other.calls[0]?.fields).not.toHaveProperty('reply_parameters')
+    expect(avisos(commonDir)).toEqual({ '0001': 6001, '0002': 6002 })
+  })
+
+  it('CA2 (0106): con hilo, el aviso de la 0002 responde al que abre el hilo (0103)', async () => {
+    const commonDir = tempDir()
+    await run0106({ commonDir, firstId: 6101, env: THREAD_ENV_0106 })
+    const other = await run0106({
+      commonDir,
+      firstId: 6102,
+      env: THREAD_ENV_0106,
+      datos: tarea({ ficha: '0002' })
+    })
+    expect(other.code).toBe(0)
+    expect(other.calls[0]?.fields).toMatchObject({
+      message_thread_id: Number(THREAD_ID),
+      reply_parameters: { message_id: Number(THREAD_ID), allow_sending_without_reply: false }
+    })
+  })
+})
+
+describe('CA3 (0106): con el fichero corrupto o ilegible, sale sin respuesta y con 0', () => {
+  // El fichero se crea con un envío bien y luego se estropea, para no depender de su nombre.
+  async function brokenAfterFirst(breakIt: (file: string) => void): Promise<void> {
+    const commonDir = tempDir()
+    await run0106({ commonDir, firstId: 7001 })
+    breakIt(avisosFile(commonDir))
+    const second = await run0106({ commonDir, firstId: 7002 })
+    expect(second.code).toBe(0)
+    expect(second.calls).toHaveLength(1)
+    expect(second.calls[0]?.fields).not.toHaveProperty('reply_parameters')
+    expect(second.stderr).toContain('[aviso telegram]')
+  }
+
+  it('CA3 (0106): JSON corrupto', async () => {
+    await brokenAfterFirst((file) => writeFileSync(file, '{ "0001": 70'))
+  })
+
+  it('CA3 (0106): JSON con otra forma (message_id que no es un número)', async () => {
+    await brokenAfterFirst((file) => writeFileSync(file, JSON.stringify({ '0001': 'abc' })))
+  })
+
+  it('CA3 (0106): JSON que no es un objeto', async () => {
+    await brokenAfterFirst((file) => writeFileSync(file, JSON.stringify([7001])))
+  })
+
+  it('CA3 (0106): sin permiso de lectura (en su lugar hay una carpeta, que no se puede leer como fichero)', async () => {
+    await brokenAfterFirst((file) => {
+      rmSync(file)
+      mkdirSync(file)
+    })
+  })
+
+  it('CA3 (0106): si el fichero no existe, se envía como el primero y sale con 0', async () => {
+    const commonDir = tempDir()
+    const first = await run0106({ commonDir, firstId: 7101 })
+    expect(first.code).toBe(0)
+    expect(first.calls).toHaveLength(1)
+    expect(first.calls[0]?.fields).not.toHaveProperty('reply_parameters')
+  })
+})
+
+describe('CA4 (0106): como mucho 200 entradas y sin secretos', () => {
+  it('CA4 (0106): tras 201 fichas distintas quedan 200, sin la más antigua', async () => {
+    const commonDir = tempDir()
+    const cwd = tempDir()
+    writeFileSync(join(cwd, '.env.live.local'), ENV_UNRELATED)
+    for (let n = 1; n <= 201; n++) {
+      const ficha = String(n).padStart(4, '0')
+      const { code } = await run0106({
+        commonDir,
+        cwd,
+        firstId: 10000 + n,
+        datos: tarea({ ficha })
+      })
+      expect(code).toBe(0)
+    }
+    const saved = avisos(commonDir) as Record<string, unknown>
+    expect(Object.keys(saved)).toHaveLength(200)
+    expect(saved).not.toHaveProperty('0001')
+    expect(saved).toHaveProperty('0002', 10002)
+    expect(saved).toHaveProperty('0201', 10201)
+  }, 60_000)
+
+  it('CA4 (0106): el fichero no contiene el token ni el chat_id', async () => {
+    const commonDir = tempDir()
+    await run0106({ commonDir, firstId: 8001, env: THREAD_ENV_0106 })
+    await run0106({
+      commonDir,
+      firstId: 8002,
+      env: THREAD_ENV_0106,
+      datos: tarea({ ficha: '0002' })
+    })
+    const raw = readFileSync(avisosFile(commonDir), 'utf8')
+    expect(raw).not.toContain(TOKEN_SECRET)
+    expect(raw).not.toContain(CHAT_ID)
+    expect(raw).not.toContain('chat_id')
+    expect(raw.toLowerCase()).not.toContain('token')
+  })
+})
+
+const { withoutGitVars } = (await import(
+  pathToFileURL(join(__dirname, 'lib', 'git-env.mjs')).href
+)) as { withoutGitVars: (env: NodeJS.ProcessEnv) => NodeJS.ProcessEnv }
+
+describe('CA5 (0106): el fichero está en la carpeta común de git y git status no lo ve', () => {
+  function git(cwd: string, args: string[]): string {
+    return execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      env: withoutGitVars(process.env)
+    }).trim()
+  }
+
+  /** Repositorio temporal con un commit y un worktree. */
+  function repoWithWorktree(): { repo: string; worktree: string } {
+    const repo = tempDir()
+    git(repo, ['init', '-q', '-b', 'main'])
+    git(repo, [
+      '-c',
+      'user.name=test',
+      '-c',
+      'user.email=test@example.invalid',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      'inicio'
+    ])
+    const worktree = join(tempDir(), 'wt')
+    git(repo, ['worktree', 'add', '-q', '-b', 'otra', worktree])
+    return { repo, worktree }
+  }
+
+  it('CA5 (0106): resolveGitCommonDir da la carpeta .git del checkout principal, también desde un worktree', () => {
+    const { repo, worktree } = repoWithWorktree()
+    const resolve = api0106().resolveGitCommonDir
+    expect(typeof resolve).toBe('function')
+    const expected = realpathSync(join(repo, '.git'))
+    const fromWorktree = resolve?.(worktree)
+    const fromRepo = resolve?.(repo)
+    expect(fromWorktree).toBeDefined()
+    expect(fromRepo).toBeDefined()
+    expect(realpathSync(fromWorktree as string)).toBe(expected)
+    expect(realpathSync(fromRepo as string)).toBe(expected)
+  })
+
+  it('CA5 (0106): tras un aviso desde un worktree, el fichero está en la carpeta común y git status sale limpio en los dos', async () => {
+    const { repo, worktree } = repoWithWorktree()
+    const commonDir = api0106().resolveGitCommonDir?.(worktree)
+    expect(commonDir).toBeDefined()
+    const dir = commonDir as string
+    const before = new Set(readdirSync(dir))
+    const { code } = await run0106({ commonDir: dir, firstId: 4242 })
+    expect(code).toBe(0)
+    const added = readdirSync(dir).filter((name) => !before.has(name))
+    expect(added).toHaveLength(1)
+    expect(JSON.parse(readFileSync(join(dir, added[0] as string), 'utf8'))).toEqual({
+      '0001': 4242
+    })
+    expect(git(repo, ['status', '--porcelain', '--ignored', '--untracked-files=all'])).toBe('')
+    expect(git(worktree, ['status', '--porcelain', '--ignored', '--untracked-files=all'])).toBe('')
+  })
+
+  it('CA5 (0106): la entrada de la línea de órdenes usa git rev-parse --git-common-dir', () => {
+    expect(readFileSync(SCRIPT, 'utf8')).toContain('--git-common-dir')
   })
 })

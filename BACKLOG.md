@@ -76,7 +76,7 @@ bueno de Dani o de peticiones en su nombre.
   Telegram en un hilo y como tarjeta en imagen con evidencias:
   [0103](tasks/0103-telegram-avisos-en-un-hilo.md) (hecha),
   [0104](tasks/0104-telegram-tarjeta-html.md) (hecha), [0105](tasks/0105-telegram-aviso-en-imagen.md) (hecha),
-  [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
+  [0106](tasks/0106-telegram-responder-al-aviso-anterior.md) (hecha),
   [0107](tasks/0107-e2e-capturas-de-evidencias.md) (hecha) y
   [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
   exclusiones: cada una sola en su PR.
@@ -116,6 +116,9 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- `scripts/notify-telegram.mjs` (`saveReply`): si dos worktrees guardan a la vez, el último `rename` gana y se pierde la entrada del otro; en Windows el `rename` puede fallar con EPERM. Como mucho, un aviso que no responde al anterior; se podría dejar escrito en el comentario de la función. Opcional. (surgió en 0106)
+- `scripts/notify-telegram.mjs`: el recorte a 200 entradas ordena por `message_id` y supone un solo chat; si cambia `VIGIA_TELEGRAM_CHAT_ID`, los ids del chat viejo pueden quedar mal ordenados. Lo cubre `allow_sending_without_reply`. Opcional. (surgió en 0106)
+- Sospechosos de inestables solo con carga extrema (6 suites completas de vitest a la vez, no en un `npm run check` normal): «CA12 (0004)» de `scripts/notify-telegram.test.ts` (un bucle que gasta CPU: 7–9 s frente a 164 ms aislado) y tests de `export.test.ts` (CA2 0063), `i18n-lint.test.ts` y `problem-workbook.test.ts`. Valorar en la ficha de tests inestables del lote B. (surgió en 0106)
 - `scripts/telegram-capture.cjs`: para la medida del alto, exigir dos medidas iguales seguidas en vez de fiarse de `document.fonts.status`. Opcional. (surgió en 0105)
 - `scripts/notify-telegram.mjs`: medir lo que tarda el aviso con imagen en Node normal (los 4,3 s de la carga en frío de la tarjeta son con la transformación de Vitest). Opcional. (surgió en 0105)
 - Flujo (`.claude/agents/*.md`): en la 0105, el test-writer y el developer dejaron en segundo plano un Electron de experimento que se colgó (con un diálogo de error de JavaScript en el escritorio) y los agentes no terminaron hasta unas 2,5 h después. Las reglas de los agentes deberían pedir que lo que lanzan para experimentar vaya en primer plano y con tiempo máximo, nunca en segundo plano sin cerrarlo. (surgió en 0105)
@@ -500,4 +503,5 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0093](tasks/0093-log-sin-usuario-de-windows.md) (lote seguridad-revision, exclusión seguridad): el filtro final del log de main tapa también el usuario de las rutas (`C:Users<usuario>`, `/home/<usuario>`) con `maskErrorDetails`, la misma regla que los errores del renderer; la copia antes de migrar registra solo el nombre del fichero. Sin migraciones.
 - [0104](tasks/0104-telegram-tarjeta-html.md) (exclusión seguridad): `scripts/telegram-card.mjs` construye el HTML de la tarjeta del aviso de Telegram (resumen en Markdown con lista blanca, CSP propia, nada externo); ADR-0015. Capturarla y enviarla es la 0105. Sin migraciones.
 - [0105](tasks/0105-telegram-aviso-en-imagen.md) (exclusiones seguridad y externos): el aviso de Telegram sale como imagen de la tarjeta (Electron sin ventana, partida por bloques si es alta) con un pie en texto buscable y enlaces a ficha, PR y CI; si falla la imagen, el texto de siempre; `VIGIA_TELEGRAM_TEXTO=1` lo apaga. Completa el ADR-0015. Sin migraciones.
+- [0106](tasks/0106-telegram-responder-al-aviso-anterior.md) (exclusión externos): cada aviso de Telegram de una ficha responde al anterior de la misma ficha, con el `message_id` guardado en un fichero local en la carpeta común de git; si falla, sale como el primero. Completa el ADR-0015. Sin migraciones.
 - [0107](tasks/0107-e2e-capturas-de-evidencias.md) (lote telegram-imagen): ayuda `captureEvidence` en `e2e/evidence.ts` que, con `VIGIA_EVIDENCIAS=1` y solo contra el simulador, guarda la captura de la zona y de la ventana de cada criterio visible y su línea en `manifiesto.json`, esperando a que dos capturas seguidas coincidan. El test-writer, el verifier y `e2e/CLAUDE.md` la piden. No toca la app.

@@ -20,12 +20,30 @@
 // primera con el pie y las demás como respuesta a ella. Si la imagen falla (no hay Electron, la
 // captura falla o tarda, la imagen se pasa de los límites o Telegram la rechaza), se envía el
 // texto de siempre. Con VIGIA_TELEGRAM_TEXTO=1, siempre el texto.
+//
+// Desde la ficha 0106, cada aviso de una ficha (o versión) responde al anterior de la misma: el
+// message_id de cada envío bien (el de la primera parte, si va en varias) se guarda en
+// vigia-telegram-avisos.json, en la carpeta común de git (`git rev-parse --git-common-dir`), que
+// comparten el checkout principal y los worktrees y que git no ve. Solo guarda { ficha: message_id }
+// (las 200 más recientes), nunca el token ni el chat_id. Si el fichero falta o está mal, el aviso
+// sale como el primero. Responde con reply_parameters { message_id, allow_sending_without_reply:
+// true }, para que llegue aunque el anterior se haya borrado (campos de ReplyParameters y
+// result.message_id de sendMessage y sendPhoto, comprobados en
+// https://core.telegram.org/bots/api#replyparameters el 2026-10-12).
 import { execFileSync, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { dirname, join, win32 } from 'node:path'
+import { dirname, join, resolve, win32 } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { findLiveEnv, LIVE_ENV_FILE } from './lib/env-file.mjs'
 import { extractNeedles } from './scan-tenant.mjs'
@@ -304,14 +322,16 @@ export function multipart(fields, file) {
 /**
  * Envía una foto con sendPhoto (multipart/form-data con `multipart`, y `fetch`). Con
  * `threadId`, al hilo (message_thread_id); `replyTo` es el mensaje al que responde (el que abre el
- * hilo o la primera parte). No lanza: devuelve { ok: true, messageId } o { ok: false, error,
- * rejected }, con el error ya filtrado.
+ * hilo, la primera parte o el aviso anterior de la ficha, 0106). Con `allowWithoutReply`, llega
+ * aunque ese mensaje se haya borrado. No lanza: devuelve { ok: true, messageId } o { ok: false,
+ * error, rejected }, con el error ya filtrado.
  */
 export async function sendTelegramPhoto({
   token,
   chatId,
   threadId,
   replyTo,
+  allowWithoutReply = false,
   photo,
   caption,
   fetchImpl
@@ -322,7 +342,7 @@ export async function sendTelegramPhoto({
   if (replyTo !== undefined)
     fields.push([
       'reply_parameters',
-      JSON.stringify({ message_id: replyTo, allow_sending_without_reply: false })
+      JSON.stringify({ message_id: replyTo, allow_sending_without_reply: allowWithoutReply })
     ])
   fields.push(['caption', caption], ['parse_mode', 'HTML'])
   const { body: form, contentType } = multipart(fields, {
@@ -474,19 +494,19 @@ export function parseThreadId(value) {
 /**
  * Envía el texto con sendMessage de la Bot API. Con `threadId`, al hilo: con
  * message_thread_id y como respuesta al mensaje que lo abre (el grupo no es un
- * foro; solo con message_thread_id cae en el chat principal). No lanza: devuelve
- * { ok: true } o { ok: false, error, rejected }, con el error ya filtrado;
+ * foro; solo con message_thread_id cae en el chat principal). Con `replyTo` (el
+ * aviso anterior de la misma ficha, 0106), responde a ese mensaje en vez de al que
+ * abre el hilo, y llega aunque se haya borrado. No lanza: devuelve
+ * { ok: true, messageId } o { ok: false, error, rejected }, con el error ya filtrado;
  * `rejected` dice si fue Telegram quien respondió con un error.
  */
-export async function sendTelegram({ token, chatId, threadId, text: message, fetchImpl }) {
+export async function sendTelegram({ token, chatId, threadId, replyTo, text: message, fetchImpl }) {
   const clean = (value) => redact(value, [token, chatId, threadId])
-  const thread =
-    threadId === undefined
-      ? {}
-      : {
-          message_thread_id: threadId,
-          reply_parameters: { message_id: threadId, allow_sending_without_reply: false }
-        }
+  const thread = threadId === undefined ? {} : { message_thread_id: threadId }
+  if (replyTo !== undefined)
+    thread.reply_parameters = { message_id: replyTo, allow_sending_without_reply: true }
+  else if (threadId !== undefined)
+    thread.reply_parameters = { message_id: threadId, allow_sending_without_reply: false }
   try {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -505,7 +525,8 @@ export async function sendTelegram({ token, chatId, threadId, text: message, fet
     } catch {
       body = undefined
     }
-    if (response.status === 200 && body?.ok === true) return { ok: true }
+    if (response.status === 200 && body?.ok === true)
+      return { ok: true, messageId: body.result?.message_id }
     const description = typeof body?.description === 'string' ? `: ${body.description}` : ''
     return { ok: false, rejected: true, error: clean(`HTTP ${response.status}${description}`) }
   } catch (error) {
@@ -513,6 +534,98 @@ export async function sendTelegram({ token, chatId, threadId, text: message, fet
       return { ok: false, error: `tiempo agotado (${TIMEOUT_MS / 1000} s)` }
     const message = error instanceof Error ? error.message : String(error)
     return { ok: false, error: clean(`error de red: ${message.split('\n')[0]}`) }
+  }
+}
+
+// --- Aviso anterior de la misma ficha (ficha 0106) ---
+
+/** Fichero de los avisos enviados, en la carpeta común de git. */
+export const REPLIES_FILE = 'vigia-telegram-avisos.json'
+/** Entradas que se guardan como mucho: las de message_id más alto, que son las más recientes. */
+export const REPLIES_MAX = 200
+
+/**
+ * Ruta absoluta de `git rev-parse --git-common-dir` desde `cwd`: la carpeta .git del checkout
+ * principal, también desde un worktree. undefined si git falla. No lanza.
+ */
+export function resolveGitCommonDir(cwd) {
+  try {
+    const output = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
+    }).trim()
+    return output ? resolve(cwd, output) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Clave del aviso en el fichero: la ficha, o «v» y la versión; undefined si no tiene. */
+function replyKey(datos) {
+  if (datos.tipo === 'version') {
+    const version = text(datos.version).replace(/^v+/i, '')
+    return version ? `v${version}` : undefined
+  }
+  return text(datos.ficha) || undefined
+}
+
+function isMessageId(value) {
+  return Number.isSafeInteger(value) && value > 0
+}
+
+/**
+ * Lee el fichero de los avisos. Devuelve { entries } (vacío y con `missing` si no existe) o, si
+ * no se puede leer o no tiene la forma { clave: message_id }, { entries: {}, problem }. No lanza.
+ */
+export function readReplies(dir) {
+  let raw
+  try {
+    raw = readFileSync(join(dir, REPLIES_FILE), 'utf8')
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { entries: {}, missing: true }
+    return { entries: {}, problem: `no se puede leer (${error?.code ?? 'error'})` }
+  }
+  let data
+  try {
+    data = JSON.parse(raw)
+  } catch {
+    return { entries: {}, problem: 'no es un JSON válido' }
+  }
+  if (data === null || typeof data !== 'object' || Array.isArray(data))
+    return { entries: {}, problem: 'no es un objeto' }
+  if (!Object.values(data).every(isMessageId))
+    return { entries: {}, problem: 'tiene valores que no son un message_id' }
+  return { entries: data }
+}
+
+/**
+ * Guarda `messageId` como el último aviso de `key` y deja las REPLIES_MAX entradas más recientes.
+ * Vuelve a leer el fichero (otro worktree puede haberlo cambiado) y lo reescribe de una vez
+ * (fichero temporal y rename). Devuelve el problema, o undefined si se ha guardado. No lanza.
+ */
+export function saveReply(dir, key, messageId) {
+  const { entries } = readReplies(dir)
+  // Las más antiguas fuera: los message_id de un chat crecen con el tiempo. No se usa el orden de
+  // las claves, porque JavaScript pone delante las que parecen números (una ficha «1000»).
+  const kept = Object.entries({ ...entries, [key]: messageId })
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, REPLIES_MAX)
+    .sort((a, b) => a[1] - b[1])
+  const file = join(dir, REPLIES_FILE)
+  const tmp = `${file}.${process.pid}.tmp`
+  try {
+    writeFileSync(tmp, `${JSON.stringify(Object.fromEntries(kept), null, 2)}\n`)
+    renameSync(tmp, file)
+    return undefined
+  } catch (error) {
+    try {
+      unlinkSync(tmp)
+    } catch {
+      // Si no llegó a crearse, no hay nada que borrar.
+    }
+    return `no se puede escribir (${error?.code ?? 'error'})`
   }
 }
 
@@ -606,27 +719,70 @@ export async function main(argv, deps) {
     if (threadRaw && threadId === undefined)
       warn(`${THREAD_VAR} no es un entero positivo: se envía sin hilo.`)
 
+    // El aviso anterior de la misma ficha (0106). Sin deps.gitCommonDir, ni se lee ni se guarda.
+    const key = replyKey(datos)
+    const repliesDir =
+      key && typeof deps.gitCommonDir === 'function' ? text(deps.gitCommonDir()) : ''
+    let previous
+    if (repliesDir) {
+      const read = readReplies(repliesDir)
+      if (read.problem)
+        warn(`el registro de avisos ${read.problem}: se envía como el primero de la ficha.`)
+      else if (read.missing) info('aún no hay registro de avisos: se envía como el primero.')
+      const id = Object.hasOwn(read.entries, key) ? read.entries[key] : undefined
+      previous = isMessageId(id) ? id : undefined
+    }
+    const remember = (messageId) => {
+      if (!repliesDir || !isMessageId(messageId)) return
+      const problem = saveReply(repliesDir, key, messageId)
+      if (problem) warn(`el registro de avisos ${problem}: el siguiente no responderá a este.`)
+    }
+
     // Imagen primero (0105); el texto de siempre, de respaldo. Con VIGIA_TELEGRAM_TEXTO=1 o sin
     // `deps.capture`, solo el texto.
     const textOnly = (await credential(TEXT_ONLY_VAR, deps)) === '1'
     if (!textOnly && typeof deps.capture === 'function') {
-      const sent = await sendImage({ datos, caption, token, chatId, threadId, deps, warn, info })
-      if (sent) return 0
+      const sent = await sendImage({
+        datos,
+        caption,
+        token,
+        chatId,
+        threadId,
+        previous,
+        deps,
+        warn,
+        info
+      })
+      if (sent) {
+        remember(sent.messageId)
+        return 0
+      }
     }
 
-    const send = (thread) =>
-      sendTelegram({ token, chatId, threadId: thread, text: message, fetchImpl: deps.fetchImpl })
-    let result = await send(threadId)
+    const send = (thread, replyTo) =>
+      sendTelegram({
+        token,
+        chatId,
+        threadId: thread,
+        replyTo,
+        text: message,
+        fetchImpl: deps.fetchImpl
+      })
+    let result = await send(threadId, previous)
     if (!result.ok && result.rejected && threadId !== undefined) {
-      // El aviso tiene que llegar (Dani, 2026-10-12): una sola vez más, sin hilo.
+      // El aviso tiene que llegar (Dani, 2026-10-12): una sola vez más, sin hilo ni respuesta.
       warn(`Telegram ha rechazado el envío al hilo (${result.error}): se reintenta sin hilo.`)
-      result = await send(undefined)
-      if (result.ok) info('enviado sin hilo.')
-      else warn(`no se ha podido enviar sin hilo (${result.error}); el flujo sigue.`)
+      result = await send(undefined, undefined)
+      if (result.ok) {
+        info('enviado sin hilo.')
+        remember(result.messageId)
+      } else warn(`no se ha podido enviar sin hilo (${result.error}); el flujo sigue.`)
       return 0
     }
-    if (result.ok) info('enviado.')
-    else warn(`no se ha podido enviar (${result.error}); el flujo sigue.`)
+    if (result.ok) {
+      info('enviado.')
+      remember(result.messageId)
+    } else warn(`no se ha podido enviar (${result.error}); el flujo sigue.`)
     return 0
   } catch (error) {
     const reason = error instanceof Error ? error.message.split('\n')[0] : String(error)
@@ -636,11 +792,13 @@ export async function main(argv, deps) {
 }
 
 /**
- * Captura la tarjeta y la envía con sendPhoto, en partes si hace falta. Devuelve true si la
- * primera parte ha llegado (las demás, si fallan, solo se dicen en la terminal) y false si hay que
- * enviar el texto de siempre (lo que ha fallado ya se ha dicho con `warn`).
+ * Captura la tarjeta y la envía con sendPhoto, en partes si hace falta. La primera parte responde
+ * a `previous` (el aviso anterior de la ficha, 0106) o, sin él, al que abre el hilo. Devuelve
+ * { messageId } (el de la primera parte) si la primera parte ha llegado (las demás, si fallan,
+ * solo se dicen en la terminal) y false si hay que enviar el texto de siempre (lo que ha fallado
+ * ya se ha dicho con `warn`).
  */
-async function sendImage({ datos, caption, token, chatId, threadId, deps, warn, info }) {
+async function sendImage({ datos, caption, token, chatId, threadId, previous, deps, warn, info }) {
   let parts
   try {
     const { buildCardHtml } = await import('./telegram-card.mjs')
@@ -667,18 +825,19 @@ async function sendImage({ datos, caption, token, chatId, threadId, deps, warn, 
   }
 
   const total = parts.length
-  const send = (photo, partCaption, thread, replyTo) =>
+  const send = (photo, partCaption, thread, replyTo, allowWithoutReply = false) =>
     sendTelegramPhoto({
       token,
       chatId,
       threadId: thread,
       replyTo,
+      allowWithoutReply,
       photo,
       caption: partCaption,
       fetchImpl: deps.fetchImpl
     })
   let thread = threadId
-  let first = await send(parts[0], caption, thread, thread)
+  let first = await send(parts[0], caption, thread, previous ?? thread, previous !== undefined)
   if (!first.ok && first.rejected && thread !== undefined) {
     // Como con el texto (0103): una sola vez más, sin hilo.
     warn(`Telegram ha rechazado la imagen en el hilo (${first.error}): se reintenta sin hilo.`)
@@ -702,7 +861,7 @@ async function sendImage({ datos, caption, token, chatId, threadId, deps, warn, 
   const how = total === 1 ? 'como imagen' : `como imagen en ${total} partes`
   const where = thread === threadId ? '' : ' sin hilo'
   info(`enviado ${how}${where}${failed ? ` (${failed} sin enviar)` : ''}.`)
-  return true
+  return { messageId: first.messageId }
 }
 
 /**
@@ -738,6 +897,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     fetchImpl: (url, init) => fetch(url, init),
     stdout: (message) => process.stdout.write(`${message}\n`),
     stderr: (message) => process.stderr.write(`${message}\n`),
-    capture: captureWithElectron
+    capture: captureWithElectron,
+    gitCommonDir: () => resolveGitCommonDir(process.cwd())
   })
 }

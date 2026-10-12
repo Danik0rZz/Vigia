@@ -458,6 +458,10 @@ de capturar nada y, si encuentra algo, no envía ni la imagen ni el texto.
   be replied not found». Si el valor no es un entero positivo, se envía sin hilo y se avisa; si
   Telegram rechaza el envío al hilo, se reintenta una vez sin hilo, al chat principal. Sin la
   variable, el aviso va al chat como siempre.
+- **Cada aviso responde al anterior de su ficha** (ficha 0106): el script guarda el `message_id` de
+  cada aviso en `vigia-telegram-avisos.json`, en la carpeta común de git (la comparten el checkout y
+  los worktrees; no se versiona), y el siguiente aviso de la misma ficha o versión responde a él.
+  Si el fichero falta o está mal, el aviso sale como el primero. Se puede borrar sin riesgo.
 - **Nunca para el flujo:** sin variables, sin red o con un error de Telegram, sale con 0 y lo dice
   en la terminal con el prefijo `[aviso telegram]`, sin el token, el chat_id ni el id del hilo.
 - **Probarlo:** los tests (`npx vitest run scripts/notify-telegram.test.ts scripts/notify-telegram-image.test.ts`)
