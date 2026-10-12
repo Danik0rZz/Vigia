@@ -76,7 +76,9 @@ import {
   INFO_ROW_ORDER,
   infoCard,
   openServiceInfo,
-  dataKeys
+  dataKeys,
+  expectMarkersInside,
+  expectMarkersUnsplit
 } from './views/helpers'
 
 /**
@@ -2331,5 +2333,27 @@ test(
     await expect(card.locator('[data-testid^="host-info"]')).toHaveCount(0)
     await expect(page.getByTestId('host-info')).toHaveCount(0)
     await expect(page.getByTestId('service-markers')).toBeVisible()
+  }
+)
+
+test(
+  'CA3 (0102): con la ventana del CI, los marcadores del servicio no se salen de su tarjeta ni parten un número o una unidad',
+  { tag: '@servicio' },
+  async () => {
+    await goToRoute(`/entities/SERVICE/${SVC_ID}`)
+    await expect(page.getByTestId('entity-page-service')).toBeVisible()
+    const row = page.getByTestId('service-markers')
+    await expect(row).toBeVisible()
+    await expect(
+      row.getByRole('status', { name: es.entities.service.markers.loading })
+    ).toHaveCount(0)
+    await expectErrorServiceValues()
+    expect(fitsContentSize(await viewportSize(), FIXED_WINDOW), 'ventana del CI').toBe(true)
+    const cards = Object.fromEntries(
+      [...METRIC_MARKERS, 'problems'].map((id) => [id, serviceMarker(id)])
+    )
+    // Las mismas comprobaciones que CA1 y CA2 en el HOST.
+    await expectMarkersInside(cards)
+    await expectMarkersUnsplit(cards)
   }
 )

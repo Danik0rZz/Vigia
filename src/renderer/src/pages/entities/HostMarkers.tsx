@@ -188,33 +188,45 @@ function UsageValue({
 function Reclaimable({ value }: { value: string }): JSX.Element {
   const { t } = useTranslation()
   return (
+    // Con la tarjeta estrecha, el valor baja a la línea siguiente, centrado; el rótulo y su
+    // icono de ayuda van siempre juntos (ficha 0102).
     <p
       data-testid="host-marker-reclaimable"
-      className="flex items-center gap-1 text-sm text-muted-foreground"
+      className="flex flex-wrap items-center justify-center gap-x-1 text-sm text-muted-foreground"
     >
-      <span>{t('entities.host.markers.reclaimable')}</span>
-      <Tooltip.Root>
-        <Tooltip.Trigger asChild>
-          <button
-            type="button"
-            data-testid="host-marker-reclaimable-help"
-            aria-label={t('entities.host.markers.reclaimableHelpLabel')}
-            className="inline-flex cursor-help rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            <CircleHelp aria-hidden="true" className="size-3.5" />
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content
-            data-testid="host-marker-reclaimable-tooltip"
-            sideOffset={6}
-            className="glass z-50 max-w-80 rounded-md px-3 py-2 text-xs text-foreground"
-          >
-            {t('entities.host.markers.reclaimableHelp')}
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>
+      <span className="inline-flex items-center gap-1">
+        <span>{t('entities.host.markers.reclaimable')}</span>
+        <ReclaimableHelp />
+      </span>
       <span className="font-medium text-foreground tabular-nums">{value}</span>
     </p>
+  )
+}
+
+/** Icono de ayuda de la memoria recuperable, con su tooltip (ratón y foco). */
+function ReclaimableHelp(): JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <button
+          type="button"
+          data-testid="host-marker-reclaimable-help"
+          aria-label={t('entities.host.markers.reclaimableHelpLabel')}
+          className="inline-flex cursor-help rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          <CircleHelp aria-hidden="true" className="size-3.5" />
+        </button>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          data-testid="host-marker-reclaimable-tooltip"
+          sideOffset={6}
+          className="glass z-50 max-w-80 rounded-md px-3 py-2 text-xs text-foreground"
+        >
+          {t('entities.host.markers.reclaimableHelp')}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }
