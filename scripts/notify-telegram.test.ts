@@ -555,13 +555,147 @@ describe('CA7 (0004): filtro de restos del tenant', () => {
   })
 })
 
-describe('CA8 (0004): sin .env.live.local', () => {
-  it('CA8 (0004): sin .env en el directorio ni en el checkout principal, envía y avisa de que no se ha filtrado', async () => {
-    const { code, fetchImpl, stderr } = await run({})
+// Ficha 0092: lo que esperaba «CA8 (0004)» (sin .env, enviar sin filtrar) cambia: sin valores con
+// los que filtrar, no se envía, salvo con VIGIA_TELEGRAM_UNFILTERED=1.
+const NO_SEND = '[aviso telegram] sin .env.live.local con valores: no se envía'
+
+// .env que existen pero no dan nada que buscar (como los de scan-tenant.test.ts, ficha 0055).
+const EMPTY_ENVS: [string, string][] = [
+  ['vacío', ''],
+  [
+    'solo con claves vacías y comentarios',
+    '# comentario\nVIGIA_LIVE_URL=\nVIGIA_LIVE_TOKEN=""\nCORTO=abc\n'
+  ]
+]
+
+function expectNoSecrets(all: string): void {
+  expect(all).not.toContain(TOKEN)
+  expect(all).not.toContain(TOKEN_SECRET)
+  expect(all).not.toContain(CHAT_ID)
+}
+
+describe('CA1 (0092): sin .env.live.local no se envía', () => {
+  it('CA1 (0092): sin .env en el directorio ni en el checkout principal, no llama a la red, devuelve 0 y avisa sin el token ni el chat', async () => {
+    const { code, fetchImpl, stderr, all } = await run({})
+    expect(code).toBe(0)
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(globalFetch).not.toHaveBeenCalled()
+    expect(stderr).toContain(NO_SEND)
+    expectNoSecrets(all)
+  })
+
+  it('CA1 (0092): con las credenciales del registro y sin .env, tampoco envía ni las muestra', async () => {
+    const { code, fetchImpl, stderr, all } = await run({
+      env: {},
+      registry: { VIGIA_TELEGRAM_TOKEN: REG_TOKEN, VIGIA_TELEGRAM_CHAT_ID: REG_CHAT_ID }
+    })
+    expect(code).toBe(0)
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(globalFetch).not.toHaveBeenCalled()
+    expect(stderr).toContain(NO_SEND)
+    expect(all).not.toContain(REG_TOKEN)
+    expect(all).not.toContain(REG_CHAT_ID)
+  })
+
+  it.each(['0', '', 'no'])(
+    'CA1 (0092): con VIGIA_TELEGRAM_UNFILTERED=%j (distinto de 1) sigue sin enviar',
+    async (value) => {
+      const { code, fetchImpl, stderr } = await run({
+        env: {
+          VIGIA_TELEGRAM_TOKEN: TOKEN,
+          VIGIA_TELEGRAM_CHAT_ID: CHAT_ID,
+          VIGIA_TELEGRAM_UNFILTERED: value
+        }
+      })
+      expect(code).toBe(0)
+      expect(fetchImpl).not.toHaveBeenCalled()
+      expect(stderr).toContain(NO_SEND)
+    }
+  )
+})
+
+describe('CA2 (0092): con un .env sin valores no se envía', () => {
+  it.each(EMPTY_ENVS)(
+    'CA2 (0092): con el .env %s en el directorio actual, no llama a la red, devuelve 0 y avisa sin el token ni el chat',
+    async (_case, content) => {
+      const { code, fetchImpl, stderr, all } = await run({ cwdEnv: content })
+      expect(code).toBe(0)
+      expect(fetchImpl).not.toHaveBeenCalled()
+      expect(globalFetch).not.toHaveBeenCalled()
+      expect(stderr).toContain(NO_SEND)
+      expectNoSecrets(all)
+    }
+  )
+
+  it.each(EMPTY_ENVS)(
+    'CA2 (0092): con el .env %s solo en el checkout principal, tampoco envía',
+    async (_case, content) => {
+      const { code, fetchImpl, stderr, all } = await run({ mainEnv: content })
+      expect(code).toBe(0)
+      expect(fetchImpl).not.toHaveBeenCalled()
+      expect(globalFetch).not.toHaveBeenCalled()
+      expect(stderr).toContain(NO_SEND)
+      expectNoSecrets(all)
+    }
+  )
+})
+
+describe('CA3 (0092): VIGIA_TELEGRAM_UNFILTERED=1 envía sin filtrar', () => {
+  const UNFILTERED_ENV = {
+    VIGIA_TELEGRAM_TOKEN: TOKEN,
+    VIGIA_TELEGRAM_CHAT_ID: CHAT_ID,
+    VIGIA_TELEGRAM_UNFILTERED: '1'
+  }
+
+  it('CA3 (0092): sin .env y con VIGIA_TELEGRAM_UNFILTERED=1, envía el mensaje, devuelve 0 y avisa de que va sin filtrar', async () => {
+    const datos = tarea()
+    const { code, fetchImpl, stderr, all } = await run({ datos, env: UNFILTERED_ENV })
     expect(code).toBe(0)
     expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(globalFetch).not.toHaveBeenCalled()
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(String(url)).toBe(`https://api.telegram.org/bot${TOKEN}/sendMessage`)
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      chat_id: CHAT_ID,
+      text: api().buildMessage(datos)
+    })
     expect(stderr).toContain('[aviso telegram]')
-    expect(stderr).toMatch(/filtr/i)
+    expect(stderr).toMatch(/sin filtrar|no se ha (podido )?filtrar/i)
+    expect(stderr).not.toContain(NO_SEND)
+    expectNoSecrets(all)
+  })
+
+  it.each(EMPTY_ENVS)(
+    'CA3 (0092): con el .env %s y VIGIA_TELEGRAM_UNFILTERED=1, también envía y avisa',
+    async (_case, content) => {
+      const { code, fetchImpl, stderr } = await run({ env: UNFILTERED_ENV, cwdEnv: content })
+      expect(code).toBe(0)
+      expect(fetchImpl).toHaveBeenCalledTimes(1)
+      expect(stderr).toMatch(/sin filtrar|no se ha (podido )?filtrar/i)
+    }
+  )
+})
+
+describe('CA4 (0092): con un .env con valores, el filtro no cambia', () => {
+  it('CA4 (0092): VIGIA_TELEGRAM_UNFILTERED=1 no salta el filtro si hay .env con valores: un resto del tenant no se envía', async () => {
+    const { code, fetchImpl, all } = await run({
+      datos: tarea({ resumen: `Probado contra ${HOST} sin problemas.` }),
+      env: {
+        VIGIA_TELEGRAM_TOKEN: TOKEN,
+        VIGIA_TELEGRAM_CHAT_ID: CHAT_ID,
+        VIGIA_TELEGRAM_UNFILTERED: '1'
+      },
+      cwdEnv: ENV_LIVE
+    })
+    expect(code).toBe(0)
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(all.toLowerCase()).not.toContain('zz99fake')
+  })
+
+  it('CA4 (0092): con un .env con valores y un texto limpio, envía sin el aviso de «no se envía»', async () => {
+    const { fetchImpl, stderr } = await run({ cwdEnv: ENV_LIVE })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(stderr).not.toContain(NO_SEND)
   })
 })
 
@@ -586,7 +720,7 @@ describe('CA9 (0004): el token y el chat_id no salen nunca', () => {
 
   const scenarios: [string, RunOptions][] = [
     ['envío correcto', { cwdEnv: ENV_UNRELATED }],
-    ['envío sin .env', {}],
+    ['sin .env (no envía, 0092)', {}],
     ['solo el token', { env: { VIGIA_TELEGRAM_TOKEN: TOKEN } }],
     ['solo el chat_id', { env: { VIGIA_TELEGRAM_CHAT_ID: CHAT_ID } }],
     ...FAILURES.map(([name, fetchImpl]): [string, RunOptions] => [
