@@ -759,6 +759,47 @@ test(
 )
 
 test(
+  'CA5 (0095): con «Huella fijada» elegido, el formulario avisa de que las vistas piden de uno en uno; con los otros niveles, no',
+  { tag: '@tls' },
+  async () => {
+    const notice = (): ReturnType<Page['getByTestId']> =>
+      page.getByTestId('environment-form').getByTestId('certificate-pinned-notice')
+
+    await openEnvironmentForm()
+    const level = page.getByTestId('environment-form').getByTestId('environment-certificate-level')
+    // Sin guardar: solo se cambia el select.
+    await level.selectOption('system')
+    await expect(notice()).toHaveCount(0)
+    await level.selectOption('pinned')
+    await expect(notice()).toBeVisible()
+    await expect(notice()).toContainText(/de uno en uno/i)
+    await expect(notice()).toContainText(/tardar más/i)
+    await level.selectOption('ignore')
+    await expect(notice()).toHaveCount(0)
+    await closeEnvironmentForm()
+
+    await page.getByRole('button', { name: 'Cambiar a inglés' }).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    try {
+      await openEnvironmentForm()
+      const levelEn = page
+        .getByTestId('environment-form')
+        .getByTestId('environment-certificate-level')
+      await levelEn.selectOption('pinned')
+      await expect(notice()).toBeVisible()
+      await expect(notice()).toContainText(/one (at a time|by one)/i)
+      await expect(notice()).not.toContainText(/uno en uno/i)
+      await levelEn.selectOption('system')
+      await expect(notice()).toHaveCount(0)
+      await closeEnvironmentForm()
+    } finally {
+      await page.getByRole('button', { name: 'Switch to Spanish' }).click()
+      await expect(page.locator('html')).toHaveAttribute('lang', 'es')
+    }
+  }
+)
+
+test(
   'ninguna respuesta IPC contiene el token, y sin errores de consola ni peticiones remotas del renderer',
   { tag: '@tls' },
   async () => {

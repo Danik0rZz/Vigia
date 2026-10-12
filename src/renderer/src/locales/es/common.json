@@ -212,7 +212,8 @@
     "current": "Huella nueva",
     "accept": "Aceptar esta huella",
     "notObserved": "No se ha podido aceptar la huella. Vuelve a probar la conexión.",
-    "ignoreRisk": "Cualquiera en la red podría hacerse pasar por este entorno. Úsalo solo si no puedes fijar la huella."
+    "ignoreRisk": "Cualquiera en la red podría hacerse pasar por este entorno. Úsalo solo si no puedes fijar la huella.",
+    "pinnedSlower": "Con huella fijada, las vistas piden los datos de uno en uno y pueden tardar más."
   },
   "dtErrors": {
     "NO_CREDENTIAL": "Falta la credencial o la URL.",
