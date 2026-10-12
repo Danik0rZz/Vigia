@@ -78,7 +78,7 @@ function prune(backupDir: string, keep: string, logger: BackupLogger): void {
       .sort()
     for (const name of others.slice(0, Math.max(0, others.length - (BACKUPS_KEPT - 1)))) {
       rmSync(join(backupDir, name))
-      logger.info('Copia antigua de la base borrada', join(backupDir, name))
+      logger.info('Copia antigua de la base borrada', name)
     }
   } catch (error) {
     logger.warn('No se pudieron borrar las copias antiguas de la base', error)
@@ -115,7 +115,8 @@ export async function backupBeforeMigrations(options: BackupOptions): Promise<st
     }
     mkdirSync(backupDir, { recursive: true })
     await sqlite.backup(destination)
-    logger.info('Copia de la base antes de migrar', destination)
+    // Solo el nombre: la carpeta es conocida y lleva el usuario (ficha 0093).
+    logger.info('Copia de la base antes de migrar', basename(destination))
   } catch (error) {
     logger.error('No se pudo copiar la base antes de migrar: no se migra', error)
     // Una copia a medias no sirve y podría parecer buena: se quita (solo la nuestra).
@@ -123,7 +124,7 @@ export async function backupBeforeMigrations(options: BackupOptions): Promise<st
       try {
         rmSync(destination)
       } catch (cleanupError) {
-        logger.warn('No se pudo borrar la copia incompleta', destination, cleanupError)
+        logger.warn('No se pudo borrar la copia incompleta', basename(destination), cleanupError)
       }
     }
     throw error

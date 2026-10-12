@@ -50,7 +50,7 @@ bueno de Dani o de peticiones en su nombre.
   [0089](tasks/0089-ci-ok-falla-cerrado.md) (hecha), [0090](tasks/0090-fusion-atada-al-commit-del-ci.md),
   [0091](tasks/0091-scan-tenant-nombres-y-binarios.md) (hecha),
   [0092](tasks/0092-telegram-no-envia-sin-filtro.md),
-  [0093](tasks/0093-log-sin-usuario-de-windows.md) (tras la 0083),
+  [0093](tasks/0093-log-sin-usuario-de-windows.md) (hecha),
   [0094](tasks/0094-markdown-color-sin-prototipo.md) y
   [0095](tasks/0095-tls-seguimiento-conexiones-nuevas.md). Cola: 0087, 0088, 0089, 0090, 0091,
   0092, 0093, 0094, 0095 y 0086. Al final, también aprobada por Dani el 2026-10-11 (lote
@@ -90,6 +90,7 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   prueba para arrancar el zip. **Aparcado por Dani (2026-10-11):** se deja anotado hasta que el zip
   vaya a darse a otras personas.
 - Vista de Entidades (propuesta 1, L). Pide `entities.read`.
+- Usuario de Windows con espacios en el log y en los errores del renderer (surgió en 0093, S, exclusión seguridad). La regla compartida (`src/shared/error-report.ts`, la clase de la línea 52) se para en el espacio: `C:UsersAna Lopez…` queda `C:Users<usuario> Lopez…`, y la carpeta `OneDrive - <Organización>` del perfil puede llevar el nombre de un cliente. Arreglarlo cambia también el renderer. Decide Dani si se hace.
 - Fase 8: DQL y Logs (propuesta 4, L). Coste por GiB escaneado; incluye el streaming de
   exportaciones y el aviso de filas de Excel en CSV.
 
@@ -333,6 +334,8 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Sospechosos de inestables sin causa (un fallo cada uno, sin captura útil; no están en cuarentena): `views-problemas.spec.ts`, «grid de Problemas: ARIA, orden por columna, barra de estado y afectados» (CI de la PR #12, run 38152066082, intento 1) y `views-host.spec.ts`, «CA4 (0039): el tooltip de ayuda de «recuperable»…» (CI de la PR #21, run 38170355797, intento 3). Si reaparecen, hace falta la captura de `failure-capture` y mirar qué hacía el otro worker en ese momento. (surgió en 0096)
 - Remitir a la regla de las `GIT_*` en los tests (hoy en `src/CLAUDE.md`) desde donde la vea quien trabaje en `scripts/` (un `scripts/CLAUDE.md` mínimo o una línea en el `CLAUDE.md` raíz, que es de Dani). Además, `vitest.live.config.ts` no carga el `setupFiles` de la guarda (hoy no lanza git) y falta un unitario directo de `deleteGitVars`. (surgió en 0101)
 
+- El comentario de `src/main/logging.ts` (línea 21) podría citar la 0093 y que el filtro también tapa el usuario de las rutas. (surgió en 0093)
+
 ## Aparcado
 
 - Monaco (fases 5 y 7): no se implementa ni se pregunta por él hasta que Dani lo retome.
@@ -461,3 +464,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0100](tasks/0100-unitario-react-compiler-intermitente.md) (ligera): arreglo del unitario intermitente `scripts/react-compiler.test.ts` («CA3 (0059)»). La causa era la carga en frío (importar la configuración con `electron-vite` y la primera transformación con Babel y el compilador, hasta 2,1 s bajo carga, el 98 % del tiempo); ahora esa preparación va en un `beforeAll` y la prueba solo transforma (0,55 s en el peor medido). Sin subir ningún límite. Cinco `check` seguidos en verde, tres con el e2e a la vez. Solo desarrollo, sin migraciones. (cierra los sospechosos de 0088 y 0090)
 - Sospechoso de inestable sin causa (e2e): `e2e/views-entidad.spec.ts:543`, «CA1 (0036): … la tarjeta «Información» es la última sección …», agotó su minuto una vez en 369 con la máquina cargada (tanda de 4,4 min frente a 1,8 min de las otras dos), sin cambios de código entre tomas; ya había un aviso parecido de esta prueba en la 0069. Si vuelve a fallar, guardar `test-results/` antes de relanzar y abrir su ficha. (surgió en 0100)
 - [0101](tasks/0101-tests-sin-variables-git-heredadas.md): los tests no heredan las variables `GIT_*`. El culpable del `core.bare=true` en el checkout principal era `scripts/lib/env-file.test.ts` (un `git init` con el `GIT_DIR` de un hook lanzado desde un worktree); ahora Vitest borra las `GIT_*` antes de cada fichero (`scripts/lib/git-env.mjs` y `vitest-git-env.setup.mjs`). Regla en `src/CLAUDE.md`. Solo desarrollo, sin migraciones.
+- [0093](tasks/0093-log-sin-usuario-de-windows.md) (lote seguridad-revision, exclusión seguridad): el filtro final del log de main tapa también el usuario de las rutas (`C:Users<usuario>`, `/home/<usuario>`) con `maskErrorDetails`, la misma regla que los errores del renderer; la copia antes de migrar registra solo el nombre del fichero. Sin migraciones.

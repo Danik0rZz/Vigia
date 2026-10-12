@@ -10,7 +10,7 @@ import {
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { backupBeforeMigrations } from './backup'
 import { openDatabase } from './database'
@@ -141,12 +141,12 @@ describe('CA2 (0061): copia antes de migrar solo si hay migraciones pendientes',
     // La copia es una base válida con el estado de antes de migrar.
     expect(setting(copyPath, 'marca')).toBe('conservar')
     expect(tables(copyPath)).not.toContain(NEW_TABLE)
-    // La ruta de la copia queda en el log.
+    // El nombre de la copia queda en el log (desde la 0093, sin la carpeta).
     const logged = Object.values(log)
       .flatMap((fn) => fn.mock.calls.flat())
       .map(String)
       .join(' ')
-    expect(logged).toContain(copyPath)
+    expect(logged).toContain(basename(copyPath))
 
     // La base sigue funcionando: se migra y conserva sus datos.
     const db = openDatabase(dbFile, REAL_MIGRATIONS)
@@ -267,5 +267,55 @@ describe('CA3 (0061): se guardan las 3 últimas copias', () => {
 
     expect(existsSync(foreign)).toBe(true)
     expect(backups().filter((name) => name !== 'nota.txt')).toHaveLength(3)
+  })
+})
+
+/** Todo lo que se pasó al logger, como texto. */
+function loggedText(log: TestLogger): string {
+  return Object.values(log)
+    .flatMap((fn) => fn.mock.calls.flat())
+    .map(String)
+    .join(' ')
+}
+
+describe('CA3 (0093): la copia antes de migrar registra el nombre del fichero, no la carpeta', () => {
+  it('el log lleva el nombre de la copia y no la carpeta de copias', async () => {
+    createOldDatabase()
+    const log = logger()
+
+    const copy = await backupBeforeMigrations({
+      file: dbFile,
+      migrationsFolder: REAL_MIGRATIONS,
+      backupDir,
+      logger: log,
+      now: () => new Date(BASE_TIME)
+    })
+
+    expect(copy).not.toBeNull()
+    const copyPath = copy ?? ''
+    expect(log.info).toHaveBeenCalled()
+    const logged = loggedText(log)
+    expect(logged).toContain(basename(copyPath))
+    expect(logged).not.toContain(copyPath)
+    expect(logged).not.toContain(backupDir)
+    expect(logged).not.toContain(root)
+  })
+
+  it('al borrar copias antiguas tampoco registra la carpeta', async () => {
+    createOldDatabase()
+    const log = logger()
+    for (let day = 0; day < 4; day += 1) {
+      await backupBeforeMigrations({
+        file: dbFile,
+        migrationsFolder: REAL_MIGRATIONS,
+        backupDir,
+        logger: log,
+        now: () => new Date(BASE_TIME + day * DAY)
+      })
+    }
+    expect(backups()).toHaveLength(3)
+    const logged = loggedText(log)
+    expect(logged).not.toContain(backupDir)
+    expect(logged).not.toContain(root)
   })
 })
