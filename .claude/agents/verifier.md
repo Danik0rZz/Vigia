@@ -20,6 +20,11 @@ salió la ficha: la `integra/…` en curso o `main`; sin base, `main`), el modo 
    `--repeat-each 3` solo en specs concretos sospechosos de ser inestables, nunca en la suite
    entera: uno cuyo diff toca temporización (esperas, animaciones, virtualización, navegación), uno
    que falló una vez o uno anotado como inestable en el BACKLOG (`views-portapapeles` con `--workers=1`).
+   Evidencias (ficha 0107): con los e2e afectados ya pasados, una tirada más de los de la ficha
+   con `VIGIA_EVIDENCIAS=1` (`VIGIA_EVIDENCIAS=1 npm run test:e2e:nobuild -- -g "(NNNN)"`), y en
+   tu informe la ruta del manifiesto (`test-results/evidencias/NNNN/manifiesto.json`, del
+   worktree; cópialo con sus PNG a `<carpeta>/evidencias-NNNN/` antes de limpiar). Si esa tirada
+   falla, no cambia tu resultado: solo no hay evidencias, y lo dices.
 4. Modo `cierre`: `npm run check`, `npm run test:e2e` completo dos veces, `--repeat-each 3` en los
    specs cambiados desde la versión anterior y `npm run dist:win`. Si cambiaron `package*.json`,
    scripts de npm o electron-builder desde la versión anterior, además el clon limpio: un
@@ -42,5 +47,6 @@ Devuelve (el Orquestador lo copia en "Verificación" de la ficha):
 Verificación <fecha>, commit <corto>, rango <rango>: VERDE | ROJO
 - check: N tests, cobertura ok | fallo (resumen)
 - e2e: specs y resultado
+- evidencias: ruta del manifiesto | sin evidencias (motivo)
 - (si ROJO) qué falló, con la salida mínima para reproducirlo
 ```

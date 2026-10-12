@@ -77,7 +77,7 @@ bueno de Dani o de peticiones en su nombre.
   [0103](tasks/0103-telegram-avisos-en-un-hilo.md) (hecha),
   [0104](tasks/0104-telegram-tarjeta-html.md), [0105](tasks/0105-telegram-aviso-en-imagen.md),
   [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
-  [0107](tasks/0107-e2e-capturas-de-evidencias.md) y
+  [0107](tasks/0107-e2e-capturas-de-evidencias.md) (hecha) y
   [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
   exclusiones: cada una sola en su PR.
 - Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
@@ -115,6 +115,9 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- `e2e/views-metricas.spec.ts`, CA2 (0107): reforzarlo para que sea tan estricto como antes: con `repeatEachIndex === 0` y un solo worker, comparar la lista completa de ficheros de `test-results/evidencias` y los bytes del manifiesto, no solo los `CA2-…`. Opcional. (surgió en 0107)
+- `e2e/evidence.ts`, `captureEvidence`: llamar a `scrollIntoViewIfNeeded` antes de quitar foco y ratón, no después, para que el puntero no quede sobre algo con tooltip al desplazar. Opcional. (surgió en 0107)
+- `e2e/areas.json`: dar área a `e2e/evidence.ts` (por ejemplo `@metricas`) para que un cambio en la ayuda no lance el e2e completo, como pasa también con `e2e/hover.ts`. Opcional. (surgió en 0107)
 - `scripts/notify-telegram.mjs`, `redact`: tapa por subcadena, así que un id de hilo corto (una o dos cifras) también taparía esas cifras en otros textos de la salida (`HTTP 400`). Es seguro pero estropea el mensaje; para ids numéricos se podría tapar solo el número completo. Además, partir la línea de comentario de la cabecera (línea 13), de unos 130 caracteres. Opcional. (surgió en 0103)
 - `gatedFetch` (`network.ts`): una espera cancelada deja un `.then` enganchado a la promesa de la fila; es inofensivo (se resuelve siempre en el `finally`), pero se podría desenganchar. Opcional. (surgió en 0095)
 - `src/renderer/src/lib/markdown-color.ts`, `paintElement`: usar `hexToRgba` y quitar el `style` si da `null` (en vez de `knownHex`, que lanza `TypeError`), para que una regresión pierda el color y no el panel; `knownHex` se quedaría para `THEME_PAINT`. Opcional. (surgió en 0094)
@@ -485,3 +488,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0094](tasks/0094-markdown-color-sin-prototipo.md) (exclusión seguridad): los colores con nombre del visor de Markdown se buscan con `Object.hasOwn` (nada de `constructor` o `__proto__`) y `hexToRgba` devuelve `null` si no es hexadecimal. Sin migraciones.
 - [0092](tasks/0092-telegram-no-envia-sin-filtro.md): el aviso de Telegram no se envía si no hay `.env.live.local` con valores con el que filtrar el texto, salvo con `VIGIA_TELEGRAM_UNFILTERED=1`. Sale siempre con 0. Con exclusiones `seguridad` y `externos`: va sola en su PR y la fusiona Dani. Sin migraciones.
 - [0093](tasks/0093-log-sin-usuario-de-windows.md) (lote seguridad-revision, exclusión seguridad): el filtro final del log de main tapa también el usuario de las rutas (`C:Users<usuario>`, `/home/<usuario>`) con `maskErrorDetails`, la misma regla que los errores del renderer; la copia antes de migrar registra solo el nombre del fichero. Sin migraciones.
+- [0107](tasks/0107-e2e-capturas-de-evidencias.md) (lote telegram-imagen): ayuda `captureEvidence` en `e2e/evidence.ts` que, con `VIGIA_EVIDENCIAS=1` y solo contra el simulador, guarda la captura de la zona y de la ventana de cada criterio visible y su línea en `manifiesto.json`, esperando a que dos capturas seguidas coincidan. El test-writer, el verifier y `e2e/CLAUDE.md` la piden. No toca la app.
