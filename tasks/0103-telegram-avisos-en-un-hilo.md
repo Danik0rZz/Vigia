@@ -1,7 +1,7 @@
 ---
 id: '0103'
 titulo: Avisos de Telegram en un hilo del grupo
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [externos] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: ['0009'] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna (Telegram Bot API, https://core.telegram.org/bots/api#sendmessage; no es Dynatrace)
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -42,6 +42,9 @@ Telegram en imagen», con un prototipo probado fuera del repositorio:
   en el chat principal. Los nombres de los campos, de la documentación oficial de
   `sendMessage` (https://core.telegram.org/bots/api#sendmessage); el developer los comprueba allí y
   anota la fecha en la ficha, como se hizo en el ADR-0009 con `link_preview_options`.
+  Comprobado por el developer el 2026-10-12 en la documentación oficial: `sendMessage` tiene
+  `message_thread_id` (Integer) y `reply_parameters` (ReplyParameters), y ReplyParameters tiene
+  `message_id` (Integer) y `allow_sending_without_reply` (Boolean).
 - El valor se valida antes de usarlo (un entero positivo); si no lo es, se envía sin hilo y se avisa
   en la terminal con el prefijo `[aviso telegram]`, sin el valor.
 - Si Telegram rechaza el envío por el hilo (por ejemplo, el bot no es administrador), el script
@@ -93,16 +96,52 @@ Todos en `scripts/notify-telegram.test.ts`, sin red (`fetchImpl` simulado).
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) `redact` tapa por subcadena: con un id de hilo corto (por ejemplo, de una o dos
+  cifras), también taparía esas cifras en otros textos de la salida (`HTTP 400`). Es seguro pero
+  estropea el mensaje; para ids numéricos se podría tapar solo el número completo.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- Criterios: los cinco CA tienen su test con el número en `scripts/notify-telegram.test.ts` y fallarían sin el código (CA1 y CA2: el cuerpo lleva `message_thread_id` y `reply_parameters`; CA3: una línea `[aviso telegram]` más que sin la variable; CA4: dos llamadas a `fetchImpl`, la segunda sin hilo; CA5: el id que Telegram repite en su respuesta sale tapado). `git diff e7e09b0..HEAD -- scripts/notify-telegram.test.ts` sale vacío.
+- Implementación (`scripts/notify-telegram.mjs`): `parseThreadId` solo acepta dígitos y un entero seguro mayor que 0. La variable se lee con `credential`, del entorno o del registro (ADR-0009). Se reintenta una sola vez y solo si Telegram ha rechazado el envío (`rejected`), no con un error de red; está en «Resultado» y encaja con la especificación. Sale siempre con 0. El id válido y el valor leído entran en `redact` antes de cualquier salida, también en los errores de `sendTelegram`.
+- API y externos: Bot API de Telegram, no Dynatrace. `message_thread_id`, `reply_parameters.message_id` y `allow_sending_without_reply` existen en `sendMessage`; comprobado el 2026-10-12 y anotado en la ficha. Sin IPC, esquema ni dependencias.
+- Datos y documentación: valores de test inventados, nada del tenant ni secretos. README y `docs/flujo.md` explican la variable, que el bot tiene que ser administrador y `setx`, con marcadores. Comentarios en español, identificadores en inglés.
+
+Opcional:
+
+- `scripts/notify-telegram.mjs:13`: la línea de comentario de la cabecera pasa de unos 130 caracteres; conviene partirla como las vecinas.
+- Un id de hilo corto taparía esas cifras en otros textos de la salida (p. ej. `HTTP 400`). Ya está en «Ideas surgidas»; al BACKLOG si se quiere arreglar.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en el commit `e7e09b0`, todos en `scripts/notify-telegram.test.ts` (por `main`, con
+`fetchImpl` y registro simulados):
+
+- CA1 → `describe('CA1 (0103): sendMessage con el hilo')` (con la variable y sin ella).
+- CA2 → `describe('CA2 (0103): el hilo se lee también del registro')`.
+- CA3 → `describe('CA3 (0103): un hilo que no es un entero positivo')` (`hilo-xyz`, `-48151`,
+  `48151.5`, `48151abc`, `0`; exige una línea `[aviso telegram]` más que sin la variable).
+- CA4 → `describe('CA4 (0103): si Telegram rechaza el envío por el hilo, se reintenta una vez sin hilo')`
+  (segundo envío bien, con error de Telegram y con error de red; 200 con `ok: false`; sin reintento
+  si el envío con hilo va bien o si no hay hilo).
+- CA5 → `describe('CA5 (0103): el id del hilo no sale nunca')`.
+
+Verificación 2026-10-12, commit 803ea75, rango main..feat/0103-telegram-hilo: VERDE
+
+- check: 4238 tests (226 ficheros) en verde; cobertura ok (sentencias 92,98 %, ramas 90,13 %, funciones 90,37 %, líneas 93,75 %).
+- e2e: `test:e2e:affected` no seleccionó ninguno (solo docs o tests unitarios; `scripts/` no tiene zona de e2e).
 
 ## Resultado
 
-(pendiente)
+Commits: `e7e09b0` (tests), `0fc140c` (código), `0409b73` (documentación). Ficheros principales: `scripts/notify-telegram.mjs`, `scripts/notify-telegram.test.ts`, `README.md`, `docs/flujo.md`. Rondas de revisión: 1 (aprobada). ADR nuevo: no. Sin migraciones. Idea surgida pasada a «Mejoras anotadas» del BACKLOG.
+
+Decisiones del developer:
+
+- El reintento sin hilo solo se hace cuando Telegram responde con un error (`rejected` en lo que
+  devuelve `sendTelegram`), no con un error de red o un tiempo agotado: ahí no es el hilo lo que
+  falla y la ficha habla de que Telegram rechace el envío.
+- Un valor de `VIGIA_TELEGRAM_THREAD_ID` inválido no entra en `redact` (no se usa ni se imprime, y
+  taparlo, un «0», estropearía la salida); el válido sí, desde que se lee, antes de mirar el token.
+- Entero positivo: solo dígitos y dentro de `Number.isSafeInteger` (`parseThreadId`).

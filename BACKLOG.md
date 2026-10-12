@@ -74,7 +74,7 @@ bueno de Dani o de peticiones en su nombre.
   que pasó el Orquestador): [0102](tasks/0102-host-marcadores-ventana-pequena.md), marcadores del
   HOST que se parten o se salen con la ventana de 1024 px; y lote **telegram-imagen**, avisos de
   Telegram en un hilo y como tarjeta en imagen con evidencias:
-  [0103](tasks/0103-telegram-avisos-en-un-hilo.md),
+  [0103](tasks/0103-telegram-avisos-en-un-hilo.md) (hecha),
   [0104](tasks/0104-telegram-tarjeta-html.md), [0105](tasks/0105-telegram-aviso-en-imagen.md),
   [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
   [0107](tasks/0107-e2e-capturas-de-evidencias.md) y
@@ -115,6 +115,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- `scripts/notify-telegram.mjs`, `redact`: tapa por subcadena, así que un id de hilo corto (una o dos cifras) también taparía esas cifras en otros textos de la salida (`HTTP 400`). Es seguro pero estropea el mensaje; para ids numéricos se podría tapar solo el número completo. Además, partir la línea de comentario de la cabecera (línea 13), de unos 130 caracteres. Opcional. (surgió en 0103)
 - `gatedFetch` (`network.ts`): una espera cancelada deja un `.then` enganchado a la promesa de la fila; es inofensivo (se resuelve siempre en el `finally`), pero se podría desenganchar. Opcional. (surgió en 0095)
 - `src/renderer/src/lib/markdown-color.ts`, `paintElement`: usar `hexToRgba` y quitar el `style` si da `null` (en vez de `knownHex`, que lanza `TypeError`), para que una regresión pierda el color y no el panel; `knownHex` se quedaría para `THEME_PAINT`. Opcional. (surgió en 0094)
 - `markdown-color.test.ts`: tests de la rama que lanza (`readableColor` con algo que no es `#rgb`/`#rrggbb`) y del `null` de `hexToRgba`. (surgió en 0094)

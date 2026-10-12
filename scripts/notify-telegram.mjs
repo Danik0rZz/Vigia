@@ -7,8 +7,10 @@
 // stderr con el prefijo [aviso telegram]. El token y el chat_id salen de
 // VIGIA_TELEGRAM_TOKEN y VIGIA_TELEGRAM_CHAT_ID (del entorno o, en Windows, de
 // las variables de usuario del registro) y nunca se imprimen: todo texto pasa
-// antes por `redact`. Antes de enviar, el texto se compara con los valores de
-// .env.live.local, con las mismas reglas que scan:tenant; si coincide, no se
+// antes por `redact`. Con VIGIA_TELEGRAM_THREAD_ID (opcional, ficha 0103), el
+// aviso va al hilo del grupo como respuesta al mensaje que lo abre; si Telegram
+// lo rechaza, se reintenta una vez sin hilo. El id del hilo también se tapa.
+// Antes de enviar, el texto se compara con los valores de .env.live.local, con las mismas reglas que scan:tenant; si coincide, no se
 // envía. Sin .env.live.local con valores tampoco se envía, salvo con
 // VIGIA_TELEGRAM_UNFILTERED=1 (ficha 0092).
 import { execFileSync } from 'node:child_process'
@@ -23,6 +25,7 @@ const PREFIX = '[aviso telegram]'
 const TOKEN_VAR = 'VIGIA_TELEGRAM_TOKEN'
 const CHAT_VAR = 'VIGIA_TELEGRAM_CHAT_ID'
 const UNFILTERED_VAR = 'VIGIA_TELEGRAM_UNFILTERED'
+const THREAD_VAR = 'VIGIA_TELEGRAM_THREAD_ID'
 const TIMEOUT_MS = 10_000
 
 const ICONS = {
@@ -100,7 +103,7 @@ function fieldValues(datos) {
     .filter((value) => value !== '')
 }
 
-/** Sustituye por *** el token (entero y su parte secreta) y el chat_id. */
+/** Sustituye por *** el token (entero y su parte secreta), el chat_id y el id del hilo. */
 export function redact(value, secrets) {
   let result = String(value)
   const parts = []
@@ -116,18 +119,37 @@ export function redact(value, secrets) {
   return result
 }
 
+/** El id del hilo si es un entero positivo (solo dígitos); si no, undefined. */
+export function parseThreadId(value) {
+  const s = text(value)
+  if (!/^\d+$/.test(s)) return undefined
+  const id = Number(s)
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined
+}
+
 /**
- * Envía el texto con sendMessage de la Bot API. No lanza: devuelve
- * { ok: true } o { ok: false, error }, con el error ya filtrado.
+ * Envía el texto con sendMessage de la Bot API. Con `threadId`, al hilo: con
+ * message_thread_id y como respuesta al mensaje que lo abre (el grupo no es un
+ * foro; solo con message_thread_id cae en el chat principal). No lanza: devuelve
+ * { ok: true } o { ok: false, error, rejected }, con el error ya filtrado;
+ * `rejected` dice si fue Telegram quien respondió con un error.
  */
-export async function sendTelegram({ token, chatId, text: message, fetchImpl }) {
-  const clean = (value) => redact(value, [token, chatId])
+export async function sendTelegram({ token, chatId, threadId, text: message, fetchImpl }) {
+  const clean = (value) => redact(value, [token, chatId, threadId])
+  const thread =
+    threadId === undefined
+      ? {}
+      : {
+          message_thread_id: threadId,
+          reply_parameters: { message_id: threadId, allow_sending_without_reply: false }
+        }
   try {
     const response = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
+        ...thread,
         text: message,
         link_preview_options: { is_disabled: true }
       }),
@@ -141,7 +163,7 @@ export async function sendTelegram({ token, chatId, text: message, fetchImpl }) 
     }
     if (response.status === 200 && body?.ok === true) return { ok: true }
     const description = typeof body?.description === 'string' ? `: ${body.description}` : ''
-    return { ok: false, error: clean(`HTTP ${response.status}${description}`) }
+    return { ok: false, rejected: true, error: clean(`HTTP ${response.status}${description}`) }
   } catch (error) {
     if (error?.name === 'TimeoutError' || error?.name === 'AbortError')
       return { ok: false, error: `tiempo agotado (${TIMEOUT_MS / 1000} s)` }
@@ -192,7 +214,12 @@ export async function main(argv, deps) {
 
     const token = await credential(TOKEN_VAR, deps)
     const chatId = await credential(CHAT_VAR, deps)
+    const threadRaw = await credential(THREAD_VAR, deps)
+    const threadId = threadRaw ? parseThreadId(threadRaw) : undefined
     secrets.push(token, chatId)
+    // Solo el id válido: un valor inválido no se usa ni se imprime, y taparlo
+    // (un «0», por ejemplo) estropearía el resto de la salida.
+    if (threadId !== undefined) secrets.push(String(threadId), threadRaw)
     if (!token || !chatId) {
       warn(`sin ${TOKEN_VAR} o ${CHAT_VAR}: no se envía.`)
       return 0
@@ -224,7 +251,20 @@ export async function main(argv, deps) {
       }
     }
 
-    const result = await sendTelegram({ token, chatId, text: message, fetchImpl: deps.fetchImpl })
+    if (threadRaw && threadId === undefined)
+      warn(`${THREAD_VAR} no es un entero positivo: se envía sin hilo.`)
+
+    const send = (thread) =>
+      sendTelegram({ token, chatId, threadId: thread, text: message, fetchImpl: deps.fetchImpl })
+    let result = await send(threadId)
+    if (!result.ok && result.rejected && threadId !== undefined) {
+      // El aviso tiene que llegar (Dani, 2026-10-12): una sola vez más, sin hilo.
+      warn(`Telegram ha rechazado el envío al hilo (${result.error}): se reintenta sin hilo.`)
+      result = await send(undefined)
+      if (result.ok) info('enviado sin hilo.')
+      else warn(`no se ha podido enviar sin hilo (${result.error}); el flujo sigue.`)
+      return 0
+    }
     if (result.ok) info('enviado.')
     else warn(`no se ha podido enviar (${result.error}); el flujo sigue.`)
     return 0

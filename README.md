@@ -85,6 +85,15 @@ setx VIGIA_TELEGRAM_TOKEN "<token-del-bot>"
 setx VIGIA_TELEGRAM_CHAT_ID "<chat-id>"
 ```
 
+Para que los avisos vayan a un hilo de un grupo, además (opcional):
+
+```
+setx VIGIA_TELEGRAM_THREAD_ID "<id-del-mensaje-que-abre-el-hilo>"
+```
+
+El bot tiene que ser administrador del grupo. Si el valor no es un número válido o Telegram rechaza
+el envío al hilo, el aviso va al chat principal (`docs/flujo.md`, «Avisos por Telegram»).
+
 `setx` solo llega a los procesos que se abren después: hace falta una terminal nueva. En Windows el
 script también las lee del registro, así que una sesión de Claude Code ya abierta las encuentra. Sin
 ellas no se envía nada y el flujo sigue igual.
