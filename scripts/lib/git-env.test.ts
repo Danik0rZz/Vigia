@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 
 /**
@@ -193,7 +194,8 @@ describe('CA3 (0101): ningún test hereda GIT_DIR, GIT_WORK_TREE ni GIT_INDEX_FI
         [VITEST, 'run', THIS_FILE, '-t', PROBE_PATTERN, '--reporter=verbose'],
         { cwd: ROOT, encoding: 'utf8', env, timeout: 110_000 }
       )
-      const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+      // Sin las secuencias ANSI de color: en el CI van pegadas al número y `\b` no casaría.
+      const output = stripVTControlCharacters(`${result.stdout ?? ''}\n${result.stderr ?? ''}`)
       expect(result.status, output).toBe(0)
       expect(output).toMatch(/\b1 passed\b/)
       expect(isBare(fake)).toBe('false')

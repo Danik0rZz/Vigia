@@ -14,7 +14,7 @@ adrs: ['0013'] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -111,6 +111,12 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 Opcional: una línea en el `CLAUDE.md` raíz o un `scripts/CLAUDE.md` mínimo que remita a la regla; `vitest.live.config.ts` no carga el `setupFiles` (hoy no lanza git); un unitario directo de `deleteGitVars`.
 
+### Ronda 2 (arreglo del CI): APROBADO
+
+- **El arreglo funciona:** en el CI el color va pegado al número (`\x1b[32m1 passed`) y entre la `m` y el `1` no hay frontera `\b`. `stripVTControlCharacters` (`node:util`, sin dependencia nueva) quita esas secuencias antes de comparar; la comprobación ya no depende del color.
+- **CA3 comprueba lo mismo:** hijo con código 0, exactamente `1 passed` (`\b` sigue descartando `11 passed`) y `core.bare` del repositorio falso en `false`. El cambio del test lo hizo el test-writer al reabrirse la ficha, anotado en ella.
+- **No toca nada más:** `integra/20261012-2..fix/0101-ci` (12493b4, a5d6611) solo cambia `scripts/lib/git-env.test.ts` (un import y la línea de `output`) y la ficha.
+
 ## Verificación
 
 Tests escritos en `308953e` (`scripts/lib/git-env.test.ts`). Contrato que fijan (la ficha no daba
@@ -143,6 +149,12 @@ Verificación 2026-10-12, commit 67db4c0, rango `integra/20261012-2..fix/0101-te
 - `test:e2e:affected`: «solo docs o tests unitarios»; ningún spec.
 - `core.bare` del checkout principal: `false` antes y después.
 
+Verificación 2026-10-12 (arreglo del CI), commit 4e7fda1, rango `integra/20261012-2..fix/0101-ci`: **VERDE**
+
+- `npm run check`: 4162 tests (226 ficheros), cobertura ok (líneas 93,58 %, ramas 90,03 %).
+- `npx vitest run scripts/lib/git-env.test.ts`: 8/8 con `FORCE_COLOR=1` (como en el CI) y 8/8 sin él.
+- `core.bare` del checkout principal: `false` antes y después.
+
 ## Resultado
 
 **Culpable localizado: `scripts/lib/env-file.test.ts`** (ficha 0055). Su `git()` no limpia el
@@ -163,3 +175,12 @@ tocar el config. Con la guarda, `env-file` y `control-chars` pasan con las misma
 - (developer) `scan-tenant.test.ts` conserva su limpieza local: importar el `.mjs` de forma
   estática desde TypeScript pediría declarar tipos, y con la guarda ya no hace falta tocarlo.
 - Commits: `308953e` (tests), `f5fa317` (guarda), `8129e33` (regla y culpable), más los de revisión y verificación. Una ronda de revisión (APROBADO). Sin ADR nuevo ni migraciones.
+
+**CI de la PR #24 (Orquestador, 2026-10-12).** Run 38187118544: falla un test de 4162, «CA3 (0101):
+Vitest lanzado con GIT_DIR, GIT_WORK_TREE y GIT_INDEX_FILE no las pasa a los tests»
+(`scripts/lib/git-env.test.ts:198`). El Vitest hijo pasa («Tests 1 passed | 7 skipped»), pero en el
+CI su salida lleva códigos de color ANSI pegados al número y `/\b1 passed\b/` no casa. Es un error
+del test, determinista (no un inestable): no se relanza. Se reabre en `fix/0101-ci` y vuelve al
+test-writer.
+
+Arreglo del test (test-writer, 2026-10-12): la salida del Vitest hijo se compara sin secuencias ANSI (`stripVTControlCharacters` de `node:util`), así no depende de cómo venga el color en el entorno; pasa en local con y sin `FORCE_COLOR=1`.
