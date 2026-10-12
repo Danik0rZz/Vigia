@@ -89,6 +89,11 @@ setx VIGIA_TELEGRAM_CHAT_ID "<chat-id>"
 script también las lee del registro, así que una sesión de Claude Code ya abierta las encuentra. Sin
 ellas no se envía nada y el flujo sigue igual.
 
+Antes de enviar, el texto se filtra con los valores de `.env.live.local` (como `scan:tenant`). Sin
+ese fichero con valores, en la carpeta o en el checkout principal, no se envía. En un clon sin
+tenant de pruebas, `setx VIGIA_TELEGRAM_UNFILTERED 1` permite enviar sin filtrar; con un
+`.env.live.local` con valores, el filtro se aplica igualmente.
+
 ## Comandos
 
 | Comando                       | Qué hace                                                  |

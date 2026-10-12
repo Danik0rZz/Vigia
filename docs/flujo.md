@@ -426,6 +426,13 @@ la decisión que se espera de Dani si la hay, un resumen y el enlace del CI. Lo 
 Orquestador sin datos del tenant ni nombres de clientes; además, el script lo pasa por el filtro de
 `scan:tenant` y, si encuentra algo, no lo envía.
 
+- **Sin filtro, no se envía** (ficha 0092): si no hay `.env.live.local` con valores (ni en la
+  carpeta ni en el checkout principal), el texto no se puede filtrar y el script no lo envía:
+  `[aviso telegram] sin .env.live.local con valores: no se envía`. Así, un worktree o un clon se queda
+  sin aviso solo si tampoco hay un `.env.live.local` con valores en el checkout principal
+  (`findLiveEnv` lo busca allí). En un clon que no tiene tenant de pruebas, `VIGIA_TELEGRAM_UNFILTERED=1`
+  envía sin filtrar (y lo dice); con un `.env` con valores, esa variable no se salta el filtro.
+
 - **Variables** (de usuario de Windows, nunca en el repositorio): `VIGIA_TELEGRAM_TOKEN` (token del
   bot) y `VIGIA_TELEGRAM_CHAT_ID`. Se fijan con `setx` (ver el README). Si la sesión se abrió antes,
   el script las lee del registro.
