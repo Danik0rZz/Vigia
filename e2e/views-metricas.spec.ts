@@ -644,10 +644,16 @@ test.describe('ficha 0107: capturas de evidencias', { tag: '@metricas' }, () => 
         field.evaluate((element) => element === document.activeElement)
       const tooltip = page.getByRole('tooltip')
 
-      // Foco en el campo (cursor de texto) y ratón sobre un enlace del menú con tooltip.
-      await field.focus()
-      await hoverFresh(page, page.getByTestId('nav-topology'))
-      await expect(tooltip).toBeVisible()
+      // Foco en el campo (cursor de texto) y ratón sobre un enlace del menú con tooltip. Es la
+      // preparación, no lo que se comprueba: en el CI (runner cargado, gráfico aún asentándose)
+      // el tooltip a veces no llega a abrirse con un solo hover (PR #32). Se repite entera
+      // (foco y hover desde la zona neutra, que cierra lo que hubiera) hasta tener las dos cosas.
+      await field.scrollIntoViewIfNeeded()
+      await expect(async () => {
+        await field.focus()
+        await hoverFresh(page, page.getByTestId('nav-topology'))
+        await expect(tooltip).toBeVisible({ timeout: 2_000 })
+      }).toPass({ timeout: 20_000, intervals: [0] })
       expect(await focused(), 'el campo tiene el foco antes de capturar').toBe(true)
 
       const nota = copyNote('campo del selector')
