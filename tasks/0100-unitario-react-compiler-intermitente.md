@@ -1,7 +1,7 @@
 ---
 id: '0100'
 titulo: Unitario intermitente del React Compiler (CA3 de la 0059), causa y arreglo
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: sí # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: ['0013'] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -104,16 +104,73 @@ especificación, paso 2; la revisa el reviewer, no es un criterio.)
 
 ## Ideas surgidas (fuera de alcance)
 
-(ninguna)
+- (developer) En la primera toma de medidas bajo carga, el e2e `views-entidad.spec.ts:543`,
+  «CA1 (0036): … la tarjeta «Información» es la última sección …», agotó su minuto (1 fallo de 369,
+  con la tanda de 4,4 min frente a 1,8 min de las otras dos). Sin cambios de código entre tomas:
+  candidato a inestable bajo carga, para anotar en el BACKLOG.
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- **Causa medida antes del arreglo:** tres tomas aisladas y tres bajo carga (`vitest --coverage` + `test:e2e`), con importar, plugin y transformar por separado y el desglose de la importación. El arreglo mueve la importación de la configuración y la obtención del plugin a un `beforeAll`; no sube ningún límite (hook de 10 s frente a 1,7 s en el peor caso; prueba de 5 s frente a 0,55 s). El comentario de `scripts/react-compiler.test.ts:13-18` cita la 0100 y los tiempos.
+- **Criterios:** CA1 con los dos tests «CA1 (0100)» de `scripts/react-compiler-0100.test.ts`; el segundo exige el `beforeAll` y fallaba sin el arreglo. Los de la 0059 iguales; los tests no se tocan desde 4099970. CA2, del verifier.
+- **Carril y alcance:** solo el test, el test nuevo y la ficha; sin `electron.vite.config.ts`, `vitest.config.*`, dependencias ni app. Sin `[CARRIL]`. Sin datos del tenant.
+
+Opcional: si vuelve a fallar con más carga, una transformación de calentamiento en el `beforeAll`; el test de la 0100 lee el texto de otro test (aceptado, CA1 trata de conservarlo); `views-entidad.spec.ts:543` al BACKLOG (doc-writer).
 
 ## Verificación
 
-(pendiente; aquí van también las medidas del paso 1)
+Tests de la ficha (ligera; commit `test(scripts): CA1 de la 0100, la carga del React Compiler fuera
+de la prueba (#0100)`), en `scripts/react-compiler-0100.test.ts`, que lee el texto del test (no el
+de la configuración):
+
+- CA1 → «las dos pruebas «CA3 (0059)» conservan sus nombres y sus comprobaciones» (nombres, versión
+  exacta en `devDependencies`, importación real de la configuración, plugin `vite:react-babel`,
+  `react/compiler-runtime` y `_c(N)`) y «la carga de la configuración y del plugin va en un
+  beforeAll, no en la prueba». Al escribirlos: 1 pasa y 1 falla (no había `beforeAll`).
+- CA2 → lo ejecuta el verifier (tres `npm run check` con `npm run test:e2e` a la vez).
+
+**Medidas del paso 1** (2026-10-12, copia local del test con `performance.now()`, sin commitear).
+«Importar» es `import('../electron.vite.config')`; «plugin», buscarlo y `configResolved`;
+«transformar», la primera llamada al `transform` (la segunda, para comparar):
+
+| Toma                                     | Importar | Plugin | Transformar (1.ª) | 2.ª   | Total   |
+| ---------------------------------------- | -------- | ------ | ----------------- | ----- | ------- |
+| Aislado 1                                | 343 ms   | 0 ms   | 159 ms            | 9 ms  | 503 ms  |
+| Aislado 2                                | 337 ms   | 0 ms   | 159 ms            | 9 ms  | 497 ms  |
+| Aislado 3                                | 337 ms   | 0 ms   | 154 ms            | 12 ms | 492 ms  |
+| `test:coverage` + `test:e2e` a la vez, 1 | 767 ms   | 0 ms   | 410 ms            | 21 ms | 1177 ms |
+| `test:coverage` + `test:e2e` a la vez, 2 | 1724 ms  | 0 ms   | 417 ms            | 25 ms | 2141 ms |
+| `test:coverage` + `test:e2e` a la vez, 3 | 1313 ms  | 0 ms   | 544 ms            | 31 ms | 1858 ms |
+
+En esas tres tandas, la prueba real (sin cambiar) tardó 2943, 2088 y 2096 ms. Bajo carga se usó
+`npx vitest run --coverage` (la parte de pruebas del `check`; con la copia dentro, lint y formato
+habrían fallado), lanzada 45 s después de `npm run test:e2e`. Desglose de la importación (aislado,
+3 tomas iguales): `electron-vite` (arrastra Vite) ~272 ms, `@tailwindcss/vite` ~50 ms,
+`@vitejs/plugin-react` ~4 ms y el resto de la configuración ~9 ms.
+
+**Causa:** la carga en frío. Importar la configuración y la primera transformación (que carga Babel
+y el compilador) son el 98 % del tiempo y crecen de 2 a 5 veces con la máquina cargada; la
+transformación en sí son ~10-30 ms. No sobra trabajo que se pueda quitar sin dejar de cargar la
+configuración real: lo caro es `electron-vite`, del que sale `defineConfig`.
+
+**Arreglo** (commit `fix(scripts): la carga de la configuración del React Compiler pasa a un
+beforeAll (#0100)`): importar la configuración, tomar el plugin y prepararlo para build van en un
+`beforeAll`; la prueba solo transforma (0,4-0,55 s en el peor medido, frente a 5 s). Sin límite
+propio: el peor medido del hook (1,7 s) queda lejos de los 10 s de `hookTimeout` por defecto.
+
+Verificación 2026-10-12, commit dede004, rango `integra/20261012-2..fix/0100-unitario-react-compiler`: **VERDE**
+
+- `npm run check`: 4139 tests (225 ficheros), cobertura ok (líneas 93,58 %, ramas 90,03 %, funciones 89,94 %, sentencias 92,83 %).
+- `test:e2e:affected`: «solo docs o tests unitarios»; ningún spec.
+- CA2: cinco `npm run check` seguidos en verde, sin ningún fallo del unitario; tres con el e2e completo a la vez (check 1 con `npm run test:e2e`, 369 passed; checks 4 y 5 con `test:e2e:nobuild` en bucle, dos pasadas de 369 passed) y dos sin carga.
+- `core.bare` del checkout principal: `false` antes, durante y después de todas las pasadas.
 
 ## Resultado
 
-(pendiente)
+- Commits: `4099970` (test CA1), `665e526` (arreglo), `7bdbe75`, `dede004`, `192ce23` (fichas) y el de cierre.
+- Ficheros: `scripts/react-compiler.test.ts` (importación de la configuración y plugin en un `beforeAll`), `scripts/react-compiler-0100.test.ts` (nuevo).
+- Causa: carga en frío (`electron-vite` y Babel); sin límite propio.
+- Rondas de revisión: 1 (APROBADO). Verificación VERDE; CA2 con cinco `check` seguidos.
+- ADR nuevo: ninguno. Sin migraciones. BACKLOG: quitados los dos sospechosos del unitario; anotados `views-entidad.spec.ts:543` (sospechoso) y el calentamiento (mejora).
