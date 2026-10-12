@@ -30,3 +30,4 @@ carpeta.
   borra antes de cada fichero (`scripts/lib/vitest-git-env.setup.mjs`, en `setupFiles`); el proceso
   hijo que se lance con un `env` propio se construye con `withoutGitVars` de
   `scripts/lib/git-env.mjs`.
+- Electron en scripts (`scripts/telegram-capture.cjs`): no esperar promesas de la página con `webContents.executeJavaScript` si la página puede intentar navegar; Electron no las resuelve nunca (ficha 0105). Usar llamadas síncronas con tiempo máximo y sondear desde el script (`evaluate` y `waitFor`).

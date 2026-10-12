@@ -67,6 +67,12 @@ type Api = {
 }
 
 const loaded = existsSync(SCRIPT) ? ((await import(pathToFileURL(SCRIPT).href)) as Api) : undefined
+// El script importa la tarjeta (0104) solo cuando hay que capturar, y esa primera carga (React,
+// react-markdown, highlight.js…) tarda segundos: se la llevaba el primer test que envía la foto
+// (CA3), que con la máquina cargada pasaba de los 5 s de Vitest. Se precarga aquí, al cargar el
+// fichero, fuera del tiempo de cada test; el script reutiliza el mismo módulo ya cargado.
+const CARD = join(__dirname, 'telegram-card.mjs')
+if (existsSync(CARD)) await import(pathToFileURL(CARD).href)
 function api(): Api {
   if (!loaded) throw new Error('No existe scripts/notify-telegram.mjs')
   return loaded

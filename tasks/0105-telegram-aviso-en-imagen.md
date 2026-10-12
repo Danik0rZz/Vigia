@@ -9,12 +9,12 @@ medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "
 lote: telegram-imagen # nombre corto del lote, si la ficha es parte de uno
 depende_de: ['0103', '0104'] # fichas que tienen que estar hechas antes, por número
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
-rama: feat/0105-telegram-aviso-en-imagen
+rama: fix/0105-ci
 adrs: ['0009'] # ADR que aplican, por número
 adr_nuevo: '0015' # el de la 0104; el doc-writer lo completa con la captura y el envío
 api: ninguna (Telegram Bot API, https://core.telegram.org/bots/api#sendphoto; no es Dynatrace)
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 1
+rondas_revision: 3
 ---
 
 ## Petición original
@@ -190,6 +190,24 @@ Opcional (no bloquea):
 1. `sendImage`: si la primera parte falla por tiempo agotado o red (no por rechazo de Telegram), se envía el texto; si la foto llegó tarde, el aviso sale dos veces. Aceptable porque el aviso nunca para el flujo; conviene anotarlo.
 2. En la ventana de captura, `<link rel="dns-prefetch">` y `preconnect` no pasan por `webRequest`. Hoy no tiene efecto (la tarjeta escapa todo y su CSP es estricta). Para cerrarlo: `app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND')` en `telegram-capture.cjs`.
 
+### Ronda 2 (arreglo de CI): APROBADO
+
+- **Criterios:** el diff (`main..fix/0105-ci`) solo toca `scripts/telegram-capture.cjs` y la ficha. Los tests de CA6, CA7 y CA9 siguen como estaban: no se afloja ningún criterio; el fallo de CA7 se arregla en el código.
+- **Aislamiento:** `webPreferences` igual (sandbox, `contextIsolation`, sin `nodeIntegration`, `webSecurity`, sin devTools ni webgl, partición en memoria), y también la cancelación en `onBeforeRequest`, los permisos denegados, `will-navigate`, `will-redirect`, `will-frame-navigate`, ventanas nuevas y `<webview>`. Lo único nuevo en la página es una propiedad no enumerable (`__vigiaCapturaFrames`) para marcar los fotogramas; si la página la manipula, como mucho la captura falla con error. Todo tiene tiempo máximo: `evaluate` 5 s, `waitFor` 15 s y el `SELF_TIMEOUT_MS` del proceso.
+- **La causa encaja:** la página de CA7 intenta navegar con un `setTimeout`; si la navegación cancelada cae mientras `executeJavaScript` espera una promesa (`await document.fonts.ready`), no se resuelve nunca. Explica que fallara solo con la máquina cargada (CI de `main`). Con el arreglo, todo lo que se ejecuta en la página es síncrono y las esperas se hacen preguntando desde el script (`document.fonts.status === 'loaded'` y una marca tras dos `requestAnimationFrame`). La reproducción de la ficha (25 de 60 colgadas antes, 60 de 60 después, también navegando cada milisegundo) cuadra.
+- **Legibilidad y datos:** comentarios en español, identificadores en inglés; los errores llegan a `fail` con solo su primera línea. Sin secretos ni datos del tenant.
+
+Opcional: `document.fonts.status === 'loaded'` no es exactamente `document.fonts.ready`: justo tras `did-finish-load` podría estar en `loaded` antes de que empiece una fuente pedida tarde. En esta tarjeta (peticiones canceladas, fuentes locales o del sistema) no hay riesgo práctico; para más margen, exigir que la medida dé lo mismo en dos sondeos seguidos.
+
+### Ronda 3 (arreglo de CI, segunda parte): APROBADO
+
+- `git diff 95718b7..fix/0105-ci` (c1b6c34 y 83d0e73): el único cambio de código está en `scripts/notify-telegram-image.test.ts`, 6 líneas que precargan `telegram-card.mjs` con `await import()` al cargar el fichero. No cambia ninguna aserción, doble ni timeout de CA3: comprueba lo mismo (sendPhoto con multipart/form-data, foto, pie e hilo). Sin la precarga el test pasa igual, solo más lento: no tapa ningún fallo de lógica.
+- La precarga se aprovecha: `notify-telegram.mjs:646` importa `./telegram-card.mjs` con ruta relativa, el mismo módulo, que se carga una vez.
+- No oculta problemas del aviso real: la importación queda fuera de `withTimeout` (líneas 650-654), que solo envuelve `deps.capture`; una carga lenta no dispara el timeout de captura ni cambia el respaldo a texto. El aviso real se lanza una vez por proceso, sin requisito de latencia.
+- Lo apuntado en la ficha se ajusta al diff. Sin datos del tenant ni secretos.
+
+Opcional: los 4,3 s son con la transformación de Vitest; si preocupa lo que tarda el aviso en Node normal, medirlo aparte.
+
 ## Verificación
 
 Tests escritos en `ce821b4` (fallan hasta que exista el código). Contrato que fijan (detalle en la
@@ -221,9 +239,44 @@ Verificación 2026-10-12, commit f4f5994, rango main..feat/0105-telegram-aviso-e
 - e2e: `test:e2e:affected`, un único pase: 370 pasan, ninguno falla (1,6 min).
 - No se envió nada a Telegram.
 
+Verificación del arreglo de CI 2026-10-12, commit c941fdb, rango main..fix/0105-ci: VERDE
+
+- check: 4323 tests (231 ficheros) en verde; cobertura ok (sentencias 92,98 %, ramas 90,13 %, funciones 90,37 %, líneas 93,75 %).
+- e2e: `test:e2e:affected` no seleccionó ninguno (solo `scripts/` y la ficha).
+- Con carga: `scripts/telegram-capture.test.ts` y `scripts/notify-telegram-image.test.ts` en dos tandas en paralelo, 6 y 12 ejecuciones a la vez: las 18 con salida 0 y 41 tests cada una, sin fallos ni timeouts.
+- No se envió nada a Telegram y no quedaron procesos en segundo plano.
+
 ## Resultado
 
 - Commits: `ce821b4` y `790b288` (tests), `4d9b502` (código), `0ad9c04` (flujo y comandos), `eb04939` (medida a escala 1). Rondas de revisión: 1 (APROBADO). Verificación en verde.
 - Ficheros principales: `scripts/notify-telegram.mjs`, `scripts/telegram-capture.cjs`, `scripts/notify-telegram-image.test.ts`, `scripts/telegram-capture.test.ts`, `docs/flujo.md`, `.claude/commands/tarea.md` y `cerrar-version.md`.
 - ADR: completado el ADR-0015 (captura y envío). Sin migraciones.
 - Ideas y sospechosos pasados al BACKLOG: aviso duplicado si la foto llega tarde, `host-resolver-rules`, rama vacía con `hecha`, aviso del Planificador y el timeout de «CA3 (0105)».
+
+### Arreglo del CI de main (rama `fix/0105-ci`)
+
+- **Fallo:** en el CI de main tras la PR #32 (run 38264967328, Windows), «CA7 (0105): las
+  peticiones https:// metidas en la página no salen…» agotó el tiempo de la captura (60 s) dos
+  veces seguidas; en la PR y en local pasaba.
+- **Causa:** no era el evento `load` (la hipótesis del Orquestador): `did-finish-load` llegaba
+  siempre. La página de CA7 intenta navegar (`location.href` en un `setTimeout`) y, con la máquina
+  cargada, el intento cae mientras `executeJavaScript` espera la promesa de la medida
+  (`await document.fonts.ready`). La navegación se cancela bien, pero Electron no resuelve nunca esa
+  promesa, ni las de las llamadas siguientes que devuelven promesas; las síncronas sí responden.
+  Reproducido aquí con 12 capturas a la vez: 25 de 60 se colgaban (y 29 de 60 con reintentos).
+- **Arreglo** (`2f5853a`, `scripts/telegram-capture.cjs`): todo lo que se ejecuta en la página es
+  síncrono y con tiempo máximo (`evaluate`, 5 s); las esperas (fuentes cargadas y dos fotogramas
+  tras desplazar) se hacen preguntando desde el script cada 25 ms (`waitFor`, 15 s como mucho).
+  Con la misma carga, 60 de 60 capturas bien (y 60 de 60 con una página que intenta navegar cada
+  milisegundo). El aislamiento de la ventana no cambia (sandbox, sin `nodeIntegration`, peticiones
+  canceladas, sin navegación); los tests no se han tocado.
+- **Comprobado:** `scripts/telegram-capture.test.ts` (CA6, CA7 y CA9) 10 veces seguidas en verde;
+  `npm run check` en verde (4 323 tests); `test:e2e:affected` main..HEAD: ningún e2e afectado.
+- **Timeout de «CA3 (0105): multipart/form-data…»** (`c1b6c34`, solo el test): era el primero que
+  envía la foto y pagaba la carga en frío de `telegram-card.mjs` (React, react-markdown,
+  highlight.js), que el script importa la primera vez que la necesita: 4,3 s aislado, más de 5 s
+  con carga. El fichero de tests ahora precarga la tarjeta antes de los tests; CA3 baja a unos
+  40 ms y comprueba lo mismo. No es un fallo del código. 18 ejecuciones del fichero (6 a la vez,
+  3 veces) en verde y `npm run check` en verde.
+
+- **Cierre del arreglo:** `fix/0105-ci`, rondas de revisión: 3 (APROBADO), verificación en verde. Ficheros: `scripts/telegram-capture.cjs` y `scripts/notify-telegram-image.test.ts`. Sin ADR nuevo ni migraciones. El «CA3 (0105)» sale de los sospechosos del BACKLOG; opcionales del reviewer y la mejora del flujo, en «Mejoras anotadas».
