@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { verifyCertificate } from './tls'
+import { queuesRequests, verifyCertificate } from './tls'
 
 /**
  * Decisión de verificación de certificados por nivel (spec, "Certificados TLS"):
@@ -97,5 +97,76 @@ describe('verifyCertificate', () => {
       expect(check({ ...sso, fingerprint: PIN, chromiumOk: false })).toBe('accept')
       expect(check({ ...sso, fingerprint: OTHER, chromiumOk: true })).toBe('reject')
     })
+  })
+})
+
+describe('queuesRequests (0095): en fila solo los hosts con huella fijada', () => {
+  const SSO = 'sso.example.invalid'
+
+  it('«fijada» con huella para el host: en fila', () => {
+    expect(
+      queuesRequests({
+        level: 'pinned',
+        pins: [PIN],
+        hostname: ENV_HOSTS[0] ?? '',
+        envHosts: ENV_HOSTS
+      })
+    ).toBe(true)
+  })
+
+  it('el SSO con huella va en fila con «fijada» y con «ignorar» (que no lo ignora nunca)', () => {
+    for (const level of ['pinned', 'ignore'] as const) {
+      expect(
+        queuesRequests({ level, pins: [PIN], hostname: SSO, envHosts: ENV_HOSTS }),
+        level
+      ).toBe(true)
+    }
+  })
+
+  it('«sistema», sin huella o «ignorar» en un host del entorno: no va en fila', () => {
+    const host = ENV_HOSTS[0] ?? ''
+    expect(
+      queuesRequests({ level: 'system', pins: [PIN], hostname: host, envHosts: ENV_HOSTS })
+    ).toBe(false)
+    expect(
+      queuesRequests({ level: 'system', pins: [PIN], hostname: SSO, envHosts: ENV_HOSTS })
+    ).toBe(false)
+    expect(queuesRequests({ level: 'pinned', pins: [], hostname: host, envHosts: ENV_HOSTS })).toBe(
+      false
+    )
+    expect(queuesRequests({ level: 'ignore', pins: [], hostname: SSO, envHosts: ENV_HOSTS })).toBe(
+      false
+    )
+    expect(
+      queuesRequests({ level: 'ignore', pins: [PIN], hostname: host, envHosts: ENV_HOSTS })
+    ).toBe(false)
+  })
+
+  it('va en fila justo cuando la decisión del verificador depende de la huella del certificado', () => {
+    for (const level of ['system', 'pinned', 'ignore'] as const) {
+      for (const pins of [[], [PIN]]) {
+        for (const hostname of [ENV_HOSTS[0] ?? '', SSO]) {
+          const decisions = new Set(
+            [PIN, OTHER].flatMap((fingerprint) =>
+              [true, false].map((chromiumOk) =>
+                verifyCertificate({
+                  level,
+                  pins,
+                  fingerprint,
+                  chromiumOk,
+                  hostname,
+                  envHosts: ENV_HOSTS
+                })
+              )
+            )
+          )
+          const dependsOnPin = decisions.has('accept') && decisions.has('reject')
+          expect(
+            queuesRequests({ level, pins, hostname, envHosts: ENV_HOSTS }),
+            `${level} ${pins.length} ${hostname}`
+          ).toBe(dependsOnPin)
+        }
+      }
+    }
   })
 })

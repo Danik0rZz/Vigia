@@ -14,7 +14,7 @@
 - Electron cachea el resultado de `setCertificateVerifyProc` y no hay forma de borrarlo: cada cambio
   de nivel o de huellas de un entorno crea una partición nueva en memoria
   `env-<id>-<generación>` (`src/main/dynatrace/network.ts`, ADR-0003).
-- No decidir la seguridad de una conexión suponiendo que el verificador de Electron se llama siempre una vez por conexión: dos conexiones nuevas a la vez al mismo host pueden saltárselo. Por eso `fetchFor` manda sola la primera petición a cada host de cada sesión y las demás esperan (ficha 0079).
+- No decidir la seguridad de una conexión suponiendo que el verificador de Electron se llama siempre una vez por conexión: dos conexiones nuevas a la vez al mismo host pueden saltárselo. Por eso `fetchFor` manda sola la primera petición a cada host de cada sesión y las demás esperan (ficha 0079). Desde la 0095, los hosts con huella fijada van siempre de uno en uno (`queuesRequests`, `tls.ts`); si cambia la tabla de `verifyCertificate`, cambia también esa función (un test lo vigila).
 - El verificador de certificados solo ve el nombre del host, sin puerto; las huellas se guardan con
   `URL.host` (con puerto) y se comparan por nombre.
 - Electron 44 cambió el portapapeles al estilo W3C: `clipboard` de main solo tiene `clear`, `has`,

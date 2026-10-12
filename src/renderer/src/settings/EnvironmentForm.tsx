@@ -45,8 +45,11 @@ export function EnvironmentForm({
   })
   const { errors } = form.formState
   const saas = useWatch({ control: form.control, name: 'deployment' }) === 'saas'
-  const ignoring = useWatch({ control: form.control, name: 'certificateLevel' }) === 'ignore'
+  const certificateLevel = useWatch({ control: form.control, name: 'certificateLevel' })
+  const ignoring = certificateLevel === 'ignore'
+  const pinning = certificateLevel === 'pinned'
   const ignoreWarningId = useId()
+  const pinnedNoticeId = useId()
 
   // Aceptar una huella cambia el nivel en main: el formulario lo refleja, para
   // que guardar no lo devuelva al valor anterior.
@@ -175,7 +178,7 @@ export function EnvironmentForm({
               <select
                 data-testid="environment-certificate-level"
                 className={INPUT}
-                aria-describedby={ignoring ? ignoreWarningId : undefined}
+                aria-describedby={ignoring ? ignoreWarningId : pinning ? pinnedNoticeId : undefined}
                 {...form.register('certificateLevel')}
               >
                 {certificateLevels.map((level) => (
@@ -193,6 +196,15 @@ export function EnvironmentForm({
                 className="text-xs text-danger sm:col-span-2"
               >
                 {t('certificates.ignoreRisk')}
+              </p>
+            )}
+            {pinning && (
+              <p
+                id={pinnedNoticeId}
+                data-testid="certificate-pinned-notice"
+                className="text-xs text-muted-foreground sm:col-span-2"
+              >
+                {t('certificates.pinnedSlower')}
               </p>
             )}
             <Field label={t('environmentForm.classicApiUrl')} error={errors.classicApiUrl?.message}>

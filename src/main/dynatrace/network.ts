@@ -2,7 +2,7 @@ import { session, type Session } from 'electron'
 import type { UntrustedCertificate } from '@shared/dynatrace'
 import type { CertificateLevel } from '@shared/tenants'
 import type { PinStore } from './pins'
-import { verifyCertificate } from './tls'
+import { queuesRequests, verifyCertificate } from './tls'
 
 /** Valores del callback de `setCertificateVerifyProc`. */
 const ACCEPT = 0
@@ -41,8 +41,8 @@ export interface EnvironmentNetwork {
 const hostnameOf = (host: string): string => new URL(`https://${host}`).hostname
 
 /**
- * Estado de un host (con puerto) dentro de una sesión: si ya ha entrado una petición y, mientras
- * no, la que está en curso sola (las demás la esperan).
+ * Estado de un host (con puerto) dentro de una sesión: si ya ha entrado una petición y la que está
+ * en curso sola (las demás la esperan).
  */
 interface HostGate {
   verified: boolean
@@ -72,11 +72,15 @@ function waitFor(pending: Promise<void>, signal: AbortSignal | null | undefined)
  * ese host esperan a que acabe; si entra, ya van todas a la vez; si falla, la siguiente vuelve a ir
  * sola. No reintenta nada: cada petición sale una vez y su error es el suyo.
  *
+ * Si `queued(host)` dice que sí (host con huella fijada, ficha 0095), van todas de una en una,
+ * también después de la primera: si la sesión olvida la decisión del verificador, nunca hay dos
+ * conexiones nuevas a la vez a ese host.
+ *
  * Mientras espera solo se respeta `init.signal`: un `Request` con señal propia y sin `init.signal`
  * no se puede abortar hasta que le toca (la app siempre pasa la señal en `init`). Y el tiempo de
  * espera cuenta en el plazo de cada petición: las que esperan gastan el suyo.
  */
-function gatedFetch(ses: Session): typeof fetch {
+function gatedFetch(ses: Session, queued: (host: string) => boolean): typeof fetch {
   const gates = new Map<string, HostGate>()
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const request = input instanceof URL ? input.toString() : input
@@ -86,10 +90,11 @@ function gatedFetch(ses: Session): typeof fetch {
       gate = { verified: false, pending: null }
       gates.set(host, gate)
     }
-    while (!gate.verified && gate.pending !== null) {
+    const inQueue = queued(host)
+    while ((inQueue || !gate.verified) && gate.pending !== null) {
       await waitFor(gate.pending, init?.signal)
     }
-    if (gate.verified) return ses.fetch(request, init)
+    if (gate.verified && !inQueue) return ses.fetch(request, init)
 
     let release = (): void => undefined
     gate.pending = new Promise<void>((resolve) => {
@@ -157,9 +162,35 @@ export function createEnvironmentNetwork(deps: {
         callback(REJECT)
       }
     })
-    const entry = { session: ses, fetch: gatedFetch(ses) }
+    const entry = { session: ses, fetch: gatedFetch(ses, (host) => queued(envId, host)) }
     sessions.set(envId, entry)
     return entry
+  }
+
+  /** Huellas fijadas del entorno para un nombre de host (sin puerto). */
+  function pinsFor(envId: string, hostname: string): string[] {
+    return deps.pins
+      .list(envId)
+      .filter((pin) => hostnameOf(pin.host) === hostname)
+      .map((pin) => pin.fingerprint)
+  }
+
+  /**
+   * Si las peticiones a `host` (con puerto) van en fila, con los datos del verificador. Si algo
+   * falla al leerlos (por ejemplo, el entorno se ha borrado), en fila: es lo más seguro.
+   */
+  function queued(envId: string, host: string): boolean {
+    try {
+      const hostname = hostnameOf(host)
+      return queuesRequests({
+        level: deps.certificateLevel(envId),
+        pins: pinsFor(envId, hostname),
+        hostname,
+        envHosts: deps.environmentHosts(envId)
+      })
+    } catch {
+      return true
+    }
   }
 
   /** Decisión del verificador para un certificado (ACCEPT, REJECT o USE_CHROMIUM). */
@@ -167,10 +198,7 @@ export function createEnvironmentNetwork(deps: {
     envId: string,
     request: { hostname: string; errorCode: number; certificate: { fingerprint: string } }
   ): number {
-    const pins = deps.pins
-      .list(envId)
-      .filter((pin) => hostnameOf(pin.host) === request.hostname)
-      .map((pin) => pin.fingerprint)
+    const pins = pinsFor(envId, request.hostname)
     const fingerprint = request.certificate.fingerprint
     const chromiumOk = request.errorCode === 0
     const decision = verifyCertificate({

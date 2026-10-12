@@ -212,7 +212,8 @@
     "current": "New fingerprint",
     "accept": "Accept this fingerprint",
     "notObserved": "The fingerprint could not be accepted. Test the connection again.",
-    "ignoreRisk": "Anyone on the network could impersonate this environment. Use it only if you cannot pin the fingerprint."
+    "ignoreRisk": "Anyone on the network could impersonate this environment. Use it only if you cannot pin the fingerprint.",
+    "pinnedSlower": "With a pinned fingerprint, views request their data one at a time and may take longer."
   },
   "dtErrors": {
     "NO_CREDENTIAL": "The credential or the URL is missing.",

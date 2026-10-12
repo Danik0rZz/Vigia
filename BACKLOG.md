@@ -52,7 +52,7 @@ bueno de Dani o de peticiones en su nombre.
   [0092](tasks/0092-telegram-no-envia-sin-filtro.md) (hecha),
   [0093](tasks/0093-log-sin-usuario-de-windows.md) (hecha),
   [0094](tasks/0094-markdown-color-sin-prototipo.md) y
-  [0095](tasks/0095-tls-seguimiento-conexiones-nuevas.md). Cola: 0087, 0088, 0089, 0090, 0091,
+  [0095](tasks/0095-tls-seguimiento-conexiones-nuevas.md) (hecha). Cola: 0087, 0088, 0089, 0090, 0091,
   0092, 0093, 0094, 0095 y 0086. Al final, también aprobada por Dani el 2026-10-11 (lote
   **e2e-inestables-2**): [0096](tasks/0096-e2e-arreglar-tooltips-en-el-ci.md) (hecha), tooltips que no se
   abren en el CI (evidencia de 45 días, grid de Problemas y tooltip de «recuperable» del host).
@@ -91,6 +91,8 @@ Con su análisis (API, scopes, esfuerzo, riesgos y decisiones que necesitan de D
   vaya a darse a otras personas.
 - Vista de Entidades (propuesta 1, L). Pide `entities.read`.
 - Usuario de Windows con espacios en el log y en los errores del renderer (surgió en 0093, S, exclusión seguridad). La regla compartida (`src/shared/error-report.ts`, la clase de la línea 52) se para en el espacio: `C:UsersAna Lopez…` queda `C:Users<usuario> Lopez…`, y la carpeta `OneDrive - <Organización>` del perfil puede llevar el nombre de un cliente. Arreglarlo cambia también el renderer. Decide Dani si se hace.
+- Aviso privado a Electron sobre las conexiones nuevas a la vez (surgió en 0079, pendiente de Dani): Dani tiene pendiente enviarlo. Si Electron responde, se revisa lo decidido en la 0095 (ADR-0003, sección «Seguimiento»), incluido el riesgo aceptado de «ignorar». Lo decide Dani. (surgió en 0095)
+- La fila de `gatedFetch` va por host con puerto (`URL.host`) y el verificador decide por nombre de host: dos puertos del mismo host con huella fijada no comparten fila. Ya pasaba en la 0079; ponerlos en la misma fila cambia cómo van las peticiones, `[ALCANCE]`. (surgió en 0095)
 - Fase 8: DQL y Logs (propuesta 4, L). Coste por GiB escaneado; incluye el streaming de
   exportaciones y el aviso de filas de Excel en CSV.
 
@@ -103,6 +105,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- `gatedFetch` (`network.ts`): una espera cancelada deja un `.then` enganchado a la promesa de la fila; es inofensivo (se resuelve siempre en el `finally`), pero se podría desenganchar. Opcional. (surgió en 0095)
 - `src/renderer/src/lib/markdown-color.ts`, `paintElement`: usar `hexToRgba` y quitar el `style` si da `null` (en vez de `knownHex`, que lanza `TypeError`), para que una regresión pierda el color y no el panel; `knownHex` se quedaría para `THEME_PAINT`. Opcional. (surgió en 0094)
 - `markdown-color.test.ts`: tests de la rama que lanza (`readableColor` con algo que no es `#rgb`/`#rrggbb`) y del `null` de `hexToRgba`. (surgió en 0094)
 - El pre-commit lanza `vitest related` con un `.mjs` de `scripts/` y dice «No test files found»: los tests de `scripts/` no se relacionan con su `.mjs`, así que el pre-commit no los corre al tocar un script (sí los corre `check`). (surgió en 0092)

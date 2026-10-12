@@ -209,3 +209,73 @@ describe('CA2 (0079): la segunda conexión no se salta el verificador', () => {
     expect(await secondInTheWindow()).toEqual(['TLS_UNTRUSTED', 'TLS_UNTRUSTED'])
   })
 })
+
+/**
+ * La sesión simulada olvida lo que decidió el verificador para cada host (como pasa en la real
+ * pasado un tiempo): la siguiente conexión a ese host vuelve a ser nueva.
+ */
+function forgetDecisions(): void {
+  fake.decided.clear()
+}
+
+/** Suelta las verificaciones pendientes, también las que lleguen al soltar las anteriores. */
+async function releaseVerifier(): Promise<void> {
+  while (fake.atVerifier.length > 0) {
+    for (const release of fake.atVerifier.splice(0)) release()
+    await settle()
+  }
+}
+
+function outcome(result: PromiseSettledResult<unknown>): string {
+  if (result.status === 'fulfilled') return 'entra'
+  return result.reason instanceof DtError ? result.reason.code : String(result.reason)
+}
+
+/**
+ * Una primera petición que entra; después la sesión olvida la decisión y se lanzan dos peticiones a
+ * la vez al mismo host. Devuelve lo que sale de cada una de las dos.
+ */
+async function twoAfterForgetting(changeCertificate?: () => void): Promise<string[]> {
+  const client = build()
+  const schema = z.object({}).passthrough()
+  const first = client.dtRequest({ envId: ENV, api: 'classic', path: '/problems', schema })
+  await vi.waitFor(() => expect(fake.atVerifier).toHaveLength(1))
+  await releaseVerifier()
+  expect(outcome((await Promise.allSettled([first]))[0] as PromiseSettledResult<unknown>)).toBe(
+    'entra'
+  )
+
+  forgetDecisions()
+  changeCertificate?.()
+  // La segunda se pide cuando la primera espera al verificador de la app (la ventana de la 0079).
+  const a = client.dtRequest({ envId: ENV, api: 'classic', path: '/problems', schema })
+  await vi.waitFor(() => expect(fake.atVerifier).toHaveLength(1))
+  const b = client.dtRequest({ envId: ENV, api: 'classic', path: '/slo', schema })
+  // Se recogen ya: la segunda puede fallar antes de soltar la primera.
+  const results = Promise.allSettled([a, b])
+  await settle()
+  await releaseVerifier()
+  return (await results).map(outcome)
+}
+
+describe('CA1 (0095): con huella fijada, la sesión que olvida la decisión no deja saltarse el verificador', () => {
+  it("CA1 (0095): con 'fijada' y la huella fijada de un certificado propio, las dos entran", async () => {
+    level = 'pinned'
+    pins = [{ host: `${HOST}:443`, fingerprint: FP }]
+    fake.chromiumError = ERR_CERT_AUTHORITY_INVALID
+    // Sin la fila, la segunda se lleva el rechazo de Chromium sin preguntar a la app.
+    expect(await twoAfterForgetting()).toEqual(['entra', 'entra'])
+  })
+
+  it("CA1 (0095): con 'fijada' y un certificado de CA pública con otra huella, no entra ninguna", async () => {
+    level = 'pinned'
+    pins = [{ host: `${HOST}:443`, fingerprint: FP }]
+    // Sin la fila, la segunda se lleva el «sí» de Chromium y entra con una huella que no es la fijada.
+    expect(
+      await twoAfterForgetting(() => {
+        fake.fingerprint = OTHER_FP
+        fake.chromiumError = OK
+      })
+    ).toEqual(['TLS_PIN_MISMATCH', 'TLS_PIN_MISMATCH'])
+  })
+})

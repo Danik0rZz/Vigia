@@ -720,3 +720,241 @@ describe('0079: la primera petición a cada host de cada sesión va sola', () =>
     expect(fake.fetches.get(partition)).toHaveBeenLastCalledWith(request, undefined)
   })
 })
+
+describe('0095: fila para los hosts con huella fijada', () => {
+  /** Respuestas que el test suelta a mano, en orden de llegada a la red. */
+  function heldFetch(partition: string): { urls: string[]; resolve(index: number): void } {
+    const urls: string[] = []
+    const settlers: (() => void)[] = []
+    fake.fetches.get(partition)?.mockImplementation(
+      (input: unknown) =>
+        new Promise<Response>((resolve) => {
+          urls.push(String(input))
+          settlers.push(() => resolve(new Response('{}')))
+        })
+    )
+    return { urls, resolve: (index) => settlers[index]?.() }
+  }
+
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  /**
+   * Abre la sesión (con una petición a otro host), retiene la red y hace que la primera petición
+   * al host de la prueba acabe bien.
+   */
+  async function afterFirstOk(network: ReturnType<typeof createEnvironmentNetwork>): Promise<{
+    urls: string[]
+    resolve(index: number): void
+    fetchEnv: ReturnType<ReturnType<typeof createEnvironmentNetwork>['fetchFor']>
+  }> {
+    await network.fetchFor(ENV)('https://otro.example/')
+    const red = heldFetch(`env-${ENV}-0`)
+    const fetchEnv = network.fetchFor(ENV)
+    const first = fetchEnv(`https://${HOST}/primera`)
+    await settle()
+    expect(red.urls).toEqual([`https://${HOST}/primera`])
+    red.resolve(0)
+    await first
+    return { ...red, fetchEnv }
+  }
+
+  describe('CA3 (0095): sin huella fijada para el host, las siguientes van a la vez', () => {
+    const cases: [string, CertificateLevel, () => CertificatePin[]][] = [
+      ["'sistema' sin huellas", 'system', () => []],
+      [
+        "'sistema' aunque el host tenga una huella guardada",
+        'system',
+        () => [{ host: `${HOST}:443`, fingerprint: FP }]
+      ],
+      [
+        "'fijada' con huella solo para otro host",
+        'pinned',
+        () => [{ host: 'otro-host.example.invalid:443', fingerprint: FP }]
+      ],
+      ["'fijada' sin ninguna huella", 'pinned', () => []],
+      ["'ignorar' en un host del entorno", 'ignore', () => []]
+    ]
+
+    for (const [name, caseLevel, casePins] of cases) {
+      it(`CA3 (0095): ${name}: tras la primera que entra, las dos siguientes llegan juntas a la red`, async () => {
+        level = caseLevel
+        pins = casePins()
+        const network = build()
+        const red = await afterFirstOk(network)
+        const second = red.fetchEnv(`https://${HOST}/b`)
+        const third = red.fetchEnv(`https://${HOST}/c`)
+        await settle()
+        expect(red.urls).toEqual([
+          `https://${HOST}/primera`,
+          `https://${HOST}/b`,
+          `https://${HOST}/c`
+        ])
+        red.resolve(1)
+        red.resolve(2)
+        await Promise.all([second, third])
+      })
+    }
+  })
+
+  describe('CA4 (0095): en la fila de un host con huella fijada, cancelar no espera ni bloquea', () => {
+    beforeEach(() => {
+      level = 'pinned'
+      pins = [{ host: `${HOST}:443`, fingerprint: FP }]
+    })
+
+    it('CA4 (0095): con huella fijada, las peticiones van de una en una también después de la primera', async () => {
+      const network = build()
+      const red = await afterFirstOk(network)
+      const b = red.fetchEnv(`https://${HOST}/b`)
+      const c = red.fetchEnv(`https://${HOST}/c`)
+      await settle()
+      expect(red.urls).toEqual([`https://${HOST}/primera`, `https://${HOST}/b`])
+      red.resolve(1)
+      await b
+      await settle()
+      expect(red.urls).toEqual([
+        `https://${HOST}/primera`,
+        `https://${HOST}/b`,
+        `https://${HOST}/c`
+      ])
+      red.resolve(2)
+      await c
+    })
+
+    const cancellations: [string, () => Error][] = [
+      ['se cancela', () => new DOMException('cancelada', 'AbortError')],
+      ['agota su plazo', () => new DOMException('plazo agotado', 'TimeoutError')]
+    ]
+
+    for (const [name, makeReason] of cancellations) {
+      it(`CA4 (0095): una petición que espera y ${name} sale con su error sin esperar a la de delante, y la de detrás sigue`, async () => {
+        const network = build()
+        const red = await afterFirstOk(network)
+        const ahead = red.fetchEnv(`https://${HOST}/delante`)
+        const controller = new AbortController()
+        const waiting = red.fetchEnv(`https://${HOST}/espera`, { signal: controller.signal })
+        const behind = red.fetchEnv(`https://${HOST}/detras`)
+        await settle()
+        expect(red.urls).toEqual([`https://${HOST}/primera`, `https://${HOST}/delante`])
+
+        // La de delante sigue en la red: la que espera sale ya, con el motivo de su señal.
+        const reason = makeReason()
+        controller.abort(reason)
+        await expect(waiting).rejects.toBe(reason)
+        expect(red.urls).toEqual([`https://${HOST}/primera`, `https://${HOST}/delante`])
+
+        // Al acabar la de delante, pasa la de detrás; la cancelada nunca llega a la red.
+        red.resolve(1)
+        await ahead
+        await settle()
+        expect(red.urls).toEqual([
+          `https://${HOST}/primera`,
+          `https://${HOST}/delante`,
+          `https://${HOST}/detras`
+        ])
+        red.resolve(2)
+        await behind
+      })
+    }
+  })
+})
+
+describe('0095 (developer): el SSO con huella también va en fila', () => {
+  const SSO = 'sso.example.invalid'
+
+  /** Dos peticiones al SSO tras una primera que entra: cuántas llegan a la red antes de soltar. */
+  async function concurrentAfterFirst(
+    network: ReturnType<typeof createEnvironmentNetwork>
+  ): Promise<string[]> {
+    await network.fetchFor(ENV)('https://otro.example/')
+    const urls: string[] = []
+    const settlers: (() => void)[] = []
+    fake.fetches.get(`env-${ENV}-0`)?.mockImplementation(
+      (input: unknown) =>
+        new Promise<Response>((resolve) => {
+          urls.push(String(input))
+          settlers.push(() => resolve(new Response('{}')))
+        })
+    )
+    const tick = async (): Promise<void> => {
+      for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+    const fetchEnv = network.fetchFor(ENV)
+    const first = fetchEnv(`https://${SSO}/token`)
+    await tick()
+    settlers[0]?.()
+    await first
+    const b = fetchEnv(`https://${SSO}/b`)
+    const c = fetchEnv(`https://${SSO}/c`)
+    await tick()
+    const seen = [...urls]
+    while (settlers.length < 3) {
+      settlers.at(-1)?.()
+      await tick()
+    }
+    settlers.forEach((settle) => settle())
+    await Promise.all([b, c])
+    return seen
+  }
+
+  it("con 'ignorar' (que nunca vale para el SSO) y huella fijada para el SSO, de una en una", async () => {
+    level = 'ignore'
+    pins = [{ host: `${SSO}:443`, fingerprint: FP }]
+    expect(await concurrentAfterFirst(build())).toEqual([
+      `https://${SSO}/token`,
+      `https://${SSO}/b`
+    ])
+  })
+
+  it("con 'fijada' y huella fijada para el SSO, de una en una", async () => {
+    level = 'pinned'
+    pins = [{ host: `${SSO}:443`, fingerprint: FP }]
+    expect(await concurrentAfterFirst(build())).toEqual([
+      `https://${SSO}/token`,
+      `https://${SSO}/b`
+    ])
+  })
+
+  it("con 'ignorar' y el SSO sin huella, a la vez como hoy", async () => {
+    level = 'ignore'
+    pins = []
+    expect(await concurrentAfterFirst(build())).toEqual([
+      `https://${SSO}/token`,
+      `https://${SSO}/b`,
+      `https://${SSO}/c`
+    ])
+  })
+
+  it('si no se pueden leer los datos del verificador, en fila', async () => {
+    level = 'pinned'
+    pins = [{ host: `${SSO}:443`, fingerprint: FP }]
+    const network = build()
+    await network.fetchFor(ENV)('https://otro.example/')
+    throwOnLevel = new Error('entorno borrado')
+    const urls: string[] = []
+    const settlers: (() => void)[] = []
+    fake.fetches.get(`env-${ENV}-0`)?.mockImplementation(
+      (input: unknown) =>
+        new Promise<Response>((resolve) => {
+          urls.push(String(input))
+          settlers.push(() => resolve(new Response('{}')))
+        })
+    )
+    const fetchEnv = network.fetchFor(ENV)
+    const a = fetchEnv(`https://${SSO}/a`)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    settlers[0]?.()
+    await a
+    const b = fetchEnv(`https://${SSO}/b`)
+    const c = fetchEnv(`https://${SSO}/c`)
+    for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(urls).toEqual([`https://${SSO}/a`, `https://${SSO}/b`])
+    settlers[1]?.()
+    await b
+    for (let i = 0; i < 5; i += 1) await new Promise((resolve) => setTimeout(resolve, 0))
+    settlers[2]?.()
+    await c
+  })
+})
