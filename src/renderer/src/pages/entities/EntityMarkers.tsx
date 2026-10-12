@@ -272,7 +272,19 @@ export function MarkerBody({
   )
 }
 
-/** Valor principal del marcador, con el color de su nivel (`data-level`). */
+/**
+ * Espacio duro antes de una unidad con letras («3,6 kbit/s», «2,5 GB», «120 ms»): los
+ * formateadores lo ponen para que número y unidad no se separen, pero en el valor grande, con la
+ * tarjeta estrecha, el texto entero no cabe y `wrap-anywhere` lo partía dentro de la unidad
+ * («3,6 kbi» / «t/s», ficha 0102). Antes del `%` se queda: «45,2 %» no se parte.
+ */
+const NBSP_BEFORE_UNIT = /\u00a0(?=[^\s%])/g
+
+/**
+ * Valor principal del marcador, con el color de su nivel (`data-level`). Se parte solo por el
+ * espacio entre el número y la unidad, y solo si no cabe en una línea (ficha 0102);
+ * `wrap-anywhere` queda como último recurso para una palabra que sola no cabe en la tarjeta.
+ */
 export function BigValue({
   testIdPrefix,
   level = 'normal',
@@ -288,7 +300,7 @@ export function BigValue({
       data-level={level}
       className={cn('text-3xl font-semibold tabular-nums wrap-anywhere', LEVEL_CLASS[level])}
     >
-      {children}
+      {children.replace(NBSP_BEFORE_UNIT, ' ')}
     </p>
   )
 }

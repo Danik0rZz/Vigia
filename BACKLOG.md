@@ -71,13 +71,13 @@ bueno de Dani o de peticiones en su nombre.
   `GIT_*` (el `core.bare=true` que rompió git en el checkout principal) (hecha). Sin exclusiones; va antes
   de la 0092.
 - Aprobadas por Dani el 2026-10-12, detrás de la cola de seguridad y en este orden (peticiones
-  que pasó el Orquestador): [0102](tasks/0102-host-marcadores-ventana-pequena.md), marcadores del
+  que pasó el Orquestador): [0102](tasks/0102-host-marcadores-ventana-pequena.md) (hecha), marcadores del
   HOST que se parten o se salen con la ventana de 1024 px; y lote **telegram-imagen**, avisos de
   Telegram en un hilo y como tarjeta en imagen con evidencias:
   [0103](tasks/0103-telegram-avisos-en-un-hilo.md) (hecha),
   [0104](tasks/0104-telegram-tarjeta-html.md) (hecha), [0105](tasks/0105-telegram-aviso-en-imagen.md),
   [0106](tasks/0106-telegram-responder-al-aviso-anterior.md),
-  [0107](tasks/0107-e2e-capturas-de-evidencias.md) y
+  [0107](tasks/0107-e2e-capturas-de-evidencias.md) (hecha) y
   [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
   exclusiones: cada una sola en su PR.
 - Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
@@ -117,6 +117,9 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 ## Mejoras anotadas
 
 - `scripts/telegram-card.mjs`, `prNumber`: no saca el número de una URL como `…/pull/321/files`; hoy no ocurre. Opcional. (surgió en 0104)
+- `e2e/views-metricas.spec.ts`, CA2 (0107): reforzarlo para que sea tan estricto como antes: con `repeatEachIndex === 0` y un solo worker, comparar la lista completa de ficheros de `test-results/evidencias` y los bytes del manifiesto, no solo los `CA2-…`. Opcional. (surgió en 0107)
+- `e2e/evidence.ts`, `captureEvidence`: llamar a `scrollIntoViewIfNeeded` antes de quitar foco y ratón, no después, para que el puntero no quede sobre algo con tooltip al desplazar. Opcional. (surgió en 0107)
+- `e2e/areas.json`: dar área a `e2e/evidence.ts` (por ejemplo `@metricas`) para que un cambio en la ayuda no lance el e2e completo, como pasa también con `e2e/hover.ts`. Opcional. (surgió en 0107)
 - `scripts/notify-telegram.mjs`, `redact`: tapa por subcadena, así que un id de hilo corto (una o dos cifras) también taparía esas cifras en otros textos de la salida (`HTTP 400`). Es seguro pero estropea el mensaje; para ids numéricos se podría tapar solo el número completo. Además, partir la línea de comentario de la cabecera (línea 13), de unos 130 caracteres. Opcional. (surgió en 0103)
 - `gatedFetch` (`network.ts`): una espera cancelada deja un `.then` enganchado a la promesa de la fila; es inofensivo (se resuelve siempre en el `finally`), pero se podría desenganchar. Opcional. (surgió en 0095)
 - `src/renderer/src/lib/markdown-color.ts`, `paintElement`: usar `hexToRgba` y quitar el `style` si da `null` (en vez de `knownHex`, que lanza `TypeError`), para que una regresión pierda el color y no el panel; `knownHex` se quedaría para `THEME_PAINT`. Opcional. (surgió en 0094)
@@ -482,8 +485,10 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Sospechoso de inestable sin causa: `e2e/views-problema-detalle.spec.ts`, «tabla de evidencias: estado propio por evento en un problema cerrado, columnas y celdas» (línea 581) falló 2 de 470 (2026-10-12) en el CA1 de la 0097, con el spec entero, `--workers=1` y `--repeat-each 10`; sin captura (la tanda siguiente borró `test-results/`). Pasó 15/15 solo y en el verifier. Si vuelve a fallar, guardar `test-results/` antes de relanzar y abrir su ficha. (surgió en 0097)
 - [0100](tasks/0100-unitario-react-compiler-intermitente.md) (ligera): arreglo del unitario intermitente `scripts/react-compiler.test.ts` («CA3 (0059)»). La causa era la carga en frío (importar la configuración con `electron-vite` y la primera transformación con Babel y el compilador, hasta 2,1 s bajo carga, el 98 % del tiempo); ahora esa preparación va en un `beforeAll` y la prueba solo transforma (0,55 s en el peor medido). Sin subir ningún límite. Cinco `check` seguidos en verde, tres con el e2e a la vez. Solo desarrollo, sin migraciones. (cierra los sospechosos de 0088 y 0090)
 - Sospechoso de inestable sin causa (e2e): `e2e/views-entidad.spec.ts:543`, «CA1 (0036): … la tarjeta «Información» es la última sección …», agotó su minuto una vez en 369 con la máquina cargada (tanda de 4,4 min frente a 1,8 min de las otras dos), sin cambios de código entre tomas; ya había un aviso parecido de esta prueba en la 0069. Si vuelve a fallar, guardar `test-results/` antes de relanzar y abrir su ficha. (surgió en 0100)
+- [0102](tasks/0102-host-marcadores-ventana-pequena.md): los marcadores del HOST no se parten dentro de un número o una unidad ni se salen de su tarjeta con la ventana de 1024 px. `BigValue` cambia el espacio duro antes de una unidad por uno normal (parte solo entre palabras) y `Reclaimable` pasa a `flex-wrap`. Vale para todas las páginas de entidad. Sin migraciones.
 - [0101](tasks/0101-tests-sin-variables-git-heredadas.md): los tests no heredan las variables `GIT_*`. El culpable del `core.bare=true` en el checkout principal era `scripts/lib/env-file.test.ts` (un `git init` con el `GIT_DIR` de un hook lanzado desde un worktree); ahora Vitest borra las `GIT_*` antes de cada fichero (`scripts/lib/git-env.mjs` y `vitest-git-env.setup.mjs`). Regla en `src/CLAUDE.md`. Solo desarrollo, sin migraciones.
 - [0094](tasks/0094-markdown-color-sin-prototipo.md) (exclusión seguridad): los colores con nombre del visor de Markdown se buscan con `Object.hasOwn` (nada de `constructor` o `__proto__`) y `hexToRgba` devuelve `null` si no es hexadecimal. Sin migraciones.
 - [0092](tasks/0092-telegram-no-envia-sin-filtro.md): el aviso de Telegram no se envía si no hay `.env.live.local` con valores con el que filtrar el texto, salvo con `VIGIA_TELEGRAM_UNFILTERED=1`. Sale siempre con 0. Con exclusiones `seguridad` y `externos`: va sola en su PR y la fusiona Dani. Sin migraciones.
 - [0093](tasks/0093-log-sin-usuario-de-windows.md) (lote seguridad-revision, exclusión seguridad): el filtro final del log de main tapa también el usuario de las rutas (`C:Users<usuario>`, `/home/<usuario>`) con `maskErrorDetails`, la misma regla que los errores del renderer; la copia antes de migrar registra solo el nombre del fichero. Sin migraciones.
 - [0104](tasks/0104-telegram-tarjeta-html.md) (exclusión seguridad): `scripts/telegram-card.mjs` construye el HTML de la tarjeta del aviso de Telegram (resumen en Markdown con lista blanca, CSP propia, nada externo); ADR-0015. Capturarla y enviarla es la 0105. Sin migraciones.
+- [0107](tasks/0107-e2e-capturas-de-evidencias.md) (lote telegram-imagen): ayuda `captureEvidence` en `e2e/evidence.ts` que, con `VIGIA_EVIDENCIAS=1` y solo contra el simulador, guarda la captura de la zona y de la ventana de cada criterio visible y su línea en `manifiesto.json`, esperando a que dos capturas seguidas coincidan. El test-writer, el verifier y `e2e/CLAUDE.md` la piden. No toca la app.

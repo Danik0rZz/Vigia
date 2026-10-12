@@ -1,7 +1,7 @@
 ---
 id: '0107'
 titulo: Capturas de evidencias en los e2e de los criterios visibles
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: M # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: ['0006'] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -126,12 +126,62 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- **Criterios:** CA1, CA1b, CA2, CA3, CA3b, CA3c, CA4 y CA5 tienen cada uno su test con su número y fallarían sin `e2e/evidence.ts` o sin los párrafos de los agentes. `captureEvidence` hace lo que pide la especificación: solo actúa con `VIGIA_EVIDENCIAS=1` (leída al llamarla), se niega si la app no apunta al simulador (lo apunta en el log y en las anotaciones del test), deja zona, ventana y manifiesto con nombres `<CA>-<n>-…` que no se pisan, con un cerrojo entre workers. Quita foco y ratón salvo con `conservarFoco` o `conservarRaton`, usa `caret: 'hide'` y `animations: 'disabled'`, y repite la captura hasta que dos seguidas coinciden, con tiempo máximo y `estable: false` si se pasa. La comprobación en Electron con Playwright 1.63 está en la cabecera de `e2e/evidence.ts`. `test-writer.md`, `verifier.md` y `e2e/CLAUDE.md` piden lo que dice la ficha.
+- **Corrección de los tests (`git diff 517e3be..HEAD`):** del test-writer, por motivos de la prueba y sin cambiar criterios. En el CI (escala 1) no afloja CA1 ni CA1b: `expectPngFits` sigue con 1 px cuando `dpr === 1` y solo con otra escala admite `dpr + 1`. Filtrar por una `nota` única por copia no quita nada: CA1 sigue exigiendo una entrada con título y nota, y CA1b dos entradas, cuatro PNG distintos y el tamaño de cada zona.
+- **Arquitectura y reglas:** no toca `src/`, IPC, esquema ni dependencias. `environments:getActive` y `tenants:list` existen en `src/shared/ipc.ts`. Sin URLs ni secretos en el log, sin endpoints de Dynatrace, fixtures con dominios de ejemplo. Comentarios en español, identificadores en inglés.
+- **`e2e/areas.json`:** `e2e/evidence.ts` no tiene área y lanza el e2e completo, como ya pasa con `e2e/hover.ts`; no bloquea.
+
+Opcional:
+
+1. CA2 queda algo más flojo en `e2e/views-metricas.spec.ts` (`ownFiles` y `entriesOf`): antes exigía que no cambiara nada bajo `test-results/evidencias`; ahora mira solo los ficheros `CA2-…` y sus entradas. El fallo probable (no mirar la variable) sí lo detecta. Para reforzarlo sin la condición de carrera: con `repeatEachIndex === 0` y un solo worker, comparar también la lista completa de ficheros y los bytes del manifiesto.
+2. En `captureEvidence`, `scrollIntoViewIfNeeded` va después de `quiet`: si al desplazar el puntero queda sobre algo con tooltip, podría salir en la captura. Se evita desplazando antes de `quiet`.
+3. Dar área a `e2e/evidence.ts` en `e2e/areas.json` (p. ej. `@metricas`) para que un cambio en la ayuda no lance el e2e completo.
 
 ## Verificación
 
-(pendiente)
+Tests escritos en el commit 517e3be (test-writer, 2026-10-12); fallan porque aún no existe
+`e2e/evidence.ts` (`Cannot find module './evidence'`) y por los textos de los agentes.
+
+- CA1: `e2e/views-metricas.spec.ts`, «CA1 (0107): con VIGIA_EVIDENCIAS=1 deja la zona, la
+  ventana y su entrada en el manifiesto».
+- CA1b: `e2e/views-metricas.spec.ts`, «CA1b (0107): dos evidencias del mismo criterio con zonas
+  distintas no se pisan».
+- CA2: `e2e/views-metricas.spec.ts`, «CA2 (0107): sin VIGIA_EVIDENCIAS no deja ningún fichero en
+  test-results/evidencias».
+- CA3: `e2e/views-metricas.spec.ts`, «CA3 (0107): con un gráfico de ECharts en la zona, la
+  captura no sale a media animación».
+- CA3b: `e2e/views-metricas.spec.ts`, «CA3b (0107): si la zona no deja de cambiar, guarda la
+  última con estable: false y no falla».
+- CA3c: `e2e/views-metricas.spec.ts`, «CA3c (0107): quita el foco y el tooltip antes de capturar,
+  salvo con conservarFoco».
+- CA4: `scripts/e2e-evidence.test.ts`, «CA4 (0107): pointsToSimulator decide si la app apunta al
+  simulador» (función pura `pointsToSimulator(url)` exportada de `e2e/evidence.ts`).
+- CA5: `scripts/e2e-evidence-docs.test.ts`, «CA5 (0107): test-writer y verifier piden las
+  evidencias».
+
+Contrato que fijan los e2e (cabecera del bloque en el spec): `VIGIA_EVIDENCIAS` se lee al llamar
+a `captureEvidence` (los tests la ponen en `process.env`); carpeta
+`test-results/evidencias/<ficha>/` bajo `process.cwd()`; en el manifiesto, los campos `criterio`,
+`nota` y `estable`, el título del test como valor y las rutas acabadas en `-zona.png` y
+`-ventana.png` (nombres `<CA>-<n>-…`).
+
+Corrección de los tests (test-writer, 2026-10-12, commit siguiente a 40a9c48): `expectPngFits`
+admite `dpr + 1` px físicos con escala distinta de 1 (Playwright redondea el recorte a px CSS) y
+sigue en 1 px con escala 1; cada copia del test marca sus evidencias con una `nota` propia y lee
+solo las suyas, sin borrar la carpeta, y CA2 mira solo los `CA2-…` y sus entradas. Pasan los 6 en
+local (escala 1,5) y con `--repeat-each 3 --workers 3` (18 de 18).
+
+Verificación 2026-10-12, commit 1dc17af, rango integra/20261012-7..feat/0107-e2e-capturas-evidencias: VERDE
+
+- check: 4257 tests (228 ficheros), cobertura ok (sentencias 92,98 %, ramas 90,13 %, funciones 90,37 %, líneas 93,75 %).
+- e2e: un único pase de `test:e2e:affected`; como `e2e/evidence.ts` no tiene área, lanzó el completo: 380 de 380 (1,8 min). Sin `--repeat-each`: nada falló ni cambió temporización.
+- evidencias: `VIGIA_EVIDENCIAS=1 npm run test:e2e:nobuild -- -g "(0107)"`: 6 de 6 (CA1, CA1b, CA2, CA3, CA3b y CA3c), con el manifiesto y la zona y la ventana de cada criterio en `test-results/evidencias/0107/`.
 
 ## Resultado
 
-(pendiente)
+- Commits: 40a9c48 (`captureEvidence`), d079908 (textos de test-writer, verifier y `e2e/CLAUDE.md`), 517e3be y 011db60 (tests, con la corrección por escala de pantalla).
+- Ficheros principales: `e2e/evidence.ts`, `e2e/views-metricas.spec.ts`, `scripts/e2e-evidence.test.ts`, `scripts/e2e-evidence-docs.test.ts`, `.claude/agents/test-writer.md`, `.claude/agents/verifier.md`, `e2e/CLAUDE.md`.
+- Rondas de revisión: 1 (aprobado). ADR nuevo: ninguno. Sin migraciones. No toca la app.
+- Ideas pasadas al BACKLOG: reforzar CA2, desplazar antes de quitar foco y ratón, dar área a `e2e/evidence.ts`.

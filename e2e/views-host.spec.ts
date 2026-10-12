@@ -57,9 +57,11 @@ import {
   page,
   reloadUi,
   settledBox,
-  setupViewsApp
+  setupViewsApp,
+  viewportSize
 } from './views/harness'
 import { sim } from './views/sim-state'
+import { fitsContentSize, FIXED_WINDOW } from './window-size'
 import es from '../src/renderer/src/locales/es/common.json'
 import {
   settledRequests,
@@ -79,7 +81,9 @@ import {
   processInfoCard,
   processInfoProperty,
   failChartMountOnce,
-  dropPanelFailureErrors
+  dropPanelFailureErrors,
+  expectMarkersInside,
+  expectMarkersUnsplit
 } from './views/helpers'
 
 /**
@@ -1809,5 +1813,110 @@ test(
     expect(after, 'peticiones tras Reintentar').toHaveLength(perCall)
     for (const request of after) expect(request).toBe('GET /api/v2/metrics/query')
     dropPanelFailureErrors()
+  }
+)
+
+/**
+ * Ficha 0102: los marcadores del HOST con la ventana del CI (1024×720, la de `applyCiWindow`,
+ * con la que corre todo el spec) y los datos del simulador: nada se sale de su tarjeta y ningún
+ * número ni unidad se parte en dos líneas. Se mide con las cajas reales (`markerLayout`).
+ */
+const HOST_LAYOUT_IDS = ['cpu', 'memory', 'network', 'disk', 'problems'] as const
+
+/** Ficha 0102: abre la página del HOST y espera los cinco marcadores con sus valores. */
+async function openHostMarkersLaidOut(): Promise<Record<string, Locator>> {
+  await openHostPage()
+  const row = page.getByTestId('host-markers')
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('status', { name: es.entities.service.markers.loading })).toHaveCount(
+    0
+  )
+  await expectHostMarkerValues()
+  await expect(hostMarker('memory').getByTestId('host-marker-reclaimable')).toContainText(
+    /(^|[^\d.,])2,5\sGB/
+  )
+  expect(fitsContentSize(await viewportSize(), FIXED_WINDOW), 'ventana del CI').toBe(true)
+  return Object.fromEntries(HOST_LAYOUT_IDS.map((id) => [id, hostMarker(id)]))
+}
+
+test(
+  'CA1 (0102): con la ventana del CI, ningún texto de los cinco marcadores del HOST se sale de su tarjeta',
+  { tag: '@host' },
+  async () => {
+    const cards = await openHostMarkersLaidOut()
+    await expectMarkersInside(cards)
+  }
+)
+
+test(
+  'CA2 (0102): con la ventana del CI, ningún número ni unidad de los marcadores del HOST se parte en dos líneas (incluidos «kbit/s» y la recuperable)',
+  { tag: '@host' },
+  async () => {
+    const cards = await openHostMarkersLaidOut()
+    // Los dos casos vistos en la captura, nombrados: «kbit/s» de la red y el valor recuperable.
+    await expect(hostMarker('network').getByTestId('host-marker-value')).toContainText('kbit/s')
+    await expect(hostMarker('memory').getByTestId('host-marker-reclaimable')).toContainText('GB')
+    await expectMarkersUnsplit(cards)
+  }
+)
+
+/** Ficha 0102 (CA4): líneas que ocupa un valor y si, sin partirlo, cabría en el ancho que tiene. */
+type ValueLines = { text: string; lines: number; natural: number; available: number }
+
+/**
+ * Ficha 0102 (CA4): mide el valor principal de una tarjeta con las cajas reales. Las líneas son
+ * los `top` distintos de los rectángulos de un `Range` sobre su texto; el ancho natural, el de una
+ * copia sin partir (`white-space: nowrap`, fuera del flujo, en el mismo padre y con sus clases); el
+ * disponible, el del contenido del padre (sin su relleno).
+ */
+async function valueLines(card: Locator): Promise<ValueLines> {
+  const value = card.getByTestId('host-marker-value')
+  await value.scrollIntoViewIfNeeded()
+  return value.evaluate(async (el) => {
+    await document.fonts.ready
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    const tops = new Set(
+      [...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top))
+    )
+    const parent = el.parentElement as HTMLElement
+    const copy = el.cloneNode(true) as HTMLElement
+    copy.removeAttribute('data-testid')
+    copy.style.position = 'absolute'
+    copy.style.visibility = 'hidden'
+    copy.style.whiteSpace = 'nowrap'
+    copy.style.width = 'max-content'
+    parent.appendChild(copy)
+    const natural = copy.getBoundingClientRect().width
+    copy.remove()
+    const style = getComputedStyle(parent)
+    const available =
+      parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    return { text: (el.textContent ?? '').trim(), lines: tops.size, natural, available }
+  })
+}
+
+test(
+  'CA4 (0102): con la ventana del CI, los valores principales del HOST que caben en una línea de su tarjeta siguen en una sola línea',
+  { tag: '@host' },
+  async () => {
+    await openHostMarkersLaidOut()
+    const measured: [string, ValueLines][] = []
+    for (const id of HOST_LAYOUT_IDS) {
+      const card = hostMarker(id)
+      if ((await card.getByTestId('host-marker-value').count()) === 0) continue
+      measured.push([id, await valueLines(card)])
+    }
+    // El ejemplo de la ficha: el de CPU («33,5 %») cabe, o el test no comprobaría nada.
+    const cpu = measured.find(([id]) => id === 'cpu')?.[1]
+    expect(cpu, 'valor de CPU').toBeDefined()
+    expect(cpu?.natural ?? Infinity, 'el valor de CPU cabe en una línea').toBeLessThanOrEqual(
+      cpu?.available ?? 0
+    )
+    const fitting = measured.filter(([, m]) => m.natural <= m.available)
+    expect(fitting.map(([id]) => id)).toEqual(expect.arrayContaining(['cpu', 'memory', 'disk']))
+    for (const [id, m] of fitting) {
+      expect(m.lines, `«${m.text}» de ${id} (${m.natural} px de ${m.available} px)`).toBe(1)
+    }
   }
 )

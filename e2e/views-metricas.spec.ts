@@ -1,6 +1,9 @@
-import { readFileSync } from 'node:fs'
-import { expect, test } from '@playwright/test'
-import { moveToNeutral } from './hover'
+import { randomUUID } from 'node:crypto'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { basename, isAbsolute, join, resolve } from 'node:path'
+import { expect, type Locator, test } from '@playwright/test'
+import { captureEvidence } from './evidence'
+import { hoverFresh, moveToNeutral } from './hover'
 import {
   activate,
   env,
@@ -10,7 +13,8 @@ import {
   invoke,
   page,
   runMetric,
-  setupViewsApp
+  setupViewsApp,
+  viewportSize
 } from './views/harness'
 import { sim } from './views/sim-state'
 import ExcelJS from 'exceljs'
@@ -368,3 +372,305 @@ test(
     )
   }
 )
+
+/**
+ * Ficha 0107: capturas de evidencias (`captureEvidence`, de `e2e/evidence.ts`). Se prueban sobre
+ * Métricas porque tiene un gráfico de ECharts que anima al pintarse, un campo de texto
+ * (`metric-selector`) y, en el menú, enlaces con tooltip de Radix.
+ *
+ * Contrato que fijan estos tests (sacado de la ficha):
+ * - `captureEvidence(page, { criterio, zona, nota?, conservarFoco?, conservarRaton? })`: con
+ *   `VIGIA_EVIDENCIAS=1` en el entorno del proceso de Playwright (se lee al llamarla), guarda en
+ *   `test-results/evidencias/<ficha>/` la captura de la zona (`…-zona.png`), la de la ventana
+ *   (`…-ventana.png`) y una entrada en `manifiesto.json` con `criterio`, el título del test, `nota`,
+ *   las dos rutas y `estable`. La ficha sale del criterio («CA1 (0107)» → `0107`).
+ * - Sin `VIGIA_EVIDENCIAS`, no hace nada.
+ *
+ * El manifiesto se lee sin suponer más nombres de campo que los de la ficha (`criterio`, `nota`,
+ * `estable`): el título y las rutas se buscan por su valor. Vale un array JSON, un objeto con un
+ * array dentro o una entrada JSON por línea.
+ *
+ * Con `--repeat-each` y varios workers, varias copias del mismo test escriben a la vez en la
+ * carpeta de la 0107. Por eso no se borra la carpeta antes de cada test (Playwright ya vacía
+ * `test-results` al empezar la tirada) y cada copia lee solo sus entradas: las marca con una
+ * `nota` propia (`copyNote`), única por copia, y filtra el manifiesto por criterio y nota.
+ */
+const EVIDENCE_ROOT = join(process.cwd(), 'test-results', 'evidencias')
+const EVIDENCE_DIR = join(EVIDENCE_ROOT, '0107')
+const EVIDENCE_ENV = 'VIGIA_EVIDENCIAS'
+const SHOT = { caret: 'hide', animations: 'disabled' } as const
+
+type EvidenceEntry = Record<string, unknown>
+
+/** Ejecuta `body` con `VIGIA_EVIDENCIAS` puesta a 1 (o quitada) y la deja como estaba. */
+async function withEvidenceEnv(on: boolean, body: () => Promise<void>): Promise<void> {
+  const before = process.env[EVIDENCE_ENV]
+  if (on) process.env[EVIDENCE_ENV] = '1'
+  else delete process.env[EVIDENCE_ENV]
+  try {
+    await body()
+  } finally {
+    if (before === undefined) delete process.env[EVIDENCE_ENV]
+    else process.env[EVIDENCE_ENV] = before
+  }
+}
+
+/** Entradas del manifiesto de la 0107 (vacío si no existe). */
+function readManifest(): EvidenceEntry[] {
+  const file = join(EVIDENCE_DIR, 'manifiesto.json')
+  if (!existsSync(file)) return []
+  const text = readFileSync(file, 'utf8').trim()
+  if (text === '') return []
+  try {
+    const data = JSON.parse(text) as unknown
+    if (Array.isArray(data)) return data as EvidenceEntry[]
+    if (data !== null && typeof data === 'object') {
+      const inner = Object.values(data).find((value) => Array.isArray(value))
+      return (inner ?? [data]) as EvidenceEntry[]
+    }
+    return []
+  } catch {
+    return text
+      .split(/\r?\n/)
+      .filter((line) => line.trim() !== '')
+      .map((line) => JSON.parse(line) as EvidenceEntry)
+  }
+}
+
+/** Entradas de este criterio con esta nota: las que ha dejado esta copia del test. */
+function entriesOf(criterio: string, nota: string): EvidenceEntry[] {
+  return readManifest().filter((entry) => entry['criterio'] === criterio && entry['nota'] === nota)
+}
+
+/** Una `nota` única para esta copia del test (repeat-each, reintento y tirada). */
+function copyNote(label: string): string {
+  const info = test.info()
+  return `${label} [${info.repeatEachIndex}.${info.retry}.${randomUUID()}]`
+}
+
+/** Ruta en disco de un valor del manifiesto (absoluta, relativa a la carpeta o a la raíz). */
+function onDisk(path: string): string {
+  if (isAbsolute(path)) return path
+  const inDir = join(EVIDENCE_DIR, path)
+  return existsSync(inDir) ? inDir : resolve(path)
+}
+
+/** La ruta del manifiesto que acaba en `-<kind>.png`, que tiene que existir. */
+function shotPath(entry: EvidenceEntry, kind: 'zona' | 'ventana'): string {
+  const found = Object.values(entry).find(
+    (value): value is string => typeof value === 'string' && value.endsWith(`-${kind}.png`)
+  )
+  expect(found, `ruta …-${kind}.png en ${JSON.stringify(entry)}`).toBeDefined()
+  const path = onDisk(found as string)
+  expect(existsSync(path), path).toBe(true)
+  return path
+}
+
+/** Ancho y alto de un PNG (cabecera IHDR). */
+function pngSize(path: string): { width: number; height: number } {
+  const bytes = readFileSync(path)
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+}
+
+/**
+ * El PNG mide lo mismo que la caja (CSS) por la escala de la pantalla. Playwright redondea el
+ * recorte de `locator.screenshot()` a píxeles CSS enteros (hasta 1 px CSS de más o de menos, que
+ * son `dpr` píxeles físicos) y luego a píxeles físicos (1 px más). Con escala 1 (el CI), 1 px.
+ */
+async function expectPngFits(
+  path: string,
+  box: { width: number; height: number },
+  what: string
+): Promise<void> {
+  const dpr = await page.evaluate(() => window.devicePixelRatio)
+  const size = pngSize(path)
+  const tolerance = dpr === 1 ? 1 : dpr + 1
+  const detail = `(PNG ${size.width}×${size.height}, caja ${box.width}×${box.height}, escala ${dpr})`
+  expect(Math.abs(size.width - box.width * dpr), `${what}: ancho ${detail}`).toBeLessThanOrEqual(
+    tolerance
+  )
+  expect(Math.abs(size.height - box.height * dpr), `${what}: alto ${detail}`).toBeLessThanOrEqual(
+    tolerance
+  )
+}
+
+async function zoneBox(zona: Locator): Promise<{ width: number; height: number }> {
+  const box = await zona.boundingBox()
+  expect(box, 'la zona tiene caja').not.toBeNull()
+  return box as { width: number; height: number }
+}
+
+/** Todos los ficheros bajo `test-results/evidencias`. */
+function evidenceFiles(): string[] {
+  if (!existsSync(EVIDENCE_ROOT)) return []
+  return readdirSync(EVIDENCE_ROOT, { recursive: true, withFileTypes: true })
+    .filter((item) => item.isFile())
+    .map((item) => join(item.parentPath, item.name))
+    .sort()
+}
+
+/** Métricas con su gráfico ya con series y una evidencia de la zona del gráfico, con `nota`. */
+async function chartEvidence(criterio: string, nota: string): Promise<Locator> {
+  await runMetric('builtin:host.cpu.usage', '5m')
+  const chart = page.getByTestId('metric-chart')
+  await expect(chart).not.toHaveAttribute('data-series', '[]')
+  await captureEvidence(page, { criterio, zona: chart, nota })
+  return chart
+}
+
+test.describe('ficha 0107: capturas de evidencias', { tag: '@metricas' }, () => {
+  test('CA1 (0107): con VIGIA_EVIDENCIAS=1 deja la zona, la ventana y su entrada en el manifiesto', async () => {
+    await withEvidenceEnv(true, async () => {
+      const nota = copyNote('gráfico de Métricas')
+      const chart = await chartEvidence('CA1 (0107)', nota)
+      const entries = entriesOf('CA1 (0107)', nota)
+      expect(entries, 'una entrada de CA1 (0107)').toHaveLength(1)
+      const entry = entries[0] as EvidenceEntry
+      const title = test.info().title
+      expect(
+        Object.values(entry).some((value) => typeof value === 'string' && value.includes(title)),
+        `el título del test en ${JSON.stringify(entry)}`
+      ).toBe(true)
+      expect(entry['nota']).toBe(nota)
+      await expectPngFits(shotPath(entry, 'zona'), await zoneBox(chart), 'zona')
+      await expectPngFits(shotPath(entry, 'ventana'), await viewportSize(), 'ventana')
+    })
+  })
+
+  test('CA1b (0107): dos evidencias del mismo criterio con zonas distintas no se pisan', async () => {
+    await withEvidenceEnv(true, async () => {
+      const nota = copyNote('gráfico y selector de Métricas')
+      const chart = await chartEvidence('CA1b (0107)', nota)
+      const selector = page.getByTestId('metric-selector')
+      await captureEvidence(page, { criterio: 'CA1b (0107)', zona: selector, nota })
+      const entries = entriesOf('CA1b (0107)', nota)
+      expect(entries, 'dos entradas de CA1b (0107)').toHaveLength(2)
+      const paths = entries.flatMap((entry) => [
+        shotPath(entry, 'zona'),
+        shotPath(entry, 'ventana')
+      ])
+      expect(new Set(paths).size, `cuatro PNG distintos: ${paths.join(', ')}`).toBe(4)
+      for (const path of paths) expect(path).toMatch(/CA1b-\d+-(zona|ventana)\.png$/)
+      // Cada zona conserva su tamaño: la segunda no ha sobrescrito la primera.
+      const [first, second] = entries as [EvidenceEntry, EvidenceEntry]
+      await expectPngFits(shotPath(first, 'zona'), await zoneBox(chart), 'zona 1')
+      await expectPngFits(shotPath(second, 'zona'), await zoneBox(selector), 'zona 2')
+    })
+  })
+
+  test('CA2 (0107): sin VIGIA_EVIDENCIAS no deja ningún fichero en test-results/evidencias', async () => {
+    await withEvidenceEnv(false, async () => {
+      // Otras copias de los tests de la 0107 pueden estar escribiendo en paralelo: se miran los
+      // ficheros que dejaría este test (`CA2-…`) y sus entradas en el manifiesto.
+      const nota = copyNote('gráfico de Métricas')
+      const ownFiles = (): string[] =>
+        evidenceFiles().filter((file) => basename(file).startsWith('CA2-'))
+      const before = ownFiles()
+      await chartEvidence('CA2 (0107)', nota)
+      expect(ownFiles()).toEqual(before)
+      expect(entriesOf('CA2 (0107)', nota)).toEqual([])
+    })
+  })
+
+  test('CA3 (0107): con un gráfico de ECharts en la zona, la captura no sale a media animación', async () => {
+    await withEvidenceEnv(true, async () => {
+      // Se captura nada más tener series: ECharts aún está animando el gráfico.
+      const nota = copyNote('gráfico de Métricas')
+      const chart = await chartEvidence('CA3 (0107)', nota)
+      const entries = entriesOf('CA3 (0107)', nota)
+      expect(entries).toHaveLength(1)
+      const entry = entries[0] as EvidenceEntry
+      expect(entry['estable']).toBe(true)
+      // Otra captura justo después da los mismos bytes: la guardada ya era la imagen final.
+      const zone = readFileSync(shotPath(entry, 'zona'))
+      const whole = readFileSync(shotPath(entry, 'ventana'))
+      expect(Buffer.compare(await chart.screenshot(SHOT), zone), 'zona').toBe(0)
+      expect(Buffer.compare(await page.screenshot(SHOT), whole), 'ventana').toBe(0)
+    })
+  })
+
+  test('CA3b (0107): si la zona no deja de cambiar, guarda la última con estable: false y no falla', async () => {
+    test.setTimeout(120_000)
+    await withEvidenceEnv(true, async () => {
+      await goTo('metrics')
+      // Zona de prueba que cambia sin parar (con un temporizador, que animations: 'disabled' no para).
+      await page.evaluate(() => {
+        const ticker = document.createElement('div')
+        ticker.dataset['testid'] = 'evidence-0107-ticker'
+        Object.assign(ticker.style, {
+          position: 'fixed',
+          top: '120px',
+          left: '320px',
+          width: '200px',
+          height: '60px',
+          zIndex: '9999',
+          color: '#fff',
+          font: '20px sans-serif'
+        })
+        let tick = 0
+        const timer = window.setInterval(() => {
+          tick += 1
+          ticker.textContent = String(tick)
+          ticker.style.background = tick % 2 === 0 ? '#b00020' : '#0040b0'
+        }, 20)
+        ;(window as unknown as Record<string, number>)['__evidence0107Timer'] = timer
+        document.body.appendChild(ticker)
+      })
+      try {
+        const ticker = page.getByTestId('evidence-0107-ticker')
+        const nota = copyNote('zona que no para')
+        await captureEvidence(page, { criterio: 'CA3b (0107)', zona: ticker, nota })
+        const entries = entriesOf('CA3b (0107)', nota)
+        expect(entries).toHaveLength(1)
+        const entry = entries[0] as EvidenceEntry
+        expect(entry['estable']).toBe(false)
+        await expectPngFits(shotPath(entry, 'zona'), await zoneBox(ticker), 'zona')
+        shotPath(entry, 'ventana')
+      } finally {
+        await page.evaluate(() => {
+          window.clearInterval((window as unknown as Record<string, number>)['__evidence0107Timer'])
+          document.querySelector('[data-testid="evidence-0107-ticker"]')?.remove()
+        })
+      }
+    })
+  })
+
+  test('CA3c (0107): quita el foco y el tooltip antes de capturar, salvo con conservarFoco', async () => {
+    await withEvidenceEnv(true, async () => {
+      await runMetric('builtin:host.cpu.usage', '5m')
+      await expect(page.getByTestId('metric-chart')).not.toHaveAttribute('data-series', '[]')
+      const field = page.getByTestId('metric-selector')
+      const focused = (): Promise<boolean> =>
+        field.evaluate((element) => element === document.activeElement)
+      const tooltip = page.getByRole('tooltip')
+
+      // Foco en el campo (cursor de texto) y ratón sobre un enlace del menú con tooltip.
+      await field.focus()
+      await hoverFresh(page, page.getByTestId('nav-topology'))
+      await expect(tooltip).toBeVisible()
+      expect(await focused(), 'el campo tiene el foco antes de capturar').toBe(true)
+
+      const nota = copyNote('campo del selector')
+      await captureEvidence(page, { criterio: 'CA3c (0107)', zona: field, nota })
+      const [entry] = entriesOf('CA3c (0107)', nota)
+      expect(entry?.['estable']).toBe(true)
+      // Sin esperas: lo que hay justo al acabar de capturar es lo que salió en la captura.
+      expect(await tooltip.count(), 'tooltip al acabar de capturar').toBe(0)
+      expect(await focused(), 'por defecto quita el foco').toBe(false)
+
+      // Con conservarFoco, el campo sigue con el foco después de capturar.
+      await field.focus()
+      await captureEvidence(page, {
+        criterio: 'CA3c (0107)',
+        zona: field,
+        nota,
+        conservarFoco: true
+      })
+      const entries = entriesOf('CA3c (0107)', nota)
+      expect(entries).toHaveLength(2)
+      expect(entries[1]?.['estable']).toBe(true)
+      expect(await focused(), 'con conservarFoco, el campo sigue con el foco').toBe(true)
+      await moveToNeutral(page)
+    })
+  })
+})

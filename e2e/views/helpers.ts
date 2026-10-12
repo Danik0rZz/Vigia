@@ -590,3 +590,101 @@ export function dropPanelFailureErrors(): void {
   const others = consoleErrors.filter((line) => !line.includes(PANEL_FAILURE))
   consoleErrors.splice(0, consoleErrors.length, ...others)
 }
+
+/** Ficha 0102: lo que se sale de una tarjeta de marcador y las palabras partidas en dos líneas. */
+export type MarkerLayout = {
+  /** `scrollWidth` y `clientWidth` de la tarjeta. */
+  scrollWidth: number
+  clientWidth: number
+  /** Textos y elementos cuyo rectángulo se sale del de la tarjeta, con sus bordes. */
+  outside: string[]
+  /** Palabras (separadas por espacios) que ocupan más de una línea. */
+  split: string[]
+}
+
+/**
+ * Ficha 0102: mide una tarjeta de marcador ya pintada, con las cajas reales (no con el ancho
+ * supuesto). Cada texto y cada elemento visible de dentro, contra el rectángulo de la tarjeta
+ * (`Range.getClientRects` y `getBoundingClientRect`, con medio píxel de redondeo); y cada palabra
+ * de los textos que no están dentro de `skipWords` (el título), con un `Range` propio: si da más
+ * de un rectángulo, se ha partido.
+ */
+export async function markerLayout(card: Locator, skipWords = 'h2'): Promise<MarkerLayout> {
+  await card.scrollIntoViewIfNeeded()
+  await nextFrames()
+  return card.evaluate(async (el, skip) => {
+    await document.fonts.ready
+    const box = el.getBoundingClientRect()
+    const slack = 0.5
+    const fits = (r: DOMRect): boolean =>
+      r.left >= box.left - slack &&
+      r.right <= box.right + slack &&
+      r.top >= box.top - slack &&
+      r.bottom <= box.bottom + slack
+    const where = (r: DOMRect): string =>
+      `[${r.left.toFixed(1)}, ${r.right.toFixed(1)}] × [${r.top.toFixed(1)}, ${r.bottom.toFixed(1)}]`
+    const cardWhere = where(box)
+    const outside: string[] = []
+    const split: string[] = []
+
+    // Elementos visibles (los de 1 px o menos, como los ocultos para lectores, no cuentan).
+    for (const child of el.querySelectorAll<HTMLElement | SVGElement>('*')) {
+      if (!child.checkVisibility()) continue
+      const r = child.getBoundingClientRect()
+      if (r.width <= 1 || r.height <= 1) continue
+      if (!fits(r)) {
+        const name = child.getAttribute('data-testid') ?? child.tagName.toLowerCase()
+        outside.push(
+          `<${name}> «${(child.textContent ?? '').trim()}» ${where(r)} fuera de ${cardWhere}`
+        )
+      }
+    }
+
+    // Textos, con sus rectángulos de línea, y sus palabras, una a una.
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const text = node.textContent ?? ''
+      const parent = node.parentElement
+      if (text.trim() === '' || parent === null || !parent.checkVisibility()) continue
+      const whole = document.createRange()
+      whole.selectNodeContents(node)
+      for (const r of whole.getClientRects()) {
+        if (r.width > 0 && !fits(r))
+          outside.push(`«${text.trim()}» ${where(r)} fuera de ${cardWhere}`)
+      }
+      if (parent.closest(skip) !== null) continue
+      for (const match of text.matchAll(/\S+/g)) {
+        const word = document.createRange()
+        word.setStart(node, match.index)
+        word.setEnd(node, match.index + match[0].length)
+        const lines = [...word.getClientRects()].filter((r) => r.width > 0)
+        if (lines.length !== 1)
+          split.push(`«${match[0]}» en «${text.trim()}»: ${lines.length} líneas`)
+      }
+    }
+    return { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, outside, split }
+  }, skipWords)
+}
+
+/**
+ * Ficha 0102 (CA1): en cada tarjeta, nada se sale de su caja: `scrollWidth <= clientWidth` y cada
+ * rectángulo de texto o de elemento dentro del de la tarjeta.
+ */
+export async function expectMarkersInside(cards: Record<string, Locator>): Promise<void> {
+  for (const [id, card] of Object.entries(cards)) {
+    const layout = await markerLayout(card)
+    expect(layout.scrollWidth, `scrollWidth de ${id}`).toBeLessThanOrEqual(layout.clientWidth)
+    expect(layout.outside, `fuera de la tarjeta ${id}`).toEqual([])
+  }
+}
+
+/**
+ * Ficha 0102 (CA2): en cada tarjeta, ninguna palabra (número o unidad) del valor ni de las líneas
+ * de debajo ocupa más de una línea.
+ */
+export async function expectMarkersUnsplit(cards: Record<string, Locator>): Promise<void> {
+  for (const [id, card] of Object.entries(cards)) {
+    const layout = await markerLayout(card)
+    expect(layout.split, `palabras partidas en ${id}`).toEqual([])
+  }
+}

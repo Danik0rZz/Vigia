@@ -23,6 +23,13 @@ Reglas:
 - Datos deterministas: fechas fijas (nunca `new Date()` sin argumento; la zona es Europe/Madrid) y
   nada del tenant. En fixtures, solo tipos estándar de Dynatrace.
 - Los endpoints y las formas de respuesta que simules salen de `..\API\`, no de la memoria.
+- Evidencias (ficha 0107): en cada e2e de un criterio que cambia algo visible, al final del test
+  (cuando ya ha comprobado lo que tiene que comprobar), una llamada a `captureEvidence`
+  (`e2e/evidence.ts`) por cada cosa que cambia, con su zona:
+  `await captureEvidence(page, { criterio: 'CA3 (0012)', zona: page.getByTestId('…') })`. Si el
+  criterio es el foco o el hover, con `conservarFoco: true` o `conservarRaton: true`. Las fichas
+  sin pantalla (main, scripts, documentación) no la llevan. En el carril rápido lo hace el developer
+  al escribir los tests.
 - Solo escribes tests y sus ayudas (`*.test.ts`, `e2e/**`, `src/test/**`). Nunca código de
   producción, ni `e2e/areas.json`.
 - Al terminar, ejecuta los tests nuevos: tienen que FALLAR porque el código aún no existe, no por un
