@@ -1,7 +1,7 @@
 ---
 id: '0101'
 titulo: Tests sin variables GIT_* heredadas (el core.bare=true del checkout principal)
-estado: aprobada # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
+estado: hecha # borrador | aprobada | tests_escritos | en_desarrollo | en_revision | verificada | hecha | en_espera | bloqueada
 tamano: S # S | M | L (docs/propuestas-siguientes.md)
 ligera: no # carril rápido (ADR-0013): sí solo si es S, sin IPC, API de Dynatrace, dependencias, esquema, seguridad ni servicios externos, y cumple los cuatro puntos de «Carril»
 exclusiones: [] # las que toca, de: ipc | api | dependencias | esquema | seguridad | externos (con alguna, va sola en su PR y la fusiona Dani; ficha 0073)
@@ -14,7 +14,7 @@ adrs: ['0013'] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 0
+rondas_revision: 1
 ---
 
 ## Petición original
@@ -101,12 +101,65 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
 
 ## Notas del revisor
 
-(sin revisar)
+### Ronda 1: APROBADO
+
+- **Criterios:** cada CA con su test en `scripts/lib/git-env.test.ts`, sin tocar desde 308953e. CA1 pasa sin código (reproduce git, como avisa la ficha); CA2 y CA3 fallarían sin él. La sonda se salta en el hijo con `VIGIA_GIT_ENV_PROBE`. CA4, del verifier.
+- **Nada necesita una `GIT_*`:** solo `git-env.test.ts` y `scan-tenant.test.ts` las usan, para quitarlas. `control-chars.test.ts:40` (`git ls-files` sin `env` ni `cwd`) lee el índice normal del worktree, igual que el del hook en un commit normal, y el contenido del disco: no pierde nada.
+- **Culpable cubierto:** `scripts/lib/env-file.test.ts:47-53` hereda `process.env`, que ya llega limpio por `vitest.config.ts:12` (`scripts/lib/vitest-git-env.setup.mjs`); CA3 lo prueba con un Vitest hijo.
+- **Dónde va la regla:** la ficha permitía `src/CLAUDE.md`; cumple, aunque quien trabaje en `scripts/` no la verá sola. Lo que protege es la guarda.
+- Sin secretos, datos del tenant, dependencias, API ni IPC.
+
+Opcional: una línea en el `CLAUDE.md` raíz o un `scripts/CLAUDE.md` mínimo que remita a la regla; `vitest.live.config.ts` no carga el `setupFiles` (hoy no lanza git); un unitario directo de `deleteGitVars`.
 
 ## Verificación
 
-(pendiente; aquí va también qué candidato reproduce el fallo)
+Tests escritos en `308953e` (`scripts/lib/git-env.test.ts`). Contrato que fijan (la ficha no daba
+nombres): `scripts/lib/git-env.mjs` exporta `withoutGitVars(env)`, que devuelve un objeto nuevo
+sin las `GIT_*` (sin distinguir mayúsculas) y no modifica la entrada; `vitest.config.ts` declara en
+`test.setupFiles` el fichero de preparación.
+
+- CA1 → «CA1 (0101): con GIT_DIR apuntando al gitdir de un worktree, git init en otra carpeta pone
+  core.bare=true en el config común» y «CA1 (0101): sin GIT_DIR, git init en otra carpeta no toca el
+  repositorio de prueba». La hipótesis se reproduce (git 2.55, carpetas temporales): `git init`
+  con `GIT_DIR` apuntando a `.git/worktrees/<wt>` (lo que exporta un hook lanzado desde un
+  worktree) pone `core.bare=true` en el config común; con `GIT_DIR` apuntando al `.git` del checkout
+  principal, no. Este test pasa ya: prueba el comportamiento de git, no código nuevo. Queda al
+  developer localizar qué candidato lanza ese `git init`.
+- CA2 → los tres «CA2 (0101): …» (mayúsculas, minúsculas y mezcladas; las demás intactas, como
+  `GITHUB_ACTIONS` o `VIGIA_GIT_DIR`; objeto nuevo sin tocar la entrada).
+- CA3 → «CA3 (0101): vitest.config.ts carga un fichero de preparación en setupFiles», la sonda
+  «CA3 (0101): sonda, ninguna variable GIT_ llega a process.env dentro de un test» (corre también en
+  la pasada normal) y «CA3 (0101): Vitest lanzado con GIT_DIR, GIT_WORK_TREE y GIT_INDEX_FILE no las
+  pasa a los tests» (Vitest hijo con las variables apuntando a un repositorio falso temporal).
+- CA4 → lo ejecuta el verifier (`npm run check` desde un commit); no es un test.
+
+Ejecución con los tests nuevos: 6 fallan (módulo que no existe, `setupFiles` vacío y variables
+`GIT_*` que llegan a los tests; la sesión ya trae 8, como `GIT_ASKPASS`) y pasan los 2 de CA1.
+
+Verificación 2026-10-12, commit 67db4c0, rango `integra/20261012-2..fix/0101-tests-sin-variables-git`: **VERDE**
+
+- `npm run check`: 4162 tests (226 ficheros), cobertura ok (líneas 93,58 %, ramas 90,03 %).
+- CA4: `npm run check` lanzado desde un hook de git en un commit de prueba de un worktree temporal, con 16 variables `GIT_*` exportadas por git: código 0, 4162 tests. El pre-commit real (que solo lanza `vitest related`) también pasó en un commit de prueba.
+- `test:e2e:affected`: «solo docs o tests unitarios»; ningún spec.
+- `core.bare` del checkout principal: `false` antes y después.
 
 ## Resultado
 
-(pendiente)
+**Culpable localizado: `scripts/lib/env-file.test.ts`** (ficha 0055). Su `git()` no limpia el
+entorno y `repoWithWorktree()` empieza con `git init -q` en una carpeta temporal. Prueba (en
+carpetas temporales): un pre-commit lanzado desde un worktree exporta `GIT_DIR=<repo>/.git/worktrees/<wt>`
+y `GIT_INDEX_FILE`; con esas dos variables apuntando a un repositorio de prueba con worktree, se
+lanzó cada candidato con `npx vitest run <fichero>`. Solo `env-file.test.ts` dejó
+`core.bare=true` en el repositorio de prueba. `pre-push`, `pre-push-refs`, `scan-tenant`,
+`check-push-refs`, `affected-e2e`, `affected-e2e-spawn`, `notify-telegram`,
+`ci-changes.main`, `e2e-cuarentena`, `e2e-projects` y `src/test/live-usage` no lo tocaron;
+`control-chars.test.ts` falló con esas variables (lee el repositorio que dice `GIT_DIR`), pero sin
+tocar el config. Con la guarda, `env-file` y `control-chars` pasan con las mismas variables y
+`core.bare` sigue en `false`.
+
+- `scripts/lib/git-env.mjs`: `isGitVar`, `withoutGitVars` y `deleteGitVars`.
+- `scripts/lib/vitest-git-env.setup.mjs`, en `test.setupFiles` de `vitest.config.ts`.
+- Regla anotada en `src/CLAUDE.md`.
+- (developer) `scan-tenant.test.ts` conserva su limpieza local: importar el `.mjs` de forma
+  estática desde TypeScript pediría declarar tipos, y con la guarda ya no hace falta tocarlo.
+- Commits: `308953e` (tests), `f5fa317` (guarda), `8129e33` (regla y culpable), más los de revisión y verificación. Una ronda de revisión (APROBADO). Sin ADR nuevo ni migraciones.

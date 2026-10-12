@@ -8,6 +8,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
+    // Ningún test hereda las variables GIT_* de un hook de git (ficha 0101).
+    setupFiles: ['scripts/lib/vitest-git-env.setup.mjs'],
     // Cobertura de main y shared (npm run test:coverage, dentro de check). Los
     // umbrales son los medidos el 2026-10-04 (tras AUD-20) menos unos 3 puntos: si bajan, algo
     // se ha quedado sin test. Se suben a mano cuando la cobertura crezca.

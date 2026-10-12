@@ -68,7 +68,7 @@ bueno de Dani o de peticiones en su nombre.
   0097 y antes de la 0091.
 - Aprobada por Dani el 2026-10-12, con prioridad, a petición del Orquestador:
   [0101](tasks/0101-tests-sin-variables-git-heredadas.md), los tests no heredan las variables
-  `GIT_*` (el `core.bare=true` que rompió git en el checkout principal). Sin exclusiones; va antes
+  `GIT_*` (el `core.bare=true` que rompió git en el checkout principal) (hecha). Sin exclusiones; va antes
   de la 0092.
 - Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
   app. Al acabar la cola de seguridad, el Planificador propone para «Próximo» mejoras de la app
@@ -331,6 +331,7 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - `visibleBox` (`e2e/hover.ts`) no tiene en cuenta antecesores `position: fixed` ni transformaciones; anotarlo si se reutiliza. Otros tests apuntan a un porcentaje de la caja entera de un lienzo (`views-metricas.spec.ts`, «Métricas con 7 días…», al 50 %): si su lienzo quedara recortado, `visibleBox` evita el mismo fallo. (surgió en 0096)
 - `scripts/react-compiler.test.ts`: si el unitario vuelve a fallar con más carga, añadir al `beforeAll` una transformación de calentamiento (la primera carga Babel y el compilador, 0,4-0,55 s en el peor medido). Además, `scripts/react-compiler-0100.test.ts` lee el texto de otro test (aceptado: el CA1 de la 0100 trata de conservarlo). (surgió en 0100)
 - Sospechosos de inestables sin causa (un fallo cada uno, sin captura útil; no están en cuarentena): `views-problemas.spec.ts`, «grid de Problemas: ARIA, orden por columna, barra de estado y afectados» (CI de la PR #12, run 38152066082, intento 1) y `views-host.spec.ts`, «CA4 (0039): el tooltip de ayuda de «recuperable»…» (CI de la PR #21, run 38170355797, intento 3). Si reaparecen, hace falta la captura de `failure-capture` y mirar qué hacía el otro worker en ese momento. (surgió en 0096)
+- Remitir a la regla de las `GIT_*` en los tests (hoy en `src/CLAUDE.md`) desde donde la vea quien trabaje en `scripts/` (un `scripts/CLAUDE.md` mínimo o una línea en el `CLAUDE.md` raíz, que es de Dani). Además, `vitest.live.config.ts` no carga el `setupFiles` de la guarda (hoy no lanza git) y falta un unitario directo de `deleteGitVars`. (surgió en 0101)
 
 ## Aparcado
 
@@ -459,3 +460,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Sospechoso de inestable sin causa: `e2e/views-problema-detalle.spec.ts`, «tabla de evidencias: estado propio por evento en un problema cerrado, columnas y celdas» (línea 581) falló 2 de 470 (2026-10-12) en el CA1 de la 0097, con el spec entero, `--workers=1` y `--repeat-each 10`; sin captura (la tanda siguiente borró `test-results/`). Pasó 15/15 solo y en el verifier. Si vuelve a fallar, guardar `test-results/` antes de relanzar y abrir su ficha. (surgió en 0097)
 - [0100](tasks/0100-unitario-react-compiler-intermitente.md) (ligera): arreglo del unitario intermitente `scripts/react-compiler.test.ts` («CA3 (0059)»). La causa era la carga en frío (importar la configuración con `electron-vite` y la primera transformación con Babel y el compilador, hasta 2,1 s bajo carga, el 98 % del tiempo); ahora esa preparación va en un `beforeAll` y la prueba solo transforma (0,55 s en el peor medido). Sin subir ningún límite. Cinco `check` seguidos en verde, tres con el e2e a la vez. Solo desarrollo, sin migraciones. (cierra los sospechosos de 0088 y 0090)
 - Sospechoso de inestable sin causa (e2e): `e2e/views-entidad.spec.ts:543`, «CA1 (0036): … la tarjeta «Información» es la última sección …», agotó su minuto una vez en 369 con la máquina cargada (tanda de 4,4 min frente a 1,8 min de las otras dos), sin cambios de código entre tomas; ya había un aviso parecido de esta prueba en la 0069. Si vuelve a fallar, guardar `test-results/` antes de relanzar y abrir su ficha. (surgió en 0100)
+- [0101](tasks/0101-tests-sin-variables-git-heredadas.md): los tests no heredan las variables `GIT_*`. El culpable del `core.bare=true` en el checkout principal era `scripts/lib/env-file.test.ts` (un `git init` con el `GIT_DIR` de un hook lanzado desde un worktree); ahora Vitest borra las `GIT_*` antes de cada fichero (`scripts/lib/git-env.mjs` y `vitest-git-env.setup.mjs`). Regla en `src/CLAUDE.md`. Solo desarrollo, sin migraciones.
