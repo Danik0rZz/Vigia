@@ -30,6 +30,10 @@
 // true }, para que llegue aunque el anterior se haya borrado (campos de ReplyParameters y
 // result.message_id de sendMessage y sendPhoto, comprobados en
 // https://core.telegram.org/bots/api#replyparameters el 2026-10-12).
+//
+// Desde la ficha 0108, el aviso de `hecha` puede llevar `evidencias`: la ruta del manifiesto de
+// las capturas de los e2e (0107). Se lee y se comprueba en telegram-evidence.mjs, sus textos pasan
+// por el filtro del tenant y la tarjeta las pinta en la sección «Evidencias».
 import { execFileSync, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import {
@@ -47,6 +51,7 @@ import { dirname, join, resolve, win32 } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { findLiveEnv, LIVE_ENV_FILE } from './lib/env-file.mjs'
 import { extractNeedles } from './scan-tenant.mjs'
+import { captureWithEvidence, evidenceTexts, loadEvidence } from './telegram-evidence.mjs'
 
 export const MAX_LENGTH = 1500
 const PREFIX = '[aviso telegram]'
@@ -275,13 +280,15 @@ export function buildPartCaption(datos, n, total) {
 // --- Imagen: límites de Telegram ---
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+/** El problema de peso de `photoProblem` (el que se arregla reduciendo evidencias, 0108). */
+const HEAVY_PROBLEM = 'pasa de 10 MB'
 
 /** Por qué la imagen no vale para sendPhoto, o undefined si vale. */
 export function photoProblem(bytes) {
   const data = Buffer.from(bytes.buffer ?? bytes, bytes.byteOffset ?? 0, bytes.byteLength)
   if (data.length < 24 || !data.subarray(0, 8).equals(PNG_SIGNATURE)) return 'no es un PNG válido'
   if (data.subarray(12, 16).toString('ascii') !== 'IHDR') return 'no es un PNG válido'
-  if (data.length > PHOTO_MAX_BYTES) return 'pasa de 10 MB'
+  if (data.length > PHOTO_MAX_BYTES) return HEAVY_PROBLEM
   const width = data.readUInt32BE(16)
   const height = data.readUInt32BE(20)
   if (width === 0 || height === 0) return 'no es un PNG válido'
@@ -420,7 +427,14 @@ export async function captureWithElectron(html, { signal } = {}) {
       .filter((name) => /^parte-\d+\.png$/.test(name))
       .sort((a, b) => number(a) - number(b))
     if (names.length === 0) throw new Error('la captura no ha dejado ninguna imagen')
-    return names.map((name) => readFileSync(join(out, name)))
+    const parts = names.map((name) => readFileSync(join(out, name)))
+    // Qué evidencias lleva cada parte (0108); si falta o está mal, captureWithEvidence lo supone.
+    try {
+      parts.evidences = JSON.parse(readFileSync(join(out, 'partes.json'), 'utf8'))
+    } catch {
+      // Sin mapa.
+    }
+    return parts
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -682,6 +696,14 @@ export async function main(argv, deps) {
       return 0
     }
 
+    // Evidencias (0108): solo en el aviso de hecha; se leen antes del filtro del tenant.
+    let evidence
+    if (text(datos.evidencias)) {
+      if (datos.tipo === 'tarea' && text(datos.estado) === 'hecha')
+        evidence = loadEvidence(text(datos.evidencias), { cwd: deps.cwd, warn })
+      else warn('las evidencias solo van en el aviso de hecha: se ignoran.')
+    }
+
     const message = buildMessage(datos)
     // La ficha se busca primero en la carpeta desde la que se lanza (el worktree).
     const caption = buildCaption(datos, {
@@ -707,7 +729,7 @@ export async function main(argv, deps) {
       // caracteres podría partir un valor y dejarlo pasar a medias.
       // También el pie de la imagen; la tarjeta sale de los mismos campos.
       const kinds = checkTenantLeftovers(
-        [message, caption, ...fieldValues(datos)].join('\n'),
+        [message, caption, ...fieldValues(datos), ...evidenceTexts(evidence)].join('\n'),
         needles
       )
       if (kinds.length > 0) {
@@ -749,6 +771,7 @@ export async function main(argv, deps) {
         chatId,
         threadId,
         previous,
+        evidence,
         deps,
         warn,
         info
@@ -798,19 +821,40 @@ export async function main(argv, deps) {
  * solo se dicen en la terminal) y false si hay que enviar el texto de siempre (lo que ha fallado
  * ya se ha dicho con `warn`).
  */
-async function sendImage({ datos, caption, token, chatId, threadId, previous, deps, warn, info }) {
+async function sendImage({
+  datos,
+  caption,
+  token,
+  chatId,
+  threadId,
+  previous,
+  evidence,
+  deps,
+  warn,
+  info
+}) {
   let parts
   try {
     const { buildCardHtml } = await import('./telegram-card.mjs')
-    const html = buildCardHtml(datos)
-    const controller = new AbortController()
     const ms = deps.captureTimeoutMs ?? CAPTURE_TIMEOUT_MS
-    parts = await withTimeout(
-      Promise.resolve().then(() => deps.capture(html, { signal: controller.signal })),
-      ms,
-      controller
-    )
-    if (!Array.isArray(parts) || parts.length === 0) throw new Error('no ha dado ninguna imagen')
+    // Cada captura con su tiempo máximo; con evidencias, puede haber más de una (0108).
+    const shoot = async (html) => {
+      const controller = new AbortController()
+      const shot = await withTimeout(
+        Promise.resolve().then(() => deps.capture(html, { signal: controller.signal })),
+        ms,
+        controller
+      )
+      if (!Array.isArray(shot) || shot.length === 0) throw new Error('no ha dado ninguna imagen')
+      return shot
+    }
+    parts = await captureWithEvidence({
+      evidence,
+      render: (evidencias) => buildCardHtml(datos, evidencias ? { evidencias } : undefined),
+      shoot,
+      isHeavy: (part) => photoProblem(part) === HEAVY_PROBLEM,
+      warn
+    })
   } catch (error) {
     const reason = error instanceof Error ? error.message.split('\n')[0] : String(error)
     warn(`no se ha podido capturar la imagen (${reason}): se envía el texto.`)

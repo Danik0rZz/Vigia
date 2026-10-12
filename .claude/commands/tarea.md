@@ -200,6 +200,12 @@ Opcionales: `duracion` (por ejemplo `1 h 20 min`), `rama` (la de la ficha, para 
 fichero en GitHub) y `pr` (el enlace de la PR). El aviso sale como una imagen de la tarjeta, con un
 pie de texto que se puede buscar y pulsar (ficha 0105); si la imagen falla, el de texto de siempre.
 
+En el aviso de `hecha` de una ficha con capturas de los e2e, añade `evidencias`: la ruta del
+manifiesto que da el verifier en su informe (`test-results/evidencias/NNNN/manifiesto.json`, ficha
+0107). La tarjeta las enseña todas en la sección «Evidencias» (ficha 0108). Si el verifier dice «sin
+evidencias», o en otro estado, no lo pongas. El script solo lee ficheros de
+`test-results/evidencias/` y lo que ignore lo dice en la terminal.
+
 El `resumen` lo redactas tú desde el briefing del doc-writer (o el motivo), en Markdown (títulos,
 listas, negritas y bloques de código, que la tarjeta pinta) y con lo relevante, no una línea: qué
 cambia, los criterios y cómo se probaron, las decisiones tomadas, las ideas surgidas y lo que queda

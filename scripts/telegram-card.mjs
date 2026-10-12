@@ -2,7 +2,9 @@
 //
 // `buildCardHtml(datos)` devuelve un documento HTML completo a partir del JSON del aviso (el de
 // `notify-telegram.mjs`, más `duracion`, `rama`, `pr` y `origen`, opcionales). Es una función
-// pura: no lee disco ni red. Capturar el HTML y enviarlo es cosa de la 0105.
+// pura: no lee disco ni red. Capturar el HTML y enviarlo es cosa de la 0105. Con
+// `buildCardHtml(datos, { evidencias })` (ficha 0108), la tarjeta lleva la sección «Evidencias»
+// con las capturas ya leídas y comprobadas por `notify-telegram.mjs` (ver `Evidencias`).
 //
 // Seguridad (el resumen lo escriben los agentes):
 // - El Markdown se pinta con react-markdown sin `rehype-raw` y con `skipHtml`: el HTML crudo no se
@@ -16,7 +18,8 @@
 //   scripts).
 //
 // Marcas `data-bloque` (para que la 0105 parta la imagen entre bloques, nunca por la mitad):
-// `cabecera`, `titulo`, `cajitas`, `resumen` (una por bloque del Markdown), `decision` y `pie`.
+// `cabecera`, `titulo`, `cajitas`, `resumen` (una por bloque del Markdown), `evidencias` (el
+// rótulo de la sección) y `evidencia` (una por evidencia, ficha 0108), `decision` y `pie`.
 // Ninguna va dentro de otra.
 import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -312,6 +315,69 @@ function Resumen({ resumen }) {
   )
 }
 
+// --- Evidencias (ficha 0108) ---
+
+/** Solo imágenes PNG en `data:` (las que admite la CSP); cualquier otra cosa no se pinta. */
+const PNG_DATA_URI = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/
+
+/** Tope del título y de la nota de una evidencia, en caracteres (contra un manifiesto roto). */
+export const MAX_EVIDENCE_TEXT = 500
+
+function limitText(value) {
+  const s = text(value)
+  return [...s].length <= MAX_EVIDENCE_TEXT ? s : `${cut(s, MAX_EVIDENCE_TEXT - 1).trimEnd()}…`
+}
+
+/** Título del test sin el prefijo del criterio («CA1 (0018): …» → «…»). */
+export function evidenceTitle(criterio, titulo) {
+  const c = text(criterio)
+  const t = text(titulo)
+  if (c && t.startsWith(`${c}:`)) return t.slice(c.length + 1).trim()
+  return t.replace(/^[A-Za-z0-9]+\s*\(\d{4}\)\s*:\s*/, '')
+}
+
+/**
+ * Una evidencia: zona y ventana a lo ancho (sin agrandarlas) y, debajo, «criterio · título», la
+ * nota y, si no estaba quieta, «captura tomada con movimiento». `reduccion` (1, 2…) las pinta más
+ * estrechas para que la parte pese menos; `falta` sustituye a las imágenes cuando no caben.
+ */
+function Evidencia({ evidencia }) {
+  const reduccion = Number.isInteger(evidencia.reduccion) ? evidencia.reduccion : 0
+  const srcs = [evidencia.zona, evidencia.ventana].filter(
+    (src) => typeof src === 'string' && PNG_DATA_URI.test(src)
+  )
+  const falta = text(evidencia.falta)
+  const nota = limitText(evidencia.nota)
+  const className = reduccion > 0 ? `evidencia reducida-${Math.min(reduccion, 3)}` : 'evidencia'
+  return h(
+    'section',
+    { className, 'data-bloque': 'evidencia' },
+    falta
+      ? h('div', { className: 'evidencia-falta' }, falta)
+      : srcs.map((src, i) => h('img', { key: i, src, alt: '' })),
+    h(
+      'div',
+      { className: 'evidencia-pie' },
+      h('span', { className: 'evidencia-criterio' }, text(evidencia.criterio)),
+      ' · ',
+      h('span', null, limitText(evidenceTitle(evidencia.criterio, evidencia.titulo)))
+    ),
+    nota ? h('div', { className: 'evidencia-nota' }, nota) : null,
+    evidencia.estable === false
+      ? h('div', { className: 'evidencia-movimiento' }, 'captura tomada con movimiento')
+      : null
+  )
+}
+
+function Evidencias({ evidencias }) {
+  return h(
+    'div',
+    { className: 'evidencias' },
+    h('h2', { className: 'evidencias-titulo', 'data-bloque': 'evidencias' }, 'Evidencias'),
+    evidencias.map((evidencia, i) => h(Evidencia, { key: i, evidencia }))
+  )
+}
+
 function Decision({ decision }) {
   return h(
     'section',
@@ -330,7 +396,7 @@ function Pie({ rama, pr }) {
   )
 }
 
-function Tarjeta({ datos, fecha }) {
+function Tarjeta({ datos, fecha, evidencias }) {
   const resumen = limitResumen(datos.resumen)
   const decision = text(datos.decision)
   const rama = text(datos.rama)
@@ -342,6 +408,7 @@ function Tarjeta({ datos, fecha }) {
     h(Titulo, { datos }),
     h(Cajitas, { datos }),
     resumen ? h(Resumen, { resumen }) : null,
+    evidencias.length > 0 ? h(Evidencias, { evidencias }) : null,
     decision ? h(Decision, { decision }) : null,
     rama || pr ? h(Pie, { rama, pr }) : null
   )
@@ -506,6 +573,40 @@ code, pre, .pie { font-family: Consolas, monospace; }
 }
 .decision-titulo { color: #fbbf24; font-weight: 650; font-size: 17px; }
 .decision-texto { margin-top: 6px; font-size: 17px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.evidencias { margin-top: 20px; }
+.evidencias-titulo {
+  margin: 0 0 12px;
+  font-size: 19px;
+  font-weight: 650;
+  color: #e6edf3;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #26303b;
+}
+.evidencia { margin-top: 16px; }
+.evidencia img {
+  display: block;
+  max-width: 100%;
+  margin-top: 16px;
+  border: 1px solid #26303b;
+  border-radius: 10px;
+}
+.evidencia img:first-child { margin-top: 0; }
+.evidencia.reducida-1 img { max-width: 60%; }
+.evidencia.reducida-2 img { max-width: 35%; }
+.evidencia.reducida-3 img { max-width: 20%; }
+.evidencia-pie { margin-top: 8px; font-size: 15px; color: #cfd8e1; text-align: left; overflow-wrap: anywhere; }
+.evidencia-criterio { color: #D97757; font-weight: 650; }
+.evidencia-nota { margin-top: 2px; font-size: 15px; color: #cfd8e1; overflow-wrap: anywhere; }
+.evidencia-movimiento { margin-top: 2px; font-size: 14px; color: #fbbf24; }
+.evidencia-falta {
+  font-size: 15px;
+  color: #8b98a5;
+  border: 1px dashed #26303b;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: Consolas, monospace;
+  overflow-wrap: anywhere;
+}
 .pie {
   display: flex;
   justify-content: space-between;
@@ -528,10 +629,15 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;')
 }
 
-/** Documento HTML completo de la tarjeta, con el CSS en línea y sin nada de fuera. */
-export function buildCardHtml(datos) {
+/**
+ * Documento HTML completo de la tarjeta, con el CSS en línea y sin nada de fuera. `options.evidencias`
+ * (ficha 0108): lista de `{ criterio, titulo, nota, estable, zona, ventana, reduccion, falta }`, con
+ * `zona` y `ventana` ya en `data:image/png;base64,…`; sin ella (o vacía), la tarjeta de siempre.
+ */
+export function buildCardHtml(datos, options = {}) {
   const fecha = formatDate(new Date())
-  const body = renderToStaticMarkup(h(Tarjeta, { datos, fecha }))
+  const evidencias = Array.isArray(options.evidencias) ? options.evidencias : []
+  const body = renderToStaticMarkup(h(Tarjeta, { datos, fecha, evidencias }))
   const pageTitle =
     datos.tipo === 'version'
       ? `Vigía · versión ${text(datos.version)}`

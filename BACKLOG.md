@@ -78,7 +78,7 @@ bueno de Dani o de peticiones en su nombre.
   [0104](tasks/0104-telegram-tarjeta-html.md) (hecha), [0105](tasks/0105-telegram-aviso-en-imagen.md) (hecha),
   [0106](tasks/0106-telegram-responder-al-aviso-anterior.md) (hecha),
   [0107](tasks/0107-e2e-capturas-de-evidencias.md) (hecha) y
-  [0108](tasks/0108-telegram-evidencias-en-el-aviso.md). Todas menos la 0102 y la 0107 llevan
+  [0108](tasks/0108-telegram-evidencias-en-el-aviso.md) (hecha). Todas menos la 0102 y la 0107 llevan
   exclusiones: cada una sola en su PR.
 - Nota de Dani (2026-10-12): todo lo reciente han sido arreglos del flujo y ninguna mejora de la
   app. Al acabar la cola de seguridad, el Planificador propone para «Próximo» mejoras de la app
@@ -116,6 +116,11 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 
 ## Mejoras anotadas
 
+- `scripts/notify-telegram-evidencias.test.ts`: un test de tarjeta que compruebe que `reduccion: 1` y `2` dan la clase `reducida-N` con el `max-width` más estrecho, para que CA4 no lo pase un HTML que no reduce. Opcional. (surgió en 0108)
+- `scripts/notify-telegram-evidencias.test.ts`: un test con `parts.evidences` explícito (la evidencia en otra parte) para cubrir el camino real de `partes.json`. Opcional. (surgió en 0108)
+- `scripts/telegram-card.mjs`: quitar la regla CSS `.evidencia.reducida-3`, sin uso (el nivel 3 ya quita las capturas). Opcional. (surgió en 0108)
+- `scripts/telegram-evidence.mjs`: los avisos de la terminal sobre ficheros malos llevan el `criterio` sin filtrar; mejor decir la posición («la evidencia 2»). Opcional. (surgió en 0108)
+- `scripts/telegram-capture.cjs` (0105): en las capturas en varias partes se ve la barra de desplazamiento de la ventana a la derecha de cada parte (la ventana es más baja que la página), y con evidencias habrá más partes; esconderla (`overflow: hidden`). Opcional. (surgió en 0108)
 - `scripts/notify-telegram.mjs` (`saveReply`): si dos worktrees guardan a la vez, el último `rename` gana y se pierde la entrada del otro; en Windows el `rename` puede fallar con EPERM. Como mucho, un aviso que no responde al anterior; se podría dejar escrito en el comentario de la función. Opcional. (surgió en 0106)
 - `scripts/notify-telegram.mjs`: el recorte a 200 entradas ordena por `message_id` y supone un solo chat; si cambia `VIGIA_TELEGRAM_CHAT_ID`, los ids del chat viejo pueden quedar mal ordenados. Lo cubre `allow_sending_without_reply`. Opcional. (surgió en 0106)
 - Sospechosos de inestables solo con carga extrema (6 suites completas de vitest a la vez, no en un `npm run check` normal): «CA12 (0004)» de `scripts/notify-telegram.test.ts` (un bucle que gasta CPU: 7–9 s frente a 164 ms aislado) y tests de `export.test.ts` (CA2 0063), `i18n-lint.test.ts` y `problem-workbook.test.ts`. Valorar en la ficha de tests inestables del lote B. (surgió en 0106)
@@ -505,3 +510,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0105](tasks/0105-telegram-aviso-en-imagen.md) (exclusiones seguridad y externos): el aviso de Telegram sale como imagen de la tarjeta (Electron sin ventana, partida por bloques si es alta) con un pie en texto buscable y enlaces a ficha, PR y CI; si falla la imagen, el texto de siempre; `VIGIA_TELEGRAM_TEXTO=1` lo apaga. Completa el ADR-0015. Sin migraciones.
 - [0106](tasks/0106-telegram-responder-al-aviso-anterior.md) (exclusión externos): cada aviso de Telegram de una ficha responde al anterior de la misma ficha, con el `message_id` guardado en un fichero local en la carpeta común de git; si falla, sale como el primero. Completa el ADR-0015. Sin migraciones.
 - [0107](tasks/0107-e2e-capturas-de-evidencias.md) (lote telegram-imagen): ayuda `captureEvidence` en `e2e/evidence.ts` que, con `VIGIA_EVIDENCIAS=1` y solo contra el simulador, guarda la captura de la zona y de la ventana de cada criterio visible y su línea en `manifiesto.json`, esperando a que dos capturas seguidas coincidan. El test-writer, el verifier y `e2e/CLAUDE.md` la piden. No toca la app.
+- [0108](tasks/0108-telegram-evidencias-en-el-aviso.md) (exclusiones seguridad y externos, lote telegram-imagen): el aviso de «hecha» de Telegram lleva una sección «Evidencias» con las capturas de los e2e (zona y ventana) y su criterio debajo, leídas de `test-results/evidencias/` con comprobación de ruta y firma PNG; si una no cabe se reduce y, si no, se quita con una nota. Completa el ADR-0015. Sin migraciones.

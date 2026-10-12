@@ -13,6 +13,10 @@
 // mitad de uno. Un bloque que solo ya pasa del máximo va en su propia parte. Ninguna parte pasa
 // del límite de Telegram (ancho más alto hasta 10 000 px): un bloque más alto que eso se corta.
 //
+// Junto a las partes deja `partes.json` (ficha 0108): por cada parte, en orden, las posiciones (desde
+// 0) de las evidencias (`data-bloque="evidencia"`) que caen en ella. Con eso, notify-telegram.mjs
+// sabe qué evidencia reducir si una parte pesa demasiado.
+//
 // Ventana cerrada a todo (el contenido lo escriben los agentes): `sandbox`, sin `nodeIntegration`,
 // sin preload, sesión en memoria propia en la que se cancela toda petición que no sea el propio
 // documento o `data:`, sin permisos, sin navegación ni ventanas nuevas y sin herramientas de
@@ -101,6 +105,10 @@ const MEASURE = `(() => {
   return {
     height: document.documentElement.scrollHeight,
     blocks: [...document.querySelectorAll('[data-bloque]')].map((el) => {
+      const r = el.getBoundingClientRect()
+      return { top: r.top + window.scrollY, bottom: r.bottom + window.scrollY }
+    }),
+    evidences: [...document.querySelectorAll('[data-bloque="evidencia"]')].map((el) => {
       const r = el.getBoundingClientRect()
       return { top: r.top + window.scrollY, bottom: r.bottom + window.scrollY }
     })
@@ -225,7 +233,7 @@ async function run(args) {
     })
     win.loadURL(documentUrl).catch(() => undefined)
   })
-  const { height: rawHeight, blocks } = await waitFor(contents, MEASURE, 'a las fuentes')
+  const { height: rawHeight, blocks, evidences } = await waitFor(contents, MEASURE, 'a las fuentes')
   const height = Math.max(1, Math.ceil(rawHeight))
   const parts = planParts(height, blocks, max, hard)
 
@@ -243,6 +251,15 @@ async function run(args) {
     if (image.isEmpty()) throw new Error(`la parte ${i + 1} ha salido vacía`)
     writeFileSync(join(args.out, `parte-${i + 1}.png`), image.toPNG())
   }
+  // Qué evidencias lleva cada parte (las que la tocan con más de medio píxel).
+  const evidenceMap = parts.map(([start, end]) =>
+    evidences
+      .map((box, index) =>
+        Math.min(box.bottom, end) - Math.max(box.top, start) > 0.5 ? index : -1
+      )
+      .filter((index) => index >= 0)
+  )
+  writeFileSync(join(args.out, 'partes.json'), JSON.stringify(evidenceMap))
   win.destroy()
 }
 
