@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 /**
  * Ficha 0059: el React Compiler está instalado (dependencia de desarrollo con versión exacta) y
@@ -9,6 +9,13 @@ import { describe, expect, it } from 'vitest'
  * pasa un componente pequeño, como haría `electron-vite build`. Con el compilador, la salida
  * importa su runtime (`react/compiler-runtime`) y usa su caché (`_c(`); sin él, el plugin ni
  * siquiera transforma (no hay plugins de Babel que aplicar).
+ *
+ * Ficha 0100: la carga en frío (importar la configuración, que arrastra electron-vite y Vite, y
+ * tomar el plugin) va en un `beforeAll`, fuera del tiempo de la prueba. Medido el 2026-10-12:
+ * aislado, importar la configuración ~340 ms y la primera transformación ~160 ms; con
+ * `npm run test:coverage` y `npm run test:e2e` a la vez, 0,8-1,7 s y 0,4-0,55 s, y la prueba
+ * entera llegaba a 2,9 s (fallaba por los 5 s de Vitest con más carga). La prueba se queda con
+ * la transformación; los límites por defecto (5 s la prueba, 10 s el hook) bastan.
  */
 
 const ROOT = resolve(__dirname, '..')
@@ -46,9 +53,8 @@ async function rendererBabelPlugin(): Promise<VitePluginLike> {
   return babel as VitePluginLike
 }
 
-/** Transforma `code` con el plugin como en un build de producción. */
-async function transformForBuild(code: string, id: string): Promise<string | undefined> {
-  const plugin = await rendererBabelPlugin()
+/** Prepara el plugin como en un build de producción. */
+function configureForBuild(plugin: VitePluginLike): void {
   plugin.configResolved?.({
     base: '/',
     root: ROOT,
@@ -58,6 +64,14 @@ async function transformForBuild(code: string, id: string): Promise<string | und
     server: { hmr: false },
     plugins: []
   })
+}
+
+/** Transforma `code` con el plugin ya preparado. */
+async function transformForBuild(
+  plugin: VitePluginLike,
+  code: string,
+  id: string
+): Promise<string | undefined> {
   const transform = plugin.transform
   if (transform === undefined) return undefined
   const handler = typeof transform === 'function' ? transform : transform.handler
@@ -74,6 +88,13 @@ export function Sample({ items }: { items: string[] }) {
 `
 
 describe('CA3 (0059): React Compiler instalado y activo en el renderer', () => {
+  let plugin: VitePluginLike
+
+  beforeAll(async () => {
+    plugin = await rendererBabelPlugin()
+    configureForBuild(plugin)
+  })
+
   it('CA3 (0059): babel-plugin-react-compiler es dependencia de desarrollo con versión exacta', () => {
     const version = pkg.devDependencies?.[COMPILER]
     expect(version, `${COMPILER} en devDependencies`).toBeDefined()
@@ -84,7 +105,7 @@ describe('CA3 (0059): React Compiler instalado y activo en el renderer', () => {
 
   it('CA3 (0059): el plugin de React del renderer compila los componentes con el React Compiler', async () => {
     const id = resolve(ROOT, 'src/renderer/src/components/Sample.tsx')
-    const code = await transformForBuild(SAMPLE, id)
+    const code = await transformForBuild(plugin, SAMPLE, id)
     expect(code, 'el plugin de Babel transforma el componente').toBeDefined()
     expect(code).toContain('react/compiler-runtime')
     expect(code).toMatch(/\b_c\(\d+\)/)

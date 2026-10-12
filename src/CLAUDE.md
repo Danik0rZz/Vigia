@@ -24,3 +24,9 @@ carpeta.
   `src/main/security/csp.ts` con su motivo; nunca `unsafe-eval` ni orígenes remotos.
 - Los permisos web están denegados para todo (`src/main/security/harden.ts`). Si una tarea necesita
   uno (por ejemplo, portapapeles desde la interfaz), se concede ahí de forma explícita.
+- **Un test que lanza git nunca depende de las variables `GIT_*` del entorno** (ficha 0101). Un hook
+  de git exporta `GIT_DIR` y `GIT_INDEX_FILE`; un `git init` en una carpeta temporal con el
+  `GIT_DIR` de un worktree pone `core.bare=true` en el config común del repositorio real. Vitest las
+  borra antes de cada fichero (`scripts/lib/vitest-git-env.setup.mjs`, en `setupFiles`); el proceso
+  hijo que se lance con un `env` propio se construye con `withoutGitVars` de
+  `scripts/lib/git-env.mjs`.
