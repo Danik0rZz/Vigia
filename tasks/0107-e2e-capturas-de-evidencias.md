@@ -55,7 +55,17 @@ Esta ficha solo **produce las capturas** al pasar los e2e; meterlas en el aviso 
   `reducedMotion: 'reduce'` no basta. Decisión del Planificador: **sin tocar la app**, la ayuda
   captura hasta que dos capturas seguidas den los mismos bytes (lo que hace `toHaveScreenshot` de
   Playwright), con un tiempo máximo. Si se pasa del tiempo, guarda la última y lo apunta en el
-  manifiesto (`estable: false`). Desactivar la animación de ECharts en la app con una marca de e2e
+  manifiesto (`estable: false`).
+- **Antes de comparar, quitar lo que se mueve y no es del criterio** (aviso de la sesión del
+  prototipo, 2026-10-12: el cursor de texto de un campo con foco, un spinner o un tooltip harían que
+  dos capturas nunca coincidan). Por defecto, la ayuda quita el foco
+  (`document.activeElement.blur()`), lleva el ratón a la zona neutra (`moveToNeutral` de
+  `e2e/hover.ts`) y captura con `caret: 'hide'` y `animations: 'disabled'` (opciones de
+  `screenshot` de Playwright; el developer comprueba que funcionan con Electron en la 1.63 y lo
+  anota). Las animaciones del lienzo de ECharts no las para `animations: 'disabled'`: para eso está
+  la comparación. Si el criterio es justo el foco o el hover (un contorno o un tooltip), el test
+  lo pide con una opción (por ejemplo `{ conservarFoco: true }` o `{ conservarRaton: true }`) y
+  esa parte no se toca. Desactivar la animación de ECharts en la app con una marca de e2e
   o hacer que respete `prefers-reduced-motion` cambia la app: si el developer lo ve necesario, es
   un `[ALCANCE]`.
 - `.claude/agents/test-writer.md`: en cada e2e de un criterio que cambia algo visible, una llamada
@@ -92,6 +102,9 @@ Cada uno se comprueba con un test automático (unitario o e2e) que lleva su núm
   `estable: true`. e2e.
 - CA3b: si la zona no deja de cambiar antes del tiempo máximo (una zona de prueba que cambia sin
   parar), se guarda la última captura con `estable: false` y el test no falla. e2e.
+- CA3c: con el foco en un campo de texto y el ratón sobre un elemento con tooltip, la captura sale
+  estable (`estable: true`) y sin el tooltip; con `conservarFoco: true`, el campo sigue con el foco
+  después de capturar. e2e.
 - CA4: si la app no apunta al simulador, `captureEvidence` no guarda nada. Unitario de la función
   que lo decide.
 - CA5: `test-writer.md` pide `captureEvidence` en los e2e de los criterios visibles, y
