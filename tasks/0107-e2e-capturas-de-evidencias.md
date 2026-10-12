@@ -9,12 +9,12 @@ medir: no # sí solo si Dani pide medir el flujo de esta ficha (docs/flujo.md, "
 lote: telegram-imagen # nombre corto del lote, si la ficha es parte de uno
 depende_de: [] # fichas que tienen que estar hechas antes, por número
 aprobada_por: Dani # Dani | peticiones (en nombre de Dani, con el motivo en la especificación)
-rama: feat/0107-e2e-capturas-evidencias
+rama: fix/0107-ci
 adrs: ['0006'] # ADR que aplican, por número
 adr_nuevo: # título del ADR que tiene que escribir el doc-writer, o vacío
 api: ninguna
 migracion: no # sí si cambia src/main/db/schema.ts
-rondas_revision: 1
+rondas_revision: 2
 ---
 
 ## Petición original
@@ -139,6 +139,13 @@ Opcional:
 2. En `captureEvidence`, `scrollIntoViewIfNeeded` va después de `quiet`: si al desplazar el puntero queda sobre algo con tooltip, podría salir en la captura. Se evita desplazando antes de `quiet`.
 3. Dar área a `e2e/evidence.ts` en `e2e/areas.json` (p. ej. `@metricas`) para que un cambio en la ayuda no lance el e2e completo.
 
+### Ronda 2 (arreglo de CI): APROBADO
+
+- **Criterios:** lo que comprueba CA3c sigue igual (`e2e/views-metricas.spec.ts:657-678`): el campo tiene el foco antes de capturar; tras `captureEvidence`, `estable: true`, `tooltip.count() === 0` y el campo sin foco; con `conservarFoco`, dos entradas estables y el foco se mantiene. El cambio del developer en el test es solo de la preparación, por un fallo del CI, sin cambiar el criterio.
+- **`toPass` (líneas 651-656):** solo se reintenta hasta que el tooltip se abre; lo que se comprueba después no se afloja. Cada intento empieza en `hoverFresh` → `moveToNeutral`, que cierra el tooltip anterior, así que la preparación se repite entera. Acotado: 2 s por intento y 20 s en total. El foco se comprueba fuera del reintento, con su propio mensaje.
+- **Encaje con `e2e/CLAUDE.md`:** `field.scrollIntoViewIfNeeded()` va antes de `focus()` (lección de Radix) y se sigue usando `hoverFresh` (lección de la 0044).
+- **Reglas:** no toca `src/`, IPC, dependencias, esquema, API ni `e2e/areas.json`; sin datos del tenant. La ficha anota el arreglo con su run del CI y los resultados (`--repeat-each 10`: 10 de 10; `check` en verde; affected 33 de 33) y deja claro que el fallo de CA4 (0010) no es de esta ficha.
+
 ## Verificación
 
 Tests escritos en el commit 517e3be (test-writer, 2026-10-12); fallan porque aún no existe
@@ -179,9 +186,17 @@ Verificación 2026-10-12, commit 1dc17af, rango integra/20261012-7..feat/0107-e2
 - e2e: un único pase de `test:e2e:affected`; como `e2e/evidence.ts` no tiene área, lanzó el completo: 380 de 380 (1,8 min). Sin `--repeat-each`: nada falló ni cambió temporización.
 - evidencias: `VIGIA_EVIDENCIAS=1 npm run test:e2e:nobuild -- -g "(0107)"`: 6 de 6 (CA1, CA1b, CA2, CA3, CA3b y CA3c), con el manifiesto y la zona y la ventana de cada criterio en `test-results/evidencias/0107/`.
 
+Verificación del arreglo de CI 2026-10-12, commit 0841570, rango main..fix/0107-ci: VERDE
+
+- check: 4282 tests (229 ficheros), cobertura ok (líneas 93,75 %, ramas 90,13 %).
+- e2e: `test:e2e:affected`: 33 de 33 (smoke y `views-metricas`, con los 6 de la 0107).
+- «CA3c (0107)» con `--repeat-each 10`: 10 de 10; con `--workers=4` para forzar carga, otros 10 de 10 (3,6 a 4,1 s cada uno).
+- evidencias: tirada con `VIGIA_EVIDENCIAS=1`, 6 de 6.
+
 ## Resultado
 
 - Commits: 40a9c48 (`captureEvidence`), d079908 (textos de test-writer, verifier y `e2e/CLAUDE.md`), 517e3be y 011db60 (tests, con la corrección por escala de pantalla).
 - Ficheros principales: `e2e/evidence.ts`, `e2e/views-metricas.spec.ts`, `scripts/e2e-evidence.test.ts`, `scripts/e2e-evidence-docs.test.ts`, `.claude/agents/test-writer.md`, `.claude/agents/verifier.md`, `e2e/CLAUDE.md`.
 - Rondas de revisión: 1 (aprobado). ADR nuevo: ninguno. Sin migraciones. No toca la app.
 - Ideas pasadas al BACKLOG: reforzar CA2, desplazar antes de quitar foco y ratón, dar área a `e2e/evidence.ts`.
+- Arreglo de CI (rama `fix/0107-ci`, commit 1449b45, 2026-10-12): en el CI de la PR #32 (run 38256624161, intento 2) CA3c falló en la preparación: el tooltip de `nav-topology` no se abrió en 5 s tras `field.focus()` y `hoverFresh`. Ahora la preparación entera (traer el campo a la vista, foco y `hoverFresh` desde la zona neutra) se repite con `toPass` (2 s por intento, 20 s en total) hasta ver el tooltip; lo que comprueba CA3c no cambia (tras capturar, sin tooltip, `estable: true` y sin foco; con `conservarFoco`, el foco sigue). CA3c con `--repeat-each 10`: 10 de 10; `npm run check` en verde; `test:e2e:affected main..HEAD`: 33 de 33 (`views-metricas`). El fallo de CA4 (0010) en `views-servicio.spec.ts` del intento 1 no es de esta ficha y no se ha tocado.
