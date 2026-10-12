@@ -538,6 +538,7 @@
     }
   },
   "metrics": {
+    "howTo": "Search for a metric by name or type a selector, for example <code>{{example}}</code>. Pick the resolution and press Run: the time range from the top bar is used. You can export the chart and save the query for this environment; saved queries also open with Ctrl+K.",
     "search": "Search metrics…",
     "selector": "Metric selector",
     "resolution": "Resolution",

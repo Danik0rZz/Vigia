@@ -374,6 +374,8 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - Remitir a la regla de las `GIT_*` en los tests (hoy en `src/CLAUDE.md`) desde donde la vea quien trabaje en `scripts/` (un `scripts/CLAUDE.md` mínimo o una línea en el `CLAUDE.md` raíz, que es de Dani). Además, `vitest.live.config.ts` no carga el `setupFiles` de la guarda (hoy no lanza git) y falta un unitario directo de `deleteGitVars`. (surgió en 0101)
 - El comentario de `src/main/logging.ts` (línea 21) podría citar la 0093 y que el filtro también tapa el usuario de las rutas. (surgió en 0093)
 
+- Flujo: el verifier de la 0109 (2026-10-12) se saltó la tirada de evidencias con `VIGIA_EVIDENCIAS=1` porque entendió que solo aplicaba a las fichas «de la 0107». Dejar claro en `.claude/agents/verifier.md` o en el prompt del Orquestador que la tirada va en toda ficha con e2e. (surgió en 0109)
+
 ## Aparcado
 
 - Monaco (fases 5 y 7): no se implementa ni se pregunta por él hasta que Dani lo retome.
@@ -511,3 +513,4 @@ Tests con la etiqueta `@inestable` (ficha 0075, `docs/flujo.md`). Los mantiene e
 - [0106](tasks/0106-telegram-responder-al-aviso-anterior.md) (exclusión externos): cada aviso de Telegram de una ficha responde al anterior de la misma ficha, con el `message_id` guardado en un fichero local en la carpeta común de git; si falla, sale como el primero. Completa el ADR-0015. Sin migraciones.
 - [0107](tasks/0107-e2e-capturas-de-evidencias.md) (lote telegram-imagen): ayuda `captureEvidence` en `e2e/evidence.ts` que, con `VIGIA_EVIDENCIAS=1` y solo contra el simulador, guarda la captura de la zona y de la ventana de cada criterio visible y su línea en `manifiesto.json`, esperando a que dos capturas seguidas coincidan. El test-writer, el verifier y `e2e/CLAUDE.md` la piden. No toca la app.
 - [0108](tasks/0108-telegram-evidencias-en-el-aviso.md) (exclusiones seguridad y externos, lote telegram-imagen): el aviso de «hecha» de Telegram lleva una sección «Evidencias» con las capturas de los e2e (zona y ventana) y su criterio debajo, leídas de `test-results/evidencias/` con comprobación de ruta y firma PNG; si una no cabe se reduce y, si no, se quita con una nota. Completa el ADR-0015. Sin migraciones.
+- [0109](tasks/0109-metricas-descripcion-de-uso.md) (carril rápido): descripción breve de cómo se usa la página de Métricas, debajo del título.

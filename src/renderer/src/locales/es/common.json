@@ -538,6 +538,7 @@
     }
   },
   "metrics": {
+    "howTo": "Busca una métrica por su nombre o escribe un selector, por ejemplo <code>{{example}}</code>. Elige la resolución y pulsa Consultar: se usa el rango de tiempo de la barra superior. Puedes exportar el gráfico y guardar la consulta para este entorno; las guardadas se abren también con Ctrl+K.",
     "search": "Buscar métricas…",
     "selector": "Selector de métrica",
     "resolution": "Resolución",

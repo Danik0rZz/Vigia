@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SavedQuery } from '@shared/modules'
@@ -21,6 +21,9 @@ import { MetricQueryForm } from './metrics/MetricQueryForm'
 import { MetricSearch } from './metrics/MetricSearch'
 import { SavedQueriesPanel } from './metrics/SavedQueriesPanel'
 import { SaveQueryDialog } from './metrics/SaveQueryDialog'
+
+/** Selector de ejemplo de la descripción de uso: métrica integrada de Dynatrace (ficha 0109). */
+const HOW_TO_EXAMPLE = 'builtin:host.cpu.usage:avg'
 
 /** Métricas: búsqueda, consulta con resolución, gráfico y consultas guardadas por entorno. */
 export function MetricsPage(): JSX.Element {
@@ -118,7 +121,20 @@ export function MetricsPage(): JSX.Element {
 
   return (
     <>
-      <PageHeader title={t('nav.metrics')} />
+      <PageHeader
+        title={t('nav.metrics')}
+        subtitle={
+          <p data-testid="metrics-how-to" className="text-muted-foreground">
+            {/* Con `t`, el React Compiler la repinta al cambiar de idioma (Trans no escucha el cambio). */}
+            <Trans
+              t={t}
+              i18nKey="metrics.howTo"
+              values={{ example: HOW_TO_EXAMPLE }}
+              components={{ code: <code className="font-mono wrap-anywhere" /> }}
+            />
+          </p>
+        }
+      />
       <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
         <div className="grid content-start gap-4">
           <div className="glass grid gap-3 rounded-xl p-4">
